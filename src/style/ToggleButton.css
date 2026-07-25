@@ -1,0 +1,22 @@
+.toggle-button {
+  padding: 10px 20px;
+  background-color: #ddd;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-button.on {
+  background-color: var(--block-footer);
+  color: var(--h4);
+}
+
+.toggle-button.off {
+  background-color: var(--chat);
+  color: var(--h4);
+}
+
+.toggle-button {
+  border-radius: 5px;
+}

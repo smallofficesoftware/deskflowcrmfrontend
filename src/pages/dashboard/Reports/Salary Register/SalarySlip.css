@@ -1,0 +1,155 @@
+.slipWrapper {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background: #ffffff;
+}
+
+.slipTable {
+  width: 720px;
+  border-collapse: collapse;
+  border: 2px solid #000;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  color: #000;
+}
+
+.slipTable td {
+  border: 1px solid #000;
+  padding: 6px 10px;
+  vertical-align: middle;
+}
+
+/* Header */
+.logoCell {
+  width: 140px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.logoBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.logoText {
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+}
+
+.logoSubText {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #444;
+}
+
+.addressCell {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+/* Labels & values */
+.labelCell {
+  font-weight: 600;
+  width: 25%;
+  background: #fafafa;
+}
+
+.valueCell {
+  font-weight: 700;
+  width: 25%;
+}
+
+.valueCellBold {
+  font-weight: 800;
+  width: 25%;
+}
+
+.valueCellRight {
+  font-weight: 700;
+  text-align: right;
+  width: 25%;
+}
+
+.valueCellRightHighlight {
+  font-weight: 700;
+  text-align: right;
+  width: 25%;
+  outline: 2px solid #000;
+  outline-offset: -2px;
+}
+
+/* Section headers */
+.sectionHeader {
+  font-weight: 700;
+  text-align: center;
+  background: #f0f0f0;
+}
+
+.sectionHeaderCenter {
+  font-weight: 700;
+  text-align: center;
+  background: #f0f0f0;
+}
+
+.subHeader {
+  font-weight: 700;
+  text-align: center;
+  background: #f5f5f5;
+}
+
+/* Totals */
+.totalLabelCell {
+  font-weight: 800;
+  background: #fafafa;
+}
+
+.totalValueCell {
+  font-weight: 800;
+  text-align: right;
+}
+
+.amountInWordsCell {
+  font-weight: 800;
+  font-style: normal;
+}
+
+.emptyCell {
+  border: none;
+  background: transparent;
+}
+
+/* Signatures */
+.signCell {
+  text-align: center;
+  font-weight: 600;
+}
+
+.signSpaceCell {
+  height: 50px;
+}
+
+/* Print styles */
+@media print {
+  .slipWrapper {
+    padding: 0;
+  }
+
+  .slipTable {
+    width: 100%;
+    font-size: 12px;
+    box-shadow: none;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}

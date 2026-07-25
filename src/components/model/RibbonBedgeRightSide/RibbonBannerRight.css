@@ -1,0 +1,36 @@
+/* RIGHT SIDE WRAPPER */
+.bagde-flag-wrap-right {
+  position: absolute;
+  top: 20px;
+  right: 5px; /* flipped */
+}
+
+/* TRIANGLE */
+.bagde-flag-wrap-right::before {
+  content: "";
+  position: absolute;
+  top: 35px;
+  right: 0; /* align to right */
+  width: 0;
+  height: 0;
+  border-style: solid;
+
+  /* FLIPPED TRIANGLE */
+  border-width: 12px 12px 0 0;
+}
+
+/* SAME TEXT STYLE */
+.bagde-flag-right {
+  text-transform: capitalize;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 15px;
+  font-weight: 600;
+  padding: 10px 15px;
+  display: block;
+}
+
+/* COLOR */
+.ribbon-color-custom-right::before {
+  border-color: var(--ribbon-color) transparent transparent transparent;
+}

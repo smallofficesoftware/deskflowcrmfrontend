@@ -1,0 +1,345 @@
+/* Modal Theme */
+.modal {
+    background: var(--modal-bg);
+    
+}
+
+.modal .modal-dialog .modal-content {
+    padding: 0px ;
+    background-color: var(--modal-content-bg);
+    /* box-shadow: 0 17px 50px 0 rgba(var(--modal-shadow), .19), 0 12px 15px 0 rgba(var(--modal-shadow), .24); */
+    /* border-radius: 3px; */
+    /* border: none; */
+}
+
+.modal .modal-dialog .modal-content .m-title {
+    font-size: 20px;
+    /* color: var(--modal-text); */
+    font-weight: 500;
+    margin-bottom: 20px;
+}
+
+.modal .modal-dialog .modal-content ul {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 10px;
+}
+
+.modal .modal-dialog .modal-content ul li label {
+    display: flex;
+    margin-bottom: 12.5px;
+}
+
+.modal .modal-dialog .modal-content ul li label h4 {
+    font-size: 12.7px;
+    /* color: var(--modal-text); */
+    font-weight: 400;
+    margin-bottom: 0;
+}
+
+.modal .modal-dialog .modal-content ul li .form-check-input {
+    height: 12px;
+    width: 12px;
+    margin-top: 2px;
+    margin-right: 8px;
+    border: none;
+    border: 2px solid var(--uncheck);
+    transition: 0.3s all;
+}
+
+.modal .modal-dialog .modal-content ul li .form-check-input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.modal .modal-dialog .modal-content ul li .form-check-input:checked {
+    border: 2px solid var(--checked-border);
+    background: var(--checked-bg);
+    transition: 0.3s all;
+}
+
+.modal .modal-dialog .modal-content ul li .form-check-input:checked[type=radio] {
+    transition: 0.3s all;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+} 
+
+.modal .modal-dialog .modal-content .m-btn {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn1 {
+    background: transparent;
+    border: 1.5px solid var(--modal-btn);
+    color: var(--modal-btn2);
+    font-size: 14px;
+    font-weight: 500;
+    transition: 0.4s linear;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 7px 22px;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn2 {
+    background: var(--modal-btn2);
+    border: 1.5px solid var(--modal-btn2);
+    margin-left: 8px;
+    color: var(--modal-btn-text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: 0.4s linear;
+    text-transform: uppercase;
+    border-radius: 3px;
+    /* padding: 7px 22px; */
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn1:hover {
+    /* background: var(--modal-btn); */
+    transition: 0.4s linear;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn2:hover {
+    /* background: var(--modal-btn-hover); */
+    border-color: var(--modal-btn-hover);
+    transition: 0.4s linear;
+}
+
+
+/* Modal Log Out */
+.modal {
+    background: var(--modal-bg);
+}
+
+.modal .modal-dialog .modal-content {
+    /* padding: 22px 24px 20px; */
+    background-color: var(--modal-content-bg);
+    box-shadow: 0 17px 50px 0 rgba(var(--modal-shadow), .19), 0 12px 15px 0 rgba(var(--modal-shadow), .24);
+    border-radius: 3px;
+    border: none;
+}
+
+.modal .modal-dialog .modal-content .m-title {
+    font-size: 20px;
+    /* color: var(--modal-text); */
+    font-weight: 700;
+    margin-bottom: 0px;
+    padding-left: 20px;
+    padding-top: 18px;
+}
+
+.m-title-2{
+    /* color: var(--modal-text); */
+    margin-bottom: 10px;
+    font-size: 14px;
+    padding-left: 4px;
+    padding-bottom: 20px;
+    /* background-color: #e2e4e6; */
+}
+.modal .modal-dialog .modal-content .modal-text {
+    font-size: 12.7px;
+    letter-spacing: 0.5px;
+    color: var(--settings-icon);
+    font-weight: 400;
+    padding-top: 20px;
+}
+
+.modal .modal-dialog .modal-content .v2{
+    padding-bottom: 10px;
+    padding-top: 20px;
+}
+
+.modal .modal-dialog .modal-content .checkbox {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.modal .modal-dialog .modal-content .checkbox .form-check-input {
+    height: 19px;
+    width: 19px;
+    margin-top: -1px;
+    border-radius: 2px;
+    border: none;
+    background: none;
+    transition: 0.3s all;
+    border: 2px solid var(--uncheck);
+}
+
+.modal .modal-dialog .modal-content .checkbox .form-check-input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.modal .modal-dialog .modal-content .checkbox .form-check-input:checked {
+    border: 2px solid var(--checked-border);
+    background: var(--checked-bg);
+    transition: 0.3s all;
+}
+
+.modal .modal-dialog .modal-content .checkbox .form-check-input:checked[type=checkbox] {
+    transition: 0.3s all;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+.modal .modal-dialog .modal-content h4 {
+    font-size: 12.7px;
+    /* color: var(--modal-text); */
+    font-weight: 400;
+    margin-bottom: 15px;
+}
+
+.modal .modal-dialog .modal-content .m-btn {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn1 {
+    background: transparent;
+    border: 1.5px solid var(--modal-btn);
+    color: var(--modal-btn2);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    transition: 0.4s linear;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 7px 22px;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn2 {
+    background: var(--modal-btn2);
+    border: 1.5px solid var(--modal-btn2);
+    margin-left: 8px;
+    color: var(--modal-btn-text);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    transition: 0.4s linear;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 7px 22px;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn1:hover {
+    /* background: var(--modal-btn); */
+    transition: 0.4s linear;
+}
+
+.modal .modal-dialog .modal-content .m-btn .btn2:hover {
+    /* background: var(--modal-btn-hover); */
+    border-color: var(--modal-btn-hover);
+    transition: 0.4s linear;
+}
+
+.modal-dark {
+    /* background-color: #3b4a54; Dark background color */
+    color: #fff; /* Light text color */
+    
+  }
+  
+  .modal-light {
+    background-color: #fff; 
+    /* background-color: hsla(0, 0%, 100%, 0.85); */
+    color: #3b4a54
+  }
+
+  .modal-light-1{
+    background-color: hsla(0, 0%, 100%, 0.85);
+    /* color: red; */
+  }
+
+
+
+  /* CreateContactView.css */
+
+/* The Modal (background) */
+.modal1 {
+    display: block; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    /* bottom: 1; */
+    width: 100%; 
+    height: 100%;
+    overflow: auto; 
+    background-color: rgba(0, 0, 0, 0.4); /* Black background with opacity */
+  }
+  
+  /* Modal Content/Box */
+  .modal-content1 {
+    background-color: #fefefe;
+    margin: 3% auto; 
+/* margin-top: 100px; */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 60%; /* Could be more or less, depending on screen size */
+    /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
+  }
+  
+  /* Close Button */
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    margin: 0px;
+    padding: 0px;
+    line-height: 1;
+
+  }
+  
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  /* Modal Title */
+  .modal-title1 {
+    text-align: left;
+    padding-left:18px;
+    margin-bottom: 20px;
+  }
+  
+  /* Form Inputs */
+  .form-control {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .is-invalid {
+    border-color: #dc3545 !important;
+  }
+  
+  .field-error {
+    font-size: 12px;
+  }
+  
+  /* Submit Button */
+  .btn-primary {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  
+  /* Responsive Adjustments */
+  @media screen and (max-width: 600px) {
+    .modal-content1 {
+      width: 50%;
+    }
+  }

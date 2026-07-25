@@ -1,0 +1,865 @@
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import "primeicons/primeicons.css";
+import { Button } from "primereact/button";
+import { Column } from "primereact/column";
+import {
+  DataTable,
+  type DataTableFilterEvent,
+  type DataTableFilterMeta,
+  type DataTablePageEvent,
+  type DataTableSortEvent,
+  type SortOrder,
+} from "primereact/datatable";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
+import * as xlsx from "xlsx";
+import { useEscapeKey } from "../../../../common/SharedFunction";
+import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
+import {
+  exportAllStatusWiseData,
+  fetchStatus,
+  fetchStatusWiseForExport,
+  IStatusReport,
+  IStatusWiseReportData,
+} from "./StatusWiseReportController";
+
+// ── SECTIONS config ──────────────────────────────────────────────────────────
+// SECTIONS replace karo ye se:
+const GROUPS = [
+  { label: "Internal Status", key: "internal" as const },
+  { label: "External Status", key: "external" as const },
+];
+
+interface LazyTableState {
+  first: number;
+  rows: number;
+  page: number;
+  sortField?: string | null;
+  sortOrder?: SortOrder | null;
+  filters: DataTableFilterMeta;
+}
+
+interface IPropStageStatusWiseReports {
+  selectedDates?: Date[];
+  MobileToken?: string;
+  getID?: string;
+  MobileFlag?: string;
+  selectedStageStatus?: string[] | null;
+  selectedTeamMembers?: string[] | null;
+  globalSearch?: string;
+  onHide?: () => void;
+}
+
+const getNestedValue = (obj: any, path: string): any => {
+  try {
+    return (
+      path.split(".").reduce((acc, part) => {
+        if (acc == null) return undefined;
+        return acc[part];
+      }, obj) ?? ""
+    );
+  } catch {
+    return "";
+  }
+};
+
+const StatusWiseReport = ({
+  selectedDates,
+  MobileToken,
+  getID,
+  MobileFlag,
+  selectedStageStatus,
+  selectedTeamMembers,
+  globalSearch,
+  onHide,
+}: IPropStageStatusWiseReports) => {
+  const [loading, setLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [customers, setCustomers] = useState<IStatusReport[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState<IStatusReport[]>(
+    [],
+  );
+
+  const isPaginationCall = useRef(false);
+  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
+
+  const [globalSearchText, setGlobalSearchText] = useState<string>("");
+  const [selectReportType, setSelectReportType] = useState("");
+  const [hasData, setHasData] = useState<boolean>(false);
+  const [debouncedSearchText, setDebouncedSearchText] = useState<string>("");
+  const { getFilter, setFilter, setFilters, clearFilters } =
+    useCommonFilterStore();
+
+  const filters = getFilter("status_wise_report");
+  const [isModalFilterVisible, setIsModalFilterVisible] =
+    useState<boolean>(false);
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── statusWiseReport: object, NOT array ──────────────────────────────────
+  const [statusWiseReport, setStatusWiseReport] =
+    useState<IStatusWiseReportData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const dt = useRef<DataTable<IStatusReport[]>>(null);
+  const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      dropdownRef.current &&
+      dropdownRef.current.contains(event.target as Node)
+    )
+      return;
+    setIsExportDropdownOpen(false);
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEscapeKey(() => {
+    if (!isExportDropdownOpen) onHide?.();
+    else setIsExportDropdownOpen(false);
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(globalSearchText?.trim() ?? "");
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [globalSearchText]);
+
+  const handleApplyFilters = (data: any) => {
+    const [startDate, endDate] = getCurrentMonthDateRange();
+    const updatedFilters = {
+      ...data,
+      checkedOptionsStageStatus: data.checkedOptionsStageStatus || [],
+      startSearchDate: data?.startSearchDate || startDate,
+      endSearchDate: data?.endSearchDate || endDate,
+      selectedDateArray: [
+        data?.startSearchDate || startDate,
+        data?.endSearchDate || endDate,
+      ],
+    };
+    setFilters("status_wise_report", updatedFilters);
+    setHasData(Object.keys(updatedFilters || {}).length > 0);
+    setIsModalFilterVisible(false);
+  };
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleGlobalSearch = () => {
+    const value = searchInputRef.current?.value || "";
+    setGlobalSearchText(value);
+  };
+
+  const getCurrentMonthDateRange = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return [startOfMonth, endOfMonth];
+  };
+
+  useEffect(() => {
+    if (!filters.startSearchDate || !filters.endSearchDate) {
+      const [startDate, endDate] = getCurrentMonthDateRange();
+      setFilters("status_wise_report", {
+        ...filters,
+        startSearchDate: startDate,
+        endSearchDate: endDate,
+      });
+    }
+  }, []);
+
+  const canShare = useCheckUserPermission(
+    PAGE_ID.STATUS_REPORT,
+    PERMISSION_TYPE.SHARE,
+  );
+  const canPrint = useCheckUserPermission(
+    PAGE_ID.STATUS_REPORT,
+    PERMISSION_TYPE.PRINT,
+  );
+
+  const [lazyState, setLazyState] = useState<LazyTableState>({
+    first: 0,
+    rows: 49,
+    page: 0,
+    sortField: null,
+    sortOrder: null,
+    filters: {
+      person_name: { value: null, matchMode: "contains" },
+      mobile_number: { value: null, matchMode: "contains" },
+      lable_name: { value: null, matchMode: "contains" },
+      status_name: { value: null, matchMode: "contains" },
+      contactCount: { value: null, matchMode: "contains" },
+      inquiryCount: { value: null, matchMode: "contains" },
+    },
+  });
+
+  useEffect(() => {
+    if (isPaginationCall.current) {
+      isPaginationCall.current = false;
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+
+        await fetchStatus(
+          (data) => {
+            if (isMounted) setStatusWiseReport(data);
+          },
+          filters.selectedDateArray,
+          MobileToken,
+          getID,
+          MobileFlag,
+          filters.checkedOptionsStageStatus,
+          filters.checkedOptionsUser,
+          0,
+          50,
+          debouncedSearchText,
+        );
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err?.message || "Failed to fetch data");
+          setStatusWiseReport(null);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+      if (networkTimeout.current) clearTimeout(networkTimeout.current);
+    };
+  }, [
+    filters.selectedDateArray,
+    filters.checkedOptionsStageStatus,
+    filters.checkedOptionsUser,
+    debouncedSearchText,
+  ]);
+
+  useEffect(() => {
+    loadLazyData();
+    return () => {
+      if (networkTimeout.current) clearTimeout(networkTimeout.current);
+    };
+  }, [lazyState, statusWiseReport]);
+
+  // ── flat array from statusWiseReport object ───────────────────────────────
+  const getFilteredData = () => {
+    const flat: IStatusReport[] = [
+      ...(statusWiseReport?.internal?.support_ticket || []),
+      ...(statusWiseReport?.external?.support_ticket || []),
+      ...(statusWiseReport?.internal?.normal_task || []),
+      ...(statusWiseReport?.external?.normal_task || []),
+    ];
+    let filteredData = [...flat];
+
+    Object.entries(lazyState.filters).forEach(([field, meta]) => {
+      if ("value" in meta && meta.value !== null && meta.value !== "") {
+        const filterValue = meta.value.toString().toLowerCase();
+        const matchMode = meta.matchMode;
+        filteredData = filteredData.filter((item) => {
+          const fieldValue = getNestedValue(item, field);
+          if (fieldValue === undefined || fieldValue === null) return false;
+          const fieldStr = fieldValue.toString().toLowerCase();
+          switch (matchMode) {
+            case "contains":
+              return fieldStr.includes(filterValue);
+            case "notContains":
+              return !fieldStr.includes(filterValue);
+            case "startsWith":
+              return fieldStr.startsWith(filterValue);
+            case "endsWith":
+              return fieldStr.endsWith(filterValue);
+            case "equals":
+              return fieldStr === filterValue;
+            case "notEquals":
+              return fieldStr !== filterValue;
+            default:
+              return true;
+          }
+        });
+      }
+    });
+
+    if (lazyState.sortField) {
+      filteredData.sort((a, b) => {
+        const aValue = getNestedValue(a, lazyState.sortField!);
+        const bValue = getNestedValue(b, lazyState.sortField!);
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      });
+      if (lazyState.sortOrder === -1) filteredData.reverse();
+    }
+    return filteredData;
+  };
+
+  const loadLazyData = () => {
+    setLoading(true);
+    if (networkTimeout.current) clearTimeout(networkTimeout.current);
+    networkTimeout.current = setTimeout(() => {
+      const filteredData = getFilteredData();
+      const start = lazyState.first;
+      const end = start + lazyState.rows;
+      setCustomers(filteredData.slice(start, end));
+      setTotalRecords(filteredData.length);
+      setLoading(false);
+    }, 250);
+  };
+
+  const onPage = async (event: DataTablePageEvent) => {
+    const currentPage = event.page ?? 0;
+    const ul = currentPage * 50;
+    const ll = 50;
+
+    isPaginationCall.current = true;
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: currentPage,
+    }));
+    setLoading(true);
+
+    try {
+      await fetchStatus(
+        (data) => setStatusWiseReport(data),
+        filters.selectedDateArray,
+        MobileToken,
+        getID,
+        MobileFlag,
+        filters.checkedOptionsStageStatus,
+        filters.checkedOptionsUser,
+        ul,
+        ll,
+        debouncedSearchText,
+      );
+    } catch (err) {
+      console.error("Error fetching paginated data:", err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => {
+        isPaginationCall.current = false;
+      }, 100);
+    }
+  };
+
+  const onSort = (event: DataTableSortEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      sortField: event.sortField,
+      sortOrder: event.sortOrder as SortOrder,
+    }));
+  };
+
+  const onFilter = (event: DataTableFilterEvent) => {
+    setLazyState((prev) => ({ ...prev, first: 0, filters: event.filters }));
+  };
+
+  const onSelectionChange = (event: { value: IStatusReport[] }) => {
+    const value = event.value;
+    setSelectedCustomers(value);
+    setSelectAll(value.length === totalRecords);
+  };
+
+  const onSelectAllChange = (event: { checked: boolean }) => {
+    if (event.checked) {
+      const filteredData = getFilteredData();
+      setSelectAll(true);
+      setSelectedCustomers([...filteredData]);
+    } else {
+      setSelectAll(false);
+      setSelectedCustomers([]);
+    }
+  };
+
+  // ── export helpers ────────────────────────────────────────────────────────
+  const getExportRows = () =>
+    GROUPS.flatMap(({ label, key }) => {
+      const stMap = new Map<string, number>();
+      const tkMap = new Map<string, number>();
+      (statusWiseReport?.[key]?.support_ticket || []).forEach((i) =>
+        stMap.set(i.name, i.count ?? 0),
+      );
+      (statusWiseReport?.[key]?.normal_task || []).forEach((i) =>
+        tkMap.set(i.name, i.count ?? 0),
+      );
+      const allNames = [...new Set([...stMap.keys(), ...tkMap.keys()])];
+      return allNames.map((name) => ({
+        group: label,
+        name,
+        support_ticket: stMap.get(name) ?? 0,
+        task: tkMap.get(name) ?? 0,
+      }));
+    });
+
+  const exportColumns = [
+    { title: "Group", dataKey: "group" },
+    { title: "Status Name", dataKey: "name" },
+    { title: "Support Ticket", dataKey: "support_ticket" },
+    { title: "Task", dataKey: "task" },
+  ];
+
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+    const tableData = getExportRows();
+
+    if (tableData.length === 0) {
+      doc.text("No data available to export", 10, 10);
+      doc.save(`status_wise_report_${Date.now()}.pdf`);
+      return;
+    }
+
+    autoTable(doc, {
+      columns: exportColumns,
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 10, cellPadding: 2 },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      margin: { top: 20, left: 10, right: 10, bottom: 10 },
+      didDrawPage: (data) => {
+        doc.setFontSize(14);
+        doc.text(
+          "Status Wise Task Or Supp. Ticket Report",
+          data.settings.margin.left,
+          10,
+        );
+      },
+    });
+
+    doc.save(`status_wise_report_${Date.now()}.pdf`);
+  };
+
+  const exportExcel = async () => {
+    try {
+      setLoading(true);
+
+      const allContacts = await exportAllStatusWiseData(
+        (offset, limit) =>
+          fetchStatusWiseForExport(
+            filters.selectedDateArray,
+            MobileToken,
+            getID,
+            MobileFlag,
+            filters.checkedOptionsStageStatus,
+            filters.checkedOptionsUser,
+            debouncedSearchText,
+            offset,
+            limit,
+          ),
+        50,
+      );
+
+      if (!allContacts.length) {
+        toast.warn("No data to export");
+        return;
+      }
+
+      const exportData = allContacts.map((item: any) => ({
+        Group: item.group || "-",
+        "Status Name": item.name || "-",
+        "Support Ticket": item.support_ticket ?? 0,
+        Task: item.task ?? 0,
+      }));
+
+      const worksheet = xlsx.utils.json_to_sheet(exportData);
+      worksheet["!cols"] = [
+        { wpx: 180 },
+        { wpx: 200 },
+        { wpx: 120 },
+        { wpx: 100 },
+      ];
+
+      const workbook = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Status Wise Task Or Supp. Ticket Report",
+      );
+
+      const excelBuffer = xlsx.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+      saveAsExcelFile(excelBuffer, "status_Wise_Report");
+      toast.success("Excel exported successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export status wise data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
+    const EXCEL_TYPE =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
+    const data = new Blob([buffer], { type: EXCEL_TYPE });
+    saveAs(data, `${fileName}_export_${Date.now()}.xlsx`);
+  };
+
+  const printTable = () => {
+    const tableData = getExportRows();
+    const printContent = `
+      <html>
+        <head>
+          <title>Status Wise Task Or Supp. Ticket Report</title>
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            h1 { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h1>Status Wise Task Or Supp. Ticket Report</h1>
+          <table>
+            <thead>
+              <tr><th>Group</th><th>Status Name</th><th>Support Ticket</th><th>Task</th></tr>
+            </thead>
+            <tbody>
+              ${tableData
+                .map(
+                  (r) => `
+                <tr><td>${r.group}
+                </td><td>${r.name}
+                </td><td>${r.support_ticket}
+                </td><td>${r.task}
+                </td></tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </body>
+      </html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  if (error) {
+    return (
+      <div>
+        <h3
+          style={{ fontSize: "20px", paddingLeft: "12px" }}
+          className="dash-board-text-count"
+        >
+          Status Wise Task Or Supp. Ticket Report
+        </h3>
+        <div className="report_card" style={{ width: "59vw" }}>
+          <p style={{ color: "red" }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
+      >
+        <h3
+          style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "" }}
+          className="dash-board-text-count"
+        >
+          Status Wise Task Or Supp. Ticket Report
+        </h3>
+        <div
+          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          style={{
+            position: "relative",
+            paddingLeft: MobileFlag ? "10px" : "",
+          }}
+        >
+          <div
+            className="d-flex gap-2 align-items-center"
+            style={{
+              width: MobileFlag ? "285px" : "355px",
+              zIndex: "999",
+              position: "relative",
+            }}
+          >
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="form-control"
+              placeholder={
+                MobileFlag
+                  ? "Search in This Report"
+                  : "Search Anything in This Report"
+              }
+              style={{
+                width: MobileFlag ? "220px" : "300px",
+                marginTop: "10px",
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGlobalSearch();
+              }}
+            />
+            {globalSearchText && (
+              <span
+                className="clear-icon"
+                onClick={() => {
+                  setGlobalSearchText("");
+                  if (searchInputRef.current) searchInputRef.current.value = "";
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="24px"
+                  viewBox="0 -960 960 960"
+                  width="24px"
+                  fill="#5f6368"
+                >
+                  <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                </svg>
+              </span>
+            )}
+            <Button
+              icon="pi pi-search"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleGlobalSearch}
+              tooltip="Search"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+          </div>
+          <div className="d-flex gap-2 align-items-center">
+            <Button
+              icon={hasData ? "pi pi-filter-slash" : "pi pi-filter"}
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={() => setIsModalFilterVisible(true)}
+              tooltip="Filter Report"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+            <div ref={dropdownRef} style={{ position: "relative" }}>
+              <Button
+                icon="pi pi-ellipsis-v"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExportDropdownOpen((prev) => !prev);
+                }}
+                tooltip="More Option"
+                tooltipOptions={{
+                  position: "top",
+                  style: { fontSize: "14px" },
+                }}
+              />
+              <ul
+                className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"}`}
+                style={{
+                  width: "170px",
+                  position: "absolute",
+                  right: "0",
+                  top: "100%",
+                  zIndex: 1000,
+                  maxHeight: "calc(100vh - 120px)",
+                  overflowY: "auto",
+                  scrollbarWidth: "none",
+                }}
+              >
+                <li
+                  className="listItem text-start"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    if (!statusWiseReport) return;
+                    canShare
+                      ? exportExcel()
+                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }}
+                >
+                  <i
+                    className="pi pi-file-excel"
+                    style={{ marginRight: "4px" }}
+                  />
+                  Export Excel
+                </li>
+                <li
+                  className="listItem text-start"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    if (!statusWiseReport) return;
+                    canShare
+                      ? exportPdf()
+                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }}
+                >
+                  <i
+                    className="pi pi-file-pdf"
+                    style={{ marginRight: "4px" }}
+                  />
+                  Export PDF
+                </li>
+                <li
+                  className="listItem text-start"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    if (!statusWiseReport) return;
+                    canPrint
+                      ? printTable()
+                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }}
+                >
+                  <i className="pi pi-print" style={{ marginRight: "4px" }} />
+                  Print
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2 section tables ───────────────────────────────────────────────── */}
+      <div
+        className="report_card"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "24px",
+          padding: "16px",
+        }}
+      >
+        {GROUPS.map(({ label, key }) => {
+          // merge by status name
+          const stMap = new Map<string, number>();
+          const tkMap = new Map<string, number>();
+          (statusWiseReport?.[key]?.support_ticket || []).forEach((i) =>
+            stMap.set(i.name, i.count ?? 0),
+          );
+          (statusWiseReport?.[key]?.normal_task || []).forEach((i) =>
+            tkMap.set(i.name, i.count ?? 0),
+          );
+          const allNames = [...new Set([...stMap.keys(), ...tkMap.keys()])];
+          const rows = allNames.map((name) => ({
+            name,
+            support_ticket: stMap.get(name) ?? 0,
+            task: tkMap.get(name) ?? 0,
+          }));
+
+          return (
+            <div key={key}>
+              <h5
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                }}
+              >
+                {label}
+              </h5>
+              <DataTable
+                value={rows}
+                loading={loading}
+                emptyMessage="No data found"
+                scrollable
+                resizableColumns
+                columnResizeMode="fit"
+                scrollHeight="300px"
+                size="small"
+                tableStyle={{ minWidth: "400px" }}
+              >
+                <Column
+                  field="name"
+                  header="Status Name"
+                  sortable
+                  bodyStyle={{ fontSize: "14px" }}
+                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
+                />
+                <Column
+                  field="support_ticket"
+                  header="Support Ticket Count"
+                  sortable
+                  bodyStyle={{ fontSize: "14px" }}
+                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
+                />
+                <Column
+                  field="task"
+                  header="Task Count"
+                  sortable
+                  bodyStyle={{ fontSize: "14px" }}
+                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
+                />
+              </DataTable>
+            </div>
+          );
+        })}
+      </div>
+
+      {isModalFilterVisible && (
+        <CheckBoxFilterModal
+          show={isModalFilterVisible}
+          onHide={() => setIsModalFilterVisible(false)}
+          handleSubmit={handleApplyFilters}
+          title="Filter Reports"
+          message="Please select the Dates and Team Members for the Report."
+          btn1="Clear"
+          btn2="Apply"
+          filtersToShow={[1, 4, 21, 5]}
+          pageId={1}
+          stageandStatusOrderType={8}
+          initialFilterData={{
+            ...filters.filterData,
+            category: filters.selectedCategoryId,
+            product: filters.selectedProductId,
+            contactId: filters.selectedContactId,
+            productId: filters.selectedProductSearchId,
+            orderlistselect: filters.selectedOrderListId,
+          }}
+          initialCheckedOptions={filters.checkedOptions}
+          initialCheckedSourceTypes={filters.checkedSourceTypes}
+          initialStartSearchDate={filters.startSearchDate}
+          initialEndSearchDate={filters.endSearchDate}
+          initialCheckedOptionsStageStatus={filters.checkedOptionsStageStatus}
+          initialCheckedOptionsSeries={filters.checkedOptionsSeries}
+          initialSelectedStockTypeId={filters.selectedStockTypeId}
+          initialCheckedOptionsUser={filters.checkedOptionsUser}
+          initialSelectedActiveId={filters.selectedActiveId}
+          initialselectedOrderListId={filters.selectedOrderListId}
+          initialSelectedDays={filters.selectedDays}
+          selectedWarehouseIds={filters.selectedWarehouseIds}
+          initialReferenceWiseContact={filters.referenceWiseContact}
+          isApplyReport={1}
+        />
+      )}
+    </div>
+  );
+};
+
+export default StatusWiseReport;

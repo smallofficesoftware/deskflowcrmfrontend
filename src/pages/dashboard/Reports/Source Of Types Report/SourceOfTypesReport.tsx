@@ -1,0 +1,386 @@
+import "primeicons/primeicons.css";
+import { Button } from "primereact/button";
+import { Column } from "primereact/column";
+import {
+    DataTable,
+    type DataTableFilterEvent,
+    type DataTableFilterMeta
+} from "primereact/datatable";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
+import { useEscapeKey } from "../../../../common/SharedFunction";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import CreateSourceTypeView from "../../../left-side/header/Setting/source-of-types/CreateSourceTypeView";
+import { handleDeleteSourceType } from "../../../left-side/header/Setting/source-of-types/SourceOfTypesController";
+import { fetchSourceOfTypesApi, ISourceOfTypes } from "./SourceOfTypesReportController";
+
+interface ISourceOfTypesReport {
+    onHide?: () => void;
+}
+
+const SourceOfTypesReport = ({
+    onHide
+}: ISourceOfTypesReport) => {
+    const [loading, setLoading] = useState(false);
+    const [sourceOfTypesLists, setSourceOfTypesLists] = useState<ISourceOfTypes[]>([]);
+    const [globalSearchText, setGlobalSearchText] = useState("");
+
+    const [debouncedSearchText, setDebouncedSearchText] = useState("");
+    const [isCreateModel, setIsCreateModel] = useState<boolean>(false);
+
+
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const [filters, setFilters] = useState<DataTableFilterMeta>({
+        source_name: {
+            value: null,
+            matchMode: "contains",
+        },
+    });
+    const [isActionDropdownOpen, setIsActionDropdownOpen] = useState(false);
+    const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+    const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
+        {}
+    );
+    const [isUpdateModel, setIsUpdateModel] = useState<boolean>(false);
+    const [editableProduct, setEditableProduct] = useState<ISourceOfTypes>({
+        source_name: "",
+        id: 0,
+        color: "",
+    });
+    const [deleteItemIds, setDeleteItemIds] = useState<number[]>([]);
+    const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [isAllSelected, setIsAllSelected] = useState(false);
+    const actionDropdownRef = useRef<HTMLUListElement>(null);
+
+    const onFilter = (event: DataTableFilterEvent) => {
+        setFilters(event.filters);
+    };
+
+    useEffect(() => {
+        fetchSourceOfTypesApi(
+            setSourceOfTypesLists,
+            setLoading
+        );
+    }, []);
+
+    useEscapeKey(() => {
+        if (
+            !isCreateModel &&
+            !openDropdownId &&
+            !isUpdateModel
+        ) {
+            onHide?.();
+        } else {
+            setIsCreateModel(false);
+            setOpenDropdownId(null);
+            setIsUpdateModel(false);
+        }
+    });
+
+    const canView = useCheckUserPermission(PAGE_ID.SOURCE, PERMISSION_TYPE.VIEW);
+    const canAdd = useCheckUserPermission(PAGE_ID.SOURCE, PERMISSION_TYPE.ADD);
+    const canEdit = useCheckUserPermission(PAGE_ID.SOURCE, PERMISSION_TYPE.EDIT);
+    const canDelete = useCheckUserPermission(
+        PAGE_ID.SOURCE,
+        PERMISSION_TYPE.DELETE
+    );
+
+    const handleRefreshSourceofType = async () => {
+        if (canView) {
+            await fetchSourceOfTypesApi(setSourceOfTypesLists, setLoading);
+        } else {
+            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+        }
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as HTMLElement;
+
+        const clickedOnButton = target.closest('.source-of-type-list-grid-options');
+        if (clickedOnButton) return;
+
+        const clickedInsideDropdown = Object.values(dropdownContactRef.current).some(
+            (ref) => ref && ref.contains(target)
+        );
+
+        const clickedInsideActionDropdown =
+            actionDropdownRef.current?.contains(target) ||
+            target.closest('.selected-btn');
+
+        if (!clickedInsideDropdown && !clickedInsideActionDropdown) {
+            setOpenDropdownId(null);
+            setIsActionDropdownOpen(false);
+        }
+    };
+
+    useEffect(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleEdit = (item: ISourceOfTypes) => {
+        setOpenDropdownId(null);
+        if (canEdit) {
+            // setSourceOfTypeInput(item.source_name);
+            // setSourceOfTypesHexColorInput(item.color || "#999999");
+            // setIsEditing(true);
+            // setEditSourceOfTypeId(item.id);
+            // setsourceOfError("");
+            // setIsSourceInputReadOnly(item.id < 0);
+            setEditableProduct(item);
+            setIsUpdateModel(true);
+        } else {
+            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+        }
+    };
+
+    const handleDelete = (itemId: number) => {
+        setOpenDropdownId(null);
+        if (canDelete) {
+            setDeleteItemIds([itemId]);
+            setIsDeleteConfirmation(true);
+        } else {
+            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+        }
+    };
+
+    const handleDeleteSubmit = async () => {
+        if (!canDelete) {
+            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+            return;
+        }
+
+        await handleDeleteSourceType(
+            deleteItemIds,
+            setIsDeleteConfirmation,
+            setSourceOfTypesLists,
+            setLoading
+        );
+        setDeleteItemIds([]);
+        setSelectedIds([]);
+        setIsAllSelected(false);
+    };
+
+    const actionBodyTemplate = useCallback((rowData: any) => {
+        return (
+            <div className="gap-2" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <>
+                    <Button
+                        icon="pi pi-cog"
+                        className="p-button-text source-of-type-list-grid-options"
+                        style={{ color: "green", width: "2rem" }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsActionDropdownOpen(false);
+                            setOpenDropdownId((prev) => prev === rowData.id ? null : rowData.id);
+                        }}
+                    />
+
+                    <ul
+                        ref={(el) => (dropdownContactRef.current[rowData.id] = el)}
+                        style={{
+                            width: "150px",
+                            marginLeft: "15%",
+                            height: "auto",
+                            display: openDropdownId === rowData.id ? "block" : "none",  // ✅ inline style
+                            position: "absolute",
+                            zIndex: 9999,
+                            background: "#fff",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                            borderRadius: "6px",
+                            padding: "5px 0",
+                            listStyle: "none",
+                        }}
+                    >
+                        <li
+                            className="listItem"
+                            role="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(null);
+                                handleEdit(rowData);
+                            }}
+                            style={{ marginLeft: "10px", height: "25px", display: "flex", alignItems: "center" }}
+                        >
+                            Edit
+                        </li>
+                        {rowData.id > 0 && <li
+                            style={{ color: "red", fontWeight: "600", marginLeft: "10px", height: "25px", display: "flex", alignItems: "center" }}
+                            className="listItem"
+                            role="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(null);
+                                handleDelete(rowData.id);
+                            }}
+                        >
+                            Delete
+                        </li>}
+                    </ul>
+                </>
+            </div>
+        );
+    }, [openDropdownId, canEdit, canDelete]);
+
+    return (
+        <div>
+            <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+                <h3
+                    style={{ fontSize: "20px", paddingLeft: "12px" }}
+                    className="dash-board-text-count"
+                >
+                    All Source
+                </h3>
+                <div className="d-flex gap-2 align-items-center">
+
+                    <Button
+                        icon="pi pi-plus"
+                        className="report_button"
+                        style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                        rounded
+                        onClick={() => {
+                            if (canAdd) {
+                                setIsCreateModel(true);
+                            } else {
+                                toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                            }
+                        }}
+                        tooltip={`Add Source`}
+                        tooltipOptions={{
+                            position: "left",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div
+                className="report_card"
+                style={{
+                    height: "90vh",
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+            >
+                <DataTable
+                    value={sourceOfTypesLists}
+                    loading={loading}
+                    resizableColumns
+                    columnResizeMode="fit"
+                    scrollable
+                    scrollHeight="flex"
+                    className="custom-centered-table"
+                    tableStyle={{ tableLayout: "fixed", width: "100%" }}
+                    emptyMessage="No data found"
+                    filterDisplay="row"
+                    filters={filters}
+                    onFilter={onFilter}
+                    key={openDropdownId}
+                >
+                    <Column
+                        field="actions"
+                        headerClassName="center-header"
+                        headerStyle={{
+                            width: "30px",
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 1,
+                        }}
+                        body={actionBodyTemplate}
+
+                    />
+                    <Column
+                        field="source_name"
+                        header={
+                            <span>
+                                Source Name
+                            </span>
+                        }
+                        sortable
+                        filter
+                        filterPlaceholder="Search"
+                        filterMatchMode="contains"
+                        headerStyle={{
+                            width: "200px",
+                            background: "#f8f9fa",
+                            fontSize: "14px",
+                        }}
+                        bodyStyle={{ fontSize: "14px" }}
+                        body={(rowData: ISourceOfTypes) => {
+                            return (
+                                <span
+                                    style={{
+                                        backgroundColor: rowData.color
+                                            ? rowData.color
+                                            : "#eeeeee"
+                                    }}
+                                    className="badge rounded-pill"
+                                >
+                                    {rowData.source_name}
+                                </span>
+                            );
+                        }}
+                    />
+                </DataTable>
+                {isDeleteConfirmation && (
+                    <ConfirmationModal
+                        show={isDeleteConfirmation}
+                        onHide={() => {
+                            setIsDeleteConfirmation(false);
+                            setDeleteItemIds([]);
+                        }}
+                        handleSubmit={handleDeleteSubmit}
+                        title={
+                            deleteItemIds.length > 1
+                                ? "Delete Sources"
+                                : "Delete this Source Type"
+                        }
+                        message={`Are you sure you want to delete ${deleteItemIds.length > 1 ? "these sources" : "this source type"
+                            }?`}
+                        btn1="CANCEL"
+                        btn2="DELETE"
+                    />
+                )}
+            </div>
+            {isCreateModel && (
+                <CreateSourceTypeView
+                    show={isCreateModel}
+                    onHide={() => {
+                        setIsCreateModel(false);
+                        // setSearchTermFromRightSide("");
+                    }}
+                    setLoading={setLoading}
+                    headerName="Create Source Type"
+                    handleRefreshSourceofType={handleRefreshSourceofType}
+                    productToEdit={undefined}
+                />
+            )}
+            {isUpdateModel && (
+                <CreateSourceTypeView
+                    show={isUpdateModel}
+                    onHide={() => {
+                        setIsUpdateModel(false);
+                        // setSearchTermFromRightSide("");
+                    }}
+                    setLoading={setLoading}
+                    headerName="Create Source Type"
+                    handleRefreshSourceofType={handleRefreshSourceofType}
+                    productToEdit={editableProduct}
+                />
+            )}
+        </div>
+    );
+};
+
+export default SourceOfTypesReport;

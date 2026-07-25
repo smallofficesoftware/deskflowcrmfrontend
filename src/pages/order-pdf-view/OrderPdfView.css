@@ -1,0 +1,111 @@
+/* .content table {
+    border: 1px solid #595959;
+    border-collapse: collapse;
+    font-size: 14px !important;
+    width: 350mm !important;
+    background-color: #fff;
+    margin: auto;
+    padding: auto;
+    font-family: "Poppins", sans-serif;
+  }
+  
+  .content table td,
+  .content table th {
+    border: 1px solid #595959;
+  }
+  
+  .content td,
+  th {
+    padding: 0px 5px;
+    height: 20px;
+  }
+  
+  .text-center {
+    text-align: center !important;
+  }
+  
+  .text-right {
+    text-align: right !important;
+  }
+  
+  .no-border-left {
+    border-left: hidden;
+  }
+  
+  .no-border-right {
+    border-right: hidden;
+  }
+  
+  .no-border-bottom {
+    border-bottom: hidden !important;
+  }
+  
+  .no-border-top {
+    border-top: hidden !important;
+  }
+  
+  .border td {
+    border-bottom: hidden !important;
+  }
+  
+  .color {
+    background: #d3d3d3;
+  }
+  
+  .font-size td {
+    font-size: 12px !important;
+  }
+  
+  .image-width {
+    width: 10% !important;
+    min-width: 10% !important;
+    max-width: 10% !important;
+  }
+  
+  .border-r-width {
+    border-right-width: 5px;
+  }
+  
+  .border-gray {
+    border-right-color: #e5e5e5;
+  }
+  
+  .vertical-top {
+    vertical-align: top;
+  }
+  
+  .height-5 {
+    height: 5px;
+  }
+  
+  .bg-gray {
+    background-color: #e5e5e5 !important;
+  }
+  
+  .font-13 {
+    font-size: 12px !important;
+  }
+  
+  .headerBorder {
+    border: 22px solid #eb268f;
+    border-bottom: none;
+    border-right: none;
+    border-left: none;
+  }
+  
+  .bolde-style {
+    font-weight: bold;
+  }
+  
+  .main-detail {
+    background-image: url("http://192.168.1.232/crmbox/images/draft.png");
+  
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  
+  .image-width {
+    width: 10% !important;
+    min-width: 10% !important;
+    max-width: 10% !important;
+  } */

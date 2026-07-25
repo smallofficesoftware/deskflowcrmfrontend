@@ -1,0 +1,83 @@
+export const NODE_ENV = process.env.NODE_ENV;
+export const DEFAULT_STATUS_CODE_SUCCESS = 1;
+export const MESSAGE_UNKNOWN_ERROR_OCCURRED =
+  "Unknown error occurred. Please try again";
+export const DEFAULT_STATUS_CODE_ERROR = 0;
+export const DEFAULT_TCS = 0.1;
+
+export const DEFAULT_MESSAGE_ERROR_PERMISSION =
+  "You do not have the necessary permissions to perform this action. Please Contact Your Company Owner. Or Upgrade Your Plan.";
+
+export const DEFAULT_MESSAGE_FOR_UNDER_DEVELOPMENT =
+  "This feature is currently under development. Please check back soon.";
+
+export const DEFAULT_TOKEN_B2B = process.env.REACT_APP_DEFAULT_TOKEN_B2B;
+
+export const BACKEND_OF_SMALL_OFFICE_CRM_END_POINT =
+  process.env.REACT_APP_BACKEND_OF_SMALL_OFFICE_CRM_END_POINT;
+export const INDIA_MART_PUSH_API =
+  process.env.REACT_APP_INDIA_MART_PUSH_API_LINK;
+export const JUST_DIAL_PUSH_API = process.env.REACT_APP_JUST_DIAL_API_LINK;
+export const WA_WEBHOOK_API = process.env.REACT_APP_WA_WEBHOOK_API_LINK;
+export const CONTACT_INSERT_API_LINK =
+  process.env.REACT_APP_CONTACT_INSERT_API_LINK;
+
+export const BACKEND_OF_WPPCONNECT_BACKEND_END_POINT =
+  process.env.REACT_APP_BACKEND_OF_WPPCONNECT_BACKEND_END_POINT;
+export const BACKEND_OF_SMALL_OFFICE_WHATSAPP_WEB_END_POINT =
+  process.env.REACT_APP_BACKEND_OF_SMALL_OFFICE_WHATSAPP_WEB_END_POINT;
+
+export const BACKEND_OF_SMALL_OFFICE_B2B_PORTAL_END_POINT =
+  process.env.REACT_APP_BACKEND_OF_SMALL_OFFICE_B2B_PORTAL_END_POINT;
+export const INSTRUCTION_URL_ENDPOINT =
+  process.env.REACT_APP_INSTRUCTION_URL_ENDPOINT;
+
+export const MINI_TEXT_LENGTH = 40;
+export const SMALL_TEXT_LENGTH = 60;
+export const BIG_TEXT_LENGTH = 100;
+export const BIG1_TEXT_LENGTH = 250;
+export const TEXTAREA_TEXT_LENGTH = 500;
+
+export const MIN_WIDTH_FOR_TEXT = "100px";
+export const SMALL_WIDTH_FOR_TEXT = "150px";
+export const BIG_WIDTH_FOR_TEXT = "200px";
+
+export const ITEMS_PER_PAGE = 50;
+
+export const PACKING_FORWARDING_CHARGE_HSN_CODE = 998540;
+export const PACKING_FORWARDING_CHARGE_GST = 18;
+
+export const TRANSPORT_CHARGE_HSN_CODE = 996511;
+export const TRANSPORT_CHARGE__GST = 18;
+export const APPLICATION_VERSION = process.env.REACT_APP_APPLICATION_VERSION;
+export const IS_PRODUCTION =
+  process.env.REACT_APP_ENCRYPT_SMALL_OFFICE_CRM_PAYLOAD === "true";
+export const ENCRYPT_WHATSAPP_PAYLOAD =
+  process.env.REACT_APP_ENCRYPT_WHATSAPP_PAYLOAD === "true";
+
+export const DESKFLOW_CRM_PAYLOAD_ENCRYPTION_KEY =
+  process.env.REACT_APP_ENCRYPTION_SECRET!;
+export const WHATSAPP_PAYLOAD_ENCRYPTION_KEY =
+  process.env.REACT_APP_WHATSAPP_PAYLOAD_ENCRYPTION_KEY!;
+export const RAZORPAY_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID!;
+export const THEME_COLOUR = process.env.REACT_APP_THEME_BACKGROUND_COLOUR!;
+export const GOOGLE_MAP_KEY = process.env.REACT_APP_GOOGLE_MAP_APIKEY!;
+export const IS_ACTUAL: string = process.env.REACT_APP_IS_ACTUAL! || "0";
+export let IS_TASK_CHAT_OPEN: string = "false";
+export const REACT_APP_REFERRAL_CODE = process.env.REACT_APP_REFERRAL_CODE_ALL;
+
+export const REACT_APP_TASK_AUTO_REFRESH_TIMEOUT =
+  process.env.REACT_APP_TASK_AUTO_REFRESH_TIMEOUT;
+export const REACT_APP_TASK_AUTO_REFRESH_INACTIVITY_DELAY =
+  process.env.REACT_APP_TASK_AUTO_REFRESH_INACTIVITY_DELAY;
+
+export const REACT_APP_CONTACT_AUTO_REFRESH_ON =
+  process.env.REACT_APP_CONTACT_AUTO_REFRESH_ON;
+
+export const REACT_APP_CONTACT_AUTO_REFRESH_TIMEOUT =
+  process.env.REACT_APP_CONTACT_AUTO_REFRESH_TIMEOUT;
+
+export const REACT_APP_CONTACT_AUTO_REFRESH_INACTIVITY_DELAY =
+  process.env.REACT_APP_CONTACT_AUTO_REFRESH_INACTIVITY_DELAY;
+
+export const TASK_ATTEECHMENT_VIEW = `${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/taskATH/`;

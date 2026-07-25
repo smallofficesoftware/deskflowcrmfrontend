@@ -1,0 +1,51 @@
+.image-viewer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .image-viewer-content {
+    position: relative;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    /* box-shadow: 0 5px 15px #f58634; */
+    text-align: center;
+  }
+  
+  .image-viewer-content img {
+    max-width: 90vw;
+    height: 80vh;
+    border-radius: 5px;
+  }
+  
+  .close-btn,
+  .download-btn {
+    position: absolute;
+    background: #f58634;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  
+  .close-btn {
+    top: 10px;
+    right: 10px;
+  }
+  
+  .download-btn {
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  

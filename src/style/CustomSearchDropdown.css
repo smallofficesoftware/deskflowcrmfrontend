@@ -1,0 +1,53 @@
+/* Dropdown container */
+.dropdown-container {
+    position: relative;
+    width: 100%;
+    max-width: 300px; /* Adjust width as needed */
+  }
+  
+  /* Input field */
+  .dropdown-container input {
+    width: 120%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 15px;
+  }
+  
+  /* Dropdown list */
+  .dropdown-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 120%;
+    z-index: 1000;
+  }
+  
+  /* Dropdown list item */
+  .dropdown-list li {
+    padding: 8px;
+    cursor: pointer;
+  }
+  
+  /* Highlighted option */
+  .dropdown-list li:hover,
+  .dropdown-list li:focus {
+    background-color: #ddd;
+  }
+  
+  /* Error state */
+  .is-invalid {
+    border-color: #dc3545; /* Bootstrap red for error */
+  }
+  
+  .input-box-error {
+    border-color: #dc3545;
+  }
+  

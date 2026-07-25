@@ -1,0 +1,707 @@
+/* ─── Google Fonts ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* ─── Root Variables ───────────────────────────────────────────────────────── */
+.kanban-scope {
+  --k-bg: #f0f2f5;
+  --k-surface: #ffffff;
+  --k-surface-2: #f8f9fa;
+  --k-border: rgba(0, 0, 0, 0.07);
+  --k-text-primary: #1a1d23;
+  --k-text-secondary: #6b7280;
+  --k-text-muted: #9ca3af;
+  --k-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --k-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --k-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --k-radius: 12px;
+  --k-font: 'DM Sans', system-ui, sans-serif;
+  --k-font-mono: 'DM Mono', monospace;
+}
+
+/* ─── Modal — Bootstrap 5 fullscreen overrides ─────────────────────────────── */
+.kanban-modal {
+  font-family: var(--k-font);
+  isolation: isolate;
+}
+
+.kanban-modal .modal-dialog.modal-fullscreen {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+}
+
+.kanban-modal-content {
+  background: var(--k-bg) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-family: var(--k-font);
+}
+
+/* ─── Modal Header ─────────────────────────────────────────────────────────── */
+.kanban-modal-header {
+  background: var(--k-surface) !important;
+  border-bottom: 1px solid var(--k-border) !important;
+  height: 60px;
+  flex-shrink: 0;
+  padding: 0 20px !important;
+  align-items: center;
+}
+
+.kanban-modal-header .btn-close {
+  opacity: 0.5;
+}
+
+.kanban-modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+.kanban-modal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kanban-modal-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--k-text-primary);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.kanban-modal-subtitle {
+  font-size: 0.75rem;
+  color: var(--k-text-muted);
+  line-height: 1.2;
+}
+
+/* ─── Modal Body ───────────────────────────────────────────────────────────── */
+.kanban-modal-body {
+  flex: 1;
+  min-height: 0; /* critical: allows flex children to shrink below content size */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+}
+
+/* ─── Search Bar ───────────────────────────────────────────────────────────── */
+.kanban-search-bar {
+  background: var(--k-surface);
+  border-bottom: 1px solid var(--k-border);
+  padding: 12px 20px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
+}
+
+.kanban-search-bar .search-input-wrapper {
+  position: relative;
+  flex: 1;
+  max-width: 480px;
+}
+
+.kanban-search-bar .search-input-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--k-text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.kanban-search-bar .search-input-wrapper input {
+  width: 100%;
+  padding: 8px 12px 8px 38px;
+  border: 1.5px solid var(--k-border);
+  border-radius: 8px;
+  font-family: var(--k-font);
+  font-size: 0.875rem;
+  color: var(--k-text-primary);
+  background: var(--k-surface-2);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.kanban-search-bar .search-input-wrapper input::placeholder {
+  color: var(--k-text-muted);
+}
+
+.kanban-search-bar .search-input-wrapper input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  background: var(--k-surface);
+}
+
+.kanban-search-bar .btn-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--k-border);
+  border-radius: 8px;
+  background: var(--k-surface);
+  color: var(--k-text-secondary);
+  font-size: 0.8125rem;
+  font-family: var(--k-font);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.kanban-search-bar .btn-refresh:hover {
+  background: var(--k-surface-2);
+  border-color: #d1d5db;
+  color: var(--k-text-primary);
+}
+
+.kanban-search-bar .btn-refresh.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─── Column Nav Pills ─────────────────────────────────────────────────────── */
+.kanban-nav {
+  background: var(--k-surface);
+  border-bottom: 1px solid var(--k-border);
+  padding: 8px 20px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.kanban-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.kanban-nav .nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  background: transparent;
+  color: var(--k-text-secondary);
+}
+
+.kanban-nav .nav-pill:hover {
+  background: var(--k-surface-2);
+  color: var(--k-text-primary);
+}
+
+.kanban-nav .nav-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kanban-nav .nav-pill .count {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+/* ─── Board Container ──────────────────────────────────────────────────────── */
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-height: 0; /* critical: allows this flex child to shrink */
+  align-items: stretch; /* columns fill full height of board */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  cursor: grab;
+}
+
+.kanban-board:active {
+  cursor: grabbing;
+}
+
+.kanban-board::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kanban-board::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-board::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+/* ─── Column ───────────────────────────────────────────────────────────────── */
+/* ─── Column — smooth DND pattern ───────────────────────────────────────────
+ *
+ * The correct layout for smooth @hello-pangea/dnd with per-column scroll:
+ *
+ *   .kanban-column          — flex column container, overflow:hidden for
+ *                             visual border-radius clip. Does NOT scroll.
+ *   .column-scroll          — overflow-y:auto flex:1. The actual scroll
+ *                             container. Is a plain div, NOT a Droppable.
+ *   .droppable-area         — the Droppable root. overflow:visible, no
+ *                             scroll. This is what the library tracks.
+ *
+ * Why this works: @hello-pangea/dnd only warns when the *Droppable itself*
+ * is inside a nested scroll container it didn't expect. A plain wrapper div
+ * that scrolls, with a non-scrolling Droppable inside it, is the documented
+ * pattern. ignoreContainerClipping on the Droppable handles the fact that
+ * the column is clipped by the board's overflow-x container.
+ */
+
+.kanban-column {
+  width: 330px;
+  min-width: 330px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 200px;
+  background: var(--k-surface-2);
+  border-radius: 16px;
+  border: 1px solid var(--k-border);
+  overflow: hidden;
+}
+
+.kanban-column .column-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--k-border);
+  background: var(--k-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  /* No position:sticky here — the column itself scrolls, not the board */
+}
+
+.kanban-column .column-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kanban-column .column-header .color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kanban-column .column-header .column-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--k-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.kanban-column .column-header .column-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--k-text-secondary);
+}
+
+/* Scroll wrapper — plain div, NOT a Droppable */
+.kanban-column .column-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb transparent;
+}
+
+.kanban-column .column-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.kanban-column .column-scroll::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+
+/* Droppable root — overflow:visible, never scrolls */
+.kanban-column .droppable-area {
+  padding: 10px 10px 12px;
+  min-height: 120px;
+  overflow: visible;
+  transition: background 0.15s;
+}
+
+.kanban-column .droppable-area.is-dragging-over {
+  background: rgba(79, 70, 229, 0.04);
+}
+
+.kanban-column .load-more-trigger {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kanban-scope .load-more-spinner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--k-text-muted);
+  font-size: 0.75rem;
+}
+
+.kanban-column .empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--k-text-muted);
+  font-size: 0.8125rem;
+}
+
+.kanban-column .empty-state .empty-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.kanban-column .empty-state p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ─── Task Card ────────────────────────────────────────────────────────────── */
+.kanban-scope .task-card {
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
+  cursor: grab;
+  /* SMOOTH FIX: no will-change at rest (avoids promoting every card to a GPU
+     layer). will-change:transform is applied inline only while isDragging=true.
+     No animation here — slideInUp was firing on every optimistic re-render,
+     causing cards to flash/jump during and after drops. */
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+  user-select: none;
+  /* Prevent subpixel rendering issues on the drag clone */
+  -webkit-font-smoothing: antialiased;
+}
+
+.kanban-scope .task-card:hover {
+  box-shadow: var(--k-shadow-md);
+  border-color: #d1d5db;
+}
+
+/* Feature 1: unread tasks get a red left accent border */
+.kanban-scope .task-card.is-unread {
+  border-left: 3px solid #ef4444;
+  padding-left: 11px; /* compensate for the extra border width */
+}
+
+/* Feature 3+5: header icon buttons (add, filter) */
+.kanban-header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.kanban-header-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border-color: rgba(255,255,255,0.3);
+}
+.kanban-header-btn--primary {
+  background: var(--k-accent, #4f46e5);
+  border-color: var(--k-accent, #4f46e5);
+  color: #fff;
+}
+.kanban-header-btn--primary:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
+.kanban-scope .task-card.is-dragging {
+  /* SMOOTH FIX: no CSS transform here — the library sets transform via
+     inline style. Adding a CSS transform would fight the library's value
+     and cause the card to snap/jitter. We only add shadow + border tint. */
+  box-shadow: var(--k-shadow-lg);
+  border-color: #4f46e5;
+  cursor: grabbing;
+  /* Slight opacity tells the user the card is "lifted" without visual jank */
+  opacity: 0.96;
+}
+
+.kanban-scope .task-card .card-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.kanban-scope .task-card .task-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--k-text-primary);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  flex: 1;
+}
+
+.kanban-scope .task-card .unread-badge {
+  flex-shrink: 0;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.kanban-scope .task-card .card-info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  color: var(--k-text-secondary);
+  font-size: 0.78125rem;
+}
+
+.task-card .card-info-row svg,
+.task-card .card-info-row .icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.task-card .card-info-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-scope .task-card .card-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kanban-scope .task-card .badge-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  line-height: 1.4;
+}
+
+/* Priority badges */
+.kanban-scope .task-card .priority-badge.Critical {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.kanban-scope .task-card .priority-badge.High {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #fed7aa;
+}
+
+.kanban-scope .task-card .priority-badge.Medium {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
+}
+
+.kanban-scope .task-card .priority-badge.Low {
+  background: #f9fafb;
+  color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+/* Due date badges */
+.kanban-scope .task-card .due-badge.overdue {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.kanban-scope .task-card .due-badge.today {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.kanban-scope .task-card .due-badge.upcoming {
+  background: #f9fafb;
+  color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+/* Assignee */
+.kanban-scope .task-card .assignee {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.kanban-scope .task-card .assignee .avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kanban-scope .task-card .assignee .assignee-name {
+  font-size: 0.75rem;
+  color: var(--k-text-secondary);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Skeleton ─────────────────────────────────────────────────────────────── */
+.skeleton-card {
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+
+.skanban-scope .skeleton-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--k-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─── Animations ───────────────────────────────────────────────────────────── */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .kanban-board {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .kanban-column {
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .kanban-search-bar {
+    padding: 10px 12px;
+  }
+
+  .kanban-search-bar .btn-refresh span {
+    display: none;
+  }
+}
+
+/* ─── Toast ────────────────────────────────────────────────────────────────── */
+.kanban-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-toast {
+  background: var(--k-surface);
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: var(--k-shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--k-border);
+  animation: slideInUp 0.25s ease;
+  min-width: 260px;
+  max-width: 360px;
+}
+
+.kanban-toast.error {
+  border-left: 3px solid #ef4444;
+  color: var(--k-text-primary);
+}
+
+.kanban-toast.error .toast-icon {
+  color: #ef4444;
+}
+
+.kanban-toast.success {
+  border-left: 3px solid #22c55e;
+  color: var(--k-text-primary);
+}
+
+.kanban-toast.success .toast-icon {
+  color: #22c55e;
+}
