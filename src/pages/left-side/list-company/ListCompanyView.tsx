@@ -530,22 +530,22 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                       ) : (
                                         ""
                                       )}
-                                      {/* {item.company_flag !== 2 ? (
-                                      <li
-                                        className="listItem"
-                                        role="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handelChangeNewEditCompany(item);
-                                          setCompanyDropdownOpen(null);
-                                          setHasOneData(null);
-                                        }}
-                                      >
-                                        New Edit
-                                      </li>
-                                    ) : (
-                                      ""
-                                    )} */}
+                                      {item.company_flag !== 2 ? (
+                                        <li
+                                          className="listItem"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handelChangeNewEditCompany(item);
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
+                                          }}
+                                        >
+                                          New Edit
+                                        </li>
+                                      ) : (
+                                        ""
+                                      )}
                                       {item.company_flag === 2 ? (
                                         <li
                                           className="listItem"
