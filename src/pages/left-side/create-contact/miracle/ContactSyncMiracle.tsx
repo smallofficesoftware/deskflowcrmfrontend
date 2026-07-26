@@ -68,6 +68,38 @@ const STEP_CONFIG: { key: SyncStep; label: string; icon: string }[] = [
 
 type PreviewFilter = "all" | "matched" | "new";
 
+const getErrorMessage = (err: any, fallback: string): string => {
+  if (!err) return fallback;
+  const responseData = err?.response?.data;
+
+  if (responseData) {
+    if (typeof responseData === "string") {
+      if (responseData.trim().startsWith("<")) return fallback;
+      return responseData;
+    }
+    if (typeof responseData.message === "string") {
+      return responseData.message;
+    }
+    if (Array.isArray(responseData.message)) {
+      return responseData.message
+        .map((m: any) => (typeof m === "string" ? m : JSON.stringify(m)))
+        .join(", ");
+    }
+    if (typeof responseData.error === "string") {
+      return responseData.error;
+    }
+    if (typeof responseData.error?.message === "string") {
+      return responseData.error.message;
+    }
+  }
+
+  if (typeof err.message === "string" && err.message.trim() !== "") {
+    return err.message;
+  }
+
+  return fallback;
+};
+
 const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
   show,
   onClose,
@@ -135,15 +167,39 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
         matchBy: matchFields,
         a_application_login_id: getUUID,
       });
-      const data: SyncPreviewResponse = res?.data?.data ?? res?.data;
-      setPreviewData(data);
+
+      const resBody = res?.data;
+      if (resBody?.status === false || resBody?.success === false) {
+        const errMsg =
+          typeof resBody?.message === "string"
+            ? resBody.message
+            : typeof resBody?.error === "string"
+              ? resBody.error
+              : `Failed to fetch contacts from ${thirdPartyName}.`;
+        throw new Error(errMsg);
+      }
+
+      const data: SyncPreviewResponse = resBody?.data ?? resBody;
+
+      if (!data || !Array.isArray(data.items)) {
+        throw new Error("Invalid format received from backend server.");
+      }
+
+      setPreviewData({
+        items: Array.isArray(data.items) ? data.items : [],
+        totalFetched: Number(data.totalFetched) || 0,
+        totalMatched: Number(data.totalMatched) || 0,
+        totalNew: Number(data.totalNew) || 0,
+      });
       setStep("preview");
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        `Failed to fetch contacts from ${thirdPartyName}. Please try again.`;
+      const msg = getErrorMessage(
+        err,
+        `Failed to fetch contacts from ${thirdPartyName}. Please try again.`,
+      );
       setPreviewError(msg);
       toast.error(msg);
+      setStep("preview");
     } finally {
       setPreviewLoading(false);
     }
@@ -161,17 +217,39 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
         matchBy: matchFields,
         a_application_login_id: getUUID,
       });
-      const data: SyncProcessResponse = res?.data?.data ?? res?.data;
-      setProcessResult(data);
-      onSyncComplete?.(data);
-      if (data.failedCount > 0) {
-        toast.warning(`Sync completed with ${data.failedCount} error(s).`);
+
+      const resBody = res?.data;
+      if (resBody?.status === false || resBody?.success === false) {
+        const errMsg =
+          typeof resBody?.message === "string"
+            ? resBody.message
+            : typeof resBody?.error === "string"
+              ? resBody.error
+              : "Sync failed on server.";
+        throw new Error(errMsg);
+      }
+
+      const rawData: SyncProcessResponse = resBody?.data ?? resBody;
+
+      const normalizedResult: SyncProcessResponse = {
+        updatedCount: Number(rawData?.updatedCount) || 0,
+        createdCount: Number(rawData?.createdCount) || 0,
+        failedCount: Number(rawData?.failedCount) || 0,
+        errors: Array.isArray(rawData?.errors) ? rawData.errors : [],
+      };
+
+      setProcessResult(normalizedResult);
+      onSyncComplete?.(normalizedResult);
+
+      if (normalizedResult.failedCount > 0) {
+        toast.warning(
+          `Sync completed with ${normalizedResult.failedCount} error(s).`,
+        );
       } else {
-        toast.success("contacts synced successfully.");
+        toast.success("Contacts synced successfully.");
       }
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || "Sync failed. Please try again.";
+      const msg = getErrorMessage(err, "Sync failed. Please try again.");
       setProcessError(msg);
       toast.error(msg);
     } finally {
@@ -180,9 +258,9 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
   };
 
   const filteredItems = useMemo(() => {
-    if (!previewData) return [];
+    if (!previewData || !Array.isArray(previewData.items)) return [];
     if (activeFilter === "all") return previewData.items;
-    return previewData.items.filter((i) => i.status === activeFilter);
+    return previewData.items.filter((i) => i?.status === activeFilter);
   }, [previewData, activeFilter]);
 
   const handleClose = () => {
@@ -323,7 +401,10 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
     if (previewError) return renderPreviewErrorState();
     if (!previewData) return null;
 
-    const { totalFetched, totalMatched, totalNew } = previewData;
+    const totalFetched = previewData?.totalFetched ?? 0;
+    const totalMatched = previewData?.totalMatched ?? 0;
+    const totalNew = previewData?.totalNew ?? 0;
+    const itemsCount = previewData?.items?.length ?? 0;
 
     return (
       <div>
@@ -357,7 +438,7 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
                 className={`btn btn-sm ${activeFilter === f ? "btn-orange" : "btn-outline-secondary"}`}
                 onClick={() => setActiveFilter(f)}
               >
-                {f === "all" && `All (${previewData.items.length})`}
+                {f === "all" && `All (${itemsCount})`}
                 {f === "matched" && `Matched (${totalMatched})`}
                 {f === "new" && `New (${totalNew})`}
               </button>
@@ -382,60 +463,65 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.thirdPartyContact.id}>
-                    <td>
-                      <div className="fw-semibold">
-                        {item.thirdPartyContact.name}
-                      </div>
-                      <div className="text-muted small">
-                        {item.thirdPartyContact.gst_number}
-                      </div>
-                      <div className="text-muted small">
-                        {item.thirdPartyContact.mobile_number}
-                      </div>
-                    </td>
-                    <td>
-                      {item.matchedContact ? (
-                        <>
-                          <div className="fw-semibold">
-                            {item.matchedContact.name}
-                          </div>
-                          <div className="text-muted small">
-                            {item.matchedContact.gst_number}
-                          </div>
-                          <div className="text-muted small">
-                            {item.matchedContact.mobile_number}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td>
-                      {item.matchedBy ? (
-                        <span className="badge psm-badge-field text-capitalize">
-                          {item.matchedBy}
-                        </span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td>
-                      {item.status === "matched" ? (
-                        <span className="badge psm-badge-matched">
-                          <i className="bi bi-arrow-repeat me-1" />
-                          Update
-                        </span>
-                      ) : (
-                        <span className="badge psm-badge-new">
-                          <i className="bi bi-plus-circle me-1" />
-                          New
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filteredItems.map((item, idx) => {
+                  if (!item) return null;
+                  const thirdParty = item.thirdPartyContact;
+                  const matched = item.matchedContact;
+                  return (
+                    <tr key={thirdParty?.id ?? idx}>
+                      <td>
+                        <div className="fw-semibold">
+                          {thirdParty?.name || "—"}
+                        </div>
+                        <div className="text-muted small">
+                          {thirdParty?.gst_number || ""}
+                        </div>
+                        <div className="text-muted small">
+                          {thirdParty?.mobile_number || ""}
+                        </div>
+                      </td>
+                      <td>
+                        {matched ? (
+                          <>
+                            <div className="fw-semibold">
+                              {matched?.name || "—"}
+                            </div>
+                            <div className="text-muted small">
+                              {matched?.gst_number || ""}
+                            </div>
+                            <div className="text-muted small">
+                              {matched?.mobile_number || ""}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {item.matchedBy ? (
+                          <span className="badge psm-badge-field text-capitalize">
+                            {item.matchedBy}
+                          </span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {item.status === "matched" ? (
+                          <span className="badge psm-badge-matched">
+                            <i className="bi bi-arrow-repeat me-1" />
+                            Update
+                          </span>
+                        ) : (
+                          <span className="badge psm-badge-new">
+                            <i className="bi bi-plus-circle me-1" />
+                            New
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -516,12 +602,22 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
 
           {failedCount > 0 && errors && errors.length > 0 && (
             <div className="psm-error-list mt-3">
-              {errors.map((e, idx) => (
-                <div key={idx} className="psm-error-item">
-                  <i className="bi bi-x-circle me-1" />
-                  {e.message}
-                </div>
-              ))}
+              {errors.map((e: any, idx: number) => {
+                const errMsg =
+                  typeof e === "string"
+                    ? e
+                    : typeof e?.message === "string"
+                      ? e.message
+                      : typeof e?.error === "string"
+                        ? e.error
+                        : "Unknown error";
+                return (
+                  <div key={idx} className="psm-error-item">
+                    <i className="bi bi-x-circle me-1" />
+                    {errMsg}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -578,7 +674,11 @@ const ContactSyncMiracle: React.FC<ContactSyncModalProps> = ({
             type="button"
             className="btn btn-orange"
             onClick={handleStartSync}
-            disabled={!previewData || previewData.items.length === 0}
+            disabled={
+              !previewData ||
+              !Array.isArray(previewData.items) ||
+              previewData.items.length === 0
+            }
           >
             Start Sync <i className="bi bi-arrow-right ms-1" />
           </button>

@@ -56,7 +56,7 @@ import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 const CreateContactView = ({
   show,
   onHide,
-  setContact = (data: boolean) => {},
+  setContact = (data: boolean) => { },
   contactData,
   headerName,
   setIsCreateContact1,
@@ -398,7 +398,7 @@ const CreateContactView = ({
             token,
             localId,
             setContactId,
-            () => {},
+            () => { },
             setCheckToken,
             filterParams || "",
             filterParams || "",
@@ -436,10 +436,10 @@ const CreateContactView = ({
         selectedUser.person_name && selectedUser.company_name
           ? `${selectedUser.company_name} (${selectedUser.person_name})`
           : selectedUser.person_name ||
-              selectedUser.company_name ||
-              selectedUser.mobile_number ||
-              selectedUser.email_id ||
-              "Unknown",
+          selectedUser.company_name ||
+          selectedUser.mobile_number ||
+          selectedUser.email_id ||
+          "Unknown",
       );
       setFieldValue("reference_contact", selectedUser.id);
       setUsers([]);
@@ -707,8 +707,8 @@ const CreateContactView = ({
 
       const validLabels = Array.isArray(response.data?.data)
         ? response.data.data.filter(
-            (label: any) => label?.id && label?.lable_name,
-          )
+          (label: any) => label?.id && label?.lable_name,
+        )
         : [];
 
       if (validLabels.length === 0) {
@@ -840,10 +840,10 @@ const CreateContactView = ({
               contact.person_name && contact.company_name
                 ? `${contact.company_name} (${contact.person_name})`
                 : contact.person_name ||
-                    contact.company_name ||
-                    contact.mobile_number ||
-                    contact.email_id ||
-                    "",
+                contact.company_name ||
+                contact.mobile_number ||
+                contact.email_id ||
+                "",
             );
             setUsers([contact]);
           }
@@ -987,13 +987,20 @@ const CreateContactView = ({
       error[fieldName as keyof ICreateInquiry] &&
       touched[fieldName as keyof ICreateInquiry];
 
+    const formattedName = name
+      ? name
+          .replace(/_/g, " ")
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      : "";
+
     switch (item.data_type) {
       case 1:
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor="name" className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1018,8 +1025,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1041,8 +1048,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1070,8 +1077,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1092,7 +1099,7 @@ const CreateContactView = ({
                         }
                       }}
                       format="DD-MM-YYYY"
-                      placeholder={`Enter ${name}`}
+                      placeholder={`Enter ${formattedName}`}
                       inputClass={`form-control font-size-15 rounded-1 ${isError ? "is-invalid input-box-error" : ""}`}
                     />
                   )}
@@ -1110,8 +1117,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1130,7 +1137,7 @@ const CreateContactView = ({
                         }}
                         format="DD-MM-YYYY hh:mm A"
                         plugins={[<TimePicker position="right" hideSeconds />]}
-                        placeholder={`Enter ${name}`}
+                        placeholder={`Enter ${formattedName}`}
                         inputClass={`form-control d-block font-size-15 rounded-1 ${isError ? "is-invalid input-box-error" : ""}`}
                       />
                     );
@@ -1149,8 +1156,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1173,8 +1180,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1208,8 +1215,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1250,8 +1257,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1279,8 +1286,8 @@ const CreateContactView = ({
         return (
           <div className="col-12 col-md-4">
             <div className="form-group">
-              <label htmlFor="name" className="pb-2 form_label">
-                {name}
+              <label htmlFor={fieldName} className="pb-2 form_label text-truncate d-block" title={formattedName}>
+                {formattedName}
                 {item.required_or_not === 1 && (
                   <span className="text-danger">*</span>
                 )}
@@ -1442,8 +1449,8 @@ const CreateContactView = ({
                     <div className="mt-3 d-flex justify-content-center">
                       <div className="pt-4">
                         <div
-                          className="row mx-0 px-2 gy-3 d-flex justify-content-center"
-                          style={{ maxHeight: "600px", overflowX: "scroll" }}
+                          className="row mx-0 px-2 gy-3 d-flex justify-content-center pb-4"
+                          style={{ maxHeight: "65vh", overflowY: "auto", overflowX: "hidden" }}
                         >
                           <div className="col-6 col-md-4">
                             <div className="form-group">
@@ -1455,11 +1462,10 @@ const CreateContactView = ({
                                 type="text"
                                 name="person_name"
                                 maxLength={SMALL_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.person_name &&
+                                className={`form-control font-size-15 rounded-1 ${errors.person_name &&
                                   touched.person_name &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 rows={1}
                               />
                               <ErrorMessage
@@ -1484,11 +1490,10 @@ const CreateContactView = ({
                                 type="text"
                                 name="company_name"
                                 maxLength={SMALL_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.company_name &&
+                                className={`form-control font-size-15 rounded-1 ${errors.company_name &&
                                   touched.company_name &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 rows={1}
                               />
                               <ErrorMessage
@@ -1526,11 +1531,10 @@ const CreateContactView = ({
                                 onWheel={(e: any) => e.currentTarget.blur()}
                                 name="mobile_number"
                                 maxLength={MINI_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.mobile_number &&
+                                className={`form-control font-size-15 rounded-1 ${errors.mobile_number &&
                                   touched.mobile_number &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 rows={1}
                                 onBlur={async (e: React.FocusEvent<any>) => {
                                   const mobileValue = e.target.value.trim();
@@ -1567,11 +1571,10 @@ const CreateContactView = ({
                                 type="email"
                                 name="email_id"
                                 maxLength={BIG_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.email_id &&
+                                className={`form-control font-size-15 rounded-1 ${errors.email_id &&
                                   touched.email_id &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 rows={1}
                               />
                               <ErrorMessage
@@ -1594,11 +1597,10 @@ const CreateContactView = ({
                                 type="text"
                                 name="gst_number"
                                 maxLength={SMALL_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.gst_number &&
+                                className={`form-control font-size-15 rounded-1 ${errors.gst_number &&
                                   touched.gst_number &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                               />
                               <ErrorMessage
                                 name="gst_number"
@@ -1607,6 +1609,47 @@ const CreateContactView = ({
                               />
                             </div>
                           </div>
+
+                          {isFeatureEnabled && (
+                            <>
+                              <div className="col-12 col-md-4">
+                                <div className="form-group">
+                                  <label
+                                    htmlFor="gst_reg_type"
+                                    className="pb-2 form_label"
+                                  >
+                                    GST Registration Type
+                                  </label>
+                                  <Field
+                                    as="select"
+                                    name="gst_reg_type"
+                                    className="form-select font-size-15 rounded-1"
+                                  >
+                                    <option value="Regular">Regular</option>
+                                    <option value="Consumer">Consumer</option>
+                                    <option value="Unregistered">Unregistered</option>
+                                    <option value="Composition">Composition</option>
+                                  </Field>
+                                </div>
+                              </div>
+
+                              <div className="col-12 col-md-4">
+                                <div className="form-group">
+                                  <label
+                                    htmlFor="gst_reg_date"
+                                    className="pb-2 form_label"
+                                  >
+                                    GST Reg. Date
+                                  </label>
+                                  <Field
+                                    type="date"
+                                    name="gst_reg_date"
+                                    className="form-control font-size-15 rounded-1"
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1622,11 +1665,10 @@ const CreateContactView = ({
                                 type="text"
                                 name="client_code"
                                 maxLength={BIG_TEXT_LENGTH}
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.client_code &&
+                                className={`form-control font-size-15 rounded-1 ${errors.client_code &&
                                   touched.client_code &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 rows={1}
                               />
                               <ErrorMessage
@@ -1663,11 +1705,10 @@ const CreateContactView = ({
                               <FormikCustomSearchDropdown
                                 name="source_type_id"
                                 options={sourcTypeOptions}
-                                className={` ${
-                                  errors.source_type_id &&
+                                className={` ${errors.source_type_id &&
                                   touched.source_type_id &&
                                   "is-invalid input-box-error"
-                                }`}
+                                  }`}
                                 onChange={handleSourceTypeChange}
                                 menuPlacement="top"
                               />
@@ -1718,8 +1759,8 @@ const CreateContactView = ({
                                       "lable",
                                       selected
                                         ? selected
-                                            .map((item: any) => item.value)
-                                            .join(",")
+                                          .map((item: any) => item.value)
+                                          .join(",")
                                         : "",
                                     );
                                   }}
@@ -1786,7 +1827,7 @@ const CreateContactView = ({
                           </div>
                           {isMenuOpen && (
                             <>
-                              <div className="row mt-2">
+                              <div className="row mt-2 mb-4 pb-4">
                                 <div className="col-12 col-md-4">
                                   <div className="form-group">
                                     <label
@@ -1817,11 +1858,10 @@ const CreateContactView = ({
                                     <FormikCustomSearchDropdown
                                       name="country"
                                       options={countriesOptions}
-                                      className={` ${
-                                        errors.country &&
+                                      className={` ${errors.country &&
                                         touched.country &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onChange={handleCountriesChange}
                                     />
                                     <ErrorMessage
@@ -1861,11 +1901,10 @@ const CreateContactView = ({
                                     <FormikCustomSearchDropdown
                                       name="state"
                                       options={stateOptions}
-                                      className={` ${
-                                        errors.state &&
+                                      className={` ${errors.state &&
                                         touched.state &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onChange={handleSateChange}
                                     />
                                     <ErrorMessage
@@ -1905,11 +1944,10 @@ const CreateContactView = ({
                                     <FormikCustomSearchDropdown
                                       name="city"
                                       options={cityOptions}
-                                      className={` ${
-                                        errors.city &&
+                                      className={` ${errors.city &&
                                         touched.city &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onChange={handleCityChange}
                                     />
                                     <ErrorMessage
@@ -1949,11 +1987,10 @@ const CreateContactView = ({
                                     <FormikCustomSearchDropdown
                                       name="area"
                                       options={areaOptions}
-                                      className={` ${
-                                        errors.area &&
+                                      className={` ${errors.area &&
                                         touched.area &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onChange={handleAreaChange}
                                     />
                                     <ErrorMessage
@@ -1975,11 +2012,10 @@ const CreateContactView = ({
                                     <Field
                                       as="textarea"
                                       name="address"
-                                      className={`form-control font-size-15 rounded-1 ${
-                                        errors.address &&
+                                      className={`form-control font-size-15 rounded-1 ${errors.address &&
                                         touched.address &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onInput={(
                                         e: React.FormEvent<HTMLTextAreaElement>,
                                       ) => {
@@ -2009,11 +2045,10 @@ const CreateContactView = ({
                                     <Field
                                       as="textarea"
                                       name="shipping_address"
-                                      className={`form-control font-size-15 rounded-1 ${
-                                        errors.shipping_address &&
+                                      className={`form-control font-size-15 rounded-1 ${errors.shipping_address &&
                                         touched.shipping_address &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onInput={(
                                         e: React.FormEvent<HTMLTextAreaElement>,
                                       ) => {
@@ -2043,11 +2078,10 @@ const CreateContactView = ({
                                     <Field
                                       type="text"
                                       name="pincode"
-                                      className={`form-control font-size-15 rounded-1 ${
-                                        errors.pincode &&
+                                      className={`form-control font-size-15 rounded-1 ${errors.pincode &&
                                         touched.pincode &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                     />
                                     <ErrorMessage
                                       name="pincode"
@@ -2067,11 +2101,10 @@ const CreateContactView = ({
                                     <FormikCustomSearchDropdown
                                       name="assinged_to_price_list"
                                       options={priceListOptions}
-                                      className={` ${
-                                        errors.assinged_to_price_list &&
+                                      className={` ${errors.assinged_to_price_list &&
                                         touched.assinged_to_price_list &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                       onChange={handlePriceListChange}
                                     />
                                     <ErrorMessage
@@ -2093,11 +2126,10 @@ const CreateContactView = ({
                                     <Field
                                       type="text"
                                       name="longitude"
-                                      className={`form-control font-size-15 rounded-1 ${
-                                        errors.longitude &&
+                                      className={`form-control font-size-15 rounded-1 ${errors.longitude &&
                                         touched.longitude &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                     />
                                     <ErrorMessage
                                       name="longitude"
@@ -2117,11 +2149,10 @@ const CreateContactView = ({
                                     <Field
                                       type="text"
                                       name="latitude"
-                                      className={`form-control font-size-15 rounded-1 ${
-                                        errors.latitude &&
+                                      className={`form-control font-size-15 rounded-1 ${errors.latitude &&
                                         touched.latitude &&
                                         "is-invalid input-box-error"
-                                      }`}
+                                        }`}
                                     />
                                     <ErrorMessage
                                       name="latitude"
@@ -2177,13 +2208,13 @@ const CreateContactView = ({
                                               value: selectedUser.id,
                                               label:
                                                 selectedUser.person_name &&
-                                                selectedUser.company_name
+                                                  selectedUser.company_name
                                                   ? `${selectedUser.company_name} (${selectedUser.person_name})`
                                                   : selectedUser.person_name ||
-                                                    selectedUser.company_name ||
-                                                    selectedUser.mobile_number ||
-                                                    selectedUser.email_id ||
-                                                    "Unknown",
+                                                  selectedUser.company_name ||
+                                                  selectedUser.mobile_number ||
+                                                  selectedUser.email_id ||
+                                                  "Unknown",
                                             },
                                             setFieldValue,
                                           );
@@ -2209,13 +2240,13 @@ const CreateContactView = ({
                                                     value: user.id,
                                                     label:
                                                       user.person_name &&
-                                                      user.company_name
+                                                        user.company_name
                                                         ? `${user.company_name} (${user.person_name})`
                                                         : user.person_name ||
-                                                          user.company_name ||
-                                                          user.mobile_number ||
-                                                          user.email_id ||
-                                                          "Unknown",
+                                                        user.company_name ||
+                                                        user.mobile_number ||
+                                                        user.email_id ||
+                                                        "Unknown",
                                                   },
                                                   setFieldValue,
                                                 );
@@ -2223,13 +2254,13 @@ const CreateContactView = ({
                                               }}
                                             >
                                               {user.person_name &&
-                                              user.company_name
+                                                user.company_name
                                                 ? `${user.company_name} (${user.person_name})`
                                                 : user.person_name ||
-                                                  user.company_name ||
-                                                  user.mobile_number ||
-                                                  user.email_id ||
-                                                  "Unknown"}
+                                                user.company_name ||
+                                                user.mobile_number ||
+                                                user.email_id ||
+                                                "Unknown"}
                                             </div>
                                           ))}
                                         </div>
@@ -2310,11 +2341,10 @@ const CreateContactView = ({
                                       <FormikCustomSearchDropdown
                                         name="category_id"
                                         options={categoryOptions}
-                                        className={` ${
-                                          errors.category_id &&
+                                        className={` ${errors.category_id &&
                                           touched.category_id &&
                                           "is-invalid input-box-error"
-                                        }`}
+                                          }`}
                                         onChange={handleCategoryChange}
                                       />
                                       <ErrorMessage
@@ -2335,11 +2365,10 @@ const CreateContactView = ({
                                       <FormikCustomSearchDropdown
                                         name="product_id"
                                         options={productOptions}
-                                        className={` ${
-                                          errors.product_id &&
+                                        className={` ${errors.product_id &&
                                           touched.product_id &&
                                           "is-invalid input-box-error"
-                                        }`}
+                                          }`}
                                       />
                                       <ErrorMessage
                                         name="product_id"
@@ -2359,11 +2388,10 @@ const CreateContactView = ({
                                       <Field
                                         type="number"
                                         name="qty"
-                                        className={`form-control font-size-15 rounded-1 ${
-                                          errors.qty &&
+                                        className={`form-control font-size-15 rounded-1 ${errors.qty &&
                                           touched.qty &&
                                           "is-invalid input-box-error"
-                                        }`}
+                                          }`}
                                       />
                                     </div>
                                   </div>
@@ -2378,11 +2406,10 @@ const CreateContactView = ({
                                       <FormikCustomSearchDropdown
                                         name="static"
                                         options={requirementTypesOptions}
-                                        className={` ${
-                                          errors.static &&
+                                        className={` ${errors.static &&
                                           touched.static &&
                                           "is-invalid input-box-error"
-                                        }`}
+                                          }`}
                                       />
                                       <ErrorMessage
                                         name="static"
@@ -2403,11 +2430,10 @@ const CreateContactView = ({
                                         as="textarea"
                                         name="description"
                                         maxLength={TEXTAREA_TEXT_LENGTH}
-                                        className={`form-control ${
-                                          errors.description &&
+                                        className={`form-control ${errors.description &&
                                           touched.description &&
                                           "is-invalid input-box-error"
-                                        }`}
+                                          }`}
                                         rows={1}
                                       />
                                       <ErrorMessage
@@ -2454,13 +2480,13 @@ const CreateContactView = ({
                                           >
                                             {item.form_type === 2
                                               ? renderInputField(
-                                                  item,
-                                                  item.title,
-                                                  item.reference_column_name,
-                                                  setFieldValue,
-                                                  errors,
-                                                  touched,
-                                                )
+                                                item,
+                                                item.title,
+                                                item.reference_column_name,
+                                                setFieldValue,
+                                                errors,
+                                                touched,
+                                              )
                                               : null}
                                           </React.Fragment>
                                         ))}
@@ -2484,7 +2510,7 @@ const CreateContactView = ({
                             type="button"
                             className="modal-button1"
                             onClick={onHide}
-                            // style={{color:"#f58634"}}
+                          // style={{color:"#f58634"}}
                           >
                             Close
                           </button>
