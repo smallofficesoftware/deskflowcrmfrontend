@@ -387,21 +387,20 @@ export const fetchCustomInqFromApi = async (
   setCustomList: TReactSetState<ICustomFormList[]>,
   formType: number,
 ) => {
-  const getUUID = await localStorage.getItem("UUID");
-  const token = await localStorage.getItem("token");
+  const getUUID = localStorage.getItem("UUID");
 
   try {
     const data = await axiosInstance.post("getCustomFieldFrom", {
       a_application_login_id: Number(getUUID),
       form_type: formType,
     });
-    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+    if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS && data.data.data?.item) {
+      setCustomList(data.data.data.item);
+    } else {
       setCustomList([]);
-      toast.error(data.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
-    setCustomList(data.data.data.item);
   } catch (error: any) {
-    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    setCustomList([]);
   }
 };
 
@@ -409,21 +408,20 @@ export const fetchCustomProductFromApi = async (
   setCustomListProduct: TReactSetState<ICustomFormList[]>,
   formType: number,
 ) => {
-  const getUUID = await localStorage.getItem("UUID");
-  const token = await localStorage.getItem("token");
+  const getUUID = localStorage.getItem("UUID");
 
   try {
     const data = await axiosInstance.post("getCustomFieldFrom", {
       a_application_login_id: Number(getUUID),
       form_type: 4,
     });
-    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+    if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS && data.data.data?.item) {
+      setCustomListProduct(data.data.data.item);
+    } else {
       setCustomListProduct([]);
-      toast.error(data.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
-    setCustomListProduct(data.data.data.item);
   } catch (error: any) {
-    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    setCustomListProduct([]);
   }
 };
 
@@ -431,26 +429,39 @@ export const fetchCompanyForTerms = async (
   setPrintDate: TReactSetState<ICompanyTerms[]>,
   setisOrderClassification: any,
 ) => {
-  const getUUID = await localStorage.getItem("UUID");
+  const getUUID = localStorage.getItem("UUID");
+  const activeCompanyId = localStorage.getItem("COMPANY_ID");
+  const isValidCompanyId =
+    activeCompanyId &&
+    activeCompanyId !== "undefined" &&
+    activeCompanyId !== "null" &&
+    Number(activeCompanyId) > 0;
 
   try {
+    const whereClause = isValidCompanyId
+      ? JSON.stringify({ id: Number(activeCompanyId), isDelete: 0 })
+      : JSON.stringify({ a_application_login_id: getUUID, isDelete: 0 });
+
     const requestData = {
       table: "company_masters",
       columns:
-        "id,invoice_view_formate,quotation_view_formate,order_view_formate,purchase_view_formate,purchase_order_view_formate,return_sales_invoice_view_formate,return_purchase_invoice_view_formate,invoice_title,quotation_title,order_title,purchase_title,purchase_order_title,return_sales_invoice_title,return_purchase_invoice_title,currency_id,in_order_image_view,same_product_multiple_in_cart,quotation_terms_conditions,quotation_remark,quotation_note,order_terms_conditions,order_remark,order_note,sales_invoice_terms_conditions,sales_invoice_remark,sales_invoice_note,return_sales_invoice_terms_conditions,return_sales_invoice_remark,return_sales_invoice_note,purchase_order_terms_conditions,purchase_order_remark,purchase_order_note,purchase_invoice_terms_conditions,purchase_invoice_remark,purchase_invoice_note,return_purchase_invoice_terms_conditions,return_purchase_invoice_remark,return_purchase_invoice_note,work_order_terms_conditions,work_order_remark,work_order_note,inward_title,inward_view_formate,inward_terms_conditions,inward_remark,inward_note,dispatch_title,dispatch_view_formate,dispatch_terms_conditions,dispatch_remark,dispatch_note,gst_number,quotation_packing_charge_title,quotation_transport_charge_title,quotation_tcs_title,quotation_tsc_percentage,order_packing_charge_title,order_transport_charge_title,order_tcs_title,order_tsc_percentage,sales_invoice_packing_charge_title,sales_invoice_transport_charge_title,sales_invoice_tcs_title,sales_invoice_tsc_percentage,return_sales_invoice_packing_charge_title,return_sales_invoice_transport_charge_title,return_sales_invoice_tcs_title,return_sales_invoice_tsc_percentage,purchase_order_packing_charge_title,purchase_order_transport_charge_title,purchase_order_tcs_title,purchase_order_tsc_percentage,purchase_invoice_packing_charge_title,purchase_invoice_transport_charge_title,purchase_invoice_tcs_title,purchase_invoice_tsc_percentage,return_purchase_invoice_packing_charge_title,return_purchase_invoice_transport_charge_title,return_purchase_invoice_tcs_title,return_purchase_invoice_tsc_percentage,work_order_packing_charge_title,work_order_transport_charge_title,work_order_tcs_title,work_order_tsc_percentage,inward_packing_charge_title,inward_transport_charge_title,inward_tcs_title,inward_tsc_percentage,dispatch_packing_charge_title,dispatch_transport_charge_title,dispatch_tcs_title,dispatch_tsc_percentage,order_qty_unit,proforma_invoice_view_formate,proforma_invoice_title,proforma_invoice_terms_conditions,proforma_invoice_remark,proforma_invoice_note,proforma_invoice_packing_charge_title,proforma_invoice_transport_charge_title,proforma_invoice_tcs_title,proforma_invoice_tsc_percentage,proforma_invoice_prefix,proforma_invoice_doc_no,proforma_invoice_view_color,proforma_invoice_series_pattern,proforma_invoice_effect_last_data_on_new,proforma_invoice_sr_number_generate_flag",
-      where: JSON.stringify({ a_application_login_id: getUUID }),
+        "id,invoice_view_formate,quotation_view_formate,order_view_formate,purchase_view_formate,purchase_order_view_formate,return_sales_invoice_view_formate,return_purchase_invoice_view_formate,invoice_title,quotation_title,order_title,purchase_title,purchase_order_title,return_sales_invoice_title,return_purchase_invoice_title,currency_id,in_order_image_view,same_product_multiple_in_cart,quotation_terms_conditions,quotation_remark,quotation_note,order_terms_conditions,order_remark,order_note,sales_invoice_terms_conditions,sales_invoice_remark,sales_invoice_note,return_sales_invoice_terms_conditions,return_sales_invoice_remark,return_sales_invoice_note,purchase_order_terms_conditions,purchase_order_remark,purchase_order_note,purchase_invoice_terms_conditions,purchase_invoice_remark,purchase_invoice_note,return_purchase_invoice_terms_conditions,return_purchase_invoice_remark,return_purchase_invoice_note,work_order_terms_conditions,work_order_remark,work_order_note,inward_title,inward_view_formate,inward_terms_conditions,inward_remark,inward_note,dispatch_title,dispatch_view_formate,dispatch_terms_conditions,dispatch_remark,dispatch_note,gst_number,quotation_packing_charge_title,quotation_transport_charge_title,quotation_tcs_title,quotation_tsc_percentage,order_packing_charge_title,order_transport_charge_title,order_tcs_title,order_tsc_percentage,sales_invoice_packing_charge_title,sales_invoice_transport_charge_title,sales_invoice_tcs_title,sales_invoice_tsc_percentage,return_sales_invoice_packing_charge_title,return_sales_invoice_transport_charge_title,return_sales_invoice_tcs_title,return_sales_invoice_tsc_percentage,purchase_order_packing_charge_title,purchase_order_transport_charge_title,purchase_order_tcs_title,purchase_order_tsc_percentage,purchase_invoice_packing_charge_title,purchase_invoice_transport_charge_title,purchase_invoice_tcs_title,purchase_invoice_tsc_percentage,return_purchase_invoice_packing_charge_title,return_purchase_invoice_transport_charge_title,return_purchase_invoice_tcs_title,return_purchase_invoice_tsc_percentage,work_order_packing_charge_title,work_order_transport_charge_title,work_order_tcs_title,work_order_tsc_percentage,inward_packing_charge_title,inward_transport_charge_title,inward_tcs_title,inward_tsc_percentage,dispatch_packing_charge_title,dispatch_transport_charge_title,dispatch_tcs_title,dispatch_tsc_percentage,order_qty_unit,proforma_invoice_view_formate,proforma_invoice_title,proforma_invoice_terms_conditions,proforma_invoice_remark,proforma_invoice_note,proforma_invoice_packing_charge_title,proforma_invoice_transport_charge_title,proforma_invoice_tcs_title,proforma_invoice_tsc_percentage,proforma_invoice_prefix,proforma_invoice_doc_no,proforma_invoice_view_color,proforma_invoice_series_pattern,proforma_invoice_effect_last_data_on_new,proforma_invoice_sr_number_generate_flag,parent_company_id",
+      where: whereClause,
       request_flag: 2,
     };
     const data = await axiosInstance.post("mainCommonGet", requestData);
 
-    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
-      toast.error(data.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS || !data.data.data?.[0]) {
+      if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
       return;
     }
     const printData = data.data.data[0];
-    const orderClassification = data.data.data[0].order_qty_unit;
-    setisOrderClassification(orderClassification);
-    // console.log("111111111111111111111",orderClassification);
+    const orderClassification = data.data.data[0]?.order_qty_unit;
+    if (setisOrderClassification) {
+      setisOrderClassification(orderClassification);
+    }
 
     const printdate = Array.isArray(printData) ? printData : [printData];
     setPrintDate(printdate);
@@ -602,18 +613,17 @@ export const fetchCurrency = async (setCurrency: TReactSetState<any>) => {
       },
     );
 
-    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS && response.data.data?.item) {
       setCurrency(response.data.data.item);
     } else {
       setCurrency([]);
-      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
   } catch (error: any) {
     console.error("Error fetching currency:", error);
     setCurrency([]);
-    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }
 };
+
 export const fetchwrehouse = async (setWarehouse: TReactSetState<any>) => {
   try {
     const token = localStorage.getItem("token");
@@ -627,16 +637,14 @@ export const fetchwrehouse = async (setWarehouse: TReactSetState<any>) => {
       },
     });
 
-    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS && response.data.data?.item) {
       setWarehouse(response.data.data.item);
     } else {
       setWarehouse([]);
-      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
   } catch (error: any) {
-    console.error("Error fetching currency:", error);
+    console.error("Error fetching warehouse:", error);
     setWarehouse([]);
-    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }
 };
 
@@ -674,9 +682,7 @@ export const fetchContactDetail = async (
     }
     setContactDetail(data.data.data);
   } catch (error: any) {
-    toast.error(
-      error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
-    );
+    setContactDetail([]);
   }
 };
 
@@ -685,11 +691,10 @@ export const fetchPaymentTypeApi = async (
     { id: number; task_category_name: string }[]
   >,
 ) => {
-  const getUUID = await localStorage.getItem("UUID");
-  const token = await localStorage.getItem("token");
+  const getUUID = localStorage.getItem("UUID");
+  const token = localStorage.getItem("token");
 
   if (!getUUID || !token) {
-    toast.error("Authentication details are missing");
     setPaymentTypeList([]);
     return;
   }
@@ -706,16 +711,12 @@ export const fetchPaymentTypeApi = async (
   try {
     const response = await axiosInstance.post("commonGet", requestData);
 
-    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+    if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS && response.data.data) {
       setPaymentTypeList(response.data.data);
     } else {
-      toast.error(response.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
       setPaymentTypeList([]);
     }
   } catch (error: any) {
-    toast.error(
-      error.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
-    );
     setPaymentTypeList([]);
   }
 };

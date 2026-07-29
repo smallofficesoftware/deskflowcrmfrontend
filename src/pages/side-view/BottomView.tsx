@@ -169,8 +169,14 @@ const BottomView = ({
   }, [setTitle]);
 
   useEffect(() => {
-    if (title[0]?.id) {
-      fetchCompanyTeamApi(setCompanyTeamLists, title[0]?.id, "");
+    // Use the active workspace company, not always title[0] (which may be the main company).
+    const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+    const activeTitle = activeCompanyId
+      ? title.find((t: any) => t.id === activeCompanyId)
+      : title[0];
+    const companyIdToUse = activeTitle?.id || title[0]?.id;
+    if (companyIdToUse) {
+      fetchCompanyTeamApi(setCompanyTeamLists, companyIdToUse, "");
     }
   }, [title]);
 

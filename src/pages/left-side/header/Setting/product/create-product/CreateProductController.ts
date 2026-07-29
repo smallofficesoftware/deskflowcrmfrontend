@@ -74,6 +74,7 @@ export interface IProductCreate {
   product_img: string;
   product_types: any;
   hsn_code: string;
+  miracle_uom_name?: string;
   is_serial_number: any;
   products_column_number_1?: number | string;
   products_column_number_2?: number | string;
@@ -153,12 +154,12 @@ export const createProductInitialValues = (
 
   purchase_gst_per:
     productToEdit?.purchase_gst_per !== undefined &&
-    productToEdit?.purchase_gst_per !== null
+      productToEdit?.purchase_gst_per !== null
       ? String(productToEdit.purchase_gst_per) // ← Important: Convert to string
       : "0",
   purchase_gst_id:
     productToEdit?.purchase_gst_id !== undefined &&
-    productToEdit?.purchase_gst_id !== null
+      productToEdit?.purchase_gst_id !== null
       ? Number(productToEdit.purchase_gst_id) // ← Important: Convert to string
       : 0,
   purchase_net_rate: productToEdit?.purchase_net_rate ?? "0.00",
@@ -181,6 +182,7 @@ export const createProductInitialValues = (
     ? Number(productToEdit.product_types)
     : 5,
   hsn_code: productToEdit?.hsn_code || "",
+  miracle_uom_name: (productToEdit as any)?.miracle_uom_name || "",
   products_column_number_1: productToEdit?.products_column_number_1 || "",
   products_column_number_2: productToEdit?.products_column_number_2 || "",
   products_column_number_3: productToEdit?.products_column_number_3 || "",
@@ -391,6 +393,7 @@ const appendCommonFormData = (
   formData.append("product_types", values.product_types || "");
   formData.append("product_name", values.product_name || "");
   formData.append("is_serial_number", values.is_serial_number || "");
+  formData.append("miracle_uom_name", values.miracle_uom_name || "");
   formData.append("product_alias", values.product_alias || "");
   formData.append("product_code", values.product_code || "");
   formData.append("product_description", values.product_description || "");

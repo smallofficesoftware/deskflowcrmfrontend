@@ -257,8 +257,8 @@ const SideView = ({ profileDetail }: IProp) => {
           {
             headers: token
               ? {
-                  Authorization: `${token}`,
-                }
+                Authorization: `${token}`,
+              }
               : {}, // Optional headers
           },
         );
@@ -283,7 +283,7 @@ const SideView = ({ profileDetail }: IProp) => {
           });
           setShowAttendancePopup(
             response.data.data.compulsary_attendance === true &&
-              response.data.data.hasCheckedInToday === false,
+            response.data.data.hasCheckedInToday === false,
           );
 
           const company = response?.data?.data?.companyDetails;
@@ -1212,7 +1212,7 @@ const SideView = ({ profileDetail }: IProp) => {
         </div>
         <TaskStickyIcon
           categoryIds={categoryIds}
-          // categoryNames={categoryNames}
+        // categoryNames={categoryNames}
         />
       </div>
       {Number(flag) === 2 && (

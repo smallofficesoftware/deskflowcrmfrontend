@@ -1536,8 +1536,19 @@ const CreateContactView = ({
                                   "is-invalid input-box-error"
                                   }`}
                                 rows={1}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                  const val = e.target.value;
+                                  setFieldValue("mobile_number", val);
+                                  if (isFeatureEnabled) {
+                                    setFieldValue("client_code", val);
+                                  }
+                                }}
                                 onBlur={async (e: React.FocusEvent<any>) => {
                                   const mobileValue = e.target.value.trim();
+
+                                  if (isFeatureEnabled) {
+                                    setFieldValue("client_code", mobileValue);
+                                  }
 
                                   if (
                                     contactData &&

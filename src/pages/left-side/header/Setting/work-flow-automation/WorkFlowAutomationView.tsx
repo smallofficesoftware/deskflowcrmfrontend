@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import MiracleConfigurationsView from "./MiracleConfigurationsView";
+import MiracleLogsView from "./MiracleLogsView";
 import MiracleSynchronizationView from "./MiracleSynchronizationView";
 import WhatsappConfigurationView from "./whatsappConfigurationView";
 import WorkFlowAutomationAutoAssignmentContactPopUp from "./WorkFlowAutomationAutoAssignmentContactPopUp";
@@ -20,6 +21,7 @@ const WorkFlowAutomationView = ({
   const [isMiracleSectionExpanded, setIsMiracleSectionExpanded] = useState(false);
   const [openMiracleConfigModal, setOpenMiracleConfigModal] = useState(false);
   const [openMiracleSyncModal, setOpenMiracleSyncModal] = useState(false);
+  const [openMiracleLogsModal, setOpenMiracleLogsModal] = useState(false);
   const [dropdownOpenWhatsapp, setDropdownOpenWhatsapp] = useState(false);
 
   const toggleDropdown = () => {
@@ -387,6 +389,81 @@ const WorkFlowAutomationView = ({
                     </div>
                   </div>
 
+                  {/* Card 3: Miracle Logs & Audit Trail */}
+                  <div
+                    onClick={() => setOpenMiracleLogsModal(true)}
+                    onMouseEnter={(e) => {
+                      const t = e.currentTarget;
+                      t.style.transform = "translateY(-2px)";
+                      t.style.boxShadow = "0 8px 24px rgba(124,58,237,0.12)";
+                      t.style.borderColor = "rgba(124,58,237,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const t = e.currentTarget;
+                      t.style.transform = "translateY(0)";
+                      t.style.boxShadow = "0 1px 4px rgba(0,0,0,0.04)";
+                      t.style.borderColor = "rgba(124,58,237,0.2)";
+                    }}
+                    style={{
+                      padding: "16px 18px", borderRadius: 14, cursor: "pointer",
+                      border: "1.5px solid rgba(124,58,237,0.2)",
+                      background: "linear-gradient(135deg, #ffffff 0%, rgba(124,58,237,0.03) 100%)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      transition: "all 0.25s cubic-bezier(0.4,0,0.2,1)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                      position: "relative", overflow: "hidden",
+                    }}
+                  >
+                    {/* Left accent */}
+                    <div style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                      background: "linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%)",
+                      borderRadius: "0 4px 4px 0",
+                    }}></div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, paddingLeft: 6 }}>
+                      <div
+                        style={{
+                          width: 44, height: 44, borderRadius: 12,
+                          background: "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(124,58,237,0.25)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                          <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.86rem", color: "#1e293b", marginBottom: 2 }}>
+                          Logs & Audit Trail
+                        </div>
+                        <div style={{ fontSize: "0.74rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                          Webhook, CRM API & Outbound Miracle call logs
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: "6px 14px", borderRadius: 8,
+                        background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.15)",
+                        fontSize: "0.73rem", fontWeight: 700, color: "#7c3aed",
+                        whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4,
+                      }}
+                    >
+                      View Logs
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </div>
+                  </div>
+
                 </div>
               )}
             </div>
@@ -449,6 +526,12 @@ const WorkFlowAutomationView = ({
         <MiracleSynchronizationView
           show={openMiracleSyncModal}
           onHide={() => setOpenMiracleSyncModal(false)}
+        />
+      )}
+      {openMiracleLogsModal && (
+        <MiracleLogsView
+          show={openMiracleLogsModal}
+          onHide={() => setOpenMiracleLogsModal(false)}
         />
       )}
       {dropdownOpenWhatsapp && (

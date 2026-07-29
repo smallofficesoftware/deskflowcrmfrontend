@@ -602,23 +602,32 @@ export const updateStageStatusForOrderRadioButton = async (
 export const fetchCompanyForOrderApi = async (
   setCompanyDetail: TReactSetState<any[] | undefined>,
 ) => {
-  const getUUID = await localStorage.getItem("UUID");
+  const getUUID = localStorage.getItem("UUID");
+  const activeCompanyId = localStorage.getItem("COMPANY_ID");
+  const isValidCompanyId =
+    activeCompanyId &&
+    activeCompanyId !== "undefined" &&
+    activeCompanyId !== "null" &&
+    Number(activeCompanyId) > 0;
+
+  const whereClause = isValidCompanyId
+    ? JSON.stringify({ isDelete: 0, id: Number(activeCompanyId) })
+    : JSON.stringify({ isDelete: 0, a_application_login_id: Number(getUUID) });
+
   const requestData = {
     table: "company_masters",
-    columns: "id,company_name,company_email,terms_and_condition",
-    where: `{"isDelete": 0 , "a_application_login_id":${getUUID}}`,
-
-    request_flag: 1,
+    columns:
+      "id,company_name,company_email,terms_and_condition,invoice_view_formate,quotation_view_formate,order_view_formate,purchase_view_formate,purchase_order_view_formate,return_sales_invoice_view_formate,return_purchase_invoice_view_formate,inward_view_formate,dispatch_view_formate,proforma_invoice_view_formate,invoice_title,quotation_title,order_title,purchase_title,purchase_order_title,return_sales_invoice_title,return_purchase_invoice_title,inward_title,dispatch_title,proforma_invoice_title,quotation_terms_conditions,quotation_remark,quotation_note,order_terms_conditions,order_remark,order_note,sales_invoice_terms_conditions,sales_invoice_remark,sales_invoice_note,return_sales_invoice_terms_conditions,return_sales_invoice_remark,return_sales_invoice_note,purchase_order_terms_conditions,purchase_order_remark,purchase_order_note,purchase_invoice_terms_conditions,purchase_invoice_remark,purchase_invoice_note,return_purchase_invoice_terms_conditions,return_purchase_invoice_remark,return_purchase_invoice_note,quotation_packing_charge_title,quotation_transport_charge_title,quotation_tcs_title,quotation_tsc_percentage,order_packing_charge_title,order_transport_charge_title,order_tcs_title,order_tsc_percentage,sales_invoice_packing_charge_title,sales_invoice_transport_charge_title,sales_invoice_tcs_title,sales_invoice_tsc_percentage,return_sales_invoice_packing_charge_title,return_sales_invoice_transport_charge_title,return_sales_invoice_tcs_title,return_sales_invoice_tsc_percentage,purchase_order_packing_charge_title,purchase_order_transport_charge_title,purchase_order_tcs_title,purchase_order_tsc_percentage,purchase_invoice_packing_charge_title,purchase_invoice_transport_charge_title,purchase_invoice_tcs_title,purchase_invoice_tsc_percentage,return_purchase_invoice_packing_charge_title,return_purchase_invoice_transport_charge_title,return_purchase_invoice_tcs_title,return_purchase_invoice_tsc_percentage,proforma_invoice_packing_charge_title,proforma_invoice_transport_charge_title,proforma_invoice_tcs_title,proforma_invoice_tsc_percentage,parent_company_id",
+    where: whereClause,
+    request_flag: 2,
   };
   try {
-    const data = await axiosInstance.post("commonGet", requestData);
-    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+    const data = await axiosInstance.post("mainCommonGet", requestData);
+    if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS || !data.data.data) {
       setCompanyDetail([]);
+      return;
     }
-    const findCompany =
-      data.data.data &&
-      data.data.data.map((item: any) => item.terms_and_condition);
-    setCompanyDetail(findCompany);
+    setCompanyDetail(data.data.data);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }

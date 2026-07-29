@@ -172,6 +172,7 @@ export const fetchCompanyTeamApi = async (
 ) => {
   const token = await localStorage.getItem("token");
   const GetID = await localStorage.getItem("UUID");
+  const companyId = localStorage.getItem("COMPANY_ID");
 
   const requestData = {
     company_masters_id: companyMastersId,
@@ -182,6 +183,7 @@ export const fetchCompanyTeamApi = async (
       headers: {
         Authorization: `${token}`,
         "x-tenant-id": `${GetID}`,
+        ...(companyId ? { "x-company-id": companyId } : {}),
       },
     });
     if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
