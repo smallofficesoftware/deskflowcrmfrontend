@@ -1510,6 +1510,26 @@ const CreateProductView = ({
                             </div>
                           </div>
 
+                          {(isFeatureEnabled || Boolean((productToEdit as any)?.miracle_uom_name)) && (
+                            <div className="col-12 col-md-4">
+                              <div className="form-group">
+                                <label
+                                  htmlFor="miracle_uom_name"
+                                  className="pb-2 form_label"
+                                >
+                                  Miracle UOM Name
+                                </label>
+                                <Field
+                                  type="text"
+                                  name="miracle_uom_name"
+                                  id="miracle_uom_name"
+                                  placeholder="e.g. U1, NOS, PCS"
+                                  className="form-control font-size-15 rounded-1"
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label

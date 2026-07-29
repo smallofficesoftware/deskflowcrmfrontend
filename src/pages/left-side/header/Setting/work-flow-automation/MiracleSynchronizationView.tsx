@@ -13,20 +13,40 @@ interface IPropsMiracleSynchronization {
   onHide: () => void;
 }
 
-interface UnsyncedCounts {
-  product: number;
-  contact: number;
-  quotation: number;
-  order: number;
-  invoice: number;
-  purchase_invoice: number;
-  purchase_order: number;
-  return_sales_invoice: number;
-  return_purchase_invoice: number;
-  inward: number;
-  dispatch: number;
-  account_transaction: number;
+interface ModuleCountDetail {
+  total: number;
+  new_count: number;
+  update_count: number;
 }
+
+type CountValue = number | ModuleCountDetail;
+
+interface UnsyncedCounts {
+  product: CountValue;
+  contact: CountValue;
+  quotation: CountValue;
+  order: CountValue;
+  invoice: CountValue;
+  purchase_invoice: CountValue;
+  purchase_order: CountValue;
+  return_sales_invoice: CountValue;
+  return_purchase_invoice: CountValue;
+  inward: CountValue;
+  dispatch: CountValue;
+  account_transaction: CountValue;
+}
+
+const getModuleCountDetail = (val: CountValue | undefined): ModuleCountDetail => {
+  if (!val) return { total: 0, new_count: 0, update_count: 0 };
+  if (typeof val === "number") {
+    return { total: val, new_count: val, update_count: 0 };
+  }
+  return {
+    total: Number(val.total || 0),
+    new_count: Number(val.new_count || 0),
+    update_count: Number(val.update_count || 0),
+  };
+};
 
 interface SyncSummary {
   module: string;
@@ -47,7 +67,7 @@ interface CompanyTitles {
   return_purchase_invoice_title: string;
 }
 
-const DESKFLOW_COLOR = "#e37430";
+const DESKFLOW_COLOR = "#fa7a23";
 const MIRACLE_COLOR = "#1070b2";
 
 type DatePresetKey = "all" | "this_month" | "last_30" | "current_fy" | "custom";
@@ -250,7 +270,9 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
         const fetchedCounts = response.data.data.counts || initialCounts;
         setCounts(fetchedCounts);
         setSelectedModules(
-          allowedModules.filter((m) => (fetchedCounts[m.key] || 0) > 0).map((m) => m.key)
+          allowedModules
+            .filter((m) => getModuleCountDetail(fetchedCounts[m.key]).total > 0)
+            .map((m) => m.key)
         );
       }
     } catch (error: any) {
@@ -326,7 +348,23 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
     }
   };
 
-  const getTotalUnsynced = () => Object.values(counts).reduce((a, b) => a + b, 0);
+  const getTotalUnsynced = () =>
+    Object.values(counts).reduce(
+      (a, b) => a + getModuleCountDetail(b).total,
+      0
+    );
+
+  const getTotalNewInserts = () =>
+    Object.values(counts).reduce(
+      (a, b) => a + getModuleCountDetail(b).new_count,
+      0
+    );
+
+  const getTotalPendingUpdates = () =>
+    Object.values(counts).reduce(
+      (a, b) => a + getModuleCountDetail(b).update_count,
+      0
+    );
 
   const filteredModules = allowedModules.filter(
     (m) =>
@@ -509,108 +547,134 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
           </div>
 
           {/* ─── Stat Widgets Row (with Skeleton Support) ─── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
             {/* Widget 1: Total Unsynced */}
             <div
               style={{
-                padding: "16px", borderRadius: 12,
+                padding: "14px 16px", borderRadius: 12,
                 background: `linear-gradient(135deg, rgba(227,116,48,0.08) 0%, rgba(227,116,48,0.02) 100%)`,
                 border: "1px solid rgba(227,116,48,0.18)",
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}
             >
               <div>
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                  Pending Unsynced
+                <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 3 }}>
+                  Total Pending
                 </div>
                 {isLoadingCounts ? (
-                  <div className="skeleton-bar" style={{ width: 60, height: 28, borderRadius: 6 }}></div>
+                  <div className="skeleton-bar" style={{ width: 50, height: 24, borderRadius: 6 }}></div>
                 ) : (
-                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: DESKFLOW_COLOR, lineHeight: 1 }}>
+                  <div style={{ fontSize: "1.45rem", fontWeight: 800, color: DESKFLOW_COLOR, lineHeight: 1 }}>
                     {getTotalUnsynced()}
                   </div>
                 )}
               </div>
               <div style={{
-                width: 38, height: 38, borderRadius: "50%",
+                width: 34, height: 34, borderRadius: "50%",
                 background: DESKFLOW_COLOR, display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(227,116,48,0.3)",
+                boxShadow: "0 4px 10px rgba(227,116,48,0.25)",
               }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
             </div>
 
-            {/* Widget 2: Selected Count */}
+            {/* Widget 2: New Inserts */}
             <div
               style={{
-                padding: "16px", borderRadius: 12,
+                padding: "14px 16px", borderRadius: 12,
+                background: `linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.02) 100%)`,
+                border: "1px solid rgba(16,185,129,0.2)",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 3 }}>
+                  New Inserts
+                </div>
+                {isLoadingCounts ? (
+                  <div className="skeleton-bar" style={{ width: 50, height: 24, borderRadius: 6 }}></div>
+                ) : (
+                  <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#10b981", lineHeight: 1 }}>
+                    {getTotalNewInserts()}
+                  </div>
+                )}
+              </div>
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 10px rgba(16,185,129,0.25)",
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Widget 3: Pending Updates */}
+            <div
+              style={{
+                padding: "14px 16px", borderRadius: 12,
+                background: `linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.02) 100%)`,
+                border: "1px solid rgba(245,158,11,0.2)",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 3 }}>
+                  Pending Updates
+                </div>
+                {isLoadingCounts ? (
+                  <div className="skeleton-bar" style={{ width: 50, height: 24, borderRadius: 6 }}></div>
+                ) : (
+                  <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#d97706", lineHeight: 1 }}>
+                    {getTotalPendingUpdates()}
+                  </div>
+                )}
+              </div>
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: "#d97706", display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 10px rgba(245,158,11,0.25)",
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Widget 4: Selected Modules */}
+            <div
+              style={{
+                padding: "14px 16px", borderRadius: 12,
                 background: `linear-gradient(135deg, rgba(16,112,178,0.08) 0%, rgba(16,112,178,0.02) 100%)`,
                 border: "1px solid rgba(16,112,178,0.18)",
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}
             >
               <div>
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 3 }}>
                   Selected Modules
                 </div>
                 {isLoadingCounts ? (
-                  <div className="skeleton-bar" style={{ width: 80, height: 28, borderRadius: 6 }}></div>
+                  <div className="skeleton-bar" style={{ width: 70, height: 24, borderRadius: 6 }}></div>
                 ) : (
-                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: MIRACLE_COLOR, lineHeight: 1 }}>
+                  <div style={{ fontSize: "1.45rem", fontWeight: 800, color: MIRACLE_COLOR, lineHeight: 1 }}>
                     {selectedModules.length}
-                    <span style={{ fontSize: "0.85rem", color: "#94a3b8", fontWeight: 500 }}> / {allowedModules.length}</span>
+                    <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 500 }}> / {allowedModules.length}</span>
                   </div>
                 )}
               </div>
               <div style={{
-                width: 38, height: 38, borderRadius: "50%",
+                width: 34, height: 34, borderRadius: "50%",
                 background: MIRACLE_COLOR, display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(16,112,178,0.3)",
+                boxShadow: "0 4px 10px rgba(16,112,178,0.25)",
               }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
                   <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                 </svg>
               </div>
-            </div>
-
-            {/* Widget 3: Refresh & Status */}
-            <div
-              style={{
-                padding: "16px", borderRadius: 12,
-                background: "#f8fafc", border: "1px solid #e2e8f0",
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  API Status
-                </div>
-                <span style={{
-                  fontSize: "0.74rem", fontWeight: 600, color: "#10b981",
-                  background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
-                  padding: "3px 10px", borderRadius: 6,
-                }}>
-                  ● Connected
-                </span>
-              </div>
-              <button
-                onClick={() => fetchUnsyncedCounts()}
-                disabled={isLoadingCounts || isSyncing}
-                style={{
-                  background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
-                  padding: "6px 12px", cursor: "pointer", fontSize: "0.74rem",
-                  fontWeight: 600, color: "#475569", display: "flex", alignItems: "center", gap: 5,
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                  style={{ animation: isLoadingCounts ? "spin 1s linear infinite" : "none" }}>
-                  <path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-                Refresh
-              </button>
             </div>
           </div>
 
@@ -743,7 +807,10 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
             /* ─── Module Cards Grid ─── */
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
               {filteredModules.map((mod) => {
-                const count = counts[mod.key] || 0;
+                const countDetail = getModuleCountDetail(counts[mod.key]);
+                const totalCount = countDetail.total;
+                const newCount = countDetail.new_count;
+                const updateCount = countDetail.update_count;
                 const isSelected = selectedModules.includes(mod.key);
                 const isHovered = hoveredModule === mod.key;
                 const label = getModuleLabel(mod);
@@ -783,7 +850,7 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         style={{
                           width: 17, height: 17, cursor: "pointer",
                           accentColor: MIRACLE_COLOR, borderRadius: 4,
@@ -818,19 +885,45 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {count > 0 ? (
-                        <span
-                          style={{
-                            fontSize: "0.73rem", fontWeight: 700, color: "#fff",
-                            background: DESKFLOW_COLOR, padding: "4px 10px",
-                            borderRadius: 20, display: "flex", alignItems: "center", gap: 4,
-                            boxShadow: "0 2px 6px rgba(227,116,48,0.2)",
-                          }}
-                        >
-                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span>
-                          {count}
-                        </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      {totalCount > 0 ? (
+                        <>
+                          {newCount > 0 && (
+                            <span
+                              title="New record insertions (never synced)"
+                              style={{
+                                fontSize: "0.68rem", fontWeight: 700, color: "#10b981",
+                                background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)",
+                                padding: "2px 7px", borderRadius: 6,
+                              }}
+                            >
+                              +{newCount} New
+                            </span>
+                          )}
+                          {updateCount > 0 && (
+                            <span
+                              title="Pending updates (modified on CRM after last Miracle sync)"
+                              style={{
+                                fontSize: "0.68rem", fontWeight: 700, color: "#d97706",
+                                background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)",
+                                padding: "2px 7px", borderRadius: 6,
+                              }}
+                            >
+                              ↻ {updateCount} Modified
+                            </span>
+                          )}
+                          <span
+                            style={{
+                              fontSize: "0.73rem", fontWeight: 700, color: "#fff",
+                              background: DESKFLOW_COLOR, padding: "4px 10px",
+                              borderRadius: 20, display: "flex", alignItems: "center", gap: 4,
+                              boxShadow: "0 2px 6px rgba(227,116,48,0.2)",
+                            }}
+                          >
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span>
+                            {totalCount}
+                          </span>
+                        </>
                       ) : (
                         <span
                           style={{

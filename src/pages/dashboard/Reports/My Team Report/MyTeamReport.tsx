@@ -164,7 +164,22 @@ const MyTeamReport = ({
     useEffect(() => {
         const fetchCompany = async () => {
             await fetchCompanyApi(
-                setCompanyLists,
+                (items: any) => {
+                    // Sort so the active workspace always comes first.
+                    // companyLists[0] is used for company_flag permission checks —
+                    // it must reflect the active workspace, not always the main company.
+                    const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+                    if (activeCompanyId && Array.isArray(items)) {
+                        const sorted = [...items].sort((a: any, b: any) => {
+                            if (a.id === activeCompanyId) return -1;
+                            if (b.id === activeCompanyId) return 1;
+                            return 0;
+                        });
+                        setCompanyLists(sorted);
+                    } else {
+                        setCompanyLists(items);
+                    }
+                },
                 "",
                 setNoDataFound,
                 setCompanyJoinOrCreate,

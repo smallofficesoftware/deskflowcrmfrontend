@@ -231,8 +231,8 @@ const RightView = ({
           const list: ICompany[] = Array.isArray(companiesData)
             ? companiesData
             : typeof companiesData === "function"
-            ? companiesData([])
-            : [];
+              ? companiesData([])
+              : [];
           const active = list.find((c) => c.id === Number(activeId));
           if (active) {
             setActiveWorkspaceName(active.company_name);
@@ -243,9 +243,9 @@ const RightView = ({
           }
         },
         "",
-        () => {},
-        () => {},
-        () => {},
+        () => { },
+        () => { },
+        () => { },
       );
     };
     fetchCurrentWorkspace();
@@ -793,99 +793,90 @@ const RightView = ({
     },
     {
       Number: "10",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.quotation_title
+      text: `Add ${companyLists[0] && companyLists[0]?.quotation_title
           ? companyLists[0]?.quotation_title
           : "Quotation"
-      }`,
+        }`,
       action: () => {
         handelOpenQuotation();
       },
     },
     {
       Number: "11",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.order_title
+      text: `Add ${companyLists[0] && companyLists[0]?.order_title
           ? companyLists[0]?.order_title
           : "Sales Order"
-      }`,
+        }`,
       action: () => {
         handelOpenOrder();
       },
     },
     {
       Number: "12",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.dispatch_title
+      text: `Add ${companyLists[0] && companyLists[0]?.dispatch_title
           ? companyLists[0]?.dispatch_title
           : "Dispatch"
-      }`,
+        }`,
       action: () => {
         handelOpenDispatch();
       },
     },
     {
       Number: "13",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.invoice_title
+      text: `Add ${companyLists[0] && companyLists[0]?.invoice_title
           ? companyLists[0]?.invoice_title
           : "Sales Invoice"
-      }`,
+        }`,
       action: () => {
         handelOpenInvoice();
       },
     },
     {
       Number: "14",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.return_sales_invoice_title
+      text: `Add ${companyLists[0] && companyLists[0]?.return_sales_invoice_title
           ? companyLists[0]?.return_sales_invoice_title
           : "Return Sales Invoice"
-      }`,
+        }`,
       action: () => {
         handelOpenReturnSalesInvoice();
       },
     },
     {
       Number: "15",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.purchase_order_title
+      text: `Add ${companyLists[0] && companyLists[0]?.purchase_order_title
           ? companyLists[0]?.purchase_order_title
           : "Purchase Order"
-      }`,
+        }`,
       action: () => {
         handelOpenPurchaseOrder();
       },
     },
     {
       Number: "16",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.inward_title
+      text: `Add ${companyLists[0] && companyLists[0]?.inward_title
           ? companyLists[0]?.inward_title
           : "Goods Received Note"
-      }`,
+        }`,
       action: () => {
         handelOpenInward();
       },
     },
     {
       Number: "17",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.purchase_title
+      text: `Add ${companyLists[0] && companyLists[0]?.purchase_title
           ? companyLists[0]?.purchase_title
           : "Purchase Invoice"
-      }`,
+        }`,
       action: () => {
         handelOpenPurchaseInvoice();
       },
     },
     {
       Number: "18",
-      text: `Add ${
-        companyLists[0] && companyLists[0]?.return_purchase_invoice_title
+      text: `Add ${companyLists[0] && companyLists[0]?.return_purchase_invoice_title
           ? companyLists[0]?.return_purchase_invoice_title
           : "Return Purchase Invoice"
-      }`,
+        }`,
       action: () => {
         handelOpenReturnPurchaseInvoice();
       },
@@ -1322,99 +1313,90 @@ const RightView = ({
     },
     {
       Number: "80",
-      text: `${
-        companyLists[0] && companyLists[0]?.quotation_title
+      text: `${companyLists[0] && companyLists[0]?.quotation_title
           ? companyLists[0]?.quotation_title + "Report"
           : "Quotation Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("quotation");
       },
     },
     {
       Number: "81",
-      text: `${
-        companyLists[0] && companyLists[0]?.order_title
+      text: `${companyLists[0] && companyLists[0]?.order_title
           ? companyLists[0]?.order_title + " Report"
           : "Sales Order Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("order");
       },
     },
     {
       Number: "82",
-      text: `${
-        companyLists[0] && companyLists[0]?.dispatch_title
+      text: `${companyLists[0] && companyLists[0]?.dispatch_title
           ? companyLists[0]?.dispatch_title + " Report"
           : "Dispatch Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("dispatch_report");
       },
     },
     {
       Number: "83",
-      text: `${
-        companyLists[0] && companyLists[0]?.invoice_title
+      text: `${companyLists[0] && companyLists[0]?.invoice_title
           ? companyLists[0]?.invoice_title + " Report"
           : "Sales Invoice Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("order_invoice");
       },
     },
     {
       Number: "84",
-      text: `${
-        companyLists[0] && companyLists[0]?.return_sales_invoice_title
+      text: `${companyLists[0] && companyLists[0]?.return_sales_invoice_title
           ? companyLists[0]?.return_sales_invoice_title + " Report"
           : "Return Sales Invoice Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("return_sales_invoice");
       },
     },
     {
       Number: "85",
-      text: `${
-        companyLists[0] && companyLists[0]?.purchase_order_title
+      text: `${companyLists[0] && companyLists[0]?.purchase_order_title
           ? companyLists[0]?.purchase_order_title + " Report"
           : "Purchase Order Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("purchase_order");
       },
     },
     {
       Number: "86",
-      text: `${
-        companyLists[0] && companyLists[0]?.inward_title
+      text: `${companyLists[0] && companyLists[0]?.inward_title
           ? companyLists[0]?.inward_title + " Report"
           : "Goods Received Note Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("inward_report");
       },
     },
     {
       Number: "87",
-      text: `${
-        companyLists[0] && companyLists[0]?.purchase_title
+      text: `${companyLists[0] && companyLists[0]?.purchase_title
           ? companyLists[0]?.purchase_title + " Report"
           : "Purchase Invoice Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("purchase_invoice");
       },
     },
     {
       Number: "88",
-      text: `${
-        companyLists[0] && companyLists[0]?.return_purchase_invoice_title
+      text: `${companyLists[0] && companyLists[0]?.return_purchase_invoice_title
           ? companyLists[0]?.return_purchase_invoice_title + " Report"
           : "Return Purchase Invoice Report"
-      }`,
+        }`,
       action: () => {
         handleSingleReportShow("return_purchase_invoice");
       },
@@ -1666,7 +1648,7 @@ const RightView = ({
             : item.type === 11
               ? "Stock Adjustment Outward"
               : orderTypesList.find((e) => Number(e.id) === item.type)
-                  ?.order_type || "";
+                ?.order_type || "";
       } else if (item.task_title) {
         typeLabel2 = item.is_support_ticket === 1 ? "Support Ticket" : "Task";
       }
@@ -1678,16 +1660,16 @@ const RightView = ({
         Number: index + 1,
         action: item.cart_number
           ? () => {
-              window.open(item.link, "_blank", "noopener,noreferrer");
-            }
+            window.open(item.link, "_blank", "noopener,noreferrer");
+          }
           : () => {
-              if (typeLabel2 === "Task") {
-                showMyTask();
-              } else {
-                showMySupportTicket();
-              }
-              setIdFromRightSide(item.id);
-            },
+            if (typeLabel2 === "Task") {
+              showMyTask();
+            } else {
+              showMySupportTicket();
+            }
+            setIdFromRightSide(item.id);
+          },
       };
     });
   }, [dynamicOptions]);
@@ -2016,7 +1998,7 @@ const RightView = ({
   //   PAGE_ID.ATTENDANCE,
   //   PERMISSION_TYPE.VIEW
   // );
-  const openRightSide = () => {};
+  const openRightSide = () => { };
 
   const a_application_login_id = localStorage.getItem("UUID");
 
@@ -3580,11 +3562,11 @@ const RightView = ({
       // Remove HTML tags and decode entities if needed
       let plainTextDescription = message.description
         ? message.description
-            .replace(/<br\s*\/?>/gi, "\n") // preserve line breaks
-            .replace(/<[^>]+>/g, "") // remove all tags
-            .replace(/&nbsp;/gi, " ") // decode non-breaking space
-            .replace(/&amp;/gi, "&") // decode ampersand
-            .trim()
+          .replace(/<br\s*\/?>/gi, "\n") // preserve line breaks
+          .replace(/<[^>]+>/g, "") // remove all tags
+          .replace(/&nbsp;/gi, " ") // decode non-breaking space
+          .replace(/&amp;/gi, "&") // decode ampersand
+          .trim()
         : "";
 
       setIsOpenTaskCreateModel(true);
@@ -3740,16 +3722,14 @@ const RightView = ({
                           }}
                           title={
                             getData?.person_name
-                              ? `${getData?.company_name} ${
-                                  getData?.company_name && "-"
-                                } ${getData?.person_name}`
+                              ? `${getData?.company_name} ${getData?.company_name && "-"
+                              } ${getData?.person_name}`
                               : `${getData?.person_name}`
                           }
                           aria-label={
                             getData?.person_name
-                              ? `${getData?.company_name} ${
-                                  getData?.company_name && "-"
-                                } ${getData?.person_name}`
+                              ? `${getData?.company_name} ${getData?.company_name && "-"
+                              } ${getData?.person_name}`
                               : `${getData?.person_name}`
                           }
                         >
@@ -3903,11 +3883,10 @@ const RightView = ({
                           </span>
                           <div className="dropdown-icon">
                             <ul
-                              className={`drop-order ${
-                                dropdownOpenCreateOrder
+                              className={`drop-order ${dropdownOpenCreateOrder
                                   ? "isVisible"
                                   : "isHidden"
-                              }`}
+                                }`}
                               style={{
                                 maxWidth: "250px",
                                 minWidth: "200px",
@@ -4013,7 +3992,7 @@ const RightView = ({
                               >
                                 {companyLists[0]?.return_purchase_invoice_title
                                   ? companyLists[0]
-                                      ?.return_purchase_invoice_title
+                                    ?.return_purchase_invoice_title
                                   : "Return Purchase Invoice"}
                               </li>
                             </ul>
@@ -4129,9 +4108,8 @@ const RightView = ({
                               </svg>
                             </button>
                             <ul
-                              className={`drop ${
-                                dropdownOpen ? "isVisible" : "isHidden"
-                              }`}
+                              className={`drop ${dropdownOpen ? "isVisible" : "isHidden"
+                                }`}
                               id="drop"
                             >
                               <li
@@ -4451,13 +4429,13 @@ const RightView = ({
                                   <span className="chat__date">
                                     {group.date
                                       ? new Date(group.date)
-                                          .toLocaleDateString("en-GB", {
-                                            weekday: "long",
-                                            year: "numeric",
-                                            month: "2-digit",
-                                            day: "2-digit",
-                                          })
-                                          .replace(/\//g, "-")
+                                        .toLocaleDateString("en-GB", {
+                                          weekday: "long",
+                                          year: "numeric",
+                                          month: "2-digit",
+                                          day: "2-digit",
+                                        })
+                                        .replace(/\//g, "-")
                                       : ""}
                                   </span>
                                 </div>
@@ -4480,14 +4458,14 @@ const RightView = ({
                                                     (item) =>
                                                       item.company_flag === 1,
                                                   ) && (
-                                                    <span className="tooltip-content">
-                                                      <SafeHtml
-                                                        htmlContent={whatsappToHtml(
-                                                          message.description,
-                                                        )}
-                                                      />
-                                                    </span>
-                                                  )}
+                                                      <span className="tooltip-content">
+                                                        <SafeHtml
+                                                          htmlContent={whatsappToHtml(
+                                                            message.description,
+                                                          )}
+                                                        />
+                                                      </span>
+                                                    )}
                                                 </p>
                                               ) : (
                                                 <>
@@ -4535,14 +4513,14 @@ const RightView = ({
                                                       <span className="chat__msg-filler2">
                                                         {message.entry_flag ===
                                                           1 && (
-                                                          <span role="button">
-                                                            <img
-                                                              src={whatsappIcon}
-                                                              width={20}
-                                                              alt=""
-                                                            />
-                                                          </span>
-                                                        )}
+                                                            <span role="button">
+                                                              <img
+                                                                src={whatsappIcon}
+                                                                width={20}
+                                                                alt=""
+                                                              />
+                                                            </span>
+                                                          )}
                                                       </span>
                                                     </div>
                                                     <div
@@ -4558,8 +4536,8 @@ const RightView = ({
                                                         />
                                                       </span>
                                                       {extension === "png" ||
-                                                      extension === "jpg" ||
-                                                      extension === "jpeg" ? (
+                                                        extension === "jpg" ||
+                                                        extension === "jpeg" ? (
                                                         <span
                                                           onClick={() =>
                                                             handleChangeImgViewer(
@@ -4633,8 +4611,8 @@ const RightView = ({
                                                       <span>
                                                         {message.created_date_time
                                                           ? formatTimeToAmPm(
-                                                              message.created_date_time,
-                                                            )
+                                                            message.created_date_time,
+                                                          )
                                                           : ""}
                                                       </span>
                                                     </span>
@@ -4643,7 +4621,7 @@ const RightView = ({
                                                       <span>
                                                         <i>
                                                           {message.entry_flag ===
-                                                          1 ? (
+                                                            1 ? (
                                                             <>
                                                               {
                                                                 message.application_login_name
@@ -4661,23 +4639,21 @@ const RightView = ({
                                                     </span>
                                                     <div>
                                                       <ul
-                                                        className={`${
-                                                          filteredItemIds.includes(
-                                                            message.id,
-                                                          )
+                                                        className={`${filteredItemIds.includes(
+                                                          message.id,
+                                                        )
                                                             ? "drop_msg1"
                                                             : "drop_msg_left"
-                                                        } 
-                                                          ${
-                                                            dropdownOpenMsgLeft ===
+                                                          } 
+                                                          ${dropdownOpenMsgLeft ===
                                                             message.id
-                                                              ? "isVisible"
-                                                              : "isHidden"
+                                                            ? "isVisible"
+                                                            : "isHidden"
                                                           }`}
                                                         ref={(el) =>
-                                                          (dropdownRefLeftMsg.current[
-                                                            message.id
-                                                          ] = el)
+                                                        (dropdownRefLeftMsg.current[
+                                                          message.id
+                                                        ] = el)
                                                         }
                                                       >
                                                         {/* {message.message_type_id ===
@@ -4713,11 +4689,11 @@ const RightView = ({
                                                         </li>
 
                                                         {!message.is_reminder &&
-                                                        (message.message_type_id ===
-                                                          0 ||
-                                                          message.message_type_id ===
+                                                          (message.message_type_id ===
+                                                            0 ||
+                                                            message.message_type_id ===
                                                             2 ||
-                                                          message.message_type_id ===
+                                                            message.message_type_id ===
                                                             1) ? (
                                                           <li
                                                             className="drop_listItem"
@@ -4754,7 +4730,7 @@ const RightView = ({
                                                           Move to Me
                                                         </li>
                                                         {message.id ==
-                                                        getData?.pinned_message ? (
+                                                          getData?.pinned_message ? (
                                                           <li
                                                             className="drop_listItem"
                                                             role="button"
@@ -4822,14 +4798,14 @@ const RightView = ({
                                                     (item) =>
                                                       item.company_flag === 1,
                                                   ) && (
-                                                    <span className="tooltip-content">
-                                                      <SafeHtml
-                                                        htmlContent={whatsappToHtml(
-                                                          message.description,
-                                                        )}
-                                                      />
-                                                    </span>
-                                                  )}
+                                                      <span className="tooltip-content">
+                                                        <SafeHtml
+                                                          htmlContent={whatsappToHtml(
+                                                            message.description,
+                                                          )}
+                                                        />
+                                                      </span>
+                                                    )}
                                                 </p>
                                               ) : (
                                                 <div
@@ -4875,33 +4851,33 @@ const RightView = ({
                                                       )}
                                                       {message.entry_flag ===
                                                         1 && (
-                                                        <span role="button">
-                                                          <img
-                                                            src={whatsappIcon}
-                                                            width={20}
-                                                            alt=""
-                                                          />
-                                                        </span>
-                                                      )}
+                                                          <span role="button">
+                                                            <img
+                                                              src={whatsappIcon}
+                                                              width={20}
+                                                              alt=""
+                                                            />
+                                                          </span>
+                                                        )}
                                                       {message.entry_flag ===
                                                         2 && (
-                                                        <span role="button">
-                                                          <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            height="20px"
-                                                            viewBox="0 -960 960 960"
-                                                            width="20px"
-                                                            fill="#5f6368"
-                                                          >
-                                                            <path d="M480-440 160-640v400h360v80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440Zm0-80 320-200H160l320 200ZM760-40l-56-56 63-64H600v-80h167l-64-64 57-56 160 160L760-40ZM160-640v440-240 3-283 80Z" />
-                                                          </svg>
-                                                        </span>
-                                                      )}
+                                                          <span role="button">
+                                                            <svg
+                                                              xmlns="http://www.w3.org/2000/svg"
+                                                              height="20px"
+                                                              viewBox="0 -960 960 960"
+                                                              width="20px"
+                                                              fill="#5f6368"
+                                                            >
+                                                              <path d="M480-440 160-640v400h360v80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440Zm0-80 320-200H160l320 200ZM760-40l-56-56 63-64H600v-80h167l-64-64 57-56 160 160L760-40ZM160-640v440-240 3-283 80Z" />
+                                                            </svg>
+                                                          </span>
+                                                        )}
                                                     </span>
                                                   </div>
                                                   <span>
                                                     {message.message_type_id ===
-                                                    1 ? (
+                                                      1 ? (
                                                       <></>
                                                     ) : (
                                                       ""
@@ -4917,8 +4893,8 @@ const RightView = ({
                                                   </span>
 
                                                   {extension === "png" ||
-                                                  extension === "jpg" ||
-                                                  extension === "jpeg" ? (
+                                                    extension === "jpg" ||
+                                                    extension === "jpeg" ? (
                                                     <span
                                                       onClick={() =>
                                                         handleChangeImgViewer(
@@ -4994,8 +4970,8 @@ const RightView = ({
                                                     <span>
                                                       {message.created_date_time
                                                         ? formatTimeToAmPm(
-                                                            message.created_date_time,
-                                                          )
+                                                          message.created_date_time,
+                                                        )
                                                         : ""}
                                                     </span>
                                                   </span>
@@ -5010,27 +4986,25 @@ const RightView = ({
                                                   </span>
                                                   <div>
                                                     <ul
-                                                      className={`${
-                                                        filteredItemIds.includes(
-                                                          message.id,
-                                                        )
+                                                      className={`${filteredItemIds.includes(
+                                                        message.id,
+                                                      )
                                                           ? "drop_msg1"
                                                           : "drop_msg"
-                                                      } 
-                                                      ${
-                                                        dropdownOpenMsg ===
-                                                        message.id
+                                                        } 
+                                                      ${dropdownOpenMsg ===
+                                                          message.id
                                                           ? "isVisible"
                                                           : "isHidden"
-                                                      }`}
+                                                        }`}
                                                       ref={(el) =>
-                                                        (dropdownRefRightMsg.current[
-                                                          message.id
-                                                        ] = el)
+                                                      (dropdownRefRightMsg.current[
+                                                        message.id
+                                                      ] = el)
                                                       }
                                                     >
                                                       {message.message_type_id ===
-                                                      0 ? (
+                                                        0 ? (
                                                         <li
                                                           className="drop_listItem"
                                                           role="button"
@@ -5062,11 +5036,11 @@ const RightView = ({
                                                       </li>
 
                                                       {!message.is_reminder &&
-                                                      (message.message_type_id ===
-                                                        0 ||
-                                                        message.message_type_id ===
+                                                        (message.message_type_id ===
+                                                          0 ||
+                                                          message.message_type_id ===
                                                           2 ||
-                                                        message.message_type_id ===
+                                                          message.message_type_id ===
                                                           1) ? (
                                                         <li
                                                           className="drop_listItem"
@@ -5104,7 +5078,7 @@ const RightView = ({
                                                       </li>
 
                                                       {message.id ==
-                                                      getData?.pinned_message ? (
+                                                        getData?.pinned_message ? (
                                                         <li
                                                           className="drop_listItem"
                                                           role="button"
@@ -5278,7 +5252,7 @@ const RightView = ({
                     getInfo={getData}
                     deleteContact={() => setIsCloseConfirmation(true)}
                     setIsCreateContact1={setIsCreateContact1}
-                    // handelRefreshMessages={handelRefreshMessages}
+                  // handelRefreshMessages={handelRefreshMessages}
                   />
                 </>
               ) : (
@@ -5530,12 +5504,12 @@ const RightView = ({
                                           : "transparent",
                                     }}
                                     onMouseEnter={(e) =>
-                                      (e.currentTarget.style.background =
-                                        "#f1f3f4")
+                                    (e.currentTarget.style.background =
+                                      "#f1f3f4")
                                     }
                                     onMouseLeave={(e) =>
-                                      (e.currentTarget.style.background =
-                                        "transparent")
+                                    (e.currentTarget.style.background =
+                                      "transparent")
                                     }
                                     onClick={() => {
                                       if (dynamicOnes.length <= 0) {
@@ -5829,15 +5803,15 @@ const RightView = ({
                                 style={
                                   savedAttendance === 2 || savedAttendance === 0
                                     ? {
-                                        backgroundColor: "#ccc",
-                                        borderRadius: "50%",
-                                        padding: "10px",
-                                      }
+                                      backgroundColor: "#ccc",
+                                      borderRadius: "50%",
+                                      padding: "10px",
+                                    }
                                     : {
-                                        backgroundColor: "#008000",
-                                        borderRadius: "50%",
-                                        padding: "10px",
-                                      }
+                                      backgroundColor: "#008000",
+                                      borderRadius: "50%",
+                                      padding: "10px",
+                                    }
                                 }
                                 title={
                                   savedAttendance == 2
@@ -5846,7 +5820,7 @@ const RightView = ({
                                 }
                               >
                                 {savedAttendance === 2 ||
-                                savedAttendance === 0 ? (
+                                  savedAttendance === 0 ? (
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     height="24px"
@@ -5929,8 +5903,8 @@ const RightView = ({
                                   canViewAiModel
                                     ? showAichat()
                                     : toast.error(
-                                        DEFAULT_MESSAGE_ERROR_PERMISSION,
-                                      )
+                                      DEFAULT_MESSAGE_ERROR_PERMISSION,
+                                    )
                                 }
                               >
                                 <span title="AI Assistant">
@@ -5957,8 +5931,8 @@ const RightView = ({
                                   canViewAiModel
                                     ? handelChangeShowModelExploreNearby()
                                     : toast.error(
-                                        DEFAULT_MESSAGE_ERROR_PERMISSION,
-                                      )
+                                      DEFAULT_MESSAGE_ERROR_PERMISSION,
+                                    )
                                 }
                               >
                                 <span title="Explore in google map">
@@ -5983,7 +5957,7 @@ const RightView = ({
                                   margin: "10px",
                                   position: "relative",
                                 }}
-                                // onClick={() => openInNewTab("/videoTutorial", 17)}
+                              // onClick={() => openInNewTab("/videoTutorial", 17)}
                               >
                                 <a
                                   href={`https://www.youtube.com/@deskflowcrm`}
@@ -6068,11 +6042,10 @@ const RightView = ({
                                 style={{ right: "20%" }}
                               >
                                 <ul
-                                  className={`drop-order ${
-                                    dropdownOpenCreateOrder
+                                  className={`drop-order ${dropdownOpenCreateOrder
                                       ? "isVisible"
                                       : "isHidden"
-                                  }`}
+                                    }`}
                                   style={{
                                     maxWidth: "250px",
                                     minWidth: "200px",
@@ -6084,7 +6057,7 @@ const RightView = ({
                                     onClick={handelOpenQuotation}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.quotation_title
+                                      companyLists[0]?.quotation_title
                                       ? companyLists[0]?.quotation_title
                                       : "Quotation"}
                                   </li>
@@ -6094,7 +6067,7 @@ const RightView = ({
                                     onClick={handelOpenProfomaInvoice}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.proforma_invoice_title
+                                      companyLists[0]?.proforma_invoice_title
                                       ? companyLists[0]?.proforma_invoice_title
                                       : "Proforma Invoice"}
                                   </li>
@@ -6104,7 +6077,7 @@ const RightView = ({
                                     onClick={handelOpenOrder}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.order_title
+                                      companyLists[0]?.order_title
                                       ? companyLists[0]?.order_title
                                       : "Sales Order"}
                                   </li>
@@ -6114,7 +6087,7 @@ const RightView = ({
                                     onClick={handelOpenDispatch}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.dispatch_title
+                                      companyLists[0]?.dispatch_title
                                       ? companyLists[0]?.dispatch_title
                                       : "Dispatch"}
                                   </li>
@@ -6126,7 +6099,7 @@ const RightView = ({
                                     onClick={handelOpenInvoice}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.invoice_title
+                                      companyLists[0]?.invoice_title
                                       ? companyLists[0]?.invoice_title
                                       : "Sales Invoice"}
                                   </li>
@@ -6138,9 +6111,9 @@ const RightView = ({
                                     onClick={handelOpenReturnSalesInvoice}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.return_sales_invoice_title
+                                      companyLists[0]?.return_sales_invoice_title
                                       ? companyLists[0]
-                                          ?.return_sales_invoice_title
+                                        ?.return_sales_invoice_title
                                       : "Return Sales Invoice"}
                                   </li>
                                   <li
@@ -6151,7 +6124,7 @@ const RightView = ({
                                     onClick={handelOpenPurchaseOrder}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.purchase_order_title
+                                      companyLists[0]?.purchase_order_title
                                       ? companyLists[0]?.purchase_order_title
                                       : "Purchase Order"}
                                   </li>
@@ -6163,7 +6136,7 @@ const RightView = ({
                                     onClick={handelOpenInward}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.inward_title
+                                      companyLists[0]?.inward_title
                                       ? companyLists[0]?.inward_title
                                       : "Goods Received Note"}
                                   </li>
@@ -6175,7 +6148,7 @@ const RightView = ({
                                     onClick={handelOpenPurchaseInvoice}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]?.purchase_title
+                                      companyLists[0]?.purchase_title
                                       ? companyLists[0]?.purchase_title
                                       : "Purchase Invoice"}
                                   </li>
@@ -6187,10 +6160,10 @@ const RightView = ({
                                     onClick={handelOpenReturnPurchaseInvoice}
                                   >
                                     {companyLists[0] &&
-                                    companyLists[0]
-                                      ?.return_purchase_invoice_title
+                                      companyLists[0]
+                                        ?.return_purchase_invoice_title
                                       ? companyLists[0]
-                                          ?.return_purchase_invoice_title
+                                        ?.return_purchase_invoice_title
                                       : "Return Purchase Invoice"}
                                   </li>
                                 </ul>
@@ -6282,20 +6255,19 @@ const RightView = ({
                                       style={{
                                         backgroundColor:
                                           item.parent_company_id === null ||
-                                          item.parent_company_id === undefined
+                                            item.parent_company_id === undefined
                                             ? "#fff3eb"
                                             : "#f1f5f9",
-                                        border: `1.5px solid ${
-                                          item.parent_company_id === null ||
-                                          item.parent_company_id === undefined
+                                        border: `1.5px solid ${item.parent_company_id === null ||
+                                            item.parent_company_id === undefined
                                             ? "#f58634"
                                             : "#cbd5e1"
-                                        }`,
+                                          }`,
                                         fontSize: "13px",
                                         fontWeight: 600,
                                         color:
                                           item.parent_company_id === null ||
-                                          item.parent_company_id === undefined
+                                            item.parent_company_id === undefined
                                             ? "#f58634"
                                             : "#475569",
                                       }}
@@ -6322,7 +6294,7 @@ const RightView = ({
                                         style={{
                                           backgroundColor:
                                             item.parent_company_id === null ||
-                                            item.parent_company_id === undefined
+                                              item.parent_company_id === undefined
                                               ? "#f58634"
                                               : "#64748b",
                                           color: "#ffffff",
@@ -6332,7 +6304,7 @@ const RightView = ({
                                         }}
                                       >
                                         {item.parent_company_id === null ||
-                                        item.parent_company_id === undefined
+                                          item.parent_company_id === undefined
                                           ? "Main Company"
                                           : "Workspace"}
                                       </span>
@@ -6439,7 +6411,7 @@ const RightView = ({
                     {advertisement && (
                       <div className="text-center btn-mt">
                         {advertisement.startsWith("https://www.youtube.com/") ||
-                        advertisement.startsWith("https://youtu.be/") ? (
+                          advertisement.startsWith("https://youtu.be/") ? (
                           // YouTube Video Thumbnail
                           <a
                             href={advertisement}
@@ -6668,7 +6640,7 @@ const RightView = ({
               btn1={"CANCEL"}
               btn2={"Approve"}
               reportName={reportName}
-              // date={selectedDates}
+            // date={selectedDates}
             />
           )}
 
@@ -6740,16 +6712,14 @@ const RightView = ({
               handleSubmit={handleChangeStatusOfReminder}
               handleReject={() => setIsReminderReschedule(true)}
               title={"Are you sure you want to complete this Reminder?"}
-              message={`Remark : ${
-                isReminderConfirmationStatus1 &&
+              message={`Remark : ${isReminderConfirmationStatus1 &&
                 isReminderConfirmationStatus1.reminder_remark
-              }`}
+                }`}
               btn1="CANCEL"
               btn2="Reschedule Reminder"
               btn3="Complete Reminder Now"
-              message1={`Reminder Date : ${
-                isReminderConfirmationStatus1?.reminder_data_time
-              }`}
+              message1={`Reminder Date : ${isReminderConfirmationStatus1?.reminder_data_time
+                }`}
             />
           )}
           {isReminderReschedule && (
@@ -6874,7 +6844,7 @@ const RightView = ({
               getOptionColor={(option) => option.color || "#eeeeee"}
               getOptionName={(option) => option.name}
               showColorBadge={true}
-              // setRefreshStatus={() => setRefreshStatus(true)}
+            // setRefreshStatus={() => setRefreshStatus(true)}
             />
           )}
           {isModalAssignUserVisible && (

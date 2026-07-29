@@ -128,7 +128,7 @@ const initialState: ConfigFormData = {
 };
 
 // Brand Theme Colors
-const DESKFLOW_COLOR = "#e37430"; // Deskflow Theme Color
+const DESKFLOW_COLOR = "#fa7a23"; // Deskflow Theme Color
 const MIRACLE_COLOR = "#1070b2";  // Miracle Theme Color
 
 const MiracleConfigurationsView = ({
