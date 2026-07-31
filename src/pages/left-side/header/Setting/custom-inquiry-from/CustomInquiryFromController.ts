@@ -87,6 +87,7 @@ export interface ICustomInquiryFromList {
   min_limit: number;
   max_limit: number;
   validation_type: number;
+  third_party_field_name?: string;
 }
 interface IAddCustomInquiryFromObj {
   title: string;
@@ -101,7 +102,7 @@ interface IAddCustomInquiryFromObj {
   min_limit: number;
   max_limit: number;
   validation_type: number;
-
+  third_party_field_name?: string;
 }
 export interface ICompany {
   quotation_title: string;

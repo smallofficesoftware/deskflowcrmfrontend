@@ -18,6 +18,8 @@ import {
 import ItemDetailSection from "./sections/ItemDetailSection";
 import ItemSelectSection from "./sections/ItemSelectSection";
 import RequiredMaterialSection from "./sections/RequiredMaterialSection";
+import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
+import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -73,6 +75,10 @@ const JobCardView = ({
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
+
+  // ── Modals for Stock Adjustment & Purchase Order ──
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [showPOModal, setShowPOModal] = useState(false);
 
   useEscapeKey(onHide);
 
@@ -177,9 +183,9 @@ const JobCardView = ({
   // ── Shortage actions ──
 
   const handleAddStock = (_id: number, name: string) =>
-    toast.info(`Add Stock: ${name}`);
+    setShowAddStockModal(true);
   const handleGeneratePO = (_id: number, name: string) =>
-    toast.info(`Generate PO: ${name}`);
+    setShowPOModal(true);
 
   // ── Tab accessibility ──
 
@@ -199,9 +205,12 @@ const JobCardView = ({
       : "Order Item Job Card";
 
   return (
-    // Backdrop — click fires onHide; content div stops propagation
-    <div
-      onClick={onHide}
+    <>
+      {/* Backdrop — click fires onHide only when clicking directly on backdrop */}
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onHide();
+        }}
       style={{
         position: "fixed",
         inset: 0,
@@ -479,6 +488,30 @@ const JobCardView = ({
         </div>
       </div>
     </div>
+
+      {showAddStockModal && (
+        <StockAdjustmentModel
+          show={showAddStockModal}
+          onHide={() => setShowAddStockModal(false)}
+          flag={1}
+          where_action={1}
+        />
+      )}
+
+      {showPOModal && (
+        <OrderCreateModal
+          show={showPOModal}
+          onHide={() => setShowPOModal(false)}
+          handleSubmit={() => setShowPOModal(false)}
+          title={"Create Purchase Order"}
+          message={"Please Enter Your Purchase Order Details"}
+          btn1={"CANCEL"}
+          btn2={"Approve"}
+          isOrderShowNum={4}
+          flag={"quick"}
+        />
+      )}
+    </>
   );
 };
 

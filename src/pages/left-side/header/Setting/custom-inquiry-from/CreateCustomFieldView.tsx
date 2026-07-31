@@ -48,6 +48,7 @@ const CreateCustomFieldView = ({
 
     const [companyTitle, setCompanyTitle] = useState<ICompany | undefined>();
     const [titleInput, setTitleInput] = useState("");
+    const [thirdPartyFieldNameInput, setThirdPartyFieldNameInput] = useState("");
     const [isReqDisabled, setIsReqDisabled] = useState(false);
 
     const [dataTypeError, setDataTypeError] = useState("");
@@ -101,6 +102,7 @@ const CreateCustomFieldView = ({
 
     const clearForm = () => {
         setTitleInput("");
+        setThirdPartyFieldNameInput("");
         setDisplayOrderInput(0);
         setSelectedOrderList(null);
         setSelectedPrintList(null);
@@ -262,7 +264,12 @@ const CreateCustomFieldView = ({
         if (showLimitFields) {
             if (minLimit && maxLimit) {
                 if (Number(maxLimit) <= Number(minLimit)) {
-                    setLimitError("Maximum char limit must be greater");
+                    errorMsg = "Maximum limit must be greater than minimum limit";
+                    setLimitError(errorMsg);
+                    hasError = true;
+                } else if (Number(minLimit) < 0 || Number(maxLimit) < 0) {
+                    errorMsg = "Character limit cannot be negative";
+                    setLimitError(errorMsg);
                     hasError = true;
                 }
             }
@@ -296,6 +303,11 @@ const CreateCustomFieldView = ({
             errorMsg = "Please select when this field should be required.";
             hasError = true;
         }
+        if (selectedPageType?.value == "4" && !selectedrowOrColumn) {
+            setPrintTypeError("Row or Column selection is required.");
+            errorMsg = "Please select whether this field is on Row or Column.";
+            hasError = true;
+        }
 
         if (titleInput.trim() === "") {
             setTitleListError("Field Name is required");
@@ -305,7 +317,7 @@ const CreateCustomFieldView = ({
         }
 
         if (hasError) {
-            toast.error(errorMsg)
+            if (errorMsg) toast.error(errorMsg);
             return;
         }
 
@@ -339,7 +351,8 @@ const CreateCustomFieldView = ({
                         max_limit: Number(maxLimit),
                         validation_type: selectedValidationType?.value
                             ? Number(selectedValidationType.value)
-                            : 0
+                            : 0,
+                        third_party_field_name: thirdPartyFieldNameInput.trim()
                     },
                     setLoading,
                     productToEdit.id,
@@ -376,7 +389,8 @@ const CreateCustomFieldView = ({
                         max_limit: Number(maxLimit),
                         validation_type: selectedValidationType?.value
                             ? Number(selectedValidationType.value)
-                            : 0
+                            : 0,
+                        third_party_field_name: thirdPartyFieldNameInput.trim()
                     },
                     setLoading,
                     clearForm,
@@ -394,6 +408,7 @@ const CreateCustomFieldView = ({
     useEffect(() => {
         if (productToEdit) {
             setTitleInput(productToEdit.title);
+            setThirdPartyFieldNameInput(productToEdit.third_party_field_name || "");
             setDisplayOrderInput(productToEdit.display_order);
             setMinLimit(productToEdit.min_limit ? String(productToEdit.min_limit) : "0");
             setMaxLimit(productToEdit.max_limit ? String(productToEdit.max_limit) : "0");
@@ -470,13 +485,13 @@ const CreateCustomFieldView = ({
         <React.Fragment>
             {show && (
                 <div className="modal1">
-                    <div className="modal-content1" style={{ width: "40%" }}>
+                    <div className="modal-content1" style={{ maxWidth: "680px", width: "92%", padding: "24px" }}>
                         <span className="close" onClick={onHide}>
                             &times;
                         </span>
                         <h2 className="modal-title1 form_header_text">{headerName}</h2>
 
-                        <div className="head" style={{ display: "block", marginLeft: "20px" }}>
+                        <div className="head mt-2" style={{ display: "block" }}>
                             <div className="row">
                                 <div className="col-6 mt-1">
                                     <label
@@ -531,8 +546,8 @@ const CreateCustomFieldView = ({
                                     )}
                                 </div>
                             </div>
-                            <div className="row mt-1">
-                                <div className="col-12">
+                            <div className="row mt-2">
+                                <div className="col-6">
                                     <label
                                         className="form-check-label"
                                         htmlFor="flexCheckDefault"
@@ -558,12 +573,35 @@ const CreateCustomFieldView = ({
                                         <span className="text-danger">{titleError}</span>
                                     )}
                                 </div>
-                                <div className="col-4" style={{ paddingInline: "5px", width: "135px", marginLeft: "10px" }}>
+                                <div className="col-6">
+                                    <label
+                                        className="form-check-label"
+                                        htmlFor="thirdPartyFieldName"
+                                    >
+                                        <h6>Third Party Field Name</h6>
+                                    </label>
+                                    <div className="search-bar">
+                                        <div className="add-source-of-type-section">
+                                            <input
+                                                type="text"
+                                                id="thirdPartyFieldName"
+                                                title="Third Party Field Name"
+                                                placeholder="e.g. U0000001"
+                                                value={thirdPartyFieldNameInput}
+                                                onChange={(e) => setThirdPartyFieldNameInput(e.target.value)}
+                                            />
+                                        </div>
+                                        <small className="text-muted d-block mt-1" style={{ fontSize: "11px" }}>Used for Miracle / external sync mapping</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="row mt-2">
+                                <div className="col-4">
                                     <label
                                         className="form-check-label"
                                         htmlFor="flexCheckDefault"
                                     >
-                                        <h6>Is Field <br />Required?</h6>
+                                        <h6>Is Field Required?</h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -577,12 +615,12 @@ const CreateCustomFieldView = ({
                                         </div>
                                     </div>
                                 </div>
-                                <div className="col-4" style={{ paddingInline: "5px", width: "135px" }}>
+                                <div className="col-4">
                                     <label
                                         className="form-check-label"
                                         htmlFor="flexCheckDefault"
                                     >
-                                        <h6>Is Field <br />On Print? <span className="text-danger">*</span></h6>
+                                        <h6>Is Field On Print? <span className="text-danger">*</span></h6>
 
                                     </label>
                                     <div className="">
@@ -599,12 +637,12 @@ const CreateCustomFieldView = ({
                                         <span className="text-danger">{printTypeError}</span>
                                     )}
                                 </div>
-                                <div className="col-3 " style={{ paddingInline: "5px", width: "135px" }}>
+                                <div className="col-4">
                                     <label
                                         className="form-check-label"
                                         htmlFor="flexCheckDefault"
                                     >
-                                        <h6>Is Field <br />On Report? <span className="text-danger">*</span></h6>
+                                        <h6>Is Field On Report? <span className="text-danger">*</span></h6>
 
                                     </label>
                                     <div className="">
@@ -623,12 +661,12 @@ const CreateCustomFieldView = ({
                                 </div>
 
                                 {selectedPageType?.value == 4 &&
-                                    <div className="col-4" style={{ paddingInline: "5px" }}>
+                                    <div className="col-6 mt-2">
                                         <label
                                             className="form-check-label"
                                             htmlFor="flexCheckDefault"
                                         >
-                                            <h6>Is Field <br />On Row Or Column? <span className="text-danger">*</span></h6>
+                                            <h6>Is Field On Row Or Column? <span className="text-danger">*</span></h6>
 
                                         </label>
                                         <div className="">
@@ -647,13 +685,12 @@ const CreateCustomFieldView = ({
                                     </div>
                                 }
                                 {selectedPageType?.value == 3 &&
-                                    <div className="col-4" style={{ paddingInline: "5px" }}>
+                                    <div className="col-6 mt-2">
                                         <label
                                             className="form-check-label"
                                             htmlFor="flexCheckDefault"
                                         >
-                                            <h6>Make This <br />Field Required For
-                                                <span className="text-danger">*</span></h6>
+                                            <h6>Required For <span className="text-danger">*</span></h6>
 
                                         </label>
                                         <div className="">

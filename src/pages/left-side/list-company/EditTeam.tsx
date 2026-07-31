@@ -93,10 +93,32 @@ const attendanceValidationSchema = Yup.object({
     .of(Yup.number().integer().min(0).max(6))
     .nullable(),
   daily_working_hours: Yup.string()
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
     .nullable(),
   half_day_hours: Yup.string()
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
+    .nullable(),
+  min_overtime_hours: Yup.string()
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
+    .nullable(),
+  approve_ot_hours: Yup.string()
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
     .nullable(),
   bonus_percentage: Yup.string()
     .matches(/^\d*\.?\d*$/, "Must be a valid percentage")
@@ -183,20 +205,23 @@ const TimepickerField = ({
 
 /** Section divider used to group Attendance & Salary sub-sections */
 const SectionTitle = ({ title }: { title: string }) => (
-  <div className="col-12 mt-3 mb-1">
+  <div className="col-12 mt-3 mb-2">
     <div
       style={{
         borderLeft: "4px solid #f58634",
-        paddingLeft: "10px",
+        paddingLeft: "12px",
+        paddingTop: "4px",
+        paddingBottom: "4px",
         fontSize: "14px",
         fontWeight: 700,
-        color: "#333",
+        color: "#2c3e50",
         letterSpacing: "0.3px",
+        backgroundColor: "#fff5ed",
+        borderRadius: "0 6px 6px 0",
       }}
     >
       {title}
     </div>
-    <hr style={{ marginTop: "6px", borderColor: "#eee" }} />
   </div>
 );
 
@@ -323,6 +348,18 @@ const EditTeamMemberView = ({
       fetchAttendanceSettingsApi(companyTeamInfo.id, (data: any) => {
         setAttendanceValues({
           ...data,
+          daily_working_hours: data?.daily_working_hours
+            ? String(data.daily_working_hours).slice(0, 5)
+            : "",
+          half_day_hours: data?.half_day_hours
+            ? String(data.half_day_hours).slice(0, 5)
+            : "",
+          min_overtime_hours: data?.min_overtime_hours
+            ? String(data.min_overtime_hours).slice(0, 5)
+            : "",
+          approve_ot_hours: data?.approve_ot_hours
+            ? String(data.approve_ot_hours).slice(0, 5)
+            : "",
 
           // convert comma string to array
           // week_off_days: data?.week_off_days
@@ -532,24 +569,39 @@ const EditTeamMemberView = ({
     setFieldValue(field, val);
   };
 
-  /** Auto calculate salary structure */
-  const calculateSalaryStructure = (
-    basicDa: number,
-    values: any,
+  /** Helper to auto-calculate HRA (40% of Basic) and total Monthly CTC */
+  const updateSalaryComponents = (
+    updatedFields: Partial<{
+      basic_da: string;
+      hra: string;
+      medical_allowance: string;
+      conveyance_allowance: string;
+      special_allowance: string;
+      ctc: string;
+    }>,
+    currentValues: any,
     setFieldValue: (field: string, value: any) => void,
   ) => {
-    const hra = (basicDa * 40) / 100;
+    const merged = { ...currentValues, ...updatedFields };
+    let basicDa = parseFloat(merged.basic_da) || 0;
+    let hra = parseFloat(merged.hra) || 0;
 
-    setFieldValue("hra", hra.toFixed(2));
+    if ("basic_da" in updatedFields) {
+      hra = Math.round(((basicDa * 40) / 100) * 100) / 100;
+      setFieldValue("hra", hra > 0 ? hra.toFixed(2) : "");
+    }
 
-    const ctc =
-      basicDa +
-      hra +
-      (parseFloat(values.conveyance_allowance) || 0) +
-      (parseFloat(values.medical_allowance) || 0) +
-      (parseFloat(values.special_allowance) || 0);
+    const medical = parseFloat(merged.medical_allowance) || 0;
+    const conveyance = parseFloat(merged.conveyance_allowance) || 0;
+    const special = parseFloat(merged.special_allowance) || 0;
 
-    setFieldValue("ctc", ctc.toFixed(2));
+    if (!("ctc" in updatedFields)) {
+      const ctc = basicDa + hra + medical + conveyance + special;
+      setFieldValue("ctc", ctc > 0 ? ctc.toFixed(2) : "");
+      if (Number(currentValues.salary_type) === 3) {
+        setFieldValue("salary_amount_type_wise", ctc > 0 ? ctc.toFixed(2) : "");
+      }
+    }
   };
   return (
     <>
@@ -1480,11 +1532,8 @@ const EditTeamMemberView = ({
                                       }
 
                                       setFieldValue("basic_da", val);
-
-                                      const basicDa = parseFloat(val) || 0;
-
-                                      calculateSalaryStructure(
-                                        basicDa,
+                                      updateSalaryComponents(
+                                        { basic_da: val },
                                         values,
                                         setFieldValue,
                                       );
@@ -1510,9 +1559,21 @@ const EditTeamMemberView = ({
                                     className="form-control font-size-15 rounded-1"
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
-                                    ) =>
-                                      numericOnChange(e, "hra", setFieldValue)
-                                    }
+                                    ) => {
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("hra", val);
+                                      updateSalaryComponents(
+                                        { hra: val },
+                                        values,
+                                        setFieldValue,
+                                      );
+                                    }}
                                   />
                                   <ErrorMessage
                                     name="hra"
@@ -1535,22 +1596,19 @@ const EditTeamMemberView = ({
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "medical_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("medical_allowance", val);
+                                      updateSalaryComponents(
+                                        { medical_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            medical_allowance: e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1571,29 +1629,22 @@ const EditTeamMemberView = ({
                                     name="conveyance_allowance"
                                     placeholder="e.g. 1600"
                                     className="form-control font-size-15 rounded-1"
-                                    // onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    //   numericOnChange(e, "conveyance_allowance", setFieldValue)
-                                    // }
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "conveyance_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("conveyance_allowance", val);
+                                      updateSalaryComponents(
+                                        { conveyance_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            conveyance_allowance:
-                                              e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1614,28 +1665,22 @@ const EditTeamMemberView = ({
                                     name="special_allowance"
                                     placeholder="e.g. 2000"
                                     className="form-control font-size-15 rounded-1"
-                                    // onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    //   numericOnChange(e, "special_allowance", setFieldValue)
-                                    // }
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "special_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("special_allowance", val);
+                                      updateSalaryComponents(
+                                        { special_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            special_allowance: e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1680,10 +1725,17 @@ const EditTeamMemberView = ({
                                   <label className="pb-2 form_label">
                                     Minimum Overtime Hour (In Hours)
                                   </label>
-                                  <Field
-                                    type="time"
-                                    name="min_overtime_hours"
-                                    className={`form-control font-size-15 rounded-1 ${errors.min_overtime_hours && touched.min_overtime_hours ? "is-invalid" : ""}`}
+                                  <TimepickerField
+                                    value={values.min_overtime_hours || ""}
+                                    onChange={(v) =>
+                                      setFieldValue("min_overtime_hours", v)
+                                    }
+                                    hasError={
+                                      !!(
+                                        errors.min_overtime_hours &&
+                                        touched.min_overtime_hours
+                                      )
+                                    }
                                   />
                                   <ErrorMessage
                                     name="min_overtime_hours"
@@ -1726,15 +1778,17 @@ const EditTeamMemberView = ({
                                   <label className="pb-2 form_label">
                                     Maximum OT (Hours)
                                   </label>
-                                  <ErrorMessage
-                                    name="approve_ot_hours"
-                                    component="div"
-                                    className="field-error text-danger"
-                                  />
-                                  <Field
-                                    type="time"
-                                    name="approve_ot_hours"
-                                    className={`form-control font-size-15 rounded-1 ${errors.approve_ot_hours && touched.approve_ot_hours ? "is-invalid" : ""}`}
+                                  <TimepickerField
+                                    value={values.approve_ot_hours || ""}
+                                    onChange={(v) =>
+                                      setFieldValue("approve_ot_hours", v)
+                                    }
+                                    hasError={
+                                      !!(
+                                        errors.approve_ot_hours &&
+                                        touched.approve_ot_hours
+                                      )
+                                    }
                                   />
                                   <ErrorMessage
                                     name="approve_ot_hours"

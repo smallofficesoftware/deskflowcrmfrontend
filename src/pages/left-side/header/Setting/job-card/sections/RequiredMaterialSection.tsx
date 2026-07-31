@@ -72,16 +72,14 @@ const MaterialTable = ({
                   </span>
                 </td>
                 <td>
-                  {shortage && (
-                    <MaterialActionMenu
-                      onAddStock={() =>
-                        onAddStock(m.material_id, m.material_name)
-                      }
-                      onGeneratePO={() =>
-                        onGeneratePO(m.material_id, m.material_name)
-                      }
-                    />
-                  )}
+                  <MaterialActionMenu
+                    onAddStock={() =>
+                      onAddStock(m.material_id, m.material_name)
+                    }
+                    onGeneratePO={() =>
+                      onGeneratePO(m.material_id, m.material_name)
+                    }
+                  />
                 </td>
               </tr>
             );
