@@ -68,6 +68,7 @@ import CustomSearchDropdown from "../CustomSearchDropdown";
 import { Option } from "../MultiSelect";
 import CheckBoxFilterModal from "./CheckBoxFilterModal";
 import ConfirmationModal from "./ConfirmationModal";
+import StatusWiseContactAndInquiryCountReport from "../../pages/dashboard/Reports/Status Wise Statistics Report/StatusWiseContactAndInquiryCountReport";
 
 interface IOrderCreateModal {
   show: boolean;
@@ -483,6 +484,10 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
       value: "label_wise_contact_statistics_report",
       label: "Label Wise Statistics Reports",
     },
+    canStatusWise && {
+      value: "status_wise_contact_and_inquiry_count_report",
+      label: "Status Wise Contact & Inquiry Count Report",
+    },
     canViewInquiry && {
       value: "all_inquiry_report",
       label: "All Inquiry Reports",
@@ -705,6 +710,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
     filterShowNumber = [1, 3, 5];
   } else if (selectReportType == "label_wise_contact_statistics_report") {
     filterShowNumber = [1, 2, 5];
+  } else if (selectReportType == "status_wise_contact_and_inquiry_count_report") {
+    filterShowNumber = [1, 4];
   } else if (selectReportType == "all_inquiry_report") {
     filterShowNumber = [1, 2, 3, 4, 5, 6, 7, 18];
     filtershowStageandStatus = 2;
@@ -1578,8 +1585,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDayMonthYear={
                               selectedDayMonthYear
                                 ? Object.values(selectedDayMonthYear).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                           />
@@ -1593,8 +1600,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDayMonthYear={
                               selectedDayMonthYear
                                 ? Object.values(selectedDayMonthYear).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                           />
@@ -1727,8 +1734,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDemography={
                               selectedDemography
                                 ? Object.values(selectedDemography).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                             globalSearch={debouncedSearchText}
@@ -1755,8 +1762,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDemography={
                               selectedDemography
                                 ? Object.values(selectedDemography).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                             globalSearch={debouncedSearchText}
@@ -1780,8 +1787,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDemography={
                               selectedDemography
                                 ? Object.values(selectedDemography).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                             globalSearch={debouncedSearchText}
@@ -1809,6 +1816,15 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             globalSearch={debouncedSearchText}
                           />
                         )}
+                      {appliedReportType ===
+                        "status_wise_contact_and_inquiry_count_report" &&
+                        filters.selectedDateArray && (
+                          <StatusWiseContactAndInquiryCountReport
+                            key={reportKey}
+                            selectedDates={filters.selectedDateArray}
+                            selectedStatus={filters.checkedOptions}
+                          />
+                        )}
                       {appliedReportType === "all_inquiry_report" &&
                         filters.selectedDateArray && (
                           <AllInqueryReport
@@ -1823,8 +1839,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDemography={
                               selectedDemography
                                 ? Object.values(selectedDemography).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                             selectedProduct={filters.selectedProductId}
@@ -1866,8 +1882,8 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedDemography={
                               selectedDemography
                                 ? Object.values(selectedDemography).filter(
-                                    Boolean,
-                                  )
+                                  Boolean,
+                                )
                                 : null
                             }
                             globalSearch={debouncedSearchText}
