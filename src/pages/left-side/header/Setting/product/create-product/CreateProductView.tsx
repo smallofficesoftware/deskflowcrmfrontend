@@ -200,9 +200,16 @@ const CreateProductView = ({
     isSubmittingRef.current = true;
     try {
       setSubmitting(true);
+      const isFieldForProductMaster = (f: any) => {
+        if (f.form_type !== 4) return false;
+        if (!f.applicable_modules) return true;
+        const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
+        return mods.includes("4");
+      };
+
       const requiredCustomFields = customFormList.filter(
         (f) =>
-          f.form_type === 4 && f.required_or_not === 1 && f.data_type !== 7, // skip checkbox/switch
+          isFieldForProductMaster(f) && f.required_or_not === 1 && f.data_type !== 7, // skip checkbox/switch
       );
 
       for (const field of requiredCustomFields) {
@@ -221,7 +228,7 @@ const CreateProductView = ({
       // 2. Min / Max length + Validation type checks for custom fields
       // ───────────────────────────────────────────────────────────────
       for (const item of customFormList) {
-        if (item.form_type !== 4) continue; // only product custom fields
+        if (!isFieldForProductMaster(item)) continue;
 
         const fieldName = item.reference_column_name;
         const rawValue = values1[fieldName];
@@ -2102,7 +2109,7 @@ const CreateProductView = ({
                           {customFormList &&
                             customFormList.map((item) => (
                               <React.Fragment key={item.reference_column_name}>
-                                {item.form_type === 4
+                                {isFieldForProductMaster(item)
                                   ? renderInputField(
                                       item,
                                       item.title,
