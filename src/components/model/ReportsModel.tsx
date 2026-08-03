@@ -1011,7 +1011,10 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
             className="modal-content1"
             style={{
               width: "98%",
-              height: "100vh",
+              height: "calc(100vh - 20px)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               backgroundColor: "rgb(240 242 245)",
               marginTop: "10px",
             }}
@@ -1073,16 +1076,18 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
               style={{
                 display: "flex",
                 justifyContent: "center",
-                height: "100%",
+                flex: 1,
+                minHeight: 0,
+                overflow: "hidden",
               }}
             >
-              <Row style={{ padding: "none" }}>
-                <Col>
+              <Row style={{ padding: "none", height: "100%" }}>
+                <Col style={{ height: "100%" }}>
                   <Card
                     className="text-center"
-                    style={{ borderRadius: "0px", height: "92%" }}
+                    style={{ borderRadius: "0px", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
                   >
-                    <Card.Body>
+                    <Card.Body style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
                       <div className="container-fluid d-flex ">
                         <div
                           className="col-12"

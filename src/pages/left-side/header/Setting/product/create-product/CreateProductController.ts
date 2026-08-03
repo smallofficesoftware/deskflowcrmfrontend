@@ -270,10 +270,14 @@ export const createProductValidationSchema = (
 ) => {
   const dynamicSchema: any = {};
 
-  customFormList.forEach((item) => {
+  customFormList.forEach((item: any) => {
+    const isProductMaster = !item.applicable_modules || 
+      String(item.applicable_modules).split(",").map((m: string) => m.trim()).includes("4");
+
     if (
       item.required_or_not === 1 &&
       item.form_type === 4 &&
+      isProductMaster &&
       item.data_type !== 7
     ) {
       switch (item.data_type) {

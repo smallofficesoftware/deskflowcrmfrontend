@@ -71,6 +71,18 @@ export const pageTypesCustomFieldList = [
   { id: "14", order_type_display: "Task" },
   { id: "15", order_type_display: "Support Ticket" },
 ];
+export const productApplicableModulesList = [
+  { id: "4", order_type_display: "Product Master" },
+  { id: "5", order_type_display: "Quotation" },
+  { id: "6", order_type_display: "Sales Order" },
+  { id: "7", order_type_display: "Sales Invoice" },
+  { id: "8", order_type_display: "Purchase Invoice" },
+  { id: "9", order_type_display: "Purchase Order" },
+  { id: "10", order_type_display: "Return Sales Invoice" },
+  { id: "11", order_type_display: "Return Purchase Invoice" },
+  { id: "12", order_type_display: "Goods Received Note" },
+  { id: "13", order_type_display: "Dispatch" },
+];
 export interface ICustomInquiryFromList {
   id: number;
   title: string;
@@ -88,6 +100,7 @@ export interface ICustomInquiryFromList {
   max_limit: number;
   validation_type: number;
   third_party_field_name?: string;
+  applicable_modules?: string;
 }
 interface IAddCustomInquiryFromObj {
   title: string;
@@ -103,6 +116,7 @@ interface IAddCustomInquiryFromObj {
   max_limit: number;
   validation_type: number;
   third_party_field_name?: string;
+  applicable_modules?: string;
 }
 export interface ICompany {
   quotation_title: string;
@@ -123,7 +137,7 @@ export const fetchCustomInquiryFromApi = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     table: "custom_field_form_masters",
-    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type",
+    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules",
     where: [
       "isDelete=0",
       `form_type=${pageType}`,

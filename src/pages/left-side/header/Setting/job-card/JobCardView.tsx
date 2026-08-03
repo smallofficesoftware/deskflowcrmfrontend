@@ -18,8 +18,7 @@ import {
 import ItemDetailSection from "./sections/ItemDetailSection";
 import ItemSelectSection from "./sections/ItemSelectSection";
 import RequiredMaterialSection from "./sections/RequiredMaterialSection";
-import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
-import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
+
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +28,8 @@ interface IProps {
   onComplete?: () => void;
   editJobCardId?: number; // provided when opening an existing job card
   initialProductQty?: number; // pre-fills qty field in edit mode
+  onAddStock?: (materialId: number, materialName: string) => void;
+  onGeneratePO?: (materialId: number, materialName: string) => void;
 }
 
 // ─── Tab config (3 tabs — production entry is its own modal) ─────────────────
@@ -45,6 +46,8 @@ const JobCardView = ({
   onComplete,
   editJobCardId,
   initialProductQty,
+  onAddStock: onAddStockProp,
+  onGeneratePO: onGeneratePOProp,
 }: IProps) => {
   const isEditMode = !!editJobCardId;
 
@@ -75,10 +78,6 @@ const JobCardView = ({
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
-
-  // ── Modals for Stock Adjustment & Purchase Order ──
-  const [showAddStockModal, setShowAddStockModal] = useState(false);
-  const [showPOModal, setShowPOModal] = useState(false);
 
   useEscapeKey(onHide);
 
@@ -182,10 +181,18 @@ const JobCardView = ({
 
   // ── Shortage actions ──
 
-  const handleAddStock = (_id: number, name: string) =>
-    setShowAddStockModal(true);
-  const handleGeneratePO = (_id: number, name: string) =>
-    setShowPOModal(true);
+  const handleAddStock = (id: number, name: string) => {
+    if (onAddStockProp) {
+      onHide();
+      onAddStockProp(id, name);
+    }
+  };
+  const handleGeneratePO = (id: number, name: string) => {
+    if (onGeneratePOProp) {
+      onHide();
+      onGeneratePOProp(id, name);
+    }
+  };
 
   // ── Tab accessibility ──
 
@@ -489,28 +496,6 @@ const JobCardView = ({
       </div>
     </div>
 
-      {showAddStockModal && (
-        <StockAdjustmentModel
-          show={showAddStockModal}
-          onHide={() => setShowAddStockModal(false)}
-          flag={1}
-          where_action={1}
-        />
-      )}
-
-      {showPOModal && (
-        <OrderCreateModal
-          show={showPOModal}
-          onHide={() => setShowPOModal(false)}
-          handleSubmit={() => setShowPOModal(false)}
-          title={"Create Purchase Order"}
-          message={"Please Enter Your Purchase Order Details"}
-          btn1={"CANCEL"}
-          btn2={"Approve"}
-          isOrderShowNum={4}
-          flag={"quick"}
-        />
-      )}
     </>
   );
 };

@@ -11,6 +11,8 @@ import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstan
 import { IJobCardListItem } from "../../../left-side/header/Setting/job-card/JobCardTypes";
 import JobCardView from "../../../left-side/header/Setting/job-card/JobCardView";
 import ProductionEntryListModel from "../../../left-side/header/Setting/job-card/ProductionEntryListModel";
+import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
+import StockAdjustmentModel from "../../../left-side/header/Setting/stock-adjustment/StockAdjustmentModel";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable, DataTableFilterEvent, DataTableFilterMeta } from "primereact/datatable";
@@ -46,6 +48,16 @@ const JobCardGridView = ({ onHide }: IProps) => {
   // Modal visibility
   const [showJobCard, setShowJobCard] = useState(false);
   const [showProductionEntry, setShowProductionEntry] = useState(false);
+  const [showPOModalFromJobCard, setShowPOModalFromJobCard] = useState(false);
+  const [showAddStockModalFromJobCard, setShowAddStockModalFromJobCard] = useState(false);
+
+  const handleAddStockFromJobCard = (_materialId: number, _materialName: string) => {
+    setShowAddStockModalFromJobCard(true);
+  };
+
+  const handleGeneratePOFromJobCard = (_materialId: number, _materialName: string) => {
+    setShowPOModalFromJobCard(true);
+  };
   const [selectedOrderItemId, setSelectedOrderItemId] = useState<number | null>(
     null,
   );
@@ -453,6 +465,8 @@ const JobCardGridView = ({ onHide }: IProps) => {
           show={showJobCard}
           onHide={() => setShowJobCard(false)}
           onComplete={handleRefresh}
+          onAddStock={handleAddStockFromJobCard}
+          onGeneratePO={handleGeneratePOFromJobCard}
         />
       )}
 
@@ -539,6 +553,29 @@ const JobCardGridView = ({ onHide }: IProps) => {
           itemName={selectedJobCardItem?.item_name}
           orderNo={selectedJobCardItem?.order_no}
           order_item_id={selectedJobCardItem?.order_item_id || 0}
+        />
+      )}
+
+      {showPOModalFromJobCard && (
+        <OrderCreateModal
+          show={showPOModalFromJobCard}
+          onHide={() => setShowPOModalFromJobCard(false)}
+          handleSubmit={() => setShowPOModalFromJobCard(false)}
+          title={"Create Purchase Order"}
+          message={"Please Enter Your Purchase Order Details"}
+          btn1={"CANCEL"}
+          btn2={"Approve"}
+          isOrderShowNum={4}
+          flag={"quick"}
+        />
+      )}
+
+      {showAddStockModalFromJobCard && (
+        <StockAdjustmentModel
+          show={showAddStockModalFromJobCard}
+          onHide={() => setShowAddStockModalFromJobCard(false)}
+          flag={1}
+          where_action={1}
         />
       )}
     </PrimeReactProvider>
