@@ -416,7 +416,13 @@ export const fetchCustomProductFromApi = async (
       form_type: 4,
     });
     if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS && data.data.data?.item) {
-      setCustomListProduct(data.data.data.item);
+      const items = data.data.data.item;
+      const filteredItems = items.filter((f: any) => {
+        if (!f.applicable_modules || f.applicable_modules === "") return true;
+        const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
+        return mods.includes(String(formType));
+      });
+      setCustomListProduct(filteredItems);
     } else {
       setCustomListProduct([]);
     }

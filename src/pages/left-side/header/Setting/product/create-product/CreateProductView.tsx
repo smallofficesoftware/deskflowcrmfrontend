@@ -192,6 +192,13 @@ const CreateProductView = ({
     setIsModalImageTool(false);
   };
 
+  const isFieldForProductMaster = (f: any) => {
+    if (f.form_type !== 4) return false;
+    if (!f.applicable_modules) return true;
+    const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
+    return mods.includes("4");
+  };
+
   const handleSubmit = async (
     values1: any,
     { setSubmitting, setFieldError }: any,
@@ -200,12 +207,6 @@ const CreateProductView = ({
     isSubmittingRef.current = true;
     try {
       setSubmitting(true);
-      const isFieldForProductMaster = (f: any) => {
-        if (f.form_type !== 4) return false;
-        if (!f.applicable_modules) return true;
-        const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
-        return mods.includes("4");
-      };
 
       const requiredCustomFields = customFormList.filter(
         (f) =>

@@ -316,6 +316,8 @@ export const createCustomInquiryFrom = async (
     min_limit: customInquiryFromInput.min_limit,
     max_limit: customInquiryFromInput.max_limit,
     validation_type: customInquiryFromInput.validation_type,
+    third_party_field_name: customInquiryFromInput.third_party_field_name,
+    applicable_modules: customInquiryFromInput.applicable_modules,
   };
   console.log("requestDatarequestDatarequestDatarequestData", requestData);
 
@@ -362,6 +364,8 @@ export const updateCustomInqFrom = async (
       min_limit: customInquiryFromInput.min_limit,
       max_limit: customInquiryFromInput.max_limit,
       validation_type: customInquiryFromInput.validation_type,
+      third_party_field_name: customInquiryFromInput.third_party_field_name,
+      applicable_modules: customInquiryFromInput.applicable_modules,
     }),
   };
   try {

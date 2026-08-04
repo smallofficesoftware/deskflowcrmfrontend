@@ -755,7 +755,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         try {
           await Promise.allSettled([
             fetchCustomInqFromApi(setCustomFormList, formType),
-            fetchCustomProductFromApi(setCustomFormListProduct, 4),
+            fetchCustomProductFromApi(setCustomFormListProduct, formType),
             fetchCompanyForTerms(setPrintDate, setisOrderClassification),
             canViewProduct
               ? fetchProductApiForOrder(
