@@ -5483,7 +5483,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                             })
                           ) : (
                             <p className="text-danger p-1">
-                              {DEFAULT_MESSAGE_ERROR_PERMISSION}
+                              {/* {DEFAULT_MESSAGE_ERROR_PERMISSION} */}
                             </p>
                           )}
                       </>

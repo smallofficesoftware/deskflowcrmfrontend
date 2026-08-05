@@ -54,6 +54,8 @@ const CreateCustomFieldView = ({
     const [dataTypeError, setDataTypeError] = useState("");
     const [pageTypeError, setPageTypeError] = useState("");
     const [printTypeError, setPrintTypeError] = useState("");
+    const [printReportTypeError, setPrintReportTypeError] = useState("");
+    const [applicableModulesError, setApplicableModulesError] = useState("");
     const [requiredForError, setRequiredForError] = useState("");
     const [titleError, setTitleListError] = useState("");
     const [minLimit, setMinLimit] = useState<string>("");
@@ -207,7 +209,7 @@ const CreateCustomFieldView = ({
 
     const handlePrintReportChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedPrintReport(selectedOption);
-        setPrintTypeError(selectedOption ? "" : "Print Report is required");
+        setPrintReportTypeError(selectedOption ? "" : "Print Report is required");
     };
 
     const handleRowORColumnChange = (selectedOption: SingleValue<IOption>) => {
@@ -218,7 +220,7 @@ const CreateCustomFieldView = ({
     const handleApplicableModulesChange = (selectedOptions: any) => {
         setSelectedApplicableModules(selectedOptions || []);
         if (selectedOptions && selectedOptions.length > 0) {
-            setPrintTypeError("");
+            setApplicableModulesError("");
         }
     };
 
@@ -244,6 +246,15 @@ const CreateCustomFieldView = ({
     };
 
     const handelSubmit = async () => {
+        setPageTypeError("");
+        setDataTypeError("");
+        setTitleListError("");
+        setPrintTypeError("");
+        setPrintReportTypeError("");
+        setApplicableModulesError("");
+        setRequiredForError("");
+        setLimitError("");
+
         let hasError = false;
         let errorMsg;
 
@@ -277,7 +288,7 @@ const CreateCustomFieldView = ({
             hasError = true;
         }
         if (!selectedPrintReport) {
-            setPrintTypeError("Print Report is required");
+            setPrintReportTypeError("Print Report is required");
             errorMsg = "Print Report is required";
             hasError = true;
         }
@@ -287,7 +298,7 @@ const CreateCustomFieldView = ({
             hasError = true;
         }
         if (selectedPageType?.value == "4" && (!selectedApplicableModules || selectedApplicableModules.length === 0)) {
-            setPrintTypeError("Applicable Modules selection is required.");
+            setApplicableModulesError("Applicable Modules selection is required.");
             errorMsg = "Please select at least one applicable module.";
             hasError = true;
         }
@@ -455,6 +466,14 @@ const CreateCustomFieldView = ({
                 const modIds = String(productToEdit.applicable_modules).split(",").map(m => m.trim());
                 const initialMods = applicableModulesDisplayOptions.filter(opt => modIds.includes(String(opt.value)));
                 setSelectedApplicableModules(initialMods);
+            } else if (Number(productToEdit.form_type) === 4) {
+                if (Number(productToEdit.product_feild_row_column) === 2) {
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13"].includes(String(opt.value)));
+                    setSelectedApplicableModules(initialMods);
+                } else {
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => String(opt.value) === "4");
+                    setSelectedApplicableModules(initialMods);
+                }
             }
 
             setSelectedPageType(formTypeSelectedOption);
@@ -608,7 +627,7 @@ const CreateCustomFieldView = ({
                                             />
                                         </div>
                                     </div>
-                                    {printTypeError && <span className="text-danger">{printTypeError}</span>}
+                                    {printReportTypeError && <span className="text-danger">{printReportTypeError}</span>}
                                 </div>
 
                                 {selectedPageType?.value == "4" &&
@@ -627,7 +646,7 @@ const CreateCustomFieldView = ({
                                                 />
                                             </div>
                                         </div>
-                                        {printTypeError && <span className="text-danger">{printTypeError}</span>}
+                                        {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
                                     </div>
                                 }
                                 {selectedPageType?.value == "3" && (
