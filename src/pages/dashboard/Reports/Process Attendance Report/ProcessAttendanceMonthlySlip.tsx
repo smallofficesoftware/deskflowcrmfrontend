@@ -26,6 +26,8 @@ interface DailyAttendanceRow {
   actualWorkHrs?: string;
   officialWorkHrs?: string;
   otOs?: string;
+  regOt?: string;
+  extraOt?: string;
   late?: string;
   early?: string;
 }
@@ -43,6 +45,8 @@ interface AttendanceSummary {
   workHrs: string;
   officeHrs: string;
   ot: string;
+  regOt?: string;
+  extraOt?: string;
   addOt?: string;
   leave: number;
   month: string;
@@ -263,9 +267,13 @@ export const ProcessAttendanceMonthlySlip: React.FC<
           <span>Late Days : {summary.lateDays}</span>
           <span>Early Days : {summary.earlyDays}</span>
           {/* <span>Sandwich Applied: {summary.sandwichApplied}</span> */}
-          <span>W.Hrs: {summary.workHrs}</span>
+          <span>Actual W.Hrs: {(summary as any).actualWorkHrs ?? "00:00"}</span>
+          <span>Round Off Hrs: {(summary as any).roundoffHrs ?? "00:00"}</span>
+          <span>Final W.Hrs: {summary.workHrs}</span>
           <span>Off.Hrs: {summary.officeHrs}</span>
           <span>OT: {summary.ot}</span>
+          <span>Reg. OT: {(summary as any).regOt ?? "00:00:00"}</span>
+          <span>Extra OT: {(summary as any).extraOt ?? "00:00:00"}</span>
           {/* <span>Add. OT: {summary.addOt}</span> */}
         </div>
       </div>
@@ -368,7 +376,7 @@ export const ProcessAttendanceMonthlySlip: React.FC<
 
             <tr>
               <td style={cellLabelStyle} className="print-cell">
-                Actual Work Hrs.
+                Actual Work Hrs
               </td>
               {days.map((d) => (
                 <td
@@ -377,6 +385,34 @@ export const ProcessAttendanceMonthlySlip: React.FC<
                   className="print-cell"
                 >
                   {d.actualWorkHrs ?? ""}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={cellLabelStyle} className="print-cell">
+                Round Off Hrs
+              </td>
+              {days.map((d) => (
+                <td
+                  key={d.day}
+                  style={{ ...cellValueStyle, color: COLOR_BLUE }}
+                  className="print-cell"
+                >
+                  {(d as any).roundoffHrs ?? ""}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={cellLabelStyle} className="print-cell">
+                Final Work Hrs
+              </td>
+              {days.map((d) => (
+                <td
+                  key={d.day}
+                  style={{ ...cellValueStyle, color: COLOR_BLUE }}
+                  className="print-cell"
+                >
+                  {(d as any).netWorkHrs ?? d.actualWorkHrs ?? ""}
                 </td>
               ))}
             </tr>
@@ -405,6 +441,34 @@ export const ProcessAttendanceMonthlySlip: React.FC<
                   className="print-cell"
                 >
                   {d.otOs ?? ""}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={cellLabelStyle} className="print-cell">
+                Regular OT
+              </td>
+              {days.map((d) => (
+                <td
+                  key={d.day}
+                  style={{ ...cellValueStyle, color: COLOR_GRAY }}
+                  className="print-cell"
+                >
+                  {d.regOt ?? ""}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={cellLabelStyle} className="print-cell">
+                Extra OT
+              </td>
+              {days.map((d) => (
+                <td
+                  key={d.day}
+                  style={{ ...cellValueStyle, color: COLOR_GRAY }}
+                  className="print-cell"
+                >
+                  {d.extraOt ?? ""}
                 </td>
               ))}
             </tr>
@@ -472,6 +536,8 @@ interface DailyAttendanceApiRow {
   actualWorkHrs?: string;
   officialWorkHrs?: string;
   otOs?: string;
+  regOt?: string;
+  extraOt?: string;
   late?: string;
   early?: string;
 }
@@ -488,6 +554,8 @@ interface MonthlyCountApiRow {
   workHrs: string;
   officeHrs: string;
   ot: string;
+  regOt?: string;
+  extraOt?: string;
   addOt?: string;
   leave: number;
 }
@@ -570,6 +638,8 @@ function buildSummary(
     workHrs: monthlyCount.workHrs ?? "00:00",
     officeHrs: monthlyCount.officeHrs ?? "00:00",
     ot: monthlyCount.ot ?? "00:00",
+    regOt: monthlyCount.regOt ?? "00:00:00",
+    extraOt: monthlyCount.extraOt ?? "00:00:00",
     addOt: monthlyCount.addOt ?? "",
     leave: monthlyCount.leave ?? 0,
   };

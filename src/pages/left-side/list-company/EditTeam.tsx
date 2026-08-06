@@ -1797,6 +1797,42 @@ const EditTeamMemberView = ({
                                   />
                                 </div>
                               </div>
+
+                              <div className="col-4">
+                                <div className="form-group">
+                                  <label className="pb-2 form_label">
+                                    Regular OT Rate Option
+                                  </label>
+                                  <Field
+                                    as="select"
+                                    name="regular_ot_type"
+                                    className="form-select font-size-15 rounded-1"
+                                    value={values.regular_ot_type ? String(values.regular_ot_type) : "1"}
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFieldValue("regular_ot_type", e.target.value)}
+                                  >
+                                    <option value="1">Formula Rate (Basic Salary Based)</option>
+                                    <option value="2">Overtime Amount Per Hour (₹)</option>
+                                  </Field>
+                                </div>
+                              </div>
+
+                              <div className="col-4">
+                                <div className="form-group">
+                                  <label className="pb-2 form_label">
+                                    Extra OT Rate Option
+                                  </label>
+                                  <Field
+                                    as="select"
+                                    name="extra_ot_type"
+                                    className="form-select font-size-15 rounded-1"
+                                    value={values.extra_ot_type ? String(values.extra_ot_type) : "2"}
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFieldValue("extra_ot_type", e.target.value)}
+                                  >
+                                    <option value="1">Formula Rate (Basic Salary Based)</option>
+                                    <option value="2">Overtime Amount Per Hour (₹)</option>
+                                  </Field>
+                                </div>
+                              </div>
                             </>
                           )}
                           {planId !== 1 && (
