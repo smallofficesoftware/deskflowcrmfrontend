@@ -147,9 +147,11 @@ const MyCompanyList = ({
     const fetchData = async () => {
       const token = localStorage.getItem("token");
       const GetID = localStorage.getItem("UUID");
+      const activeCompanyId = localStorage.getItem("COMPANY_ID");
+      const targetCompanyId = activeCompanyId ? Number(activeCompanyId) : companyInfo?.id;
 
       const requestData = {
-        company_masters_id: companyInfo?.id,
+        company_masters_id: targetCompanyId,
         searchTerm: "",
       };
 
@@ -158,6 +160,7 @@ const MyCompanyList = ({
           headers: {
             Authorization: `${token}`,
             "x-tenant-id": `${GetID}`,
+            ...(activeCompanyId ? { "x-company-id": activeCompanyId } : {}),
           },
         });
 

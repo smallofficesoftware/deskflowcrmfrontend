@@ -56,6 +56,7 @@ const CreateCustomFieldView = ({
     const [printTypeError, setPrintTypeError] = useState("");
     const [printReportTypeError, setPrintReportTypeError] = useState("");
     const [applicableModulesError, setApplicableModulesError] = useState("");
+    const [rowOrColumnError, setRowOrColumnError] = useState("");
     const [requiredForError, setRequiredForError] = useState("");
     const [titleError, setTitleListError] = useState("");
     const [minLimit, setMinLimit] = useState<string>("");
@@ -214,7 +215,7 @@ const CreateCustomFieldView = ({
 
     const handleRowORColumnChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedrowOrColumn(selectedOption);
-        setPrintTypeError(selectedOption ? "" : "Row or Column is required");
+        setRowOrColumnError(selectedOption ? "" : "Row or Column is required");
     };
 
     const handleApplicableModulesChange = (selectedOptions: any) => {
@@ -252,6 +253,7 @@ const CreateCustomFieldView = ({
         setPrintTypeError("");
         setPrintReportTypeError("");
         setApplicableModulesError("");
+        setRowOrColumnError("");
         setRequiredForError("");
         setLimitError("");
 
@@ -295,6 +297,11 @@ const CreateCustomFieldView = ({
         if (selectedPageType?.value == "3" && !selectedRequiredFor) {
             setRequiredForError("Please select when this field should be required.");
             errorMsg = "Please select when this field should be required.";
+            hasError = true;
+        }
+        if (selectedPageType?.value == "4" && !selectedrowOrColumn) {
+            setRowOrColumnError("Row or Column is required");
+            errorMsg = "Row or Column is required";
             hasError = true;
         }
         if (selectedPageType?.value == "4" && (!selectedApplicableModules || selectedApplicableModules.length === 0)) {
@@ -630,25 +637,44 @@ const CreateCustomFieldView = ({
                                     {printReportTypeError && <span className="text-danger">{printReportTypeError}</span>}
                                 </div>
 
-                                {selectedPageType?.value == "4" &&
-                                    <div className="col-6 mt-2">
-                                        <label className="form-check-label">
-                                            <h6>Applicable Modules <span className="text-danger">*</span></h6>
-                                        </label>
-                                        <div className="">
-                                            <div className="add-source-of-type-section ">
-                                                <CustomSearchDropdown
-                                                    options={applicableModulesDisplayOptions}
-                                                    value={selectedApplicableModules}
-                                                    onChange={handleApplicableModulesChange}
-                                                    isMulti={true}
-                                                    className="w-100"
-                                                />
+                                {selectedPageType?.value == "4" && (
+                                    <>
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Row or Column <span className="text-danger">*</span></h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={rowORColumnDisplayOptions}
+                                                        value={selectedrowOrColumn}
+                                                        onChange={handleRowORColumnChange}
+                                                        className="w-100"
+                                                    />
+                                                </div>
                                             </div>
+                                            {rowOrColumnError && <span className="text-danger">{rowOrColumnError}</span>}
                                         </div>
-                                        {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
-                                    </div>
-                                }
+
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Applicable Modules <span className="text-danger">*</span></h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={applicableModulesDisplayOptions}
+                                                        value={selectedApplicableModules}
+                                                        onChange={handleApplicableModulesChange}
+                                                        isMulti={true}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
+                                        </div>
+                                    </>
+                                )}
                                 {selectedPageType?.value == "3" && (
                                     <div className="col-6 mt-2">
                                         <label className="form-check-label">

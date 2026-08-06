@@ -394,8 +394,12 @@ const SalaryRegisterReport = ({
     { title: "Dw HRA", dataKey: "dws_hra" },
     { title: "Dw Other", dataKey: "dws_other" },
     { title: "Dw Total Earning", dataKey: "dws_total_earning" },
-    { title: "OT Hours", dataKey: "earn_ot_hours" },
-    { title: "OT Payable Amt.", dataKey: "earn_ot_payable_amt" },
+    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
+    { title: "Reg. OT Amt.", dataKey: "regular_ot_payable_amt" },
+    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
+    { title: "Extra OT Amt.", dataKey: "extra_ot_payable_amt" },
+    { title: "Total OT Hours", dataKey: "earn_ot_hours" },
+    { title: "Total OT Amt.", dataKey: "earn_ot_payable_amt" },
     { title: "Earn. Head F.", dataKey: "earn_head_first" },
     { title: "Earn. Head S.", dataKey: "earn_head_second" },
     { title: "Earn. Head T.", dataKey: "earn_head_third" },
@@ -450,6 +454,10 @@ const SalaryRegisterReport = ({
       row.dws_hra = salary.dws_hra ?? "0";
       row.dws_other = salary.dws_other ?? "0";
       row.dws_total_earning = salary.dws_total_earning ?? "0";
+      row.regular_ot_hours = (salary as any).regular_ot_hours ?? "00:00:00";
+      row.regular_ot_payable_amt = (salary as any).regular_ot_payable_amt ?? "0";
+      row.extra_ot_hours = (salary as any).extra_ot_hours ?? "00:00:00";
+      row.extra_ot_payable_amt = (salary as any).extra_ot_payable_amt ?? "0";
       row.earn_ot_hours = salary.earn_ot_hours ?? "0";
       row.earn_ot_payable_amt = salary.earn_ot_payable_amt ?? "0";
       row.earn_head_first = salary.earn_head_first ?? "0";
@@ -580,8 +588,12 @@ const SalaryRegisterReport = ({
         "Dw HRA",
         "Dw Other",
         "Dw Total Earning",
-        "OT Hours",
-        "OT Payable Amt.",
+        "Reg. OT Hours",
+        "Reg. OT Amt.",
+        "Extra OT Hours",
+        "Extra OT Amt.",
+        "Total OT Hours",
+        "Total OT Amt.",
         "Earn. Head F.",
         "Earn. Head S.",
         "Earn. Head T.",
@@ -630,6 +642,10 @@ const SalaryRegisterReport = ({
         row.push(salary.dws_hra ?? "");
         row.push(salary.dws_other ?? "");
         row.push(salary.dws_total_earning ?? "");
+        row.push((salary as any).regular_ot_hours ?? "00:00:00");
+        row.push((salary as any).regular_ot_payable_amt ?? "0");
+        row.push((salary as any).extra_ot_hours ?? "00:00:00");
+        row.push((salary as any).extra_ot_payable_amt ?? "0");
         row.push(salary.earn_ot_hours ?? "");
         row.push(salary.earn_ot_payable_amt ?? "");
         row.push(salary.earn_head_first ?? "");
@@ -1456,8 +1472,60 @@ const SalaryRegisterReport = ({
           />
           <Column
             className="earning-section"
+            field="regular_ot_hours"
+            header={<span>Reg. OT Hours</span>}
+            sortable
+            filter
+            filterField="regular_ot_hours"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.regular_ot_hours ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="regular_ot_payable_amt"
+            header={<span>Reg. OT Amt.</span>}
+            sortable
+            filter
+            filterField="regular_ot_payable_amt"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.regular_ot_payable_amt ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="extra_ot_hours"
+            header={<span>Extra OT Hours</span>}
+            sortable
+            filter
+            filterField="extra_ot_hours"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.extra_ot_hours ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="extra_ot_payable_amt"
+            header={<span>Extra OT Amt.</span>}
+            sortable
+            filter
+            filterField="extra_ot_payable_amt"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.extra_ot_payable_amt ?? "-"}
+          />
+          <Column
+            className="earning-section"
             field="earn_ot_hours"
-            header={<span>OT Hours</span>}
+            header={<span>Total OT Hours</span>}
             sortable
             filter
             filterField="earn_ot_hours"
@@ -1470,7 +1538,7 @@ const SalaryRegisterReport = ({
           <Column
             className="earning-section"
             field="earn_ot_payable_amt"
-            header={<span>OT Payable Amt.</span>}
+            header={<span>Total OT Amt.</span>}
             sortable
             filter
             filterField="earn_ot_payable_amt"

@@ -173,9 +173,10 @@ export const fetchCompanyTeamApi = async (
   const token = await localStorage.getItem("token");
   const GetID = await localStorage.getItem("UUID");
   const companyId = localStorage.getItem("COMPANY_ID");
+  const targetCompanyId = companyId ? Number(companyId) : companyMastersId;
 
   const requestData = {
-    company_masters_id: companyMastersId,
+    company_masters_id: targetCompanyId,
     searchTerm: searchTerm,
   };
   try {

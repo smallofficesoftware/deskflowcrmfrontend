@@ -46,6 +46,8 @@ export interface IAttendanceSalary {
   // Overtime
   min_overtime_hours?: string;
   overtime_amount_per_hour?: string;
+  regular_ot_type?: string;
+  extra_ot_type?: string;
   approve_ot_hours?: string;
 
   // Sandwich Rule
@@ -153,6 +155,8 @@ export const attendanceSalaryInitialValues = (
   half_day_hours: payrollData?.half_day_hours || "",
   min_overtime_hours: payrollData?.min_overtime_hours || "",
   overtime_amount_per_hour: payrollData?.overtime_amount_per_hour || "",
+  regular_ot_type: (payrollData as any)?.regular_ot_type ? String((payrollData as any).regular_ot_type) : "1",
+  extra_ot_type: (payrollData as any)?.extra_ot_type ? String((payrollData as any).extra_ot_type) : "2",
   approve_ot_hours: payrollData?.approve_ot_hours || "",
   sandwich_rule: payrollData?.sandwich_rule ? String(payrollData.sandwich_rule) : "0",
   // sandwich_rule_applied: payrollData?.sandwich_rule_applied
@@ -501,6 +505,8 @@ const buildPayrollPayload = (
   compulsary_attendance_image: values.compulsary_attendance_image,
   min_overtime_hours: values.min_overtime_hours,
   overtime_amount_per_hour: values.overtime_amount_per_hour,
+  regular_ot_type: values.regular_ot_type,
+  extra_ot_type: values.extra_ot_type,
   approve_ot_hours: values.approve_ot_hours,
   sandwich_rule: values.sandwich_rule,
   sandwich_rule_applied: values.sandwich_rule_applied,

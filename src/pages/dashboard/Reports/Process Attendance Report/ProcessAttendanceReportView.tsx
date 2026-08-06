@@ -277,8 +277,11 @@ const ProcessAttendanceReportView = ({
       dataKey: formatDate(date),
     })),
     { title: "Total Working Time", dataKey: "total_working_hours" },
+    { title: "Round Off Hours", dataKey: "roundoff_hours" },
     { title: "Net Working Time", dataKey: "net_working_hours" },
-    { title: "Overtime Hours", dataKey: "overtime_hours" },
+    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
+    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
+    { title: "Total OT Hours", dataKey: "overtime_hours" },
     { title: "Present", dataKey: "present" },
     { title: "Half Day", dataKey: "half_day" },
     { title: "Absent", dataKey: "absent" },
@@ -322,7 +325,10 @@ const ProcessAttendanceReportView = ({
 
       // Fixed new columns
       row.total_working_hours = emp.total_working_time_sum ?? "00:00:00";
+      row.roundoff_hours = (emp as any).roundoff_hour_sum ?? "00:00:00";
       row.net_working_hours = emp.net_working_hour_sum ?? "00:00:00";
+      row.regular_ot_hours = (emp as any).regular_ot_hour_sum ?? "00:00:00";
+      row.extra_ot_hours = (emp as any).extra_ot_hour_sum ?? "00:00:00";
       row.overtime_hours = emp.overtime_hour_sum ?? "00:00:00";
       row.present = emp.status_count.P ?? "-";
       row.half_day = emp.status_count.HD ?? "-";
@@ -440,8 +446,11 @@ const ProcessAttendanceReportView = ({
         "Employee Name",
         ...sortedDates.map(formatDateDisplay),
         "Total Working Time",
+        "Round Off Hours",
         "Net Working Time",
-        "Overtime Hours",
+        "Reg. OT Hours",
+        "Extra OT Hours",
+        "Total OT Hours",
         "Present",
         "Half Day",
         "Absent",
@@ -475,7 +484,10 @@ const ProcessAttendanceReportView = ({
         });
 
         row.push(emp.total_working_time_sum ?? "00:00:00");
+        row.push((emp as any).roundoff_hour_sum ?? "00:00:00");
         row.push(emp.net_working_hour_sum ?? "00:00:00");
+        row.push((emp as any).regular_ot_hour_sum ?? "00:00:00");
+        row.push((emp as any).extra_ot_hour_sum ?? "00:00:00");
         row.push(emp.overtime_hour_sum ?? "00:00:00");
         row.push(emp.status_count.P ?? "-");
         row.push(emp.status_count.HD ?? "-");
@@ -1052,10 +1064,55 @@ const ProcessAttendanceReportView = ({
                 body={(row) => row.net_working_hour_sum}
               />
               <Column
+                field="roundoff_hour_sum"
+                header={
+                  <span>
+                    Round Off <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).roundoff_hour_sum ?? "00:00:00"}
+              />
+              <Column
+                field="regular_ot_hour_sum"
+                header={
+                  <span>
+                    Reg. OT <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).regular_ot_hour_sum ?? "00:00:00"}
+              />
+              <Column
+                field="extra_ot_hour_sum"
+                header={
+                  <span>
+                    Extra OT <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).extra_ot_hour_sum ?? "00:00:00"}
+              />
+              <Column
                 field="overtime_hour_sum"
                 header={
                   <span>
-                    Overtime <br /> Hours
+                    Total OT <br /> Hours
                   </span>
                 }
                 headerStyle={{ width: "120px" }}
