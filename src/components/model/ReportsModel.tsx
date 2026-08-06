@@ -83,6 +83,7 @@ interface IOrderCreateModal {
   reportName?: string;
   date?: Date[] | null;
   fromSideView?: boolean;
+  selectedTeamMembers?: any[];
 }
 
 const ReportModal: React.FC<IOrderCreateModal> = ({
@@ -97,6 +98,7 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
   orderById,
   reportName,
   date,
+  selectedTeamMembers,
   fromSideView = false,
 }) => {
   const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
@@ -597,18 +599,34 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (reportName && !userChanged && reportName !== appliedReportType) {
-      setFilter(
-        reportName,
-        "selectedDateArray",
-        selectedDates || getCurrentMonthDateRange(),
-      );
+      const datesToApply = selectedDates || getCurrentMonthDateRange();
+      const teamMembersToApply =
+        selectedTeamMembers !== undefined ? selectedTeamMembers : [];
+
+      if (selectedDates === undefined && selectedTeamMembers === undefined) {
+        clearFilters(reportName);
+      }
+
+      setFilters(reportName, {
+        selectedDateArray: datesToApply,
+        startSearchDate: datesToApply?.[0],
+        endSearchDate: datesToApply?.[1],
+        checkedOptionsUser: teamMembersToApply,
+      });
 
       setSelectReportType(reportName);
       setAppliedReportType(reportName);
 
       setReportKey((prev) => prev + 1);
     }
-  }, [reportName, selectedDates, appliedReportType, userChanged]);
+  }, [
+    reportName,
+    selectedDates,
+    selectedTeamMembers,
+    appliedReportType,
+    userChanged,
+    clearFilters,
+  ]);
 
   useEffect(() => {
     setHasData(filters.isFilterApplied);
@@ -622,11 +640,12 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
     setAppliedReportType("");
     // setFilter("selectedDateArray", getCurrentMonthDateRange());
 
-    setFilter(
-      selectedValue || "",
-      "selectedDateArray",
-      getCurrentMonthDateRange(),
-    );
+    const defaultDates = getCurrentMonthDateRange();
+    setFilters(selectedValue || "", {
+      selectedDateArray: defaultDates,
+      startSearchDate: defaultDates?.[0],
+      endSearchDate: defaultDates?.[1],
+    });
 
     if (selectedValue && selectedValue !== "select") {
       if (!selectedDates || selectedDates.length !== 2) {
@@ -636,7 +655,11 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
       setAppliedReportType(selectedValue);
 
       // setFilter("selectedDateArray", selectedDates);
-      setFilter(selectedValue || "", "selectedDateArray", selectedDates);
+      setFilters(selectedValue || "", {
+        selectedDateArray: selectedDates,
+        startSearchDate: selectedDates?.[0],
+        endSearchDate: selectedDates?.[1],
+      });
 
       setReportKey((prev) => prev + 1);
     }
@@ -806,7 +829,11 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
 
     setAppliedReportType(selectReportType);
     // setFilter("selectedDateArray", selectedDates);
-    setFilter(selectReportType || "", "selectedDateArray", selectedDates);
+    setFilters(selectReportType || "", {
+      selectedDateArray: selectedDates,
+      startSearchDate: selectedDates?.[0],
+      endSearchDate: selectedDates?.[1],
+    });
 
     setReportKey((prev) => prev + 1);
   };
@@ -815,7 +842,11 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
     if (refreshReport) {
       setAppliedReportType(selectReportType);
       // setFilter("selectedDateArray", selectedDates);
-      setFilter(selectReportType || "", "selectedDateArray", selectedDates);
+      setFilters(selectReportType || "", {
+        selectedDateArray: selectedDates,
+        startSearchDate: selectedDates?.[0],
+        endSearchDate: selectedDates?.[1],
+      });
 
       setReportKey((prev) => prev + 1);
     }

@@ -1411,6 +1411,7 @@ const CRMDashboardView = ({
                   btn2={"Approve"}
                   reportName={reportName}
                   date={selectedDates}
+                  selectedTeamMembers={selectedUsers.map((user) => user.value)}
                 />
               )}
             </Container>

@@ -4,6 +4,7 @@ import { TReactSetState } from "../../../../../helpers/AppType";
 import { fetchAllCompanyApi } from "../../../LeftSideController";
 import { fetchAreasApi, fetchCitiesApi, fetchCountriesApi, fetchStatesApi, IAreasView, ICitiesView, ICountriesView, IStatesView } from "../areas/AreasController";
 import { createRoute, IRouteView, updateRoute } from "./RoutePlannerController";
+import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 
 interface IPropsAddRoutePlanner {
     show: boolean;
@@ -60,8 +61,8 @@ const AddRoutePlannerView = ({
     }, [setCountriesList])
 
     const employeeOptions = teamList.map((emp: any) => ({
-        id: emp.id,
-        name: emp.username,
+        value: emp.id,
+        label: emp.username,
     }));
 
     const countryOptions = countriesList.map((country) => ({
@@ -280,23 +281,20 @@ const AddRoutePlannerView = ({
                                     </h6>
                                 </label>
 
-                                <select
-                                    className="form-select"
-                                    value={employeeId}
-                                    onChange={(e) => {
-                                        setEmployeeId(Number(e.target.value));
-                                        setEmployeeError("");
+                                <CustomSearchDropdown
+                                    options={employeeOptions}
+                                    value={
+                                        employeeOptions.find(
+                                            (option) => Number(option.value) === employeeId
+                                        ) || null
+                                    }
+                                    onChange={(selectedOption) => {
+                                        const val = selectedOption ? Number(selectedOption.value) : 0;
+                                        setEmployeeId(val);
+                                        setEmployeeError(val ? "" : "Please select a Team Member");
                                     }}
-                                >
-                                    <option key={0} value={0}>
-                                        Select
-                                    </option>
-                                    {employeeOptions.map((emp) => (
-                                        <option key={emp.id} value={emp.id}>
-                                            {emp.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    placeholder="Select"
+                                />
 
                                 {employeeError && (
                                     <span className="text-danger">{employeeError}</span>
@@ -357,22 +355,19 @@ const AddRoutePlannerView = ({
                                         </h6>
                                     </label>
 
-                                    <select
-                                        className="form-select"
+                                    <CustomSearchDropdown
+                                        options={countryOptions}
                                         value={
-                                            countryOptions.find((option) => option.value === countryId)?.value || 0
+                                            countryOptions.find(
+                                                (option) => Number(option.value) === countryId
+                                            ) || null
                                         }
-                                        onChange={(e) => handleCountryChange(Number(e.target.value))}
-                                    >
-                                        <option key={0} value={0}>
-                                            Select
-                                        </option>
-                                        {countryOptions.map((c) => (
-                                            <option key={c.value} value={c.value}>
-                                                {c.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(selectedOption) => {
+                                            const val = selectedOption ? Number(selectedOption.value) : 0;
+                                            handleCountryChange(val);
+                                        }}
+                                        placeholder="Select"
+                                    />
 
                                     {countryError && (
                                         <span className="text-danger">{countryError}</span>
@@ -386,22 +381,19 @@ const AddRoutePlannerView = ({
                                         </h6>
                                     </label>
 
-                                    <select
-                                        className="form-select"
+                                    <CustomSearchDropdown
+                                        options={stateOptions}
                                         value={
-                                            stateOptions.find((option) => option.value === stateId)?.value || 0
+                                            stateOptions.find(
+                                                (option) => Number(option.value) === stateId
+                                            ) || null
                                         }
-                                        onChange={(e) => handleStateChange(Number(e.target.value))}
-                                    >
-                                        <option key={0} value={0}>
-                                            Select
-                                        </option>
-                                        {stateOptions.map((s) => (
-                                            <option key={s.value} value={s.value}>
-                                                {s.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(selectedOption) => {
+                                            const val = selectedOption ? Number(selectedOption.value) : 0;
+                                            handleStateChange(val);
+                                        }}
+                                        placeholder="Select"
+                                    />
 
                                     {stateError && (
                                         <span className="text-danger">{stateError}</span>
@@ -417,22 +409,19 @@ const AddRoutePlannerView = ({
                                         </h6>
                                     </label>
 
-                                    <select
-                                        className="form-select"
+                                    <CustomSearchDropdown
+                                        options={cityOptions}
                                         value={
-                                            cityOptions.find((option) => option.value === cityId)?.value || 0
+                                            cityOptions.find(
+                                                (option) => Number(option.value) === cityId
+                                            ) || null
                                         }
-                                        onChange={(e) => handleCityChange(Number(e.target.value))}
-                                    >
-                                        <option key={0} value={0}>
-                                            Select
-                                        </option>
-                                        {cityOptions.map((c) => (
-                                            <option key={c.value} value={c.value}>
-                                                {c.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(selectedOption) => {
+                                            const val = selectedOption ? Number(selectedOption.value) : 0;
+                                            handleCityChange(val);
+                                        }}
+                                        placeholder="Select"
+                                    />
 
                                     {cityError && (
                                         <span className="text-danger">{cityError}</span>
@@ -446,24 +435,19 @@ const AddRoutePlannerView = ({
                                         </h6>
                                     </label>
 
-                                    <select
-                                        className="form-select"
+                                    <CustomSearchDropdown
+                                        options={areaOptions}
                                         value={
-                                            areaOptions.find((option) => option.value === areaId)?.value || 0
+                                            areaOptions.find(
+                                                (option) => Number(option.value) === areaId
+                                            ) || null
                                         }
-                                        onChange={(e) => {
-                                            setAreaId(Number(e.target.value));
+                                        onChange={(selectedOption) => {
+                                            const val = selectedOption ? Number(selectedOption.value) : 0;
+                                            setAreaId(val);
                                         }}
-                                    >
-                                        <option key={0} value={0}>
-                                            Select
-                                        </option>
-                                        {areaOptions.map((a) => (
-                                            <option key={a.value} value={a.value}>
-                                                {a.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        placeholder="Select"
+                                    />
                                 </div>
                             </div>
 

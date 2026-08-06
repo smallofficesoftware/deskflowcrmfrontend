@@ -437,11 +437,11 @@ const ListReminderView = ({
   };
 
   const handleChangeReminderComplete = (messageData: IReminderList) => {
-    const currentUserUUID = localStorage.getItem("UUID");
-    const isAssignedUser =
-      messageData.assigned_to === parseInt(currentUserUUID || "0");
+    // const currentUserUUID = localStorage.getItem("UUID");
+    // const isAssignedUser =
+    //   messageData.assigned_to === parseInt(currentUserUUID || "0");
 
-    if (canApprove || isAssignedUser) {
+    if (canApprove) {
       setIsReminderConfirmationStatus(true);
       setIsReminderConfirmationStatusData(messageData);
     } else {
@@ -455,11 +455,11 @@ const ListReminderView = ({
     setTaskSingleData(
       task
         ? {
-            id: task.task_management_id,
-            assigned_team_member: task.task_assigned_team_member,
-            task_enddate: task.task_end_date,
-            task_fromdate: task.task_from_date,
-          }
+          id: task.task_management_id,
+          assigned_team_member: task.task_assigned_team_member,
+          task_enddate: task.task_end_date,
+          task_fromdate: task.task_from_date,
+        }
         : undefined,
     );
   };
@@ -850,9 +850,9 @@ const ListReminderView = ({
       // Clean the remark before setting
       const cleanRemark = messageData.remark
         ? messageData.remark
-            .replace(/<br\s*\/?>/gi, "\n") // Replace <br> with newlines
-            .replace(/<\/?[^>]+(>|$)/g, "") // Remove other HTML tags
-            .trim() // Trim extra spaces
+          .replace(/<br\s*\/?>/gi, "\n") // Replace <br> with newlines
+          .replace(/<\/?[^>]+(>|$)/g, "") // Remove other HTML tags
+          .trim() // Trim extra spaces
         : "";
 
       setReminderRescheduleData({
@@ -1189,17 +1189,15 @@ const ListReminderView = ({
             <>
               <div className="mt-2">
                 <button
-                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${
-                    selectedButton === "all" ? "selected-btn" : ""
-                  }`}
+                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${selectedButton === "all" ? "selected-btn" : ""
+                    }`}
                   onClick={() => handleFilterChange("all")}
                 >
                   <span className="contact-btn-search-text"> All </span>
                 </button>
                 <button
-                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${
-                    selectedButton === "due" ? "selected-btn" : ""
-                  }`}
+                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${selectedButton === "due" ? "selected-btn" : ""
+                    }`}
                   onClick={() => handleFilterChange("due")}
                 >
                   <span className="contact-btn-search-text"> Due </span>
@@ -1217,9 +1215,8 @@ const ListReminderView = ({
                   </span>
                 </button>
                 <button
-                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${
-                    selectedButton === "future" ? "selected-btn" : ""
-                  }`}
+                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${selectedButton === "future" ? "selected-btn" : ""
+                    }`}
                   onClick={() => handleFilterChange("future")}
                 >
                   <span className="contact-btn-search-text"> Upcoming </span>
@@ -1238,9 +1235,8 @@ const ListReminderView = ({
                   </span>
                 </button>
                 <button
-                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${
-                    selectedButton === "complete" ? "selected-btn" : ""
-                  }`}
+                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${selectedButton === "complete" ? "selected-btn" : ""
+                    }`}
                   onClick={() => handleFilterChange("complete")}
                 >
                   <span className="contact-btn-search-text"> Completed </span>
@@ -1271,383 +1267,381 @@ const ListReminderView = ({
                   <>
                     {loading && reminderList.length === 0
                       ? Array.from({ length: 12 }).map((_, index) => (
-                          <div className="block chat-list" key={index}>
-                            <div className="h-text">
-                              <div className="col-12 d-flex">
-                                <div className="col-10 text-start">
-                                  <span className="reminder_list_text">
-                                    <Skeleton
-                                      width="50%"
-                                      duration={5}
-                                      style={{ opacity: darkMode ? "" : 0.5 }}
-                                    />
-                                  </span>
-                                  <span className="reminder_list_text">
-                                    <Skeleton
-                                      width="50%"
-                                      duration={5}
-                                      style={{ opacity: darkMode ? "" : 0.5 }}
-                                    />
-                                  </span>
-                                  <span className="reminder_list_text">
-                                    <Skeleton
-                                      width="50%"
-                                      duration={5}
-                                      style={{ opacity: darkMode ? "" : 0.5 }}
-                                    />
-                                  </span>
-                                  <p className="time">
-                                    <Skeleton
-                                      width="50%"
-                                      duration={5}
+                        <div className="block chat-list" key={index}>
+                          <div className="h-text">
+                            <div className="col-12 d-flex">
+                              <div className="col-10 text-start">
+                                <span className="reminder_list_text">
+                                  <Skeleton
+                                    width="50%"
+                                    duration={5}
+                                    style={{ opacity: darkMode ? "" : 0.5 }}
+                                  />
+                                </span>
+                                <span className="reminder_list_text">
+                                  <Skeleton
+                                    width="50%"
+                                    duration={5}
+                                    style={{ opacity: darkMode ? "" : 0.5 }}
+                                  />
+                                </span>
+                                <span className="reminder_list_text">
+                                  <Skeleton
+                                    width="50%"
+                                    duration={5}
+                                    style={{ opacity: darkMode ? "" : 0.5 }}
+                                  />
+                                </span>
+                                <p className="time">
+                                  <Skeleton
+                                    width="50%"
+                                    duration={5}
+                                    style={{
+                                      marginLeft: "70%",
+                                      opacity: darkMode ? "" : 0.5,
+                                    }}
+                                  />
+                                </p>
+                              </div>
+                              <div className="">
+                                <button className="icon-more">
+                                  <Skeleton
+                                    width={30}
+                                    height={20}
+                                    duration={5}
+                                    circle={true}
+                                    style={{ opacity: darkMode ? "" : 0.5 }}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                      : reminderList.map((item, index) => {
+                        const isEven = index % 2 === 0;
+                        let referenceText: string;
+
+                        switch (item.reference_table) {
+                          case "cart_quotation":
+                            referenceText = "For Quotation";
+                            break;
+                          case "cart_order":
+                            referenceText = "For Order";
+                            break;
+                          case "cart_invoice":
+                            referenceText = "For Invoice";
+                            break;
+                          case "inquiries":
+                            referenceText = "For Inquiry";
+                            break;
+                          case "contact_message_histories":
+                            referenceText = "For Message";
+                            break;
+                          case "cart_purchase_order":
+                            referenceText = "For Purchase Invoice";
+                            break;
+                          case "task_message_histories":
+                            referenceText = "For Task Message";
+                            break;
+                          default:
+                            referenceText = "For General";
+                            break;
+                        }
+
+                        // const handleClick = (item: any) => {
+
+                        //   if (item.contact_masters_id && item.person_name && item.mobile_number) {
+                        //     // setIsTaskRightSideOpen(true)
+                        //     // Contact
+                        //     openRightSide({
+                        //       id: item.contact_masters_id,
+                        //       to_customer_id: item.contact_masters_id,
+                        //       person_name: item.person_name || "",
+                        //       to_customer_name: item.person_name || "",
+                        //       mobile_number: item.mobile_number || "",
+                        //       email_id: "",
+                        //       country_name: "",
+                        //       state_name: "",
+                        //       city_name: "",
+                        //       area_name: "",
+                        //       address: "",
+                        //       shipping_address: "",
+                        //       gst_number: "",
+                        //       source_name: "",
+                        //       stage_status_name: "",
+                        //       label_name: "",
+                        //       created_date_time: "",
+                        //       is_pin: 0,
+                        //       is_unread: 1,
+                        //       label_color: "",
+                        //       source_name_color: "",
+                        //       stage_status_color: "",
+                        //       lable: "",
+                        //       contact_status: 0,
+                        //       assinged_to_work_a_application_id: "",
+                        //       assinged_to_price_list: 0,
+                        //       a_application_login_id: 0,
+                        //       is_pin_by_a_application_login_id: "",
+                        //     });
+                        //   }
+                        //   else if (item.task_id && Number(item.task_id) > 0) {
+                        //     // getTaskById(item.task_id)
+                        //     setIsTaskChatRightSide(true)
+
+                        //     setIsTaskRightSideOpen(true)
+                        //     openTaskRight?.({
+                        //       id: Number(item.task_id),
+                        //       assigned_team_member: "",
+                        //       task_enddate: "",
+                        //       task_fromdate: "",
+                        //       created_date_time: "",
+                        //       task_type: 0,
+                        //       task_title: "",
+                        //       task_remark: "",
+                        //       task_category_id: 0,
+                        //     });
+
+                        //   } else {
+                        //     console.warn("Neither task nor contact is clickable for item:", item);
+                        //   }
+                        // };
+
+                        return (
+                          <div key={index} className="">
+                            <div>
+                              <ul
+                                className={`labelDropLeft ${hasOneData === item.id &&
+                                    labelDropdownOpen === item.id
+                                    ? "isVisible"
+                                    : "isHidden"
+                                  }`}
+                                ref={(el) => {
+                                  if (el) {
+                                    dropdownContactRef.current[item.id] = el;
+                                  } else {
+                                    delete dropdownContactRef.current[
+                                      item.id
+                                    ];
+                                  }
+                                }}
+                                style={{ marginTop: "8%" }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <li
+                                  className="listItem"
+                                  role="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleChangeReminderReschedule(item);
+                                    setLabelDropdownOpen(null);
+                                    setHasOneData(null);
+                                  }}
+                                >
+                                  Reschedule
+                                </li>
+                                <li
+                                  style={{ color: "red", fontWeight: "600" }}
+                                  className="listItem"
+                                  role="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handelChangeDelete(item);
+                                    setLabelDropdownOpen(null);
+                                    setHasOneData(null);
+                                  }}
+                                >
+                                  Delete
+                                </li>
+                              </ul>
+                            </div>
+                            <div
+                              className={`block chat-list ${isEven ? "" : ""
+                                }`}
+                              onClick={() => handleClickRIght(item)}
+                            // style={{
+                            //   cursor: isClickable ? "pointer" : "default",
+                            // }}
+                            >
+                              {/* <p>{item.task_id}</p> */}
+                              <div className="h-text h-100 no">
+                                <div className="col-12 d-flex">
+                                  <div
+                                    className="col-10 text-start"
+                                    style={{ width: "300px" }}
+                                  >
+                                    <span className="reminder_list_text">
+                                      <div className="head">
+                                        <div className="d-flex align-items-center">
+                                          <input
+                                            className="custom-checkbox"
+                                            type="checkbox"
+                                            onClick={() =>
+                                              handleChangeReminderComplete(
+                                                item,
+                                              )
+                                            }
+                                            checked={item.status === 1}
+                                            disabled={item.status === 1}
+                                          />
+                                          <h4 className="text-start">
+                                            <b className="ps-2">#{item.id}</b>
+                                          </h4>
+                                        </div>
+                                      </div>
+                                      <b>Remark: </b>
+                                      <SafeHtml htmlContent={item.remark} />
+                                      <br />
+                                      {item.company_name && (
+                                        <>
+                                          <b>Company Name: </b>
+                                          {item.company_name}
+                                          <br />
+                                        </>
+                                      )}
+                                      {item.person_name && (
+                                        <>
+                                          <b>Contact Name: </b>
+                                          {item.person_name}
+                                          <br />
+                                        </>
+                                      )}
+                                      {item.mobile_number && (
+                                        <>
+                                          <b>Contact Number: </b>
+                                          {item.mobile_number}
+                                          <br />
+                                        </>
+                                      )}
+                                    </span>
+                                    <br />
+                                  </div>
+                                  <div className="col-2 text-end">
+                                    <div
                                       style={{
-                                        marginLeft: "70%",
-                                        opacity: darkMode ? "" : 0.5,
+                                        position: "absolute",
+                                        right: "2%",
                                       }}
-                                    />
+                                    >
+                                      <button
+                                        className="icon-more"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleDropdownLabel(item.id);
+                                        }}
+                                      >
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          viewBox="0 0 19 20"
+                                          width="19"
+                                          height="20"
+                                          className="hide animate__animated animate__fadeInUp"
+                                        >
+                                          <path
+                                            fill="currentColor"
+                                            d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
+                                          ></path>
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    <div className="text-end py-1">
+                                      <span
+                                        style={{
+                                          backgroundColor:
+                                            item.isDue === 1 &&
+                                              !item.completed_date_time
+                                              ? "red"
+                                              : "",
+                                          position: "absolute",
+                                          right: "8%",
+                                        }}
+                                        className="badge rounded-pill text-end"
+                                      >
+                                        {item.isDue === 1 &&
+                                          !item.completed_date_time
+                                          ? "Due"
+                                          : ""}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="head">
+                                  <h4 className="time text-start">
+                                    <span
+                                      style={{
+                                        backgroundColor: "#eeeeee",
+                                        border:
+                                          "2px solid rgb(207, 207, 207)",
+                                        color: "black",
+                                      }}
+                                      className="badge rounded-pill p-2"
+                                    >
+                                      {referenceText}
+                                    </span>
+                                    <br />
+                                    <br />
+                                    <span
+                                      className="time text-end m-0"
+                                      style={{
+                                        overflowWrap: "break-word",
+                                        maxWidth: "150px",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        display: "inline-block",
+                                      }}
+                                      title={item.assigned_to_name}
+                                    >
+                                      <b>Assign To: </b>
+                                      <SafeHtml
+                                        htmlContent={item.assigned_to_name}
+                                      />
+                                    </span>
+                                  </h4>
+                                  <p className="time text-end">
+                                    <b>Reminder Date: </b>
+                                    <br />
+                                    {item.reminder_data_time}
+                                    <br />
+                                    <span
+                                      className="time text-end m-0"
+                                      style={{
+                                        overflowWrap: "break-word",
+                                        maxWidth: "150px",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        display: "inline-block",
+                                      }}
+                                      title={item.username}
+                                    >
+                                      <b>Created By: </b>
+                                      <SafeHtml htmlContent={item.username} />
+                                    </span>
                                   </p>
                                 </div>
-                                <div className="">
-                                  <button className="icon-more">
-                                    <Skeleton
-                                      width={30}
-                                      height={20}
-                                      duration={5}
-                                      circle={true}
-                                      style={{ opacity: darkMode ? "" : 0.5 }}
-                                    />
-                                  </button>
+                                <div className="text-end">
+                                  {item.labels?.map((label, index) => (
+                                    <span
+                                      key={index}
+                                      className="badge me-1"
+                                      style={{
+                                        backgroundColor: label.color,
+                                        padding: "2px 6px",
+                                        borderRadius: "8px",
+                                        fontSize: "12px",
+                                        fontWeight: "normal",
+                                      }}
+                                    >
+                                      {label.label_name}
+                                    </span>
+                                  ))}
                                 </div>
                               </div>
                             </div>
                           </div>
-                        ))
-                      : reminderList.map((item, index) => {
-                          const isEven = index % 2 === 0;
-                          let referenceText: string;
-
-                          switch (item.reference_table) {
-                            case "cart_quotation":
-                              referenceText = "For Quotation";
-                              break;
-                            case "cart_order":
-                              referenceText = "For Order";
-                              break;
-                            case "cart_invoice":
-                              referenceText = "For Invoice";
-                              break;
-                            case "inquiries":
-                              referenceText = "For Inquiry";
-                              break;
-                            case "contact_message_histories":
-                              referenceText = "For Message";
-                              break;
-                            case "cart_purchase_order":
-                              referenceText = "For Purchase Invoice";
-                              break;
-                            case "task_message_histories":
-                              referenceText = "For Task Message";
-                              break;
-                            default:
-                              referenceText = "For General";
-                              break;
-                          }
-
-                          // const handleClick = (item: any) => {
-
-                          //   if (item.contact_masters_id && item.person_name && item.mobile_number) {
-                          //     // setIsTaskRightSideOpen(true)
-                          //     // Contact
-                          //     openRightSide({
-                          //       id: item.contact_masters_id,
-                          //       to_customer_id: item.contact_masters_id,
-                          //       person_name: item.person_name || "",
-                          //       to_customer_name: item.person_name || "",
-                          //       mobile_number: item.mobile_number || "",
-                          //       email_id: "",
-                          //       country_name: "",
-                          //       state_name: "",
-                          //       city_name: "",
-                          //       area_name: "",
-                          //       address: "",
-                          //       shipping_address: "",
-                          //       gst_number: "",
-                          //       source_name: "",
-                          //       stage_status_name: "",
-                          //       label_name: "",
-                          //       created_date_time: "",
-                          //       is_pin: 0,
-                          //       is_unread: 1,
-                          //       label_color: "",
-                          //       source_name_color: "",
-                          //       stage_status_color: "",
-                          //       lable: "",
-                          //       contact_status: 0,
-                          //       assinged_to_work_a_application_id: "",
-                          //       assinged_to_price_list: 0,
-                          //       a_application_login_id: 0,
-                          //       is_pin_by_a_application_login_id: "",
-                          //     });
-                          //   }
-                          //   else if (item.task_id && Number(item.task_id) > 0) {
-                          //     // getTaskById(item.task_id)
-                          //     setIsTaskChatRightSide(true)
-
-                          //     setIsTaskRightSideOpen(true)
-                          //     openTaskRight?.({
-                          //       id: Number(item.task_id),
-                          //       assigned_team_member: "",
-                          //       task_enddate: "",
-                          //       task_fromdate: "",
-                          //       created_date_time: "",
-                          //       task_type: 0,
-                          //       task_title: "",
-                          //       task_remark: "",
-                          //       task_category_id: 0,
-                          //     });
-
-                          //   } else {
-                          //     console.warn("Neither task nor contact is clickable for item:", item);
-                          //   }
-                          // };
-
-                          return (
-                            <div key={index} className="">
-                              <div>
-                                <ul
-                                  className={`labelDropLeft ${
-                                    hasOneData === item.id &&
-                                    labelDropdownOpen === item.id
-                                      ? "isVisible"
-                                      : "isHidden"
-                                  }`}
-                                  ref={(el) => {
-                                    if (el) {
-                                      dropdownContactRef.current[item.id] = el;
-                                    } else {
-                                      delete dropdownContactRef.current[
-                                        item.id
-                                      ];
-                                    }
-                                  }}
-                                  style={{ marginTop: "8%" }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <li
-                                    className="listItem"
-                                    role="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleChangeReminderReschedule(item);
-                                      setLabelDropdownOpen(null);
-                                      setHasOneData(null);
-                                    }}
-                                  >
-                                    Reschedule
-                                  </li>
-                                  <li
-                                    style={{ color: "red", fontWeight: "600" }}
-                                    className="listItem"
-                                    role="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handelChangeDelete(item);
-                                      setLabelDropdownOpen(null);
-                                      setHasOneData(null);
-                                    }}
-                                  >
-                                    Delete
-                                  </li>
-                                </ul>
-                              </div>
-                              <div
-                                className={`block chat-list ${
-                                  isEven ? "" : ""
-                                }`}
-                                onClick={() => handleClickRIght(item)}
-                                // style={{
-                                //   cursor: isClickable ? "pointer" : "default",
-                                // }}
-                              >
-                                {/* <p>{item.task_id}</p> */}
-                                <div className="h-text h-100 no">
-                                  <div className="col-12 d-flex">
-                                    <div
-                                      className="col-10 text-start"
-                                      style={{ width: "300px" }}
-                                    >
-                                      <span className="reminder_list_text">
-                                        <div className="head">
-                                          <div className="d-flex align-items-center">
-                                            <input
-                                              className="custom-checkbox"
-                                              type="checkbox"
-                                              onClick={() =>
-                                                handleChangeReminderComplete(
-                                                  item,
-                                                )
-                                              }
-                                              checked={item.status === 1}
-                                              disabled={item.status === 1}
-                                            />
-                                            <h4 className="text-start">
-                                              <b className="ps-2">#{item.id}</b>
-                                            </h4>
-                                          </div>
-                                        </div>
-                                        <b>Remark: </b>
-                                        <SafeHtml htmlContent={item.remark} />
-                                        <br />
-                                        {item.company_name && (
-                                          <>
-                                            <b>Company Name: </b>
-                                            {item.company_name}
-                                            <br />
-                                          </>
-                                        )}
-                                        {item.person_name && (
-                                          <>
-                                            <b>Contact Name: </b>
-                                            {item.person_name}
-                                            <br />
-                                          </>
-                                        )}
-                                        {item.mobile_number && (
-                                          <>
-                                            <b>Contact Number: </b>
-                                            {item.mobile_number}
-                                            <br />
-                                          </>
-                                        )}
-                                      </span>
-                                      <br />
-                                    </div>
-                                    <div className="col-2 text-end">
-                                      <div
-                                        style={{
-                                          position: "absolute",
-                                          right: "2%",
-                                        }}
-                                      >
-                                        <button
-                                          className="icon-more"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleDropdownLabel(item.id);
-                                          }}
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 19 20"
-                                            width="19"
-                                            height="20"
-                                            className="hide animate__animated animate__fadeInUp"
-                                          >
-                                            <path
-                                              fill="currentColor"
-                                              d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
-                                            ></path>
-                                          </svg>
-                                        </button>
-                                      </div>
-                                      <div className="text-end py-1">
-                                        <span
-                                          style={{
-                                            backgroundColor:
-                                              item.isDue === 1 &&
-                                              !item.completed_date_time
-                                                ? "red"
-                                                : "",
-                                            position: "absolute",
-                                            right: "8%",
-                                          }}
-                                          className="badge rounded-pill text-end"
-                                        >
-                                          {item.isDue === 1 &&
-                                          !item.completed_date_time
-                                            ? "Due"
-                                            : ""}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="head">
-                                    <h4 className="time text-start">
-                                      <span
-                                        style={{
-                                          backgroundColor: "#eeeeee",
-                                          border:
-                                            "2px solid rgb(207, 207, 207)",
-                                          color: "black",
-                                        }}
-                                        className="badge rounded-pill p-2"
-                                      >
-                                        {referenceText}
-                                      </span>
-                                      <br />
-                                      <br />
-                                      <span
-                                        className="time text-end m-0"
-                                        style={{
-                                          overflowWrap: "break-word",
-                                          maxWidth: "150px",
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
-                                        }}
-                                        title={item.assigned_to_name}
-                                      >
-                                        <b>Assign To: </b>
-                                        <SafeHtml
-                                          htmlContent={item.assigned_to_name}
-                                        />
-                                      </span>
-                                    </h4>
-                                    <p className="time text-end">
-                                      <b>Reminder Date: </b>
-                                      <br />
-                                      {item.reminder_data_time}
-                                      <br />
-                                      <span
-                                        className="time text-end m-0"
-                                        style={{
-                                          overflowWrap: "break-word",
-                                          maxWidth: "150px",
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
-                                        }}
-                                        title={item.username}
-                                      >
-                                        <b>Created By: </b>
-                                        <SafeHtml htmlContent={item.username} />
-                                      </span>
-                                    </p>
-                                  </div>
-                                  <div className="text-end">
-                                    {item.labels?.map((label, index) => (
-                                      <span
-                                        key={index}
-                                        className="badge me-1"
-                                        style={{
-                                          backgroundColor: label.color,
-                                          padding: "2px 6px",
-                                          borderRadius: "8px",
-                                          fontSize: "12px",
-                                          fontWeight: "normal",
-                                        }}
-                                      >
-                                        {label.label_name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        );
+                      })}
                   </>
                 ) : (
                   <div className="no_found text-center p-3">
@@ -1691,18 +1685,16 @@ const ListReminderView = ({
               handleSubmit={handleChangeStatusOfReminder}
               handleNewSubmit={handleNewReminder}
               title={"Complete or Update Reminder"}
-              message={`<strong>Remark: </strong> ${
-                isReminderConfirmationStatusData?.remark || ""
-              }`}
+              message={`<strong>Remark: </strong> ${isReminderConfirmationStatusData?.remark || ""
+                }`}
               btn1="Cancel"
               btn2="Complete Reminder"
               btn3="New Reminder"
-              message1={`<strong>Reminder Date:</strong> ${
-                isReminderConfirmationStatusData &&
+              message1={`<strong>Reminder Date:</strong> ${isReminderConfirmationStatusData &&
                 formatDateAndTime(
                   isReminderConfirmationStatusData.reminder_data_time,
                 )
-              }`}
+                }`}
             />
           )}
 
@@ -1770,13 +1762,13 @@ const ListReminderView = ({
               remarkMsg={isReminderConfirmationStatusData?.remark || ""}
               request_flag={
                 isReminderConfirmationStatusData?.reference_table ===
-                "contact_message_histories"
+                  "contact_message_histories"
                   ? "2"
                   : ""
               }
               ContactMessageId={
                 isReminderConfirmationStatusData?.reference_table ===
-                "contact_message_histories"
+                  "contact_message_histories"
                   ? isReminderConfirmationStatusData?.reference_id
                   : undefined
               }

@@ -459,6 +459,9 @@ const DashboardView = ({
     } else if (canViewTask && name === "alltask_report") {
       setIsReportShow(true);
       setReportName(name);
+    } else if (canViewAllReminder && name === "allreminder_report") {
+      setIsReportShow(true);
+      setReportName(name);
     } else {
       setIsReportShow(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -883,6 +886,9 @@ const DashboardView = ({
                         {
                           count: totalReminder,
                           title: "Pending Reminder",
+                          onClick: () => {
+                            handelChangeShowModelReport("allreminder_report");
+                          },
                           svg: (
                             <svg
                               height="30px"
@@ -1292,6 +1298,9 @@ const DashboardView = ({
                     btn2={"Approve"}
                     reportName={reportName}
                     date={selectedDates}
+                    selectedTeamMembers={selectedUsers.map(
+                      (user) => user.value,
+                    )}
                   />
                 )}
               </Container>
