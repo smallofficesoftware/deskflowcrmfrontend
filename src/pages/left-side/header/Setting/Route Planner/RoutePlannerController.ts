@@ -314,7 +314,7 @@ export const fetchSelectedContactsList = async (
 
 // 3. SUBMIT A SINGLE CONTACT TO DATABASE
 export const addContactAssignment = async (
-    contactId: string | number,
+    contactIds: number[],
     routeId: number
 ): Promise<boolean> => {
     const getUUID = localStorage.getItem("UUID");
@@ -322,7 +322,7 @@ export const addContactAssignment = async (
 
     const requestData = {
         a_application_login_id: getUUID,
-        contact_id: contactId,
+        contact_ids: contactIds,
         route_id: routeId,
     };
 
@@ -483,5 +483,68 @@ export const fetchContactsApi = async (
         setTimeout(() => {
             setLoading(false); // Set loading to false after minimum time
         }, 1000); // 1000 milliseconds (1 seconds)
+    }
+};
+
+// ── All-area contacts (no search term required) ──────────────────────────────
+
+export interface IAreaContact {
+    id: number;
+    person_name: string;
+    company_name?: string;
+    mobile_number?: string | number;
+}
+
+export const fetchAllAreaContacts = async (
+    setContacts: TReactSetState<IAreaContact[]>,
+    contactFilterObject: any,
+    setLoading: TReactSetState<boolean>,
+    limit: number = 15,
+    offset: number = 0,
+    append: boolean = false,
+): Promise<boolean> => {
+    const getUUID = localStorage.getItem("UUID");
+    const token = localStorage.getItem("token");
+
+    setLoading(true);
+    try {
+        const { data } = await axiosInstance.post(
+            "Contact",
+            {
+                a_application_login_id: getUUID,
+                searchTerm: "",
+                ul: offset,
+                ll: limit,
+                country: contactFilterObject?.country || 0,
+                state: contactFilterObject?.state || 0,
+                city: contactFilterObject?.city || 0,
+                area: contactFilterObject?.area || 0,
+            },
+            {
+                headers: {
+                    Authorization: `${token}`,
+                    "x-tenant-id": getUUID,
+                },
+            }
+        );
+
+        if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const items: IAreaContact[] = data.data?.item || [];
+            if (append) {
+                setContacts((prev) => [...prev, ...items]);
+            } else {
+                setContacts(items);
+            }
+            return items.length === limit; // true = more pages may exist
+        } else {
+            if (!append) setContacts([]);
+            return false;
+        }
+    } catch (error: any) {
+        toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        if (!append) setContacts([]);
+        return false;
+    } finally {
+        setLoading(false);
     }
 };

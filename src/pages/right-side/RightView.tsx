@@ -794,8 +794,8 @@ const RightView = ({
     {
       Number: "10",
       text: `Add ${companyLists[0] && companyLists[0]?.quotation_title
-          ? companyLists[0]?.quotation_title
-          : "Quotation"
+        ? companyLists[0]?.quotation_title
+        : "Quotation"
         }`,
       action: () => {
         handelOpenQuotation();
@@ -804,8 +804,8 @@ const RightView = ({
     {
       Number: "11",
       text: `Add ${companyLists[0] && companyLists[0]?.order_title
-          ? companyLists[0]?.order_title
-          : "Sales Order"
+        ? companyLists[0]?.order_title
+        : "Sales Order"
         }`,
       action: () => {
         handelOpenOrder();
@@ -814,8 +814,8 @@ const RightView = ({
     {
       Number: "12",
       text: `Add ${companyLists[0] && companyLists[0]?.dispatch_title
-          ? companyLists[0]?.dispatch_title
-          : "Dispatch"
+        ? companyLists[0]?.dispatch_title
+        : "Dispatch"
         }`,
       action: () => {
         handelOpenDispatch();
@@ -824,8 +824,8 @@ const RightView = ({
     {
       Number: "13",
       text: `Add ${companyLists[0] && companyLists[0]?.invoice_title
-          ? companyLists[0]?.invoice_title
-          : "Sales Invoice"
+        ? companyLists[0]?.invoice_title
+        : "Sales Invoice"
         }`,
       action: () => {
         handelOpenInvoice();
@@ -834,8 +834,8 @@ const RightView = ({
     {
       Number: "14",
       text: `Add ${companyLists[0] && companyLists[0]?.return_sales_invoice_title
-          ? companyLists[0]?.return_sales_invoice_title
-          : "Return Sales Invoice"
+        ? companyLists[0]?.return_sales_invoice_title
+        : "Return Sales Invoice"
         }`,
       action: () => {
         handelOpenReturnSalesInvoice();
@@ -844,8 +844,8 @@ const RightView = ({
     {
       Number: "15",
       text: `Add ${companyLists[0] && companyLists[0]?.purchase_order_title
-          ? companyLists[0]?.purchase_order_title
-          : "Purchase Order"
+        ? companyLists[0]?.purchase_order_title
+        : "Purchase Order"
         }`,
       action: () => {
         handelOpenPurchaseOrder();
@@ -854,8 +854,8 @@ const RightView = ({
     {
       Number: "16",
       text: `Add ${companyLists[0] && companyLists[0]?.inward_title
-          ? companyLists[0]?.inward_title
-          : "Goods Received Note"
+        ? companyLists[0]?.inward_title
+        : "Goods Received Note"
         }`,
       action: () => {
         handelOpenInward();
@@ -864,8 +864,8 @@ const RightView = ({
     {
       Number: "17",
       text: `Add ${companyLists[0] && companyLists[0]?.purchase_title
-          ? companyLists[0]?.purchase_title
-          : "Purchase Invoice"
+        ? companyLists[0]?.purchase_title
+        : "Purchase Invoice"
         }`,
       action: () => {
         handelOpenPurchaseInvoice();
@@ -874,8 +874,8 @@ const RightView = ({
     {
       Number: "18",
       text: `Add ${companyLists[0] && companyLists[0]?.return_purchase_invoice_title
-          ? companyLists[0]?.return_purchase_invoice_title
-          : "Return Purchase Invoice"
+        ? companyLists[0]?.return_purchase_invoice_title
+        : "Return Purchase Invoice"
         }`,
       action: () => {
         handelOpenReturnPurchaseInvoice();
@@ -1314,8 +1314,8 @@ const RightView = ({
     {
       Number: "80",
       text: `${companyLists[0] && companyLists[0]?.quotation_title
-          ? companyLists[0]?.quotation_title + "Report"
-          : "Quotation Report"
+        ? companyLists[0]?.quotation_title + "Report"
+        : "Quotation Report"
         }`,
       action: () => {
         handleSingleReportShow("quotation");
@@ -1324,8 +1324,8 @@ const RightView = ({
     {
       Number: "81",
       text: `${companyLists[0] && companyLists[0]?.order_title
-          ? companyLists[0]?.order_title + " Report"
-          : "Sales Order Report"
+        ? companyLists[0]?.order_title + " Report"
+        : "Sales Order Report"
         }`,
       action: () => {
         handleSingleReportShow("order");
@@ -1334,8 +1334,8 @@ const RightView = ({
     {
       Number: "82",
       text: `${companyLists[0] && companyLists[0]?.dispatch_title
-          ? companyLists[0]?.dispatch_title + " Report"
-          : "Dispatch Report"
+        ? companyLists[0]?.dispatch_title + " Report"
+        : "Dispatch Report"
         }`,
       action: () => {
         handleSingleReportShow("dispatch_report");
@@ -1344,8 +1344,8 @@ const RightView = ({
     {
       Number: "83",
       text: `${companyLists[0] && companyLists[0]?.invoice_title
-          ? companyLists[0]?.invoice_title + " Report"
-          : "Sales Invoice Report"
+        ? companyLists[0]?.invoice_title + " Report"
+        : "Sales Invoice Report"
         }`,
       action: () => {
         handleSingleReportShow("order_invoice");
@@ -1354,8 +1354,8 @@ const RightView = ({
     {
       Number: "84",
       text: `${companyLists[0] && companyLists[0]?.return_sales_invoice_title
-          ? companyLists[0]?.return_sales_invoice_title + " Report"
-          : "Return Sales Invoice Report"
+        ? companyLists[0]?.return_sales_invoice_title + " Report"
+        : "Return Sales Invoice Report"
         }`,
       action: () => {
         handleSingleReportShow("return_sales_invoice");
@@ -1364,8 +1364,8 @@ const RightView = ({
     {
       Number: "85",
       text: `${companyLists[0] && companyLists[0]?.purchase_order_title
-          ? companyLists[0]?.purchase_order_title + " Report"
-          : "Purchase Order Report"
+        ? companyLists[0]?.purchase_order_title + " Report"
+        : "Purchase Order Report"
         }`,
       action: () => {
         handleSingleReportShow("purchase_order");
@@ -1374,8 +1374,8 @@ const RightView = ({
     {
       Number: "86",
       text: `${companyLists[0] && companyLists[0]?.inward_title
-          ? companyLists[0]?.inward_title + " Report"
-          : "Goods Received Note Report"
+        ? companyLists[0]?.inward_title + " Report"
+        : "Goods Received Note Report"
         }`,
       action: () => {
         handleSingleReportShow("inward_report");
@@ -1384,8 +1384,8 @@ const RightView = ({
     {
       Number: "87",
       text: `${companyLists[0] && companyLists[0]?.purchase_title
-          ? companyLists[0]?.purchase_title + " Report"
-          : "Purchase Invoice Report"
+        ? companyLists[0]?.purchase_title + " Report"
+        : "Purchase Invoice Report"
         }`,
       action: () => {
         handleSingleReportShow("purchase_invoice");
@@ -1394,8 +1394,8 @@ const RightView = ({
     {
       Number: "88",
       text: `${companyLists[0] && companyLists[0]?.return_purchase_invoice_title
-          ? companyLists[0]?.return_purchase_invoice_title + " Report"
-          : "Return Purchase Invoice Report"
+        ? companyLists[0]?.return_purchase_invoice_title + " Report"
+        : "Return Purchase Invoice Report"
         }`,
       action: () => {
         handleSingleReportShow("return_purchase_invoice");
@@ -3884,8 +3884,8 @@ const RightView = ({
                           <div className="dropdown-icon">
                             <ul
                               className={`drop-order ${dropdownOpenCreateOrder
-                                  ? "isVisible"
-                                  : "isHidden"
+                                ? "isVisible"
+                                : "isHidden"
                                 }`}
                               style={{
                                 maxWidth: "250px",
@@ -4642,8 +4642,8 @@ const RightView = ({
                                                         className={`${filteredItemIds.includes(
                                                           message.id,
                                                         )
-                                                            ? "drop_msg1"
-                                                            : "drop_msg_left"
+                                                          ? "drop_msg1"
+                                                          : "drop_msg_left"
                                                           } 
                                                           ${dropdownOpenMsgLeft ===
                                                             message.id
@@ -4989,8 +4989,8 @@ const RightView = ({
                                                       className={`${filteredItemIds.includes(
                                                         message.id,
                                                       )
-                                                          ? "drop_msg1"
-                                                          : "drop_msg"
+                                                        ? "drop_msg1"
+                                                        : "drop_msg"
                                                         } 
                                                       ${dropdownOpenMsg ===
                                                           message.id
@@ -5303,7 +5303,7 @@ const RightView = ({
                     <div>
                       <div className="d-flex align-items-center justify-content-center mb-1">
                         <span>
-                          <b>All In One Platform:</b>
+                          <b>All In One Platform</b>
                         </span>
                       </div>
                       <div>
@@ -6043,8 +6043,8 @@ const RightView = ({
                               >
                                 <ul
                                   className={`drop-order ${dropdownOpenCreateOrder
-                                      ? "isVisible"
-                                      : "isHidden"
+                                    ? "isVisible"
+                                    : "isHidden"
                                     }`}
                                   style={{
                                     maxWidth: "250px",
@@ -6259,9 +6259,9 @@ const RightView = ({
                                             ? "#fff3eb"
                                             : "#f1f5f9",
                                         border: `1.5px solid ${item.parent_company_id === null ||
-                                            item.parent_company_id === undefined
-                                            ? "#f58634"
-                                            : "#cbd5e1"
+                                          item.parent_company_id === undefined
+                                          ? "#f58634"
+                                          : "#cbd5e1"
                                           }`,
                                         fontSize: "13px",
                                         fontWeight: 600,

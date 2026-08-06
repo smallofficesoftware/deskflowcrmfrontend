@@ -4419,7 +4419,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                               {" "}
                               All{" "}
                             </span>
-                            {totalContactCount > 0 && hasData && (
+                            {totalContactCount > 0 && (
                               <span
                                 className="badge bg-danger ms-1"
                                 style={{
