@@ -620,12 +620,12 @@ export const createCompanyValidationSchema = () =>
     sub_category_id_b2b: Yup.string().required(
       "Please select business category",
     ),
-    country_id: Yup.string().required(
+    /* country_id: Yup.string().required(
       "Please select country",
     ),
     state_id: Yup.string().required(
       "Please select state",
-    ),
+    ), */
     mail_id_setup: Yup.string()
       .email("Enter Valid Email")
       // .required("Email is required")

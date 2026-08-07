@@ -39,11 +39,16 @@ export const fetchProductInventory = async (
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
 
+  const stockTypeIdValue =
+    typeof selectedStockTypeId === "object" && selectedStockTypeId !== null
+      ? (selectedStockTypeId as any).value
+      : selectedStockTypeId;
+
   const requestedData = {
     selectedDates,
     selectedProduct,
     selectedCategory,
-    selectedStockTypeId,
+    selectedStockTypeId: stockTypeIdValue,
     selectedWarehouseIds,
     a_application_login_id: getUUID,
     ul,
