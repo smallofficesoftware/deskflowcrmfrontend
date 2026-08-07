@@ -30,6 +30,7 @@ import useCheckUserPermission from "../../hooks/useCheckUserPermission";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
+import { useCommonFilterStore } from "../../store/report/useCommonFilterStore";
 import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
 import { useTaskCategoryStoreSideView } from "../../store/sticky note/useTaskCategoryStoreSideView";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
@@ -162,6 +163,7 @@ const SideView = ({ profileDetail }: IProp) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [reminderCount, setReminderCount] = useState(0);
   const [appliedReportType, setAppliedReportType] = useState("");
+  const { clearFilters, setFilters: setReportFilters } = useCommonFilterStore();
 
   const [isDragging, setIsDragging] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -618,6 +620,19 @@ const SideView = ({ profileDetail }: IProp) => {
   );
 
   const handleSingleReportShow = (name: string) => {
+    if (name) {
+      clearFilters(name);
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const defaultDates = [startOfMonth, endOfMonth];
+      setReportFilters(name, {
+        selectedDateArray: defaultDates,
+        startSearchDate: defaultDates[0],
+        endSearchDate: defaultDates[1],
+      });
+    }
+
     if (name === "online_store") {
       window.open(
         `${window.location.origin}/website/${companyData?.qr_code}`,
@@ -925,7 +940,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Others");
       setAppliedReportType(name);
       return;
-    } else if (canViewStatusWiseReport && name === "Status_wise_task_Report") {
+    } else if (canViewStatusWiseReport && name === "status_wise_report") {
       setActiveView("new reports");
       setAppliedReportType(name);
       return;

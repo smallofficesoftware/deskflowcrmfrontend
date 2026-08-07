@@ -106,7 +106,7 @@ const ExpenseDetailedReport = ({
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
 
-  const filters = getFilter("expense_detailed_report");
+  const filters = getFilter("Expense_Detailed_Report");
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -173,7 +173,7 @@ const ExpenseDetailedReport = ({
       checkedOptionsExpenseStatus: data?.checkedOptionsExpenseStatus || [],
     };
 
-    setFilters("expense_detailed_report", updatedFilters);
+    setFilters("Expense_Detailed_Report", updatedFilters);
 
     setHasData(Object.keys(updatedFilters || {}).length > 0);
 
@@ -206,7 +206,7 @@ const ExpenseDetailedReport = ({
     ) {
       const [startDate, endDate] = getCurrentMonthDateRange();
 
-      setFilters("expense_detailed_report", {
+      setFilters("Expense_Detailed_Report", {
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
@@ -345,9 +345,14 @@ const ExpenseDetailedReport = ({
     setLoading(true);
 
     try {
+      const dateArrayToUse =
+        filters.selectedDateArray && filters.selectedDateArray.length === 2
+          ? filters.selectedDateArray
+          : getCurrentMonthDateRange();
+
       const newData =
         (await fetchDetailedExpense(
-          filters.selectedDateArray,
+          dateArrayToUse,
           filters.checkedOptionsUser,
           filters.checkedExpenseTypes,
           filters.checkedOptionsExpenseStatus,

@@ -169,6 +169,22 @@ const BottomView = ({
   }, [setTitle]);
 
   useEffect(() => {
+    if (appliedReportType && appliedReportType !== "") {
+      clearFilters(appliedReportType);
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const defaultDates = [startOfMonth, endOfMonth];
+
+      setFilters(appliedReportType, {
+        selectedDateArray: defaultDates,
+        startSearchDate: defaultDates[0],
+        endSearchDate: defaultDates[1],
+      });
+    }
+  }, [appliedReportType, clearFilters, setFilters]);
+
+  useEffect(() => {
     // Use the active workspace company, not always title[0] (which may be the main company).
     const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
     const activeTitle = activeCompanyId
@@ -571,7 +587,7 @@ const BottomView = ({
         {appliedReportType === "Emp_Transaction_Report" && (
           <EmployeeTransactionReports onHide={handleonHide} />
         )}
-        {appliedReportType === "Status_wise_task_Report" && (
+        {appliedReportType === "status_wise_report" && (
           <StatusWiseReport onHide={handleonHide} />
         )}
         {appliedReportType === "Process_Attendance" && (

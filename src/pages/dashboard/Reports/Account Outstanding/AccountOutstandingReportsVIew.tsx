@@ -186,13 +186,14 @@ const AccountOutstandingReports = ({
   };
 
   useEffect(() => {
-    if (!filters.startSearchDate || !filters.endSearchDate) {
+    if (!filters.startSearchDate || !filters.endSearchDate || !filters.selectedDateArray) {
       const [startDate, endDate] = getCurrentMonthDateRange();
 
       setFilters("account", {
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
@@ -282,8 +283,13 @@ const AccountOutstandingReports = ({
     const offset = reset ? 0 : offsetRef.current;
 
     try {
+      const dateArrayToUse =
+        filters.selectedDateArray && filters.selectedDateArray.length === 2
+          ? filters.selectedDateArray
+          : getCurrentMonthDateRange();
+
       const data = await fetchAccountOutstanding(
-        filters.selectedDateArray,
+        dateArrayToUse,
         offset,
         PAGE_SIZE,
         debouncedSearchText,

@@ -346,14 +346,17 @@ export const addContactAssignment = async (
     }
 };
 
-// 4. REMOVE A CONTACT FROM THE LIST
+// 4. REMOVE CONTACTS FROM THE ROUTE
 export const removeContactAssignment = async (
-    id: string | number,
+    ids: number[],
 ): Promise<boolean> => {
     const getUUID = localStorage.getItem("UUID");
     const token = localStorage.getItem("token");
 
-    const requestData = { id };
+    const requestData = {
+        a_application_login_id: getUUID,
+        ids: ids,
+    };
 
     try {
         const { data, status } = await axiosInstance.post("remove-contact-from-route", requestData, {
@@ -433,18 +436,21 @@ export const fetchContactsApi = async (
     limit: number = 30,
     offset: number = 0,
     append: boolean = false,
-    ids: number[],
+    ids?: number[],
+    routeId?: number,
 ): Promise<boolean> => {
 
     const getUUID = localStorage.getItem("UUID");
     const token = localStorage.getItem("token");
 
-    const requestData = {
+    const requestData: any = {
         a_application_login_id: getUUID,
         ul: offset,
         ll: limit,
-        ids,
     };
+
+    if (ids) requestData.ids = ids;
+    if (routeId) requestData.route_id = routeId;
 
     try {
         const data = await axiosInstance.post(

@@ -122,7 +122,27 @@ const RoutePlannerListView = ({
         });
     }, []);
 
-    useEscapeKey(onHide);
+    useEscapeKey(() => {
+        if (
+            showUpdateRouteView ||
+            showAddRouteView ||
+            isModalFilterVisible ||
+            isModalAssignStatusVisible ||
+            isOpenContactList ||
+            openRouteAssignContact ||
+            isDeleteConfirmation
+        ) {
+            setShowUpdateRouteView(false);
+            setShowAddRouteView(false);
+            setIsModalAssignStatusVisible(false);
+            setIsOpenContactList(false);
+            setOpenRouteAssignContact(false);
+            setOpenDropdownId(null);
+            setIsDeleteConfirmation(false);
+        } else {
+            onHide();
+        }
+    });
 
     // Click outside dropdown
     useEffect(() => {

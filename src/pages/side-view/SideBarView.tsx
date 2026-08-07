@@ -600,7 +600,7 @@ const SidebarView = ({
         },
         {
           label: "Status Wise Task Or Supp. Ticket Report",
-          value: "Status_wise_task_Report",
+          value: "status_wise_report",
           pageId: PAGE_ID.STATUS_REPORT,
         },
         {
