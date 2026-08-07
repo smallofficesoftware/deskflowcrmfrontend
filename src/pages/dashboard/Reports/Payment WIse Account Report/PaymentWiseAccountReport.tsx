@@ -46,16 +46,17 @@ const PaymentWiseAccountReport = ({
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
 
-  const filters = getFilter("payment_type_wise_account");
+  const filters = getFilter("Payment_wise_account_Report");
 
   useEffect(() => {
-    if (!filters.startSearchDate || !filters.endSearchDate) {
+    if (!filters.startSearchDate || !filters.endSearchDate || !filters.selectedDateArray) {
       const [startDate, endDate] = getCurrentMonthDateRange();
 
-      setFilters("payment_type_wise_account", {
+      setFilters("Payment_wise_account_Report", {
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
@@ -73,7 +74,7 @@ const PaymentWiseAccountReport = ({
       ],
     };
 
-    setFilters("payment_type_wise_account", updatedFilters);
+    setFilters("Payment_wise_account_Report", updatedFilters);
 
     setHasData(Object.keys(updatedFilters || {}).length > 0);
 
@@ -81,10 +82,15 @@ const PaymentWiseAccountReport = ({
   };
 
   useEffect(() => {
+    const dateArrayToUse =
+      filters.selectedDateArray && filters.selectedDateArray.length === 2
+        ? filters.selectedDateArray
+        : getCurrentMonthDateRange();
+
     fetchPaymentTypeAccountList(
       setPaymentTypeAccountList,
       setLoading,
-      filters.selectedDateArray,
+      dateArrayToUse,
     );
   }, [filters.selectedDateArray]);
 

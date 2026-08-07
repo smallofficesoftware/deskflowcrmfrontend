@@ -171,12 +171,13 @@ const StatusWiseReport = ({
   };
 
   useEffect(() => {
-    if (!filters.startSearchDate || !filters.endSearchDate) {
+    if (!filters.startSearchDate || !filters.endSearchDate || !filters.selectedDateArray) {
       const [startDate, endDate] = getCurrentMonthDateRange();
       setFilters("status_wise_report", {
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);

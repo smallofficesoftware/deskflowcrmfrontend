@@ -98,7 +98,7 @@ const EmployeeAccountOutstandingReport = ({
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
 
-  const filters = getFilter("employee_account");
+  const filters = getFilter("Emp_AccountOutstanding_Report");
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -152,7 +152,7 @@ const EmployeeAccountOutstandingReport = ({
       checkedOptionsUser: data?.checkedOptionsUser || [],
     };
 
-    setFilters("employee_account", updatedFilters);
+    setFilters("Emp_AccountOutstanding_Report", updatedFilters);
 
     setHasData(Object.keys(updatedFilters || {}).length > 0);
 
@@ -178,13 +178,14 @@ const EmployeeAccountOutstandingReport = ({
   };
 
   useEffect(() => {
-    if (!filters.startSearchDate || !filters.endSearchDate) {
+    if (!filters.startSearchDate || !filters.endSearchDate || !filters.selectedDateArray) {
       const [startDate, endDate] = getCurrentMonthDateRange();
 
-      setFilters("employee_account", {
+      setFilters("Emp_AccountOutstanding_Report", {
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
