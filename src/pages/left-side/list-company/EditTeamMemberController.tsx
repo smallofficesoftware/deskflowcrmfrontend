@@ -76,7 +76,6 @@ export interface IAttendanceSalary {
   pm_pf_percentage?: string;
   tds_percentage?: string;
   insurance_amount?: string;
-  grace_period?: string;
   pt_amount?: string;
   esi_company_side?: string;
   esi_employee_side_percentage?: string;
@@ -89,6 +88,16 @@ export interface IAttendanceSalary {
   medical_allowance?: string;
   conveyance_allowance?: string;
   special_allowance?: string;
+
+  // Grace Period & Penalties
+  grace_period?: string;
+  late_in_allowed_count?: number | string;
+  late_in_penalty_type?: string;
+  late_in_penalty_value?: number | string;
+  early_out_allowed_count?: number | string;
+  early_out_penalty_type?: string;
+  early_out_penalty_value?: number | string;
+  hourly_leave_allowed_hours?: string;
 
   // Meta — used internally for create vs update decision
   payroll_id?: number | null; // null = no record yet → CREATE; number → UPDATE
@@ -189,6 +198,13 @@ export const attendanceSalaryInitialValues = (
   conveyance_allowance: payrollData?.conveyance_allowance || "",
   special_allowance: payrollData?.special_allowance || "",
   grace_period: payrollData?.grace_period || "",
+  late_in_allowed_count: payrollData?.late_in_allowed_count ?? "0",
+  late_in_penalty_type: payrollData?.late_in_penalty_type ? String(payrollData.late_in_penalty_type) : "1",
+  late_in_penalty_value: payrollData?.late_in_penalty_value ?? "0",
+  early_out_allowed_count: payrollData?.early_out_allowed_count ?? "0",
+  early_out_penalty_type: payrollData?.early_out_penalty_type ? String(payrollData.early_out_penalty_type) : "1",
+  early_out_penalty_value: payrollData?.early_out_penalty_value ?? "0",
+  hourly_leave_allowed_hours: payrollData?.hourly_leave_allowed_hours || "0",
   payroll_id: payrollData?.id ?? null,
 });
 
@@ -203,7 +219,7 @@ export const fetchBasicDetailsApi = async (
     const response = await axiosInstance.post("mainCommonGet", {
       table: "a_application_logins",
       columns:
-        "id,employee_id,username,recovery_email,recovery_mobile,reporting_member,department,expense_types,recovery_email,recovery_mobile,aadhar_card_number,pan_card_number,date_of_joining,employee_pf_no",
+        "id,employee_id,username,recovery_email,recovery_mobile,reporting_member,department,expense_types,aadhar_card_number,pan_card_number,date_of_joining,employee_pf_no",
       where: [`id=${employeeId}`],
       request_flag: 0,
     });
@@ -536,6 +552,13 @@ const buildPayrollPayload = (
   conveyance_allowance: values.conveyance_allowance,
   special_allowance: values.special_allowance,
   grace_period: values.grace_period,
+  late_in_allowed_count: values.late_in_allowed_count,
+  late_in_penalty_type: values.late_in_penalty_type,
+  late_in_penalty_value: values.late_in_penalty_value,
+  early_out_allowed_count: values.early_out_allowed_count,
+  early_out_penalty_type: values.early_out_penalty_type,
+  early_out_penalty_value: values.early_out_penalty_value,
+  hourly_leave_allowed_hours: values.hourly_leave_allowed_hours,
 });
 
 // ─── Legacy alias kept for backward compat (now a no-op shell) ───────────────
