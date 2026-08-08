@@ -14,9 +14,14 @@ const useCheckUserPermission = (pageId: number, permissionType: string) => {
   }
 
   try {
-    // Parse the JSON string stored in `a_page_id_rights_jason`
-    const rights = JSON.parse(pagePermission.a_page_id_rights_jason);
-    return rights[permissionType] === 1; // Return true if permissionType exists and is set to 1
+    let rights = pagePermission.a_page_id_rights_jason;
+    if (typeof rights === "string") {
+      rights = JSON.parse(rights);
+      if (typeof rights === "string") {
+        rights = JSON.parse(rights);
+      }
+    }
+    return rights?.[permissionType] === 1; // Return true if permissionType exists and is set to 1
   } catch (error) {
     console.error("Error parsing permissions JSON:", error);
     return false;

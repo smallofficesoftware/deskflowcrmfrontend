@@ -178,7 +178,13 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
     );
     if (!pagePermission) return false;
     try {
-      const rights = JSON.parse(pagePermission.a_page_id_rights_jason);
+      let rights = pagePermission.a_page_id_rights_jason;
+      if (typeof rights === "string") {
+        rights = JSON.parse(rights);
+        if (typeof rights === "string") {
+          rights = JSON.parse(rights);
+        }
+      }
       return rights?.[permissionType] === 1;
     } catch {
       return false;

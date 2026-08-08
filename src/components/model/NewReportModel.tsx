@@ -658,7 +658,13 @@ const NewReportModel = (): JSX.Element => {
     const perm = rights?.find((p: any) => p.page_id === pageId);
     if (!perm) return false;
     try {
-      const parsed = JSON.parse(perm.a_page_id_rights_jason);
+      let parsed = perm.a_page_id_rights_jason;
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+        if (typeof parsed === "string") {
+          parsed = JSON.parse(parsed);
+        }
+      }
       return parsed?.view === 1;
     } catch {
       return false;
