@@ -110,8 +110,10 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
   const [refreshReport, setRefreshReport] = useState(false);
   const [title, setTitle] = useState<ITitle[]>([]);
   const [isCartModelOpen, setIsCartModelOpen] = useState(false);
-  const { getFilter, setFilter, setFilters, clearFilters } =
-    useCommonFilterStore();
+  const getFilter = useCommonFilterStore((state) => state.getFilter);
+  const setFilter = useCommonFilterStore((state) => state.setFilter);
+  const setFilters = useCommonFilterStore((state) => state.setFilters);
+  const clearFilters = useCommonFilterStore((state) => state.clearFilters);
   const filters = getFilter(selectReportType || "");
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [debouncedSearchText, setDebouncedSearchText] = useState<string>("");
@@ -625,12 +627,11 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
     selectedTeamMembers,
     appliedReportType,
     userChanged,
-    clearFilters,
   ]);
 
   useEffect(() => {
     setHasData(filters.isFilterApplied);
-  }, [filters]);
+  }, [filters.isFilterApplied]);
 
   const handleReportTypeChange = (selected: Option | null) => {
     setUserChanged(true);
@@ -1068,9 +1069,7 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                 </div>
               </div>
             </div>
-            <p className="text-center" style={{ color: "#999" }}>
-              <p></p>
-            </p>
+            <p className="text-center" style={{ color: "#999" }}></p>
             <div
               className="row"
               style={{

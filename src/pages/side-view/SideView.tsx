@@ -163,7 +163,8 @@ const SideView = ({ profileDetail }: IProp) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [reminderCount, setReminderCount] = useState(0);
   const [appliedReportType, setAppliedReportType] = useState("");
-  const { clearFilters, setFilters: setReportFilters } = useCommonFilterStore();
+  const clearFilters = useCommonFilterStore((state) => state.clearFilters);
+  const setReportFilters = useCommonFilterStore((state) => state.setFilters);
 
   const [isDragging, setIsDragging] = useState(false);
   const [showForm, setShowForm] = useState(false);
