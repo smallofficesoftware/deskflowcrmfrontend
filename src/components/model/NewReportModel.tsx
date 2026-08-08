@@ -341,7 +341,7 @@ const NewReportModel = (): JSX.Element => {
 
   useEffect(() => {
     setHasData(filters.isFilterApplied);
-  }, [filters]);
+  }, [filters.isFilterApplied]);
 
   const handleReportTypeChange = (e: {
     target: { value: React.SetStateAction<string> };

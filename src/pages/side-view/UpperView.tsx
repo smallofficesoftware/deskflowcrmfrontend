@@ -359,11 +359,56 @@ const UpperView = ({ profileDetail }: IProp) => {
                         style={{
                             cursor: "pointer",
                             display: "flex",
-                            alignItems: "end",
+                            alignItems: "center",
                             gap: "12px",
                             padding: "8px 12px"
                         }}
                     >
+                        {activeWorkspaceName && (
+                            <div
+                                className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill shadow-sm me-2"
+                                style={{
+                                    backgroundColor: isMainWorkspace ? "#fff3eb" : "#f1f5f9",
+                                    border: `1.5px solid ${isMainWorkspace ? "#f58634" : "#cbd5e1"}`,
+                                    fontSize: "13px",
+                                    fontWeight: 600,
+                                    color: isMainWorkspace ? "#f58634" : "#475569",
+                                    whiteSpace: "nowrap",
+                                }}
+                                title={`Logged in: ${activeWorkspaceName} (${isMainWorkspace ? "Main Company" : "Workspace"})`}
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="15"
+                                    height="15"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+                                    <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+                                    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+                                </svg>
+                                <span>
+                                    {activeWorkspaceName}
+                                </span>
+                                <span
+                                    className="badge ms-1"
+                                    style={{
+                                        backgroundColor: isMainWorkspace ? "#f58634" : "#64748b",
+                                        color: "#ffffff",
+                                        fontSize: "10px",
+                                        padding: "3px 7px",
+                                        borderRadius: "100px",
+                                    }}
+                                >
+                                    {isMainWorkspace ? "Main Company" : "Workspace"}
+                                </span>
+                            </div>
+                        )}
                         <div>
                             <button
                                 onClick={handleAttendance}
@@ -411,51 +456,6 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 )}
                             </button>
                         </div>
-                        {activeWorkspaceName && (
-                            <div
-                                className="d-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill me-2"
-                                style={{
-                                    backgroundColor: isMainWorkspace ? "#fff3eb" : "#f1f5f9",
-                                    border: `1px solid ${isMainWorkspace ? "#f58634" : "#cbd5e1"}`,
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    color: isMainWorkspace ? "#f58634" : "#475569",
-                                    whiteSpace: "nowrap",
-                                }}
-                                title={`Logged in: ${activeWorkspaceName} (${isMainWorkspace ? "Main Company" : "Workspace"})`}
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="13"
-                                    height="13"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-                                    <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                                    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-                                </svg>
-                                <span className="text-truncate" style={{ maxWidth: "130px" }}>
-                                    {activeWorkspaceName}
-                                </span>
-                                <span
-                                    className="badge ms-0.5"
-                                    style={{
-                                        backgroundColor: isMainWorkspace ? "#f58634" : "#64748b",
-                                        color: "#ffffff",
-                                        fontSize: "9px",
-                                        padding: "2px 5px",
-                                        borderRadius: "4px",
-                                    }}
-                                >
-                                    {isMainWorkspace ? "Main" : "Workspace"}
-                                </span>
-                            </div>
-                        )}
                         <div className="h-text">
                             <div style={{
                                 display: "flex",

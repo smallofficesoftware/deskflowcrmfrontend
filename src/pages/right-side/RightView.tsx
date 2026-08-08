@@ -761,11 +761,9 @@ const RightView = ({
     { Number: "5", text: "My Task", action: () => showMyTask() },
     {
       Number: "6",
-      text: "AI Assistant",
+      text: "Side View",
       action: () => {
-        canViewAiModel
-          ? showAichat()
-          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+        window.open("/SideView", "_blank");
       },
     },
     {
@@ -5900,14 +5898,10 @@ const RightView = ({
                                   padding: "10px",
                                 }}
                                 onClick={() =>
-                                  canViewAiModel
-                                    ? showAichat()
-                                    : toast.error(
-                                      DEFAULT_MESSAGE_ERROR_PERMISSION,
-                                    )
+                                  window.open("/SideView", "_blank")
                                 }
                               >
-                                <span title="AI Assistant">
+                                <span title="Side View">
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     height="24px"
@@ -5915,7 +5909,7 @@ const RightView = ({
                                     width="24px"
                                     fill="#1f1f1f"
                                   >
-                                    <path d="M852-212 732-332l56-56 120 120-56 56ZM708-692l-56-56 120-120 56 56-120 120Zm-456 0L132-812l56-56 120 120-56 56ZM108-212l-56-56 120-120 56 56-120 120Zm246-75 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-361Z" />
+                                    <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h160v-560H200v560Zm240 0h320v-560H440v560Z" />
                                   </svg>
                                 </span>
                               </button>

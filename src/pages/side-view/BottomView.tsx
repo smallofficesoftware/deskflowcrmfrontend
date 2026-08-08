@@ -112,8 +112,10 @@ const BottomView = ({
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
   const [showAichat, setshowAichat] = useState(false);
 
-  const { getFilter, setFilter, setFilters, clearFilters } =
-    useCommonFilterStore();
+  const getFilter = useCommonFilterStore((state) => state.getFilter);
+  const setFilter = useCommonFilterStore((state) => state.setFilter);
+  const setFilters = useCommonFilterStore((state) => state.setFilters);
+  const clearFilters = useCommonFilterStore((state) => state.clearFilters);
 
   const filters = getFilter("appliedReportType");
 

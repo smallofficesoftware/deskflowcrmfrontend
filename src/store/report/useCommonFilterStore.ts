@@ -106,7 +106,7 @@ export const useCommonFilterStore = create<ReportsFilterState>()(
       filters: {},
 
       getFilter: (reportName) =>
-        get().filters[reportName] ?? { ...initialState },
+        get().filters[reportName] ?? initialState,
 
       setFilter: (reportName, key, value) =>
         set((state) => ({
