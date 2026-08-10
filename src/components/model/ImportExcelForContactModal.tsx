@@ -334,6 +334,51 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           setUploadProgress(0); // Reset progress in all cases
         }
         break;
+      case 7:
+        try {
+          setErrorResponceMeg("");
+          const response = await axiosInstance.post(
+            "excel-sheet-compensation-adjustment",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `${token}`,
+                "x-tenant-id": getUUID,
+              },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round(
+                    (progressEvent.loaded * 100) / progressEvent.total,
+                  );
+                  setUploadProgress(percentCompleted);
+                } else {
+                  console.log(
+                    `File upload progress: Unable to determine total file size`,
+                  );
+                }
+              },
+            },
+          );
+
+          if (response && response.data.ack === 1) {
+            handleSubmit();
+            setAttachment(null);
+            toast.success(response.data.ack_msg || DEFAULT_STATUS_CODE_SUCCESS);
+          } else {
+            toast.error(
+              response.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
+            );
+          }
+          const msg = response?.data?.data;
+          setErrorResponceMeg(typeof msg === "string" ? msg : "");
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setUploadProgress(0);
+        }
+        break;
       default:
         alert("default");
         break;
@@ -523,6 +568,35 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         }
         break;
+      case 7:
+        try {
+          setIsGenerateSampleExport(true);
+          const getUUID = localStorage.getItem("UUID");
+          const requestData = {
+            a_application_login_id: getUUID,
+          };
+
+          const { data } = await axiosInstance.post(
+            "generate-compensation-adjustment-sample-sheet",
+            requestData,
+          );
+
+          if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const link: HTMLAnchorElement = document.createElement("a");
+            link.href = data.data.fileUrl;
+            link.download = data.data.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          }
+        } catch (error: any) {
+          toast.error(error?.message || error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setIsGenerateSampleExport(false);
+        }
+        break;
       default:
         alert("default");
         break;
@@ -653,6 +727,13 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
                     <code>pricelist_id</code> column or its value. This field is
                     mandatory for internal system functionality.
                   </div>
+                </>
+              )}
+              {potions == 7 && (
+                <>
+                  <p className="text-dark">
+                    In the Compensation Adjustment Sheet, specify <b>employee_id</b>, <b>type</b> (e.g. Early Exit Hours-HOURS-DEBIT, Overtime, etc.), <b>adjustment_type</b> (1=Credit Hours, 2=Debit Hours, 3=Credit Amount, 4=Debit Amount), <b>hours</b> / <b>amount</b>, and <b>apply_date</b> (YYYY-MM-DD).
+                  </p>
                 </>
               )}
             </div>

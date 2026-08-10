@@ -4,6 +4,7 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
+import ImportExcelForContactModal from "../../../../../components/model/ImportExcelForContactModal";
 import { useTheme } from "../../../../../components/ThemeContext";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
@@ -51,6 +52,7 @@ const CompensationAdjustmentsView = ({
 
   const [isCreateModel, setIsCreateModel] = useState<boolean>(false);
   const [isUpdateModel, setIsUpdateModel] = useState<boolean>(false);
+  const [isModalExcelVisible, setIsModalExcelVisible] = useState<boolean>(false);
   const [editableItem, setEditableItem] = useState<ICompensationAdjustmentView>(
     {
       id: 0,
@@ -273,6 +275,11 @@ const CompensationAdjustmentsView = ({
     }
   };
 
+  const handleConfirmImportExcel = async () => {
+    setIsModalExcelVisible(false);
+    handleRefreshList();
+  };
+
   // Helper: get badge style for adjustment type
   const getAdjBadgeStyle = (adjustmentType: number) => {
     const type = ADJUSTMENT_TYPES.find((a) => a.id === adjustmentType);
@@ -341,7 +348,7 @@ const CompensationAdjustmentsView = ({
             <div className="text-end mb-2">
               <div
                 className="ICON"
-                style={{ position: "absolute", right: "60px" }}
+                style={{ position: "absolute", right: "100px" }}
               >
                 <button
                   className="icons"
@@ -356,6 +363,32 @@ const CompensationAdjustmentsView = ({
                     fill="#fff"
                   >
                     <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                  </svg>
+                </button>
+              </div>
+              <div
+                className="ICON"
+                style={{ position: "absolute", right: "60px" }}
+              >
+                <button
+                  className="icons"
+                  onClick={() => {
+                    if (canAdd) {
+                      setIsModalExcelVisible(true);
+                    } else {
+                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    }
+                  }}
+                  title="Import Excel"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="26px"
+                    viewBox="0 -960 960 960"
+                    width="26px"
+                    fill="#fff"
+                  >
+                    <path d="M440-320v-326L336-542l-56-58 200-200 200 200-56 58-104-104v326h-80ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" />
                   </svg>
                 </button>
               </div>
@@ -702,6 +735,21 @@ const CompensationAdjustmentsView = ({
           headerName="Update Compensation Adjustment"
           handleRefreshList={handleRefreshList}
           productToEdit={editableItem}
+        />
+      )}
+
+      {/* Import Modal */}
+      {isModalExcelVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelVisible}
+          onHide={() => setIsModalExcelVisible(false)}
+          handleSubmit={() => handleConfirmImportExcel()}
+          title={"Import Excel For Compensation Adjustment"}
+          message={"Please Import excel as per sample excel"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation="sampleCompensationAdjustment.xlsx"
+          potions={7}
         />
       )}
     </>

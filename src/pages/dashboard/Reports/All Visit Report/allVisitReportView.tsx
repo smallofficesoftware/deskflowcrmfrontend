@@ -1502,10 +1502,21 @@ const AllVisitReportsView = ({
                 zIndex: 1,
                 fontSize: "14px",
               }}
-              bodyStyle={{ fontSize: "14px" }}
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
               body={(rowData: any) => (
-                <div>
-                  <div>{rowData.address || "-"}</div>
+                <div
+                  style={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {rowData.address || "-"}
                 </div>
               )}
             />
@@ -1572,8 +1583,23 @@ const AllVisitReportsView = ({
                 zIndex: 1,
                 fontSize: "14px",
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => rowData.remark || "-"}
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+              body={(rowData: any) => (
+                <div
+                  style={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {rowData.remark || "-"}
+                </div>
+              )}
             />
             <Column
               field="visit_image"

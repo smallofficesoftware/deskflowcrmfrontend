@@ -824,31 +824,29 @@ const PendingPurchaseReportsView = ({
               <th>Round Off (${currencyName})</th>
               <th>Grand Total (${currencyName})</th>
               ${uniqueCustomFields
-                .map((field: any) => `<th>${field.fieldLabel}</th>`)
-                .join("")}
+        .map((field: any) => `<th>${field.fieldLabel}</th>`)
+        .join("")}
             </tr>
           </thead>
           <tbody>
             ${dataToExport
-              .map(
-                (item: any) => `
+        .map(
+          (item: any) => `
                 <tr>
-                        ${
-                          showProductDetails
-                            ? `
+                        ${showProductDetails
+              ? `
 <td>
   <table style="width:100%; border-collapse: collapse; border:1px solid #ccc;">
     <tr>
       <th style="border:1px solid #ccc;">Product</th>
       <th style="border:1px solid #ccc;">Qty</th>
     </tr>
-    ${
-      item.items
-        ?.map((i: any) => {
-          const name = i.item_product_name || "";
-          const code = i.item_product_code || "";
+    ${item.items
+                ?.map((i: any) => {
+                  const name = i.item_product_name || "";
+                  const code = i.item_product_code || "";
 
-          return `
+                  return `
           <tr>
             <td style="border:1px solid #ccc;">
               ${code ? `${name} (${code})` : name}
@@ -858,14 +856,14 @@ const PendingPurchaseReportsView = ({
             </td>
           </tr>
         `;
-        })
-        .join("") || `<tr><td colspan="2">-</td></tr>`
-    }
+                })
+                .join("") || `<tr><td colspan="2">-</td></tr>`
+              }
   </table>
 </td>
 `
-                            : ""
-                        }
+              : ""
+            }
                   <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
                   <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
                   <td>${item.to_customer_phone || "-"}</td>
@@ -880,15 +878,15 @@ const PendingPurchaseReportsView = ({
                   <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
                   <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
                   ${uniqueCustomFields
-                    .map(
-                      (field: any) =>
-                        `<td>${item[field.fieldName] || "-"}</td>`,
-                    )
-                    .join("")}
-                </tr>
-              `,
+              .map(
+                (field: any) =>
+                  `<td>${item[field.fieldName] || "-"}</td>`,
               )
               .join("")}
+                </tr>
+              `,
+        )
+        .join("")}
           </tbody>
         </table>
       </body>
@@ -1077,9 +1075,8 @@ const PendingPurchaseReportsView = ({
                 />
 
                 <ul
-                  className={`labelDropLeft ${
-                    isExportDropdownOpen ? "isVisible" : "isHidden"
-                  }`}
+                  className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"
+                    }`}
                   style={{
                     width: "170px",
                     position: "absolute",
@@ -1288,96 +1285,96 @@ const PendingPurchaseReportsView = ({
             {(!MobileFlag ||
               MobileFlag === undefined ||
               MobileFlag === null) && (
-              <Column
-                selectionMode="multiple"
-                headerStyle={{
-                  width: "3rem",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{ textAlign: "center" }}
-              />
-            )}
+                <Column
+                  selectionMode="multiple"
+                  headerStyle={{
+                    width: "3rem",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                  }}
+                  bodyStyle={{ textAlign: "center" }}
+                />
+              )}
 
             {(!MobileFlag ||
               MobileFlag === undefined ||
               MobileFlag === null) && (
-              <Column
-                field="actions"
-                header="Actions"
-                headerStyle={{
-                  width: "100px",
-                  textAlign: "center",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                body={(rowData: any) => (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-evenly",
-                      alignItems: "center",
-                    }}
-                  >
-                    <svg
-                      // style={{ marginRight: "15px" }}
-                      onClick={() => {
-                        if (canSharePurchaseInvoice) {
-                          handleDownload(rowData.id, handleHide);
-                        } else {
-                          toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                        }
+                <Column
+                  field="actions"
+                  header="Actions"
+                  headerStyle={{
+                    width: "100px",
+                    textAlign: "center",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                  }}
+                  body={(rowData: any) => (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-evenly",
+                        alignItems: "center",
                       }}
-                      // onClick={() => handleDownload(rowData.id, handleHide)}
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="24px"
-                      viewBox="0 -960 960 960"
-                      width="24px"
-                      fill="green"
                     >
-                      <path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" />
-                    </svg>
+                      <svg
+                        // style={{ marginRight: "15px" }}
+                        onClick={() => {
+                          if (canSharePurchaseInvoice) {
+                            handleDownload(rowData.id, handleHide);
+                          } else {
+                            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                          }
+                        }}
+                        // onClick={() => handleDownload(rowData.id, handleHide)}
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="24px"
+                        viewBox="0 -960 960 960"
+                        width="24px"
+                        fill="green"
+                      >
+                        <path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" />
+                      </svg>
 
-                    <svg
-                      // style={{ marginRight: "15px" }}
-                      onClick={() => {
-                        if (canPrintPurchaseInvoice) {
-                          openPrint(rowData.id, viewFormate);
-                        } else {
-                          toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                        }
-                      }}
-                      // onClick={() => openPrint(rowData.id, viewFormate)}
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="22px"
-                      viewBox="0 -960 960 960"
-                      width="22px"
-                      fill="green"
-                    >
-                      <path d="M640-640v-120H320v120h-80v-200h480v200h-80Zm-480 80h640-640Zm560 100q17 0 28.5-11.5T760-500q0-17-11.5-28.5T720-540q-17 0-28.5 11.5T680-500q0 17 11.5 28.5T720-460Zm-80 260v-160H320v160h320Zm80 80H240v-160H80v-240q0-51 35-85.5t85-34.5h560q51 0 85.5 34.5T880-520v240H720v160Zm80-240v-160q0-17-11.5-28.5T760-560H200q-17 0-28.5 11.5T160-520v160h80v-80h480v80h80Z" />
-                    </svg>
+                      <svg
+                        // style={{ marginRight: "15px" }}
+                        onClick={() => {
+                          if (canPrintPurchaseInvoice) {
+                            openPrint(rowData.id, viewFormate);
+                          } else {
+                            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                          }
+                        }}
+                        // onClick={() => openPrint(rowData.id, viewFormate)}
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="22px"
+                        viewBox="0 -960 960 960"
+                        width="22px"
+                        fill="green"
+                      >
+                        <path d="M640-640v-120H320v120h-80v-200h480v200h-80Zm-480 80h640-640Zm560 100q17 0 28.5-11.5T760-500q0-17-11.5-28.5T720-540q-17 0-28.5 11.5T680-500q0 17 11.5 28.5T720-460Zm-80 260v-160H320v160h320Zm80 80H240v-160H80v-240q0-51 35-85.5t85-34.5h560q51 0 85.5 34.5T880-520v240H720v160Zm80-240v-160q0-17-11.5-28.5T760-560H200q-17 0-28.5 11.5T160-520v160h80v-80h480v80h80Z" />
+                      </svg>
 
-                    <svg
-                      // style={{ marginRight: "15px" }}
-                      onClick={() => {
-                        if (canPrintPurchaseInvoice) {
-                          openPendingPrint(rowData.id, 5);
-                        } else {
-                          toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                        }
-                      }}
-                      // onClick={() => openPendingPrint(rowData.id, 5)}
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="20px"
-                      viewBox="0 -960 960 960"
-                      width="20px"
-                      fill="green"
-                    >
-                      <path d="M452-160ZM160-80v-80h80v-120q0-61 28.5-114.5T348-480q-51-32-79.5-85.5T240-680v-120h-80v-80h640v80h-80v120q0 48-18 92t-51 77q-38 10-71 29t-60 47q-10-2-19.5-3.5T480-440q-66 0-113 47t-47 113v120h132q7 22 16.5 42T491-80H160Zm320-440q66 0 113-47t47-113v-120H320v120q0 66 47 113t113 47Zm270 360h40v-160h-40v160Zm-100 0h40v-160h-40v160Zm70 120q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40ZM480-800Z" />
-                    </svg>
-                    {/* <svg
+                      <svg
+                        // style={{ marginRight: "15px" }}
+                        onClick={() => {
+                          if (canPrintPurchaseInvoice) {
+                            openPendingPrint(rowData.id, 5);
+                          } else {
+                            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                          }
+                        }}
+                        // onClick={() => openPendingPrint(rowData.id, 5)}
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="20px"
+                        viewBox="0 -960 960 960"
+                        width="20px"
+                        fill="green"
+                      >
+                        <path d="M452-160ZM160-80v-80h80v-120q0-61 28.5-114.5T348-480q-51-32-79.5-85.5T240-680v-120h-80v-80h640v80h-80v120q0 48-18 92t-51 77q-38 10-71 29t-60 47q-10-2-19.5-3.5T480-440q-66 0-113 47t-47 113v120h132q7 22 16.5 42T491-80H160Zm320-440q66 0 113-47t47-113v-120H320v120q0 66 47 113t113 47Zm270 360h40v-160h-40v160Zm-100 0h40v-160h-40v160Zm70 120q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40ZM480-800Z" />
+                      </svg>
+                      {/* <svg
                       // style={{ marginRight: "15px" }}
                       onClick={() => {
                         if (canPrintPurchaseInvoice) {
@@ -1394,10 +1391,10 @@ const PendingPurchaseReportsView = ({
                     >
                       <path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" />
                     </svg> */}
-                  </div>
-                )}
-              />
-            )}
+                    </div>
+                  )}
+                />
+              )}
             {showProductDetails && (
               <Column
                 field="items"
@@ -1569,9 +1566,11 @@ const PendingPurchaseReportsView = ({
               body={(rowData: any) => (
                 <div>
                   <div>
-                    {rowData.to_customer_company_name || "-"}(
-                    {rowData.to_customer_name || "-"}){" -"}{" "}
-                    {rowData.to_customer_phone || "-"}
+                    <div>
+                      {rowData.to_customer_company_name || "-"}(
+                      {rowData.to_customer_name || "-"})
+                    </div>
+                    <div>{rowData.to_customer_phone || "-"}</div>
                   </div>
                 </div>
               )}

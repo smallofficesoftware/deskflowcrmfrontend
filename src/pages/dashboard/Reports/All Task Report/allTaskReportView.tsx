@@ -277,7 +277,7 @@ const AllTaskReportsView = ({
 
     try {
       const newData = await fetchTaskReport(
-        () => {}, // We handle state manually
+        () => { }, // We handle state manually
         filters.selectedDateArray,
         filters.checkedOptionsUser,
         MobileToken,
@@ -412,43 +412,43 @@ const AllTaskReportsView = ({
   const exportColumns =
     is_support_ticket_flag == 0
       ? [
-          { title: "Task ID", dataKey: "id" },
-          { title: "Task Title", dataKey: "task_title" },
-          { title: "Status", dataKey: "status_name" },
-          { title: "Category", dataKey: "category_name" },
-          { title: "Priority", dataKey: "priority_name" },
-          { title: "Type", dataKey: "type_name" },
-          { title: "Remark", dataKey: "task_remark" },
-          { title: "Selected Days", dataKey: "selected_days_names" },
-          { title: "From Date", dataKey: "task_fromdate" },
-          { title: "End Date", dataKey: "task_enddate" },
-          { title: "Created By", dataKey: "created_by_name" },
-          { title: "Assigned To", dataKey: "assigned_team_member_names" },
-          ...dynamicCustomColumns,
-        ]
+        { title: "Task ID", dataKey: "id" },
+        { title: "Task Title", dataKey: "task_title" },
+        { title: "Status", dataKey: "status_name" },
+        { title: "Category", dataKey: "category_name" },
+        { title: "Priority", dataKey: "priority_name" },
+        { title: "Type", dataKey: "type_name" },
+        { title: "Remark", dataKey: "task_remark" },
+        { title: "Selected Days", dataKey: "selected_days_names" },
+        { title: "From Date", dataKey: "task_fromdate" },
+        { title: "End Date", dataKey: "task_enddate" },
+        { title: "Created By", dataKey: "created_by_name" },
+        { title: "Assigned To", dataKey: "assigned_team_member_names" },
+        ...dynamicCustomColumns,
+      ]
       : [
-          { title: "Support Ticket ID", dataKey: "id" },
-          { title: "Support Ticket Title", dataKey: "task_title" },
-          { title: "Status", dataKey: "status_name" },
-          ...(showExternalStatusColumn
-            ? [
-                {
-                  title: "External Status",
-                  dataKey: "external_status_name",
-                },
-              ]
-            : []),
-          { title: "Category", dataKey: "category_name" },
-          { title: "Priority", dataKey: "priority_name" },
-          { title: "Type", dataKey: "type_name" },
-          { title: "Remark", dataKey: "task_remark" },
-          { title: "Selected Days", dataKey: "selected_days_names" },
-          { title: "From Date", dataKey: "task_fromdate" },
-          { title: "End Date", dataKey: "task_enddate" },
-          { title: "Created By", dataKey: "created_by_name" },
-          { title: "Assigned To", dataKey: "assigned_team_member_names" },
-          ...dynamicCustomColumns,
-        ];
+        { title: "Support Ticket ID", dataKey: "id" },
+        { title: "Support Ticket Title", dataKey: "task_title" },
+        { title: "Status", dataKey: "status_name" },
+        ...(showExternalStatusColumn
+          ? [
+            {
+              title: "External Status",
+              dataKey: "external_status_name",
+            },
+          ]
+          : []),
+        { title: "Category", dataKey: "category_name" },
+        { title: "Priority", dataKey: "priority_name" },
+        { title: "Type", dataKey: "type_name" },
+        { title: "Remark", dataKey: "task_remark" },
+        { title: "Selected Days", dataKey: "selected_days_names" },
+        { title: "From Date", dataKey: "task_fromdate" },
+        { title: "End Date", dataKey: "task_enddate" },
+        { title: "Created By", dataKey: "created_by_name" },
+        { title: "Assigned To", dataKey: "assigned_team_member_names" },
+        ...dynamicCustomColumns,
+      ];
 
   const exportPdf = () => {
     const dataToExport =
@@ -801,18 +801,18 @@ const AllTaskReportsView = ({
 
           <tbody>
             ${dataToExport
-              .map((item) => {
-                // =========================
-                // Dynamic Custom Fields
-                // =========================
+        .map((item) => {
+          // =========================
+          // Dynamic Custom Fields
+          // =========================
 
-                const customFields =
-                  item?.customForm
-                    ?.filter((cf: any) => cf.data_type !== 13)
-                    ?.map((cf: any) => `<td>${cf?.value || "-"}</td>`)
-                    .join("") || "";
+          const customFields =
+            item?.customForm
+              ?.filter((cf: any) => cf.data_type !== 13)
+              ?.map((cf: any) => `<td>${cf?.value || "-"}</td>`)
+              .join("") || "";
 
-                return `
+          return `
                   <tr>
                     <td>${item.id || "XXXXXXX"}</td>
 
@@ -831,9 +831,8 @@ const AllTaskReportsView = ({
     ${item.status_name || "-"}
   </span>
 </td>
-${
-  showExternalStatusColumn
-    ? `
+${showExternalStatusColumn
+              ? `
 <td>
   <span 
     style="
@@ -848,8 +847,8 @@ ${
   </span>
 </td>
 `
-    : ""
-}
+              : ""
+            }
 
                     <td>${item.category_name || "-"}</td>
 
@@ -860,11 +859,10 @@ ${
                     <td>${item.task_remark || "-"}</td>
 
                     <td>
-                      ${
-                        Array.isArray(item.selected_days_names)
-                          ? item.selected_days_names.join(", ")
-                          : "-"
-                      }
+                      ${Array.isArray(item.selected_days_names)
+              ? item.selected_days_names.join(", ")
+              : "-"
+            }
                     </td>
 
                     <td>${formatDateTime(item.task_fromdate)}</td>
@@ -876,18 +874,17 @@ ${
                     <td>${item.created_by_name || "-"}</td>
 
                     <td>
-                      ${
-                        Array.isArray(item.assigned_team_member_names)
-                          ? item.assigned_team_member_names.join(", ")
-                          : "-"
-                      }
+                      ${Array.isArray(item.assigned_team_member_names)
+              ? item.assigned_team_member_names.join(", ")
+              : "-"
+            }
                     </td>
 
                     ${customFields}
                   </tr>
                 `;
-              })
-              .join("")}
+        })
+        .join("")}
           </tbody>
         </table>
       </body>
@@ -1074,9 +1071,8 @@ ${
                 />
 
                 <ul
-                  className={`labelDropLeft ${
-                    isExportDropdownOpen ? "isVisible" : "isHidden"
-                  }`}
+                  className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"
+                    }`}
                   style={{
                     width: "170px",
                     position: "absolute",
@@ -1198,12 +1194,12 @@ ${
             {(!MobileFlag ||
               MobileFlag === undefined ||
               MobileFlag === null) && (
-              <Column
-                selectionMode="multiple"
-                headerStyle={{ width: "3rem" }}
-                bodyStyle={{ textAlign: "center" }}
-              />
-            )}
+                <Column
+                  selectionMode="multiple"
+                  headerStyle={{ width: "3rem" }}
+                  bodyStyle={{ textAlign: "center" }}
+                />
+              )}
             <Column
               field="id"
               // IF flag is 0, show "Task ID", ELSE show "Support Ticket ID"
@@ -1319,10 +1315,21 @@ ${
               filter
               filterPlaceholder="Search"
               headerStyle={{ width: "200px", fontSize: "14px" }}
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
               body={(rowData) => (
                 <div
                   dangerouslySetInnerHTML={{
                     __html: rowData.task_remark || "-",
+                  }}
+                  style={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
                   }}
                 />
               )}
