@@ -19,6 +19,7 @@ import ItemDetailSection from "./sections/ItemDetailSection";
 import ItemSelectSection from "./sections/ItemSelectSection";
 import RequiredMaterialSection from "./sections/RequiredMaterialSection";
 
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface IProps {
@@ -27,6 +28,8 @@ interface IProps {
   onComplete?: () => void;
   editJobCardId?: number; // provided when opening an existing job card
   initialProductQty?: number; // pre-fills qty field in edit mode
+  onAddStock?: (materialId: number, materialName: string) => void;
+  onGeneratePO?: (materialId: number, materialName: string) => void;
 }
 
 // ─── Tab config (3 tabs — production entry is its own modal) ─────────────────
@@ -43,6 +46,8 @@ const JobCardView = ({
   onComplete,
   editJobCardId,
   initialProductQty,
+  onAddStock: onAddStockProp,
+  onGeneratePO: onGeneratePOProp,
 }: IProps) => {
   const isEditMode = !!editJobCardId;
 
@@ -176,10 +181,18 @@ const JobCardView = ({
 
   // ── Shortage actions ──
 
-  const handleAddStock = (_id: number, name: string) =>
-    toast.info(`Add Stock: ${name}`);
-  const handleGeneratePO = (_id: number, name: string) =>
-    toast.info(`Generate PO: ${name}`);
+  const handleAddStock = (id: number, name: string) => {
+    if (onAddStockProp) {
+      onHide();
+      onAddStockProp(id, name);
+    }
+  };
+  const handleGeneratePO = (id: number, name: string) => {
+    if (onGeneratePOProp) {
+      onHide();
+      onGeneratePOProp(id, name);
+    }
+  };
 
   // ── Tab accessibility ──
 
@@ -199,9 +212,12 @@ const JobCardView = ({
       : "Order Item Job Card";
 
   return (
-    // Backdrop — click fires onHide; content div stops propagation
-    <div
-      onClick={onHide}
+    <>
+      {/* Backdrop — click fires onHide only when clicking directly on backdrop */}
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onHide();
+        }}
       style={{
         position: "fixed",
         inset: 0,
@@ -479,6 +495,8 @@ const JobCardView = ({
         </div>
       </div>
     </div>
+
+    </>
   );
 };
 

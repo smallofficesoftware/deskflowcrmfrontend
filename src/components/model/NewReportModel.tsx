@@ -341,16 +341,16 @@ const NewReportModel = (): JSX.Element => {
 
   useEffect(() => {
     setHasData(filters.isFilterApplied);
-  }, [filters]);
+  }, [filters.isFilterApplied]);
 
   const handleReportTypeChange = (e: {
     target: { value: React.SetStateAction<string> };
   }) => {
-    const selectedValue = e.target.value;
+    const selectedValue = e.target.value as string;
     setSelectReportType(selectedValue);
     setAppliedReportType("");
     setFilter(
-      selectReportType,
+      selectedValue,
       "selectedDateArray",
       getCurrentMonthDateRange(),
     );
@@ -362,7 +362,7 @@ const NewReportModel = (): JSX.Element => {
       }
 
       setAppliedReportType(selectedValue);
-      setFilter(selectReportType, "selectedDateArray", selectedDates);
+      setFilter(selectedValue, "selectedDateArray", selectedDates);
       setReportKey((prev) => prev + 1);
     }
   };
@@ -556,10 +556,10 @@ const NewReportModel = (): JSX.Element => {
         ? endSearchDate.format("YYYY-MM-DD")
         : endSearchDate
       : new DateObject()
-          .set("month", currentDate.getMonth() + 1)
-          .set("day", 7)
-          .add(7, "days")
-          .format("YYYY-MM-DD");
+        .set("month", currentDate.getMonth() + 1)
+        .set("day", 7)
+        .add(7, "days")
+        .format("YYYY-MM-DD");
 
     const isFilterApplied =
       ((checkedOptions?.length ?? 0) > 0 ||
@@ -658,7 +658,13 @@ const NewReportModel = (): JSX.Element => {
     const perm = rights?.find((p: any) => p.page_id === pageId);
     if (!perm) return false;
     try {
-      const parsed = JSON.parse(perm.a_page_id_rights_jason);
+      let parsed = perm.a_page_id_rights_jason;
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+        if (typeof parsed === "string") {
+          parsed = JSON.parse(parsed);
+        }
+      }
       return parsed?.view === 1;
     } catch {
       return false;
@@ -1363,7 +1369,7 @@ const NewReportModel = (): JSX.Element => {
                                       }
                                       title={
                                         "Pending " +
-                                          title[0]?.purchase_order_title ||
+                                        title[0]?.purchase_order_title ||
                                         "Pending Purchase Order Report"
                                       }
                                       viewFormate={
@@ -1708,8 +1714,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDayMonthYear={
                                         selectedDayMonthYear
                                           ? Object.values(
-                                              selectedDayMonthYear,
-                                            ).filter(Boolean)
+                                            selectedDayMonthYear,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                     />
@@ -1729,8 +1735,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDayMonthYear={
                                         selectedDayMonthYear
                                           ? Object.values(
-                                              selectedDayMonthYear,
-                                            ).filter(Boolean)
+                                            selectedDayMonthYear,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                     />
@@ -1935,8 +1941,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDemography={
                                         selectedDemography
                                           ? Object.values(
-                                              selectedDemography,
-                                            ).filter(Boolean)
+                                            selectedDemography,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                       MobileToken={MobileToken}
@@ -1979,8 +1985,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDemography={
                                         selectedDemography
                                           ? Object.values(
-                                              selectedDemography,
-                                            ).filter(Boolean)
+                                            selectedDemography,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                       MobileToken={MobileToken}
@@ -2048,8 +2054,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDemography={
                                         selectedDemography
                                           ? Object.values(
-                                              selectedDemography,
-                                            ).filter(Boolean)
+                                            selectedDemography,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                       selectedProduct={
@@ -2172,8 +2178,8 @@ const NewReportModel = (): JSX.Element => {
                                       selectedDemography={
                                         selectedDemography
                                           ? Object.values(
-                                              selectedDemography,
-                                            ).filter(Boolean)
+                                            selectedDemography,
+                                          ).filter(Boolean)
                                           : null
                                       }
                                       MobileToken={MobileToken}
@@ -2304,8 +2310,8 @@ const NewReportModel = (): JSX.Element => {
                                     selectedDemography={
                                       selectedDemography
                                         ? Object.values(
-                                            selectedDemography,
-                                          ).filter(Boolean)
+                                          selectedDemography,
+                                        ).filter(Boolean)
                                         : null
                                     }
                                     MobileToken={MobileToken}

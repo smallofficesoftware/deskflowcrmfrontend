@@ -334,6 +334,51 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           setUploadProgress(0); // Reset progress in all cases
         }
         break;
+      case 7:
+        try {
+          setErrorResponceMeg("");
+          const response = await axiosInstance.post(
+            "excel-sheet-compensation-adjustment",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `${token}`,
+                "x-tenant-id": getUUID,
+              },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round(
+                    (progressEvent.loaded * 100) / progressEvent.total,
+                  );
+                  setUploadProgress(percentCompleted);
+                } else {
+                  console.log(
+                    `File upload progress: Unable to determine total file size`,
+                  );
+                }
+              },
+            },
+          );
+
+          if (response && response.data.ack === 1) {
+            handleSubmit();
+            setAttachment(null);
+            toast.success(response.data.ack_msg || DEFAULT_STATUS_CODE_SUCCESS);
+          } else {
+            toast.error(
+              response.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
+            );
+          }
+          const msg = response?.data?.data;
+          setErrorResponceMeg(typeof msg === "string" ? msg : "");
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setUploadProgress(0);
+        }
+        break;
       default:
         alert("default");
         break;
@@ -523,6 +568,35 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         }
         break;
+      case 7:
+        try {
+          setIsGenerateSampleExport(true);
+          const getUUID = localStorage.getItem("UUID");
+          const requestData = {
+            a_application_login_id: getUUID,
+          };
+
+          const { data } = await axiosInstance.post(
+            "generate-compensation-adjustment-sample-sheet",
+            requestData,
+          );
+
+          if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const link: HTMLAnchorElement = document.createElement("a");
+            link.href = data.data.fileUrl;
+            link.download = data.data.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          }
+        } catch (error: any) {
+          toast.error(error?.message || error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setIsGenerateSampleExport(false);
+        }
+        break;
       default:
         alert("default");
         break;
@@ -654,6 +728,191 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
                     mandatory for internal system functionality.
                   </div>
                 </>
+              )}
+              {potions == 7 && (
+                <div
+                  className="rounded p-3 my-2"
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    border: "1px solid #e2e8f0",
+                    fontSize: "13px",
+                    textAlign: "left",
+                  }}
+                >
+                  <div
+                    className="fw-bold mb-2 text-secondary"
+                    style={{
+                      fontSize: "11px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Sheet Column Guidelines
+                  </div>
+
+                  <div className="d-flex flex-column gap-2">
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        employee_id
+                      </code>
+                      <span className="ms-2 text-muted">— Employee ID number</span>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        type
+                      </code>
+                      <span className="ms-2 text-muted">
+                        — e.g. <em>Early Exit Hours-HOURS-DEBIT</em>, <em>Overtime</em>
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="mb-1">
+                        <code
+                          className="fw-semibold rounded"
+                          style={{
+                            backgroundColor: "#eef2f6",
+                            color: "#344054",
+                            border: "1px solid #d0d5dd",
+                            fontSize: "12px",
+                            padding: "2px 7px",
+                            cursor: "default",
+                          }}
+                        >
+                          adjustment_type
+                        </code>
+                        <span className="ms-2 text-muted">
+                          — Numeric code (1 to 4):
+                        </span>
+                      </div>
+                      <div className="d-flex flex-wrap gap-1 ps-2 mt-1">
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#d4edda",
+                            color: "#155724",
+                            border: "1px solid #c3e6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>1</b> = Credit Hours
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#f8d7da",
+                            color: "#721c24",
+                            border: "1px solid #f5c6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>2</b> = Debit Hours
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#d4edda",
+                            color: "#155724",
+                            border: "1px solid #c3e6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>3</b> = Credit Amount
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#f8d7da",
+                            color: "#721c24",
+                            border: "1px solid #f5c6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>4</b> = Debit Amount
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        hours
+                      </code>
+                      <span className="mx-1 text-muted">/</span>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        amount
+                      </code>
+                      <span className="ms-2 text-muted">— Adjustment value</span>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        apply_date
+                      </code>
+                      <span className="ms-2 text-muted">
+                        — Date of adjustment (e.g. <span className="fw-semibold text-dark">DD-MM-YYYY</span>, <span className="fw-semibold text-dark">DD-MM-YY</span>, <span className="fw-semibold text-dark">YYYY-MM-DD</span>)
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             {errorResponceMeg && (

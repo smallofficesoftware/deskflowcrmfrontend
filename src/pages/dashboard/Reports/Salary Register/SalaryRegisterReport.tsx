@@ -145,8 +145,7 @@ const SalaryRegisterReport = ({
     useState<boolean>(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
-  const [selectedMonth, setSelectedMonth] = useState<number | undefined>();
-  const [selectedYear, setSelectedYear] = useState<number | undefined>();
+
 
   const canView = useCheckUserPermission(
     PAGE_ID.TEAM_SALARY,
@@ -169,22 +168,6 @@ const SalaryRegisterReport = ({
   //     }
   //   })
 
-  useEffect(() => {
-    if (selectedDayMonthYear && selectedDayMonthYear.length > 0) {
-      if (selectedDayMonthYear.length == 2) {
-        const [month, year] = selectedDayMonthYear;
-
-        setSelectedMonth(month);
-        setSelectedYear(year);
-      } else if (selectedDayMonthYear.length == 3) {
-        const [day, month, year] = selectedDayMonthYear;
-
-        setSelectedMonth(month);
-        setSelectedYear(year);
-      }
-    }
-  }, [selectedDayMonthYear]);
-
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const getCurrentMonthAndYear = () => {
@@ -196,9 +179,53 @@ const SalaryRegisterReport = ({
     return [month, year];
   };
 
+  // Priority: 1. Applied filter -> 2. Prop -> 3. Current month & year default
+  const effectiveMonthYear = useMemo(() => {
+    let month = Number(filters.filterData?.month);
+    let year = Number(filters.filterData?.year);
+    let day = Number(filters.filterData?.day) || undefined;
+
+    if (
+      (!month || !year) &&
+      Array.isArray(selectedDayMonthYear) &&
+      selectedDayMonthYear.length >= 2
+    ) {
+      if (selectedDayMonthYear.length === 3) {
+        [day, month, year] = selectedDayMonthYear;
+      } else {
+        [month, year] = selectedDayMonthYear;
+      }
+    }
+
+    if (!month || !year) {
+      const [currMonth, currYear] = getCurrentMonthAndYear();
+      month = month || currMonth;
+      year = year || currYear;
+    }
+
+    return { day, month, year };
+  }, [
+    filters.filterData?.month,
+    filters.filterData?.year,
+    filters.filterData?.day,
+    selectedDayMonthYear,
+  ]);
+
+  const activeDayMonthYear = useMemo(() => {
+    const { day, month, year } = effectiveMonthYear;
+    return day ? [day, month, year] : [month, year];
+  }, [effectiveMonthYear]);
+
   const handleApplyFilters = (data: any) => {
+    const [currMonth, currYear] = getCurrentMonthAndYear();
+
     const updatedFilters = {
       ...data,
+      filterData: {
+        ...data?.filterData,
+        month: data?.filterData?.month || currMonth,
+        year: data?.filterData?.year || currYear,
+      },
     };
 
     setFilters("salary_register", updatedFilters);
@@ -216,12 +243,12 @@ const SalaryRegisterReport = ({
         ...filters,
         filterData: {
           ...filters.filterData,
-          month,
-          year,
+          month: filters.filterData?.month || month,
+          year: filters.filterData?.year || year,
         },
       });
     }
-  }, [selectedDayMonthYear]);
+  }, []);
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
@@ -246,46 +273,6 @@ const SalaryRegisterReport = ({
   // const [startDate, endDate] = selectedDates;
   // const allDates = useMemo(() => getDateRange(startDate, endDate), [startDate, endDate]);
 
-  // Add guard + logging
-  const allDates = useMemo(() => {
-    if (!filters.selectedDateArray || filters.selectedDateArray.length !== 2) {
-      console.warn("selectedDates invalid length", filters.selectedDateArray);
-      return [];
-    }
-
-    let start = filters.selectedDateArray[0];
-    let end = filters.selectedDateArray[1];
-
-    // Accept both string and Date
-    if (typeof start === "string") start = new Date(start);
-    if (typeof end === "string") end = new Date(end);
-
-    if (
-      !(start instanceof Date) ||
-      !(end instanceof Date) ||
-      isNaN(start.getTime()) ||
-      isNaN(end.getTime())
-    ) {
-      console.warn("Invalid date after parsing", {
-        raw: filters.selectedDateArray,
-        parsedStart: start,
-        parsedEnd: end,
-      });
-      return [];
-    }
-
-    // Optional: normalize to start-of-day
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
-
-    if (start > end) {
-      console.warn("Start date after end date – swapping", { start, end });
-      [start, end] = [end, start];
-    }
-
-    return getDateRange(start, end);
-  }, [filters.selectedDateArray]);
-
   useEffect(() => {
     if (canView) {
       setSalaries([]);
@@ -294,7 +281,7 @@ const SalaryRegisterReport = ({
       setHasMore(true);
       loadAttendance(0, 50, true);
     }
-  }, [selectedDayMonthYear, filters.checkedOptionsUser, canView]);
+  }, [activeDayMonthYear, filters.checkedOptionsUser, canView]);
 
   const loadAttendance = async (
     offset: number,
@@ -315,7 +302,7 @@ const SalaryRegisterReport = ({
         MobileFlag,
         offset,
         limit,
-        selectedDayMonthYear,
+        activeDayMonthYear,
       );
 
       if (newData.length < limit) setHasMore(false);
@@ -394,8 +381,12 @@ const SalaryRegisterReport = ({
     { title: "Dw HRA", dataKey: "dws_hra" },
     { title: "Dw Other", dataKey: "dws_other" },
     { title: "Dw Total Earning", dataKey: "dws_total_earning" },
-    { title: "OT Hours", dataKey: "earn_ot_hours" },
-    { title: "OT Payable Amt.", dataKey: "earn_ot_payable_amt" },
+    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
+    { title: "Reg. OT Amt.", dataKey: "regular_ot_payable_amt" },
+    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
+    { title: "Extra OT Amt.", dataKey: "extra_ot_payable_amt" },
+    { title: "Total OT Hours", dataKey: "earn_ot_hours" },
+    { title: "Total OT Amt.", dataKey: "earn_ot_payable_amt" },
     { title: "Earn. Head F.", dataKey: "earn_head_first" },
     { title: "Earn. Head S.", dataKey: "earn_head_second" },
     { title: "Earn. Head T.", dataKey: "earn_head_third" },
@@ -450,6 +441,10 @@ const SalaryRegisterReport = ({
       row.dws_hra = salary.dws_hra ?? "0";
       row.dws_other = salary.dws_other ?? "0";
       row.dws_total_earning = salary.dws_total_earning ?? "0";
+      row.regular_ot_hours = (salary as any).regular_ot_hours ?? "00:00:00";
+      row.regular_ot_payable_amt = (salary as any).regular_ot_payable_amt ?? "0";
+      row.extra_ot_hours = (salary as any).extra_ot_hours ?? "00:00:00";
+      row.extra_ot_payable_amt = (salary as any).extra_ot_payable_amt ?? "0";
       row.earn_ot_hours = salary.earn_ot_hours ?? "0";
       row.earn_ot_payable_amt = salary.earn_ot_payable_amt ?? "0";
       row.earn_head_first = salary.earn_head_first ?? "0";
@@ -542,7 +537,7 @@ const SalaryRegisterReport = ({
               MobileFlag,
               offset,
               limit,
-              selectedDayMonthYear,
+              activeDayMonthYear,
             ),
           50,
         );
@@ -580,8 +575,12 @@ const SalaryRegisterReport = ({
         "Dw HRA",
         "Dw Other",
         "Dw Total Earning",
-        "OT Hours",
-        "OT Payable Amt.",
+        "Reg. OT Hours",
+        "Reg. OT Amt.",
+        "Extra OT Hours",
+        "Extra OT Amt.",
+        "Total OT Hours",
+        "Total OT Amt.",
         "Earn. Head F.",
         "Earn. Head S.",
         "Earn. Head T.",
@@ -630,6 +629,10 @@ const SalaryRegisterReport = ({
         row.push(salary.dws_hra ?? "");
         row.push(salary.dws_other ?? "");
         row.push(salary.dws_total_earning ?? "");
+        row.push((salary as any).regular_ot_hours ?? "00:00:00");
+        row.push((salary as any).regular_ot_payable_amt ?? "0");
+        row.push((salary as any).extra_ot_hours ?? "00:00:00");
+        row.push((salary as any).extra_ot_payable_amt ?? "0");
         row.push(salary.earn_ot_hours ?? "");
         row.push(salary.earn_ot_payable_amt ?? "");
         row.push(salary.earn_head_first ?? "");
@@ -673,7 +676,7 @@ const SalaryRegisterReport = ({
       });
       saveAsExcelFile(
         excelBuffer,
-        `Salary_Register_${monthOptions.find((m) => m.value === selectedMonth)?.label}_${selectedYear}`,
+        `Salary_Register_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`,
       );
 
       toast.success("Salary Excel exported successfully");
@@ -866,7 +869,7 @@ const SalaryRegisterReport = ({
 
   const handleOpenSalaryRegisterSlip = () => {
     const baseURL = window.location.origin;
-    const supportURL = `${baseURL}/SalaryRegisterMonthlySlip/${selectedSalariesIds}/${selectedMonth}/${selectedYear}`;
+    const supportURL = `${baseURL}/SalaryRegisterMonthlySlip/${selectedSalariesIds}/${effectiveMonthYear.month}/${effectiveMonthYear.year}`;
     const myWindow = window.open(supportURL, "_blank");
   };
 
@@ -897,6 +900,8 @@ const SalaryRegisterReport = ({
         >
           Salary Register
         </h3>
+
+
 
         {/* {MobileFlag ? null : ( */}
         <div
@@ -1097,6 +1102,20 @@ const SalaryRegisterReport = ({
           </div>
         </div>
         {/* )} */}
+      </div>
+
+      <div>
+        <h6
+          style={{
+            textAlign: "start",
+            fontWeight: "500",
+            marginLeft: "20px",
+          }}
+        >
+          Month:{" "}
+          {monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label || "-"} |
+          Year: {effectiveMonthYear.year || "-"}
+        </h6>
       </div>
 
       <div className="report_card" style={{ height: "65vh" }}>
@@ -1456,8 +1475,60 @@ const SalaryRegisterReport = ({
           />
           <Column
             className="earning-section"
+            field="regular_ot_hours"
+            header={<span>Reg. OT Hours</span>}
+            sortable
+            filter
+            filterField="regular_ot_hours"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.regular_ot_hours ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="regular_ot_payable_amt"
+            header={<span>Reg. OT Amt.</span>}
+            sortable
+            filter
+            filterField="regular_ot_payable_amt"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.regular_ot_payable_amt ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="extra_ot_hours"
+            header={<span>Extra OT Hours</span>}
+            sortable
+            filter
+            filterField="extra_ot_hours"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.extra_ot_hours ?? "-"}
+          />
+          <Column
+            className="earning-section"
+            field="extra_ot_payable_amt"
+            header={<span>Extra OT Amt.</span>}
+            sortable
+            filter
+            filterField="extra_ot_payable_amt"
+            filterPlaceholder="Search"
+            filterMatchMode="contains"
+            headerStyle={{ width: "160px" }}
+            bodyClassName={"text-end"}
+            body={(rowData) => rowData.extra_ot_payable_amt ?? "-"}
+          />
+          <Column
+            className="earning-section"
             field="earn_ot_hours"
-            header={<span>OT Hours</span>}
+            header={<span>Total OT Hours</span>}
             sortable
             filter
             filterField="earn_ot_hours"
@@ -1470,7 +1541,7 @@ const SalaryRegisterReport = ({
           <Column
             className="earning-section"
             field="earn_ot_payable_amt"
-            header={<span>OT Payable Amt.</span>}
+            header={<span>Total OT Amt.</span>}
             sortable
             filter
             filterField="earn_ot_payable_amt"
@@ -1716,6 +1787,9 @@ const SalaryRegisterReport = ({
           pageId={1}
           initialFilterData={{
             ...filters.filterData,
+            month: effectiveMonthYear.month,
+            year: effectiveMonthYear.year,
+            day: effectiveMonthYear.day,
             category: filters.selectedCategoryId,
             product: filters.selectedProductId,
             contactId: filters.selectedContactId,

@@ -31,6 +31,59 @@ type PermissionKeys =
   | "all_data"
   | "personal";
 
+const parseRights = (raw: any) => {
+  if (!raw) {
+    return {
+      view: 0,
+      add: 0,
+      edit: 0,
+      delete: 0,
+      approve: 0,
+      import: 0,
+      print: 0,
+      share: 0,
+      all_data: 0,
+      personal: 0,
+    };
+  }
+  let parsed = raw;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+    } catch {
+      return {
+        view: 0,
+        add: 0,
+        edit: 0,
+        delete: 0,
+        approve: 0,
+        import: 0,
+        print: 0,
+        share: 0,
+        all_data: 0,
+        personal: 0,
+      };
+    }
+  }
+  return typeof parsed === "object" && parsed !== null
+    ? parsed
+    : {
+        view: 0,
+        add: 0,
+        edit: 0,
+        delete: 0,
+        approve: 0,
+        import: 0,
+        print: 0,
+        share: 0,
+        all_data: 0,
+        personal: 0,
+      };
+};
+
 const TeamRightsView = ({
   show,
   onHide,
@@ -85,7 +138,7 @@ const TeamRightsView = ({
       const prevRights =
         prevPermissions[id] ||
         (teamRightList.find((item) => item.id === id)?.a_page_id_rights_jason
-          ? JSON.parse(
+          ? parseRights(
             teamRightList.find((item) => item.id === id)!.a_page_id_rights_jason
           )
           : {
@@ -150,7 +203,7 @@ const TeamRightsView = ({
         const rights =
           prevPermissions[item.id] ||
           (item.a_page_id_rights_jason
-            ? JSON.parse(item.a_page_id_rights_jason)
+            ? parseRights(item.a_page_id_rights_jason)
             : {
               view: 0,
               add: 0,
@@ -172,7 +225,7 @@ const TeamRightsView = ({
         const prevRights =
           prevPermissions[item.id] ||
           (item.a_page_id_rights_jason
-            ? JSON.parse(item.a_page_id_rights_jason)
+            ? parseRights(item.a_page_id_rights_jason)
             : {
               view: 0,
               add: 0,
@@ -211,7 +264,7 @@ const TeamRightsView = ({
     const rights =
       updatedPermissions[id] ||
       (teamRightList.find((item) => item.id === id)?.a_page_id_rights_jason
-        ? JSON.parse(
+        ? parseRights(
           teamRightList.find((item) => item.id === id)!.a_page_id_rights_jason
         )
         : {
@@ -247,7 +300,7 @@ const TeamRightsView = ({
       const rights =
         updatedPermissions[item.id] ||
         (item.a_page_id_rights_jason
-          ? JSON.parse(item.a_page_id_rights_jason)
+          ? parseRights(item.a_page_id_rights_jason)
           : {
             view: 0,
             add: 0,
@@ -268,7 +321,7 @@ const TeamRightsView = ({
     const token = await localStorage.getItem("token");
     const finalData = teamRightList.map((item) => {
       const existingRights = item.a_page_id_rights_jason
-        ? JSON.parse(item.a_page_id_rights_jason)
+        ? parseRights(item.a_page_id_rights_jason)
         : {
           view: 0,
           add: 0,
@@ -589,7 +642,7 @@ const TeamRightsView = ({
                         {filteredTeamRightList.length > 0 ? (
                           filteredTeamRightList.map((item, index) => {
                             const rights = item.a_page_id_rights_jason
-                              ? JSON.parse(item.a_page_id_rights_jason)
+                              ? parseRights(item.a_page_id_rights_jason)
                               : {
                                 view: 0,
                                 add: 0,

@@ -9,10 +9,10 @@ interface Option {
 
 interface CustomSearchDropdownProps {
   options?: Option[];
-  value: SingleValue<Option> | null;
-  onChange: (selectedOption: SingleValue<Option>) => void;
+  value: any;
+  onChange: (selectedOption: any) => void;
   className?: string;
-  defaultValue?: SingleValue<Option>;
+  defaultValue?: any;
   isDisabled?: boolean | string;
   placeholder?: string;
   isAsync?: boolean;
@@ -20,8 +20,8 @@ interface CustomSearchDropdownProps {
   onInputChange?: (inputValue: string) => void;
   styles?: any;
   menuPortalTarget?: HTMLElement | null;
-  // NEW: Add maxMenuHeight to the interface
   maxMenuHeight?: number;
+  isMulti?: boolean;
 }
 
 const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
@@ -37,10 +37,10 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
   onInputChange,
   styles,
   menuPortalTarget = typeof document !== 'undefined' ? document.body : null,
-  // NEW: Destructure it with a fallback (react-select defaults to 300)
   maxMenuHeight,
+  isMulti = false,
 }) => {
-  const handleChange = (option: SingleValue<Option>) => {
+  const handleChange = (option: any) => {
     onChange(option);
   };
 
@@ -59,7 +59,6 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
   if (isAsync && loadOptions) {
     return (
       <AsyncSelect
-        // ... (keep your other props)
         cacheOptions
         defaultOptions
         loadOptions={loadOptions}
@@ -68,6 +67,7 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
         className={className}
         isClearable
         isSearchable
+        isMulti={isMulti}
         placeholder={placeholder}
         styles={customStyles}
         isDisabled={isDisabled === "disabled" ? true : false}
@@ -75,20 +75,20 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
         noOptionsMessage={() => "Type to search"}
         menuPortalTarget={menuPortalTarget}
         menuPosition="fixed"
-        maxMenuHeight={maxMenuHeight} // NEW: Pass it to AsyncSelect
+        maxMenuHeight={maxMenuHeight}
       />
     );
   }
 
   return (
     <Select
-      // ... (keep your other props)
       options={options}
       value={value || defaultValue || null}
       onChange={handleChange}
       className={className}
       isClearable
       isSearchable
+      isMulti={isMulti}
       defaultValue={defaultValue}
       placeholder={placeholder}
       styles={customStyles}
@@ -98,7 +98,7 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
       }}
       menuPortalTarget={menuPortalTarget}
       menuPosition="fixed"
-      maxMenuHeight={maxMenuHeight} // NEW: Pass it to Select
+      maxMenuHeight={maxMenuHeight}
     />
   );
 };

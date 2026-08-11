@@ -91,8 +91,7 @@ const ProcessAttendanceReportView = ({
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
 
-  const [selectedMonth, setSelectedMonth] = useState<number | undefined>();
-  const [selectedYear, setSelectedYear] = useState<number | undefined>();
+
 
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,22 +128,6 @@ const ProcessAttendanceReportView = ({
     PERMISSION_TYPE.PRINT,
   );
 
-  useEffect(() => {
-    if (selectedDayMonthYear && selectedDayMonthYear.length > 0) {
-      if (selectedDayMonthYear.length == 2) {
-        const [month, year] = selectedDayMonthYear;
-
-        setSelectedMonth(month);
-        setSelectedYear(year);
-      } else if (selectedDayMonthYear.length == 3) {
-        const [day, month, year] = selectedDayMonthYear;
-
-        setSelectedMonth(month);
-        setSelectedYear(year);
-      }
-    }
-  }, [selectedDayMonthYear]);
-
   const getCurrentMonthAndYear = () => {
     const now = new Date();
 
@@ -154,9 +137,53 @@ const ProcessAttendanceReportView = ({
     return [month, year];
   };
 
+  // Priority: 1. Applied filter -> 2. Prop -> 3. Current month & year default
+  const effectiveMonthYear = useMemo(() => {
+    let month = Number(filters.filterData?.month);
+    let year = Number(filters.filterData?.year);
+    let day = Number(filters.filterData?.day) || undefined;
+
+    if (
+      (!month || !year) &&
+      Array.isArray(selectedDayMonthYear) &&
+      selectedDayMonthYear.length >= 2
+    ) {
+      if (selectedDayMonthYear.length === 3) {
+        [day, month, year] = selectedDayMonthYear;
+      } else {
+        [month, year] = selectedDayMonthYear;
+      }
+    }
+
+    if (!month || !year) {
+      const [currMonth, currYear] = getCurrentMonthAndYear();
+      month = month || currMonth;
+      year = year || currYear;
+    }
+
+    return { day, month, year };
+  }, [
+    filters.filterData?.month,
+    filters.filterData?.year,
+    filters.filterData?.day,
+    selectedDayMonthYear,
+  ]);
+
+  const activeDayMonthYear = useMemo(() => {
+    const { day, month, year } = effectiveMonthYear;
+    return day ? [day, month, year] : [month, year];
+  }, [effectiveMonthYear]);
+
   const handleApplyFilters = (data: any) => {
+    const [currMonth, currYear] = getCurrentMonthAndYear();
+
     const updatedFilters = {
       ...data,
+      filterData: {
+        ...data?.filterData,
+        month: data?.filterData?.month || currMonth,
+        year: data?.filterData?.year || currYear,
+      },
     };
 
     setFilters("process_attendance", updatedFilters);
@@ -174,29 +201,16 @@ const ProcessAttendanceReportView = ({
         ...filters,
         filterData: {
           ...filters.filterData,
-          month,
-          year,
+          month: filters.filterData?.month || month,
+          year: filters.filterData?.year || year,
         },
       });
     }
-  }, [selectedDayMonthYear]);
+  }, []);
 
   const allDates = useMemo(() => {
-    if (
-      !Array.isArray(selectedDayMonthYear) ||
-      selectedDayMonthYear.length < 2
-    ) {
-      return [];
-    }
-
-    let month: number;
-    let year: number;
-
-    if (selectedDayMonthYear.length === 3) {
-      [, month, year] = selectedDayMonthYear;
-    } else {
-      [month, year] = selectedDayMonthYear;
-    }
+    const { month, year } = effectiveMonthYear;
+    if (!month || !year) return [];
 
     const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -205,7 +219,7 @@ const ProcessAttendanceReportView = ({
       date.setHours(0, 0, 0, 0);
       return date;
     });
-  }, [selectedDayMonthYear]);
+  }, [effectiveMonthYear]);
 
   const dataArray: IProcessAttendance[] = useMemo(() => {
     return Array.isArray(attendanceData) ? attendanceData : [];
@@ -221,9 +235,7 @@ const ProcessAttendanceReportView = ({
           MobileToken,
           getID,
           MobileFlag,
-          selectedDayMonthYear
-            ? Object.values(selectedDayMonthYear).filter(Boolean)
-            : null,
+          activeDayMonthYear,
         );
 
         if (reset) {
@@ -236,7 +248,13 @@ const ProcessAttendanceReportView = ({
         setLoading(false);
       }
     },
-    [selectedDayMonthYear],
+    [
+      activeDayMonthYear,
+      filters.checkedOptionsUser,
+      MobileToken,
+      getID,
+      MobileFlag,
+    ],
   );
 
   useEffect(() => {
@@ -246,7 +264,7 @@ const ProcessAttendanceReportView = ({
       setSelectedEmployeesIds([]);
       loadAttendance(0, 50, true);
     }
-  }, [selectedDayMonthYear, filters.checkedOptionsUser, canView]);
+  }, [activeDayMonthYear, filters.checkedOptionsUser, canView, loadAttendance]);
 
   const onSelectionChange = (event: { value: IProcessAttendance[] }) => {
     setSelectedEmployees(event.value);
@@ -277,8 +295,11 @@ const ProcessAttendanceReportView = ({
       dataKey: formatDate(date),
     })),
     { title: "Total Working Time", dataKey: "total_working_hours" },
+    { title: "Round Off Hours", dataKey: "roundoff_hours" },
     { title: "Net Working Time", dataKey: "net_working_hours" },
-    { title: "Overtime Hours", dataKey: "overtime_hours" },
+    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
+    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
+    { title: "Total OT Hours", dataKey: "overtime_hours" },
     { title: "Present", dataKey: "present" },
     { title: "Half Day", dataKey: "half_day" },
     { title: "Absent", dataKey: "absent" },
@@ -322,7 +343,10 @@ const ProcessAttendanceReportView = ({
 
       // Fixed new columns
       row.total_working_hours = emp.total_working_time_sum ?? "00:00:00";
+      row.roundoff_hours = (emp as any).roundoff_hour_sum ?? "00:00:00";
       row.net_working_hours = emp.net_working_hour_sum ?? "00:00:00";
+      row.regular_ot_hours = (emp as any).regular_ot_hour_sum ?? "00:00:00";
+      row.extra_ot_hours = (emp as any).extra_ot_hour_sum ?? "00:00:00";
       row.overtime_hours = emp.overtime_hour_sum ?? "00:00:00";
       row.present = emp.status_count.P ?? "-";
       row.half_day = emp.status_count.HD ?? "-";
@@ -421,7 +445,7 @@ const ProcessAttendanceReportView = ({
               MobileFlag,
               offset,
               limit,
-              selectedDayMonthYear,
+              activeDayMonthYear,
             ),
           50,
         );
@@ -440,8 +464,11 @@ const ProcessAttendanceReportView = ({
         "Employee Name",
         ...sortedDates.map(formatDateDisplay),
         "Total Working Time",
+        "Round Off Hours",
         "Net Working Time",
-        "Overtime Hours",
+        "Reg. OT Hours",
+        "Extra OT Hours",
+        "Total OT Hours",
         "Present",
         "Half Day",
         "Absent",
@@ -475,7 +502,10 @@ const ProcessAttendanceReportView = ({
         });
 
         row.push(emp.total_working_time_sum ?? "00:00:00");
+        row.push((emp as any).roundoff_hour_sum ?? "00:00:00");
         row.push(emp.net_working_hour_sum ?? "00:00:00");
+        row.push((emp as any).regular_ot_hour_sum ?? "00:00:00");
+        row.push((emp as any).extra_ot_hour_sum ?? "00:00:00");
         row.push(emp.overtime_hour_sum ?? "00:00:00");
         row.push(emp.status_count.P ?? "-");
         row.push(emp.status_count.HD ?? "-");
@@ -496,8 +526,8 @@ const ProcessAttendanceReportView = ({
       ]);
 
       worksheet["A1"].v =
-        monthOptions.find((m) => m.value === selectedMonth)?.label ?? "";
-      worksheet["B1"].v = selectedYear;
+        monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label ?? "";
+      worksheet["B1"].v = effectiveMonthYear.year;
 
       worksheet["!cols"] = [
         { wpx: 180 },
@@ -522,7 +552,7 @@ const ProcessAttendanceReportView = ({
       });
       saveAsExcelFile(
         excelBuffer,
-        `Process_Attendance_${monthOptions.find((m) => m.value === selectedMonth)?.label}_${selectedYear}`,
+        `Process_Attendance_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`,
       );
 
       toast.success("Attendance Excel exported successfully");
@@ -705,7 +735,7 @@ const ProcessAttendanceReportView = ({
 
   const handleMonthlySlipPrintView = () => {
     const baseURL = window.location.origin;
-    const supportURL = `${baseURL}/ProcessAttendanceMonthlySlip/${selectedEmployeesIds}/${selectedMonth}/${selectedYear}`;
+    const supportURL = `${baseURL}/ProcessAttendanceMonthlySlip/${selectedEmployeesIds}/${effectiveMonthYear.month}/${effectiveMonthYear.year}`;
     const myWindow = window.open(supportURL, "_blank");
   };
 
@@ -884,8 +914,8 @@ const ProcessAttendanceReportView = ({
               }}
             >
               Month:{" "}
-              {monthOptions.find((m) => m.value === selectedMonth)?.label} |
-              Year: {selectedYear}
+              {monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label || "-"} |
+              Year: {effectiveMonthYear.year || "-"}
             </h6>
           </div>
 
@@ -1052,10 +1082,55 @@ const ProcessAttendanceReportView = ({
                 body={(row) => row.net_working_hour_sum}
               />
               <Column
+                field="roundoff_hour_sum"
+                header={
+                  <span>
+                    Round Off <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).roundoff_hour_sum ?? "00:00:00"}
+              />
+              <Column
+                field="regular_ot_hour_sum"
+                header={
+                  <span>
+                    Reg. OT <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).regular_ot_hour_sum ?? "00:00:00"}
+              />
+              <Column
+                field="extra_ot_hour_sum"
+                header={
+                  <span>
+                    Extra OT <br /> Hours
+                  </span>
+                }
+                headerStyle={{ width: "120px" }}
+                sortable
+                filter
+                filterPlaceholder="Search"
+                headerClassName="center-header"
+                bodyClassName={"text-center"}
+                body={(row) => (row as any).extra_ot_hour_sum ?? "00:00:00"}
+              />
+              <Column
                 field="overtime_hour_sum"
                 header={
                   <span>
-                    Overtime <br /> Hours
+                    Total OT <br /> Hours
                   </span>
                 }
                 headerStyle={{ width: "120px" }}
@@ -1189,6 +1264,9 @@ const ProcessAttendanceReportView = ({
           filtershowSeriesOrderType={"quotation_prefix"}
           initialFilterData={{
             ...filters.filterData,
+            month: effectiveMonthYear.month,
+            year: effectiveMonthYear.year,
+            day: effectiveMonthYear.day,
             category: filters.selectedCategoryId,
             product: filters.selectedProductId,
             contactId: filters.selectedContactId,

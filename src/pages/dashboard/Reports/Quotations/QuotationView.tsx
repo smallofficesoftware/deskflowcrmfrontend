@@ -624,18 +624,17 @@ const TeamQuotationDataReportsView = ({
               <th>Round Off (${currencyName})</th>
               <th>Grand Total (${currencyName})</th>
               ${uniqueCustomFields
-                .map((field: any) => `<th>${field.fieldLabel}</th>`)
-                .join("")}
+        .map((field: any) => `<th>${field.fieldLabel}</th>`)
+        .join("")}
             </tr>
           </thead>
           <tbody>
             ${dataToExport
-              .map(
-                (item: any) => `
+        .map(
+          (item: any) => `
                 <tr>
-         ${
-           showProductDetails
-             ? `
+         ${showProductDetails
+              ? `
 <td>
   <table style="width:100%; border-collapse: collapse; border:1px solid #ccc; table-layout:auto;">
     <tr>
@@ -643,13 +642,12 @@ const TeamQuotationDataReportsView = ({
       <th style="border:1px solid #ccc;">Qty</th>
       <th style="border:1px solid #ccc;">Rate</th>
     </tr>
-    ${
-      item.items
-        ?.map((i: any) => {
-          const name = i.item_product_name || "";
-          const code = i.item_product_code || "";
+    ${item.items
+                ?.map((i: any) => {
+                  const name = i.item_product_name || "";
+                  const code = i.item_product_code || "";
 
-          return `
+                  return `
           <tr>
             <td style="border:1px solid #ccc;">
               ${code ? `${name} (${code})` : name}
@@ -662,14 +660,14 @@ const TeamQuotationDataReportsView = ({
             </td>
           </tr>
         `;
-        })
-        .join("") || `<tr><td colspan="2">-</td></tr>`
-    }
+                })
+                .join("") || `<tr><td colspan="2">-</td></tr>`
+              }
   </table>
 </td>
 `
-             : ""
-         }
+              : ""
+            }
                   <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
                   <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
                   <td>${item.to_customer_phone || "-"}</td>
@@ -684,15 +682,15 @@ const TeamQuotationDataReportsView = ({
                   <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
                   <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
                   ${uniqueCustomFields
-                    .map(
-                      (field: any) =>
-                        `<td>${item[field.fieldName] || "-"}</td>`,
-                    )
-                    .join("")}
-                </tr>
-              `,
+              .map(
+                (field: any) =>
+                  `<td>${item[field.fieldName] || "-"}</td>`,
               )
               .join("")}
+                </tr>
+              `,
+        )
+        .join("")}
           </tbody>
         </table>
       </body>
@@ -1150,9 +1148,8 @@ const TeamQuotationDataReportsView = ({
                 />
 
                 <ul
-                  className={`labelDropLeft ${
-                    isExportDropdownOpen ? "isVisible" : "isHidden"
-                  }`}
+                  className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"
+                    }`}
                   style={{
                     width: "170px",
                     position: "absolute",
@@ -1594,9 +1591,11 @@ const TeamQuotationDataReportsView = ({
                 filterMatchMode="custom"
                 body={(row) => (
                   <div>
-                    {row.to_customer_company_name || "-"} (
-                    {row.to_customer_name || "-"}) -{" "}
-                    {row.to_customer_phone || "-"}
+                    <div>
+                      {row.to_customer_company_name || "-"} (
+                      {row.to_customer_name || "-"})
+                    </div>
+                    <div>{row.to_customer_phone || "-"}</div>
                   </div>
                 )}
               />

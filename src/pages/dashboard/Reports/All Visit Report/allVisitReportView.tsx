@@ -107,6 +107,33 @@ const calculateDuration = (
     return "-";
   }
 };
+const getDayName = (dateStr: string | undefined | null): string => {
+  if (
+    !dateStr ||
+    dateStr === "-" ||
+    dateStr.includes("undefined") ||
+    dateStr === "0000-00-00"
+  ) {
+    return "-";
+  }
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "-";
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[date.getDay()];
+  } catch {
+    return "-";
+  }
+};
+
 const flattenVisitData = (visitData: IVisitData[]): any[] => {
   return visitData.flatMap((user) =>
     user.visits.map((item) => {
@@ -127,6 +154,8 @@ const flattenVisitData = (visitData: IVisitData[]): any[] => {
             ? "Active"
             : "Complete",
         duration: calculateDuration(item.start_date, item.end_date),
+        start_day: getDayName(item.start_date),
+        end_day: getDayName(item.end_date),
       };
     }),
   );
@@ -388,8 +417,11 @@ const AllVisitReportsView = ({
     filters: {
       username: { value: null, matchMode: "contains" },
       person_name: { value: null, matchMode: "custom" },
+      address: { value: null, matchMode: "contains" },
       start_date: { value: null, matchMode: "contains" },
       end_date: { value: null, matchMode: "contains" },
+      start_day: { value: null, matchMode: "contains" },
+      end_day: { value: null, matchMode: "contains" },
       remark: { value: null, matchMode: "contains" },
       status: { value: null, matchMode: "contains" },
       duration: { value: null, matchMode: "contains" },
@@ -712,6 +744,8 @@ const AllVisitReportsView = ({
     { title: "Status", dataKey: "status" },
     { title: "Start Date", dataKey: "start_date" },
     { title: "End Date", dataKey: "end_date" },
+    { title: "Start Day", dataKey: "start_day" },
+    { title: "End Day", dataKey: "end_day" },
     { title: "Duration", dataKey: "duration" },
     { title: "Remark", dataKey: "remark" },
 
@@ -738,6 +772,8 @@ const AllVisitReportsView = ({
         status: item.status ?? "-",
         start_date: formatDateTime(item.start_date),
         end_date: formatDateTime(item.end_date),
+        start_day: item.start_day || getDayName(item.start_date),
+        end_day: item.end_day || getDayName(item.end_date),
         duration: item.duration || "-",
         remark: item.remark || "-",
       };
@@ -857,6 +893,8 @@ const AllVisitReportsView = ({
           Status: item.status,
           "Start Date": formatDateTime(item.start_date),
           "End Date": formatDateTime(item.end_date),
+          "Start Day": item.start_day || getDayName(item.start_date),
+          "End Day": item.end_day || getDayName(item.end_date),
           Duration: item.duration,
           Remark: item.remark,
         };
@@ -1322,6 +1360,78 @@ const AllVisitReportsView = ({
               )}
             />
             <Column
+              field="start_date"
+              header={
+                <span>
+                  Start <br /> Date
+                </span>
+              }
+              sortable
+              filter
+              filterField="start_date"
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={(rowData: any) => {
+                const dayName = rowData.start_day || getDayName(rowData.start_date);
+                return <>
+                  <div>{formatDateTime(rowData.start_date)}</div>
+                  <div>{dayName}</div>
+                </>;
+              }}
+            />
+            <Column
+              field="end_date"
+              header={
+                <span>
+                  End <br /> Date
+                </span>
+              }
+              sortable
+              filter
+              filterField="end_date"
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                fontSize: "14px",
+              }}
+              body={(rowData: any) => {
+                const dayName = rowData.end_day || getDayName(rowData.end_date);
+                return <>
+                  <div>{formatDateTime(rowData.end_date)}</div>
+                  <div>{dayName}</div>
+                </>;
+              }}
+            />
+            <Column
+              field="duration"
+              header="Duration"
+              sortable
+              filter
+              filterField="duration"
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                fontSize: "14px",
+              }}
+              body={(rowData: any) => rowData.duration || "-"}
+            />
+            <Column
               field="person_name"
               header={
                 <span>
@@ -1374,6 +1484,43 @@ const AllVisitReportsView = ({
               )}
             />
             <Column
+              field="address"
+              header={
+                <span>
+                  Contact <br />Address
+                </span>
+              }
+              sortable
+              filter
+              filterField="address"
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                fontSize: "14px",
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+              body={(rowData: any) => (
+                <div
+                  style={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {rowData.address || "-"}
+                </div>
+              )}
+            />
+            <Column
               field="username"
               header={
                 <span>
@@ -1422,65 +1569,6 @@ const AllVisitReportsView = ({
               )}
             />
             <Column
-              field="start_date"
-              header={
-                <span>
-                  Start <br /> Date
-                </span>
-              }
-              sortable
-              filter
-              filterField="start_date"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => formatDateTime(rowData.start_date)}
-            />
-            <Column
-              field="end_date"
-              header={
-                <span>
-                  End <br /> Date
-                </span>
-              }
-              sortable
-              filter
-              filterField="end_date"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => formatDateTime(rowData.end_date)}
-            />
-            <Column
-              field="duration"
-              header="Duration"
-              sortable
-              filter
-              filterField="duration"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => rowData.duration || "-"}
-            />
-            <Column
               field="remark"
               header="Remark"
               sortable
@@ -1495,8 +1583,23 @@ const AllVisitReportsView = ({
                 zIndex: 1,
                 fontSize: "14px",
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => rowData.remark || "-"}
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+              body={(rowData: any) => (
+                <div
+                  style={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {rowData.remark || "-"}
+                </div>
+              )}
             />
             <Column
               field="visit_image"

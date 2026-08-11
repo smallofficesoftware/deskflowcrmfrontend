@@ -753,24 +753,24 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
       const fetchInitialData = async () => {
         try {
-          await Promise.all([
+          await Promise.allSettled([
             fetchCustomInqFromApi(setCustomFormList, formType),
-            fetchCustomProductFromApi(setCustomFormListProduct, 4),
+            fetchCustomProductFromApi(setCustomFormListProduct, formType),
             fetchCompanyForTerms(setPrintDate, setisOrderClassification),
             canViewProduct
               ? fetchProductApiForOrder(
-                  0,
-                  ITEMS_PER_PAGE,
-                  searchTerm,
-                  searchBarcodeNum,
-                  selectedCategory,
-                  selectedPriceList,
-                  Contact,
-                  setProductList,
-                  isOrderShowNum,
-                  1,
-                  isPriceListTouched,
-                )
+                0,
+                ITEMS_PER_PAGE,
+                searchTerm,
+                searchBarcodeNum,
+                selectedCategory,
+                selectedPriceList,
+                Contact,
+                setProductList,
+                isOrderShowNum,
+                1,
+                isPriceListTouched,
+              )
               : Promise.resolve(),
             searchInputRef.current?.focus(),
             canViewCategory
@@ -880,12 +880,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (companyDetail && companyDetail.length > 0) {
-      setCartTermsAndCondition(
-        companyDetail[0].replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, ""),
-      );
-      setCartRemark(
-        companyDetail[0].replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, ""),
-      );
+      const firstItem = companyDetail[0];
+      const rawTerms =
+        typeof firstItem === "string"
+          ? firstItem
+          : firstItem?.terms_and_condition || "";
+      if (rawTerms) {
+        const cleanedTerms = rawTerms
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<[^>]*>/g, "");
+        setCartTermsAndCondition(cleanedTerms);
+        setCartRemark(cleanedTerms);
+      }
     }
   }, [companyDetail]);
 
@@ -1004,7 +1010,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       setPackingForwardingCharge(orderById.cart.packing_forwarding_charge ?? 0);
       setPackingForwardingChargeTitle(
         orderById.cart.packing_forwarding_charge_title ??
-          "Packing Forwarding charge",
+        "Packing Forwarding charge",
       );
       setTransportCharge(orderById.cart.transport_charge ?? 0);
       setTransportChargeTitle(
@@ -1021,8 +1027,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       setTcsAmount(orderById.cart.tcs_amt ?? 0);
       setIsGstActive(
         orderById.cart.gst_amt !== null &&
-          orderById.cart.gst_amt !== undefined &&
-          orderById.cart.gst_amt > 0,
+        orderById.cart.gst_amt !== undefined &&
+        orderById.cart.gst_amt > 0,
       );
       setGstAmount(orderById.cart.gst_amt ?? 0);
       setRoundOffAmount(orderById.cart.round_off ?? 0);
@@ -1248,7 +1254,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       );
       setPackingForwardingChargeTitle(
         orderbyidList.cart.packing_forwarding_charge_title ??
-          "Packing Forwarding charge",
+        "Packing Forwarding charge",
       );
       setDynamicTCSTitle(orderbyidList.cart.tcs_title ?? "TCS");
       setDynamicTCSRate(orderbyidList.cart.tcs_percentage ?? DEFAULT_TCS);
@@ -1268,8 +1274,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       setTcsAmount(orderbyidList.cart.tcs_amt ?? 0);
       setIsGstActive(
         orderbyidList.cart.gst_amt !== null &&
-          orderbyidList.cart.gst_amt !== undefined &&
-          orderbyidList.cart.gst_amt >= 0,
+        orderbyidList.cart.gst_amt !== undefined &&
+        orderbyidList.cart.gst_amt >= 0,
       );
       setGstAmount(orderbyidList.cart.gst_amt ?? 0);
       setRoundOffAmount(orderbyidList.cart.round_off ?? 0);
@@ -1383,10 +1389,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         net_rate: result.net,
         warehouse_id:
           orderTypesNameFind !== "Quotation" &&
-          orderTypesNameFind !== "Proforma Invoice" &&
-          orderTypesNameFind !== "Sales Order" &&
-          orderTypesNameFind !== "Sales Invoice" &&
-          orderTypesNameFind !== "Purchase Order"
+            orderTypesNameFind !== "Proforma Invoice" &&
+            orderTypesNameFind !== "Sales Order" &&
+            orderTypesNameFind !== "Sales Invoice" &&
+            orderTypesNameFind !== "Purchase Order"
             ? (defaultWarehouse?.value ?? -1)
             : undefined,
       },
@@ -2073,16 +2079,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       prevCart.map((item, i) =>
         i === index
           ? {
-              ...item,
-              [fieldName]:
-                dataType === 7
-                  ? value === true || value === 1
-                    ? 1
-                    : 0
-                  : dataType === 8
-                    ? value.replace(/[^0-9.]/g, "")
-                    : value,
-            }
+            ...item,
+            [fieldName]:
+              dataType === 7
+                ? value === true || value === 1
+                  ? 1
+                  : 0
+                : dataType === 8
+                  ? value.replace(/[^0-9.]/g, "")
+                  : value,
+          }
           : item,
       ),
     );
@@ -2141,10 +2147,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     const value = isCartLevel
       ? (cartCustomFieldValues[fieldName] ?? (item.data_type === 7 ? 0 : ""))
       : ((cart[index as number]?.[fieldName] as
-          | string
-          | number
-          | boolean
-          | undefined) ?? (item.data_type === 7 ? 0 : ""));
+        | string
+        | number
+        | boolean
+        | undefined) ?? (item.data_type === 7 ? 0 : ""));
 
     const isReadOnly =
       item.form_type === 4 &&
@@ -2177,16 +2183,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(e) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                     }
                     onInput={(e: React.ChangeEvent<HTMLInputElement>) => {
                       e.target.value = e.target.value.replace(/[^0-9]/g, "");
@@ -2194,11 +2200,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2214,25 +2220,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(e) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                     }
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2248,16 +2254,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(e) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                     }
                     onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -2268,11 +2274,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2300,25 +2306,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                       onChange={(date: DateObject) =>
                         isCartLevel
                           ? handleCartCustomFieldChange(
-                              fieldName,
-                              date,
-                              item.data_type,
-                            )
+                            fieldName,
+                            date,
+                            item.data_type,
+                          )
                           : handleCustomFieldChange(
-                              index as number,
-                              fieldName,
-                              date,
-                              item.data_type,
-                            )
+                            index as number,
+                            fieldName,
+                            date,
+                            item.data_type,
+                          )
                       }
                       disabled={
                         isReadOnly ||
                         (orderTypesNameFind !== "Quotation" &&
-                        cartnumber &&
-                        orderTypesNameFind !== "Sales Order" &&
-                        orderTypesNameFind !== "Proforma Invoice" &&
-                        orderTypesNameFind !== "Sales Invoice" &&
-                        orderTypesNameFind !== "Purchase Order"
+                          cartnumber &&
+                          orderTypesNameFind !== "Sales Order" &&
+                          orderTypesNameFind !== "Proforma Invoice" &&
+                          orderTypesNameFind !== "Sales Invoice" &&
+                          orderTypesNameFind !== "Purchase Order"
                           ? true
                           : false)
                       }
@@ -2338,25 +2344,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(e) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                     }
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2372,25 +2378,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(e) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            e.target.value,
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          e.target.value,
+                          item.data_type,
+                        )
                     }
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2409,25 +2415,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                       onChange={(e) =>
                         isCartLevel
                           ? handleCartCustomFieldChange(
-                              fieldName,
-                              e.target.checked,
-                              item.data_type,
-                            )
+                            fieldName,
+                            e.target.checked,
+                            item.data_type,
+                          )
                           : handleCustomFieldChange(
-                              index as number,
-                              fieldName,
-                              e.target.checked,
-                              item.data_type,
-                            )
+                            index as number,
+                            fieldName,
+                            e.target.checked,
+                            item.data_type,
+                          )
                       }
                       disabled={
                         isReadOnly ||
                         (orderTypesNameFind !== "Quotation" &&
-                        cartnumber &&
-                        orderTypesNameFind !== "Sales Order" &&
-                        orderTypesNameFind !== "Proforma Invoice" &&
-                        orderTypesNameFind !== "Sales Invoice" &&
-                        orderTypesNameFind !== "Purchase Order"
+                          cartnumber &&
+                          orderTypesNameFind !== "Sales Order" &&
+                          orderTypesNameFind !== "Proforma Invoice" &&
+                          orderTypesNameFind !== "Sales Invoice" &&
+                          orderTypesNameFind !== "Purchase Order"
                           ? true
                           : false)
                       }
@@ -2449,24 +2455,24 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                       }
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            value,
-                            item.data_type,
-                          )
+                          fieldName,
+                          value,
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            value,
-                            item.data_type,
-                          );
+                          index as number,
+                          fieldName,
+                          value,
+                          item.data_type,
+                        );
                     }}
                     disabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2491,25 +2497,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     onChange={(selectedOption: SingleValue<IOption>) =>
                       isCartLevel
                         ? handleCartCustomFieldChange(
-                            fieldName,
-                            selectedOption?.value || "",
-                            item.data_type,
-                          )
+                          fieldName,
+                          selectedOption?.value || "",
+                          item.data_type,
+                        )
                         : handleCustomFieldChange(
-                            index as number,
-                            fieldName,
-                            selectedOption?.value || "",
-                            item.data_type,
-                          )
+                          index as number,
+                          fieldName,
+                          selectedOption?.value || "",
+                          item.data_type,
+                        )
                     }
                     isDisabled={
                       isReadOnly ||
                       (orderTypesNameFind !== "Quotation" &&
-                      cartnumber &&
-                      orderTypesNameFind !== "Sales Order" &&
-                      orderTypesNameFind !== "Sales Invoice" &&
-                      orderTypesNameFind !== "Proforma Invoice" &&
-                      orderTypesNameFind !== "Purchase Order"
+                        cartnumber &&
+                        orderTypesNameFind !== "Sales Order" &&
+                        orderTypesNameFind !== "Sales Invoice" &&
+                        orderTypesNameFind !== "Proforma Invoice" &&
+                        orderTypesNameFind !== "Purchase Order"
                         ? true
                         : false)
                     }
@@ -2536,25 +2542,25 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           onChange={() =>
                             isCartLevel
                               ? handleCartCustomFieldChange(
-                                  fieldName,
-                                  option,
-                                  item.data_type,
-                                )
+                                fieldName,
+                                option,
+                                item.data_type,
+                              )
                               : handleCustomFieldChange(
-                                  index as number,
-                                  fieldName,
-                                  option,
-                                  item.data_type,
-                                )
+                                index as number,
+                                fieldName,
+                                option,
+                                item.data_type,
+                              )
                           }
                           disabled={
                             isReadOnly ||
                             (orderTypesNameFind !== "Quotation" &&
-                            cartnumber &&
-                            orderTypesNameFind !== "Sales Order" &&
-                            orderTypesNameFind !== "Sales Invoice" &&
-                            orderTypesNameFind !== "Proforma Invoice" &&
-                            orderTypesNameFind !== "Purchase Order"
+                              cartnumber &&
+                              orderTypesNameFind !== "Sales Order" &&
+                              orderTypesNameFind !== "Sales Invoice" &&
+                              orderTypesNameFind !== "Proforma Invoice" &&
+                              orderTypesNameFind !== "Purchase Order"
                               ? true
                               : false)
                           }
@@ -3709,12 +3715,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         prevCart.map((item, i) =>
           i === index
             ? {
-                ...item,
-                discount_input_value: "",
-                item_discount_pct: 0,
-                item_discount_pr: 0,
-                net_rate: Number(item.rate), // or recalculate properly
-              }
+              ...item,
+              discount_input_value: "",
+              item_discount_pct: 0,
+              item_discount_pr: 0,
+              net_rate: Number(item.rate), // or recalculate properly
+            }
             : item,
         ),
       );
@@ -4383,38 +4389,38 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         ...cartCustomFieldValues,
         ...(contactDataFlag === "new/exists"
           ? {
-              country_id: contactDataForPayload?.country,
-              state_id: contactDataForPayload?.state,
-              city_id: contactDataForPayload?.city,
-              area_id: contactDataForPayload?.area,
-              PinCode: contactDataForPayload?.pincode,
-              Address: contactDataForPayload?.address,
-              shipping_address: contactDataForPayload?.shipping_address,
-              to_customer_id: contactDataForPayload?.id,
-              to_customer_company_name: contactDataForPayload?.company_name,
-              to_customer_name: contactDataForPayload?.person_name,
-              to_customer_phone: contactDataForPayload?.mobile_number,
-              to_customer_email: contactDataForPayload?.email_id,
-              to_customer_gst_number: contactDataForPayload?.gst_number,
-              to_customer_price_list_id:
-                contactDataForPayload?.assinged_to_price_list,
-            }
+            country_id: contactDataForPayload?.country,
+            state_id: contactDataForPayload?.state,
+            city_id: contactDataForPayload?.city,
+            area_id: contactDataForPayload?.area,
+            PinCode: contactDataForPayload?.pincode,
+            Address: contactDataForPayload?.address,
+            shipping_address: contactDataForPayload?.shipping_address,
+            to_customer_id: contactDataForPayload?.id,
+            to_customer_company_name: contactDataForPayload?.company_name,
+            to_customer_name: contactDataForPayload?.person_name,
+            to_customer_phone: contactDataForPayload?.mobile_number,
+            to_customer_email: contactDataForPayload?.email_id,
+            to_customer_gst_number: contactDataForPayload?.gst_number,
+            to_customer_price_list_id:
+              contactDataForPayload?.assinged_to_price_list,
+          }
           : {
-              country_id: Contact?.country,
-              state_id: Contact?.state,
-              city_id: Contact?.city,
-              area_id: Contact?.area,
-              PinCode: Contact?.pincode,
-              Address: Contact?.address,
-              shipping_address: Contact?.shipping_address,
-              to_customer_id: contact_id,
-              to_customer_company_name: Contact?.company_name,
-              to_customer_name: Contact?.person_name,
-              to_customer_phone: Contact?.mobile_number,
-              to_customer_email: Contact?.email_id,
-              to_customer_gst_number: Contact?.gst_number,
-              to_customer_price_list_id: Contact?.assinged_to_price_list,
-            }),
+            country_id: Contact?.country,
+            state_id: Contact?.state,
+            city_id: Contact?.city,
+            area_id: Contact?.area,
+            PinCode: Contact?.pincode,
+            Address: Contact?.address,
+            shipping_address: Contact?.shipping_address,
+            to_customer_id: contact_id,
+            to_customer_company_name: Contact?.company_name,
+            to_customer_name: Contact?.person_name,
+            to_customer_phone: Contact?.mobile_number,
+            to_customer_email: Contact?.email_id,
+            to_customer_gst_number: Contact?.gst_number,
+            to_customer_price_list_id: Contact?.assinged_to_price_list,
+          }),
       };
 
       const cartItemsPayload = cart.map((item, index) => ({
@@ -5732,9 +5738,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           setPrintSetting,
           Number(
             PRINT_SETTING_TYPE_OBJ[
-              String(
-                isOrderShowNum || newOrderShowNumAfterConversion,
-              ) as keyof typeof PRINT_SETTING_TYPE_OBJ
+            String(
+              isOrderShowNum || newOrderShowNumAfterConversion,
+            ) as keyof typeof PRINT_SETTING_TYPE_OBJ
             ],
           ),
           Number(isOrderViewFormate),
@@ -6089,8 +6095,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (orderById && orderById.cart) {
       setIsGstActive(
         orderById.cart.gst_amt != null &&
-          orderById.cart.gst_amt != undefined &&
-          orderById.cart.gst_amt > 0,
+        orderById.cart.gst_amt != undefined &&
+        orderById.cart.gst_amt > 0,
       );
     } else {
       setIsGstActive(switchStatus);
@@ -6159,11 +6165,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
     ...(orderTypesNameFind !== "Inward" && orderTypesNameFind !== "Dispatch"
       ? [
-          { id: "rate", size: 90, minSize: 90 },
-          { id: "discount", size: 80, minSize: 80 },
-          { id: "gst", size: 90, minSize: 90 },
-          { id: "amount", size: 120, minSize: 120 },
-        ]
+        { id: "rate", size: 90, minSize: 90 },
+        { id: "discount", size: 80, minSize: 80 },
+        { id: "gst", size: 90, minSize: 90 },
+        { id: "amount", size: 120, minSize: 120 },
+      ]
       : []),
   ];
 
@@ -6191,16 +6197,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   const footerBaseColSpan =
     orderTypesNameFind !== "Quotation" &&
-    orderTypesNameFind !== "Sales Order" &&
-    orderTypesNameFind !== "Proforma Invoice" &&
-    orderTypesNameFind !== "Purchase Order"
+      orderTypesNameFind !== "Sales Order" &&
+      orderTypesNameFind !== "Proforma Invoice" &&
+      orderTypesNameFind !== "Purchase Order"
       ? (isGstActive ? 10 : 9) + extraColSpan
       : (isGstActive ? 9 : 8) + extraColSpan;
 
   /* Team Mamaber Fatch*/
   const fetchAllTeamMamberApi = async () => {
-    const token = await localStorage.getItem("token");
-    const getUUID = await localStorage.getItem("UUID");
+    const token = localStorage.getItem("token");
+    const getUUID = localStorage.getItem("UUID");
 
     const requestData = {
       a_application_login_id: getUUID,
@@ -6211,12 +6217,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           Authorization: `${token}`,
         },
       });
-      if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+      if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS && data.data.data?.item) {
+        setTeamList(data.data.data.item);
+      } else {
         setTeamList([]);
       }
-      setTeamList(data.data.data.item);
     } catch (error: any) {
-      toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      setTeamList([]);
     }
   };
 
@@ -6284,10 +6291,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   const isApprovedDocument =
     orderTypesNameFind !== "Quotation" &&
-    orderTypesNameFind !== "Sales Order" &&
-    orderTypesNameFind !== "Purchase Order" &&
-    orderTypesNameFind !== "Proforma Invoice" &&
-    cartnumber
+      orderTypesNameFind !== "Sales Order" &&
+      orderTypesNameFind !== "Purchase Order" &&
+      orderTypesNameFind !== "Proforma Invoice" &&
+      cartnumber
       ? true
       : false;
 
@@ -7206,7 +7213,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 handleModalMakeCopy(
                                   cartId,
                                   newOrderShowNumAfterConversion ||
-                                    isOrderShowNum,
+                                  isOrderShowNum,
                                 )
                               }
                               onMouseEnter={(e) =>
@@ -7234,7 +7241,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                   openPendingPrint(
                                     cartId,
                                     newOrderShowNumAfterConversion ||
-                                      isOrderShowNum,
+                                    isOrderShowNum,
                                   )
                                 }
                                 onMouseEnter={(e) =>
@@ -7621,13 +7628,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
               <div className={`m-title-2 row `}>
                 <div
-                  className={`card  ${
-                    !openCloseRightSide
-                      ? "col-12"
-                      : dynamicImageView.includes(2)
-                        ? "col-9"
-                        : "col-8"
-                  }`}
+                  className={`card  ${!openCloseRightSide
+                    ? "col-12"
+                    : dynamicImageView.includes(2)
+                      ? "col-9"
+                      : "col-8"
+                    }`}
                   style={{ borderRadius: "0px" }}
                 >
                   <div
@@ -7774,45 +7780,45 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           {/* Inner Qty */}
                           {(isOrderClassification == 2 ||
                             isOrderClassification == 4) && (
-                            <th
-                              className="text-center order-text"
-                              style={{
-                                width: table
-                                  .getColumn("item_inner_quantity")
-                                  ?.getSize(),
-                                position: "relative",
-                              }}
-                            >
-                              Inner Qty
-                              <div
-                                className="resizer"
-                                onMouseDown={getHeaderById(
-                                  "item_inner_quantity",
-                                )?.getResizeHandler()}
-                              />
-                            </th>
-                          )}
+                              <th
+                                className="text-center order-text"
+                                style={{
+                                  width: table
+                                    .getColumn("item_inner_quantity")
+                                    ?.getSize(),
+                                  position: "relative",
+                                }}
+                              >
+                                Inner Qty
+                                <div
+                                  className="resizer"
+                                  onMouseDown={getHeaderById(
+                                    "item_inner_quantity",
+                                  )?.getResizeHandler()}
+                                />
+                              </th>
+                            )}
                           {/* Outter Qty */}
                           {(isOrderClassification == 3 ||
                             isOrderClassification == 4) && (
-                            <th
-                              className="text-center order-text"
-                              style={{
-                                width: table
-                                  .getColumn("item_outer_quantity")
-                                  ?.getSize(),
-                                position: "relative",
-                              }}
-                            >
-                              Outer Qty
-                              <div
-                                className="resizer"
-                                onMouseDown={getHeaderById(
-                                  "item_outer_quantity",
-                                )?.getResizeHandler()}
-                              />
-                            </th>
-                          )}
+                              <th
+                                className="text-center order-text"
+                                style={{
+                                  width: table
+                                    .getColumn("item_outer_quantity")
+                                    ?.getSize(),
+                                  position: "relative",
+                                }}
+                              >
+                                Outer Qty
+                                <div
+                                  className="resizer"
+                                  onMouseDown={getHeaderById(
+                                    "item_outer_quantity",
+                                  )?.getResizeHandler()}
+                                />
+                              </th>
+                            )}
                           {isOrderClassification != 1 && (
                             <th
                               className="text-center order-text"
@@ -7996,11 +8002,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                   style={{ width: "100%" }}
                                 >
                                   {orderTypesNameFind !== "Quotation" &&
-                                  orderTypesNameFind !== "Sales Order" &&
-                                  orderTypesNameFind !== "Sales Invoice" &&
-                                  orderTypesNameFind !== "Proforma Invoice" &&
-                                  orderTypesNameFind !== "Purchase Order" &&
-                                  cartnumber ? (
+                                    orderTypesNameFind !== "Sales Order" &&
+                                    orderTypesNameFind !== "Sales Invoice" &&
+                                    orderTypesNameFind !== "Proforma Invoice" &&
+                                    orderTypesNameFind !== "Purchase Order" &&
+                                    cartnumber ? (
                                     <span></span>
                                   ) : (
                                     <span
@@ -8049,12 +8055,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     value={item.product_description}
                                     disabled={
                                       orderTypesNameFind !== "Quotation" &&
-                                      orderTypesNameFind !== "Sales Order" &&
-                                      orderTypesNameFind !== "Sales Invoice" &&
-                                      orderTypesNameFind !==
+                                        orderTypesNameFind !== "Sales Order" &&
+                                        orderTypesNameFind !== "Sales Invoice" &&
+                                        orderTypesNameFind !==
                                         "Proforma Invoice" &&
-                                      orderTypesNameFind !== "Purchase Order" &&
-                                      cartnumber
+                                        orderTypesNameFind !== "Purchase Order" &&
+                                        cartnumber
                                         ? true
                                         : false
                                     }
@@ -8119,14 +8125,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         }
                                         isDisabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          cartnumber &&
-                                          orderTypesNameFind !==
+                                            cartnumber &&
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order"
                                             ? "disabled"
                                             : false
@@ -8164,230 +8170,230 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 </td> */}
                                 {(isOrderClassification == 2 ||
                                   isOrderClassification == 4) && (
-                                  <td
-                                    className=""
-                                    style={{
-                                      width: table
-                                        .getColumn("item_inner_quantity")
-                                        ?.getSize(),
-                                    }}
-                                  >
-                                    <input
-                                      className="form-control"
-                                      type="number"
-                                      step={
-                                        item.is_point_value_allow === 1
-                                          ? "0.01"
-                                          : "1"
-                                      }
-                                      title="Inner Quantity"
-                                      placeholder="Inner Qty"
-                                      value={item.item_inner_quantity}
-                                      readOnly={
-                                        [3, 4, 8, 9].includes(
-                                          Number(isOrderShowNum),
-                                        ) && item?.is_serial_number == 2
-                                      }
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-
-                                        const innerQty =
-                                          item.is_point_value_allow === 1
-                                            ? value === ""
-                                              ? 0
-                                              : parseFloat(value) || 0
-                                            : value === ""
-                                              ? 0
-                                              : parseInt(value, 10) || 0;
-
-                                        setCart((prev) =>
-                                          prev.map((cartItem, i) => {
-                                            if (i !== index) return cartItem;
-
-                                            const updatedItem = {
-                                              ...cartItem,
-                                              item_inner_quantity: innerQty,
-                                              item_loose_quantity: 0,
-                                            };
-
-                                            return {
-                                              ...updatedItem,
-                                              quantity:
-                                                calculateMainQuantity(
-                                                  updatedItem,
-                                                ),
-                                            };
-                                          }),
-                                        );
-                                      }}
-                                      onBlur={(e) => {
-                                        let val;
-
-                                        if (item.is_point_value_allow === 1) {
-                                          val = parseFloat(e.target.value);
-                                        } else {
-                                          val = parseInt(e.target.value, 10);
-                                        }
-
-                                        if (isNaN(val) || val <= 0) {
-                                          val = 0;
-                                        }
-                                      }}
-                                      onFocus={(e) => e.target.select()}
-                                      disabled={
-                                        orderTypesNameFind !== "Quotation" &&
-                                        orderTypesNameFind !== "Sales Order" &&
-                                        orderTypesNameFind !==
-                                          "Proforma Invoice" &&
-                                        orderTypesNameFind !==
-                                          "Sales Invoice" &&
-                                        orderTypesNameFind !==
-                                          "Purchase Order" &&
-                                        cartnumber
-                                          ? true
-                                          : false
-                                      }
+                                    <td
+                                      className=""
                                       style={{
-                                        textAlign: "right",
-                                        backgroundColor:
-                                          [3, 4, 8, 9].includes(
-                                            Number(isOrderShowNum),
-                                          ) && item?.is_serial_number == 2
-                                            ? "#f5f5f5"
-                                            : "",
-
-                                        cursor:
-                                          [3, 4, 8, 9].includes(
-                                            Number(isOrderShowNum),
-                                          ) && item?.is_serial_number == 2
-                                            ? "not-allowed"
-                                            : "default",
-                                      }}
-                                    />
-                                    <span
-                                      className="order-text text-end"
-                                      style={{
-                                        fontSize: "12px",
-                                        textAlign: "end",
+                                        width: table
+                                          .getColumn("item_inner_quantity")
+                                          ?.getSize(),
                                       }}
                                     >
-                                      {item.inner_qty_unit}
-                                    </span>
-                                  </td>
-                                )}
+                                      <input
+                                        className="form-control"
+                                        type="number"
+                                        step={
+                                          item.is_point_value_allow === 1
+                                            ? "0.01"
+                                            : "1"
+                                        }
+                                        title="Inner Quantity"
+                                        placeholder="Inner Qty"
+                                        value={item.item_inner_quantity}
+                                        readOnly={
+                                          [3, 4, 8, 9].includes(
+                                            Number(isOrderShowNum),
+                                          ) && item?.is_serial_number == 2
+                                        }
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+
+                                          const innerQty =
+                                            item.is_point_value_allow === 1
+                                              ? value === ""
+                                                ? 0
+                                                : parseFloat(value) || 0
+                                              : value === ""
+                                                ? 0
+                                                : parseInt(value, 10) || 0;
+
+                                          setCart((prev) =>
+                                            prev.map((cartItem, i) => {
+                                              if (i !== index) return cartItem;
+
+                                              const updatedItem = {
+                                                ...cartItem,
+                                                item_inner_quantity: innerQty,
+                                                item_loose_quantity: 0,
+                                              };
+
+                                              return {
+                                                ...updatedItem,
+                                                quantity:
+                                                  calculateMainQuantity(
+                                                    updatedItem,
+                                                  ),
+                                              };
+                                            }),
+                                          );
+                                        }}
+                                        onBlur={(e) => {
+                                          let val;
+
+                                          if (item.is_point_value_allow === 1) {
+                                            val = parseFloat(e.target.value);
+                                          } else {
+                                            val = parseInt(e.target.value, 10);
+                                          }
+
+                                          if (isNaN(val) || val <= 0) {
+                                            val = 0;
+                                          }
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        disabled={
+                                          orderTypesNameFind !== "Quotation" &&
+                                            orderTypesNameFind !== "Sales Order" &&
+                                            orderTypesNameFind !==
+                                            "Proforma Invoice" &&
+                                            orderTypesNameFind !==
+                                            "Sales Invoice" &&
+                                            orderTypesNameFind !==
+                                            "Purchase Order" &&
+                                            cartnumber
+                                            ? true
+                                            : false
+                                        }
+                                        style={{
+                                          textAlign: "right",
+                                          backgroundColor:
+                                            [3, 4, 8, 9].includes(
+                                              Number(isOrderShowNum),
+                                            ) && item?.is_serial_number == 2
+                                              ? "#f5f5f5"
+                                              : "",
+
+                                          cursor:
+                                            [3, 4, 8, 9].includes(
+                                              Number(isOrderShowNum),
+                                            ) && item?.is_serial_number == 2
+                                              ? "not-allowed"
+                                              : "default",
+                                        }}
+                                      />
+                                      <span
+                                        className="order-text text-end"
+                                        style={{
+                                          fontSize: "12px",
+                                          textAlign: "end",
+                                        }}
+                                      >
+                                        {item.inner_qty_unit}
+                                      </span>
+                                    </td>
+                                  )}
                                 {(isOrderClassification == 3 ||
                                   isOrderClassification == 4) && (
-                                  <td
-                                    className=""
-                                    style={{
-                                      width: table
-                                        .getColumn("item_outer_quantity")
-                                        ?.getSize(),
-                                    }}
-                                  >
-                                    <input
-                                      className="form-control"
-                                      type="number"
-                                      step={
-                                        item.is_point_value_allow === 1
-                                          ? "0.01"
-                                          : "1"
-                                      }
-                                      title="Outer Quantity"
-                                      placeholder="Outer Qty"
-                                      value={item.item_outer_quantity}
-                                      readOnly={
-                                        [3, 4, 8, 9].includes(
-                                          Number(isOrderShowNum),
-                                        ) && item?.is_serial_number == 2
-                                      }
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-
-                                        const outerQty =
-                                          item.is_point_value_allow === 1
-                                            ? value === ""
-                                              ? 0
-                                              : parseFloat(value) || 0
-                                            : value === ""
-                                              ? 0
-                                              : parseInt(value, 10) || 0;
-
-                                        setCart((prev) =>
-                                          prev.map((cartItem, i) => {
-                                            if (i !== index) return cartItem;
-
-                                            const updatedItem = {
-                                              ...cartItem,
-                                              item_outer_quantity: outerQty,
-                                              item_loose_quantity: 0,
-                                            };
-
-                                            return {
-                                              ...updatedItem,
-                                              quantity:
-                                                calculateMainQuantity(
-                                                  updatedItem,
-                                                ),
-                                            };
-                                          }),
-                                        );
-                                      }}
-                                      onBlur={(e) => {
-                                        let val;
-
-                                        if (item.is_point_value_allow === 1) {
-                                          val = parseFloat(e.target.value);
-                                        } else {
-                                          val = parseInt(e.target.value, 10);
-                                        }
-
-                                        if (isNaN(val) || val <= 0) {
-                                          val = 0;
-                                        }
-                                      }}
-                                      onFocus={(e) => e.target.select()}
-                                      disabled={
-                                        orderTypesNameFind !== "Quotation" &&
-                                        orderTypesNameFind !== "Sales Order" &&
-                                        orderTypesNameFind !==
-                                          "Proforma Invoice" &&
-                                        orderTypesNameFind !==
-                                          "Sales Invoice" &&
-                                        orderTypesNameFind !==
-                                          "Purchase Order" &&
-                                        cartnumber
-                                          ? true
-                                          : false
-                                      }
+                                    <td
+                                      className=""
                                       style={{
-                                        textAlign: "right",
-                                        backgroundColor:
-                                          [3, 4, 8, 9].includes(
-                                            Number(isOrderShowNum),
-                                          ) && item?.is_serial_number == 2
-                                            ? "#f5f5f5"
-                                            : "",
-
-                                        cursor:
-                                          [3, 4, 8, 9].includes(
-                                            Number(isOrderShowNum),
-                                          ) && item?.is_serial_number == 2
-                                            ? "not-allowed"
-                                            : "default",
-                                      }}
-                                    />
-                                    <span
-                                      className="order-text text-end"
-                                      style={{
-                                        fontSize: "12px",
-                                        textAlign: "end",
+                                        width: table
+                                          .getColumn("item_outer_quantity")
+                                          ?.getSize(),
                                       }}
                                     >
-                                      {item.outer_qty_unit}
-                                    </span>
-                                  </td>
-                                )}
+                                      <input
+                                        className="form-control"
+                                        type="number"
+                                        step={
+                                          item.is_point_value_allow === 1
+                                            ? "0.01"
+                                            : "1"
+                                        }
+                                        title="Outer Quantity"
+                                        placeholder="Outer Qty"
+                                        value={item.item_outer_quantity}
+                                        readOnly={
+                                          [3, 4, 8, 9].includes(
+                                            Number(isOrderShowNum),
+                                          ) && item?.is_serial_number == 2
+                                        }
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+
+                                          const outerQty =
+                                            item.is_point_value_allow === 1
+                                              ? value === ""
+                                                ? 0
+                                                : parseFloat(value) || 0
+                                              : value === ""
+                                                ? 0
+                                                : parseInt(value, 10) || 0;
+
+                                          setCart((prev) =>
+                                            prev.map((cartItem, i) => {
+                                              if (i !== index) return cartItem;
+
+                                              const updatedItem = {
+                                                ...cartItem,
+                                                item_outer_quantity: outerQty,
+                                                item_loose_quantity: 0,
+                                              };
+
+                                              return {
+                                                ...updatedItem,
+                                                quantity:
+                                                  calculateMainQuantity(
+                                                    updatedItem,
+                                                  ),
+                                              };
+                                            }),
+                                          );
+                                        }}
+                                        onBlur={(e) => {
+                                          let val;
+
+                                          if (item.is_point_value_allow === 1) {
+                                            val = parseFloat(e.target.value);
+                                          } else {
+                                            val = parseInt(e.target.value, 10);
+                                          }
+
+                                          if (isNaN(val) || val <= 0) {
+                                            val = 0;
+                                          }
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        disabled={
+                                          orderTypesNameFind !== "Quotation" &&
+                                            orderTypesNameFind !== "Sales Order" &&
+                                            orderTypesNameFind !==
+                                            "Proforma Invoice" &&
+                                            orderTypesNameFind !==
+                                            "Sales Invoice" &&
+                                            orderTypesNameFind !==
+                                            "Purchase Order" &&
+                                            cartnumber
+                                            ? true
+                                            : false
+                                        }
+                                        style={{
+                                          textAlign: "right",
+                                          backgroundColor:
+                                            [3, 4, 8, 9].includes(
+                                              Number(isOrderShowNum),
+                                            ) && item?.is_serial_number == 2
+                                              ? "#f5f5f5"
+                                              : "",
+
+                                          cursor:
+                                            [3, 4, 8, 9].includes(
+                                              Number(isOrderShowNum),
+                                            ) && item?.is_serial_number == 2
+                                              ? "not-allowed"
+                                              : "default",
+                                        }}
+                                      />
+                                      <span
+                                        className="order-text text-end"
+                                        style={{
+                                          fontSize: "12px",
+                                          textAlign: "end",
+                                        }}
+                                      >
+                                        {item.outer_qty_unit}
+                                      </span>
+                                    </td>
+                                  )}
                                 {isOrderClassification != 1 && (
                                   <td
                                     style={{
@@ -8470,15 +8476,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         Number(isOrderShowNum),
                                       ) &&
                                         item?.is_serial_number == 2) ||
-                                      (orderTypesNameFind !== "Quotation" &&
-                                        orderTypesNameFind !== "Sales Order" &&
-                                        orderTypesNameFind !==
+                                        (orderTypesNameFind !== "Quotation" &&
+                                          orderTypesNameFind !== "Sales Order" &&
+                                          orderTypesNameFind !==
                                           "Proforma Invoice" &&
-                                        orderTypesNameFind !==
+                                          orderTypesNameFind !==
                                           "Sales Invoice" &&
-                                        orderTypesNameFind !==
+                                          orderTypesNameFind !==
                                           "Purchase Order" &&
-                                        cartnumber)
+                                          cartnumber)
                                         ? true
                                         : false
                                     }
@@ -8595,15 +8601,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           disabled={
                                             orderTypesNameFind !==
                                               "Quotation" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Order" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Invoice" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Proforma Invoice" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Purchase Order" &&
-                                            cartnumber
+                                              cartnumber
                                               ? true
                                               : false
                                           }
@@ -8653,23 +8659,23 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                               prev.map((item, i) =>
                                                 i === index
                                                   ? {
-                                                      ...item,
-                                                      discount_input_value:
-                                                        undefined, // clear temp input
-                                                      item_discount_pct:
-                                                        discountType ===
+                                                    ...item,
+                                                    discount_input_value:
+                                                      undefined, // clear temp input
+                                                    item_discount_pct:
+                                                      discountType ===
                                                         "percentage"
-                                                          ? Number(
-                                                              val.toFixed(4),
-                                                            )
-                                                          : item.item_discount_pct,
-                                                      item_discount_pr:
-                                                        discountType === "flat"
-                                                          ? Number(
-                                                              val.toFixed(2),
-                                                            )
-                                                          : item.item_discount_pr,
-                                                    }
+                                                        ? Number(
+                                                          val.toFixed(4),
+                                                        )
+                                                        : item.item_discount_pct,
+                                                    item_discount_pr:
+                                                      discountType === "flat"
+                                                        ? Number(
+                                                          val.toFixed(2),
+                                                        )
+                                                        : item.item_discount_pr,
+                                                  }
                                                   : item,
                                               ),
                                             );
@@ -8677,15 +8683,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           disabled={
                                             orderTypesNameFind !==
                                               "Quotation" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Order" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Invoice" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Purchase Order" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Proforma Invoice" &&
-                                            cartnumber
+                                              cartnumber
                                               ? true
                                               : false
                                           }
@@ -8908,15 +8914,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         maxLength={SMALL_TEXT_LENGTH}
                                         disabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order" &&
-                                          cartnumber
+                                            cartnumber
                                             ? true
                                             : false
                                         }
@@ -8950,15 +8956,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         value={packingForwardingCharge}
                                         disabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order" &&
-                                          cartnumber
+                                            cartnumber
                                             ? true
                                             : false
                                         }
@@ -8981,15 +8987,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         maxLength={SMALL_TEXT_LENGTH}
                                         disabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order" &&
-                                          cartnumber
+                                            cartnumber
                                             ? true
                                             : false
                                         }
@@ -9033,15 +9039,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         }}
                                         disabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order" &&
-                                          cartnumber
+                                            cartnumber
                                             ? true
                                             : false
                                         }
@@ -9182,17 +9188,17 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           role="switch"
                                           disabled={
                                             !switchStatus ||
-                                            (orderTypesNameFind !==
-                                              "Quotation" &&
-                                              orderTypesNameFind !==
+                                              (orderTypesNameFind !==
+                                                "Quotation" &&
+                                                orderTypesNameFind !==
                                                 "Sales Order" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Sales Invoice" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Proforma Invoice" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Purchase Order" &&
-                                              cartnumber)
+                                                cartnumber)
                                               ? true
                                               : false
                                           }
@@ -9234,15 +9240,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         maxLength={SMALL_TEXT_LENGTH}
                                         disabled={
                                           orderTypesNameFind !== "Quotation" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Order" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Proforma Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Sales Invoice" &&
-                                          orderTypesNameFind !==
+                                            orderTypesNameFind !==
                                             "Purchase Order" &&
-                                          cartnumber
+                                            cartnumber
                                             ? true
                                             : false
                                         }
@@ -9273,17 +9279,17 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           onFocus={(e) => e.target.select()}
                                           disabled={
                                             !isTcsActive ||
-                                            (orderTypesNameFind !==
-                                              "Quotation" &&
-                                              orderTypesNameFind !==
+                                              (orderTypesNameFind !==
+                                                "Quotation" &&
+                                                orderTypesNameFind !==
                                                 "Sales Order" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Sales Invoice" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Proforma Invoice" &&
-                                              orderTypesNameFind !==
+                                                orderTypesNameFind !==
                                                 "Purchase Order" &&
-                                              cartnumber)
+                                                cartnumber)
                                               ? true
                                               : false
                                           }
@@ -9308,15 +9314,15 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           disabled={
                                             orderTypesNameFind !==
                                               "Quotation" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Order" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Sales Invoice" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Proforma Invoice" &&
-                                            orderTypesNameFind !==
+                                              orderTypesNameFind !==
                                               "Purchase Order" &&
-                                            cartnumber
+                                              cartnumber
                                               ? true
                                               : false
                                           }
@@ -9436,11 +9442,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           onChange={(e) => setCartRemark(e.target.value)}
                           disabled={
                             orderTypesNameFind !== "Quotation" &&
-                            orderTypesNameFind !== "Sales Order" &&
-                            orderTypesNameFind !== "Sales Invoice" &&
-                            orderTypesNameFind !== "Proforma Invoice" &&
-                            orderTypesNameFind !== "Purchase Order" &&
-                            cartnumber
+                              orderTypesNameFind !== "Sales Order" &&
+                              orderTypesNameFind !== "Sales Invoice" &&
+                              orderTypesNameFind !== "Proforma Invoice" &&
+                              orderTypesNameFind !== "Purchase Order" &&
+                              cartnumber
                               ? true
                               : false
                           }
@@ -9466,11 +9472,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           }
                           disabled={
                             orderTypesNameFind !== "Quotation" &&
-                            orderTypesNameFind !== "Sales Order" &&
-                            orderTypesNameFind !== "Sales Invoice" &&
-                            orderTypesNameFind !== "Proforma Invoice" &&
-                            orderTypesNameFind !== "Purchase Order" &&
-                            cartnumber
+                              orderTypesNameFind !== "Sales Order" &&
+                              orderTypesNameFind !== "Sales Invoice" &&
+                              orderTypesNameFind !== "Proforma Invoice" &&
+                              orderTypesNameFind !== "Purchase Order" &&
+                              cartnumber
                               ? true
                               : false
                           }
@@ -9496,11 +9502,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           onChange={(e) => setCartNote(e.target.value)}
                           disabled={
                             orderTypesNameFind !== "Quotation" &&
-                            orderTypesNameFind !== "Sales Order" &&
-                            orderTypesNameFind !== "Sales Invoice" &&
-                            orderTypesNameFind !== "Proforma Invoice" &&
-                            orderTypesNameFind !== "Purchase Order" &&
-                            cartnumber
+                              orderTypesNameFind !== "Sales Order" &&
+                              orderTypesNameFind !== "Sales Invoice" &&
+                              orderTypesNameFind !== "Proforma Invoice" &&
+                              orderTypesNameFind !== "Purchase Order" &&
+                              cartnumber
                               ? true
                               : false
                           }
@@ -9564,7 +9570,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9615,7 +9621,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9667,7 +9673,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9717,7 +9723,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                               ) || options[0];
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9769,7 +9775,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9820,7 +9826,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9870,7 +9876,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9920,7 +9926,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
                             if (
                               !cartCustomFieldValues[
-                                item.reference_column_name
+                              item.reference_column_name
                               ] &&
                               selectedValue?.value
                             ) {
@@ -9965,7 +9971,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 style={{ zIndex: 99999, fontSize: "13px" }}
                               >
                                 {orderTypesNameFind == "Sales Order" ||
-                                orderTypesNameFind == "Sales Invoice"
+                                  orderTypesNameFind == "Sales Invoice"
                                   ? `Advance Received Amount`
                                   : `Advance Payment Amount`}
                               </label>
@@ -10007,12 +10013,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                               <select
                                 id="mode"
                                 name="mode" // good for form libraries
-                                className={`form-control ${
-                                  Number(advancePayment) > 0 &&
+                                className={`form-control ${Number(advancePayment) > 0 &&
                                   !selectedPaymentMode
-                                    ? "is-invalid"
-                                    : ""
-                                }`}
+                                  ? "is-invalid"
+                                  : ""
+                                  }`}
                                 value={selectedPaymentMode ?? ""}
                                 onChange={handlePaymentChange}
                                 disabled={isDisabledPayment}
@@ -10074,8 +10079,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         className="col-3"
                       >
                         {flag != "quick" &&
-                        orderTypesNameFind != "Inward" &&
-                        orderTypesNameFind !== "Dispatch" ? (
+                          orderTypesNameFind != "Inward" &&
+                          orderTypesNameFind !== "Dispatch" ? (
                           <>
                             <div className="form-group float-end">
                               <label>
@@ -10126,23 +10131,23 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         {customFormList.some(
                           (field) => field.data_type === 11,
                         ) && (
-                          <button
-                            className="modal-button2"
-                            onClick={() => setIsEditDataSourceForPageText(true)}
-                          >
-                            Edit Other Pages
-                          </button>
-                        )}
+                            <button
+                              className="modal-button2"
+                              onClick={() => setIsEditDataSourceForPageText(true)}
+                            >
+                              Edit Other Pages
+                            </button>
+                          )}
                         {customFormList.some(
                           (field) => field.data_type === 12,
                         ) && (
-                          <button
-                            className="modal-button2"
-                            onClick={() => setIsEditPageUrlModalOpen(true)}
-                          >
-                            Edit Page URL
-                          </button>
-                        )}
+                            <button
+                              className="modal-button2"
+                              onClick={() => setIsEditPageUrlModalOpen(true)}
+                            >
+                              Edit Page URL
+                            </button>
+                          )}
                       </div>
                       <div
                         className="modal-buttons text-start"
@@ -10199,8 +10204,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           orderTypesNameFind !== "Inward" &&
                           orderTypesNameFind !== "Dispatch" &&
                           cartnumber) ||
-                        !cart ||
-                        cart.length == 0 ? (
+                          !cart ||
+                          cart.length == 0 ? (
                           <span></span>
                         ) : (
                           <>
@@ -10453,9 +10458,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                 {openCloseRightSide && (
                   <>
                     <div
-                      className={`${
-                        dynamicImageView.includes(2) ? "col-3" : "col-4"
-                      } card`}
+                      className={`${dynamicImageView.includes(2) ? "col-3" : "col-4"
+                        } card`}
                       style={{ borderRadius: "0px" }}
                     >
                       <div className=" d-flex gap-1">
@@ -10468,9 +10472,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         )}
 
                         <div
-                          className={`${
-                            dynamicImageView.includes(2) ? "w-100" : "w-50"
-                          } mt-2`}
+                          className={`${dynamicImageView.includes(2) ? "w-100" : "w-50"
+                            } mt-2`}
                         >
                           <label htmlFor="">Product Category</label>
                         </div>
@@ -10482,9 +10485,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     ""
                   )} */}
                         <div
-                          className={`${
-                            dynamicImageView.includes(2) ? "w-100" : "w-50"
-                          } mt-2`}
+                          className={`${dynamicImageView.includes(2) ? "w-100" : "w-50"
+                            } mt-2`}
                         >
                           <label htmlFor="">Price List</label>
                         </div>
@@ -10555,11 +10557,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 onKeyDown={handleKeyDown}
                                 disabled={
                                   cartnumber &&
-                                  orderTypesNameFind !== "Quotation" &&
-                                  orderTypesNameFind !== "Sales Order" &&
-                                  orderTypesNameFind !== "Sales Invoice" &&
-                                  orderTypesNameFind !== "Proforma Invoice" &&
-                                  orderTypesNameFind !== "Purchase Order"
+                                    orderTypesNameFind !== "Quotation" &&
+                                    orderTypesNameFind !== "Sales Order" &&
+                                    orderTypesNameFind !== "Sales Invoice" &&
+                                    orderTypesNameFind !== "Proforma Invoice" &&
+                                    orderTypesNameFind !== "Purchase Order"
                                     ? true
                                     : false || canViewProduct
                                       ? false
@@ -10573,9 +10575,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         )}
 
                         <div
-                          className={`${
-                            dynamicImageView.includes(2) ? "w-100" : "w-50"
-                          } mt-2`}
+                          className={`${dynamicImageView.includes(2) ? "w-100" : "w-50"
+                            } mt-2`}
                         >
                           <CustomSearchDropdown
                             options={categoryOptions}
@@ -10584,11 +10585,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                             className="w-100 "
                             isDisabled={
                               orderTypesNameFind !== "Quotation" &&
-                              orderTypesNameFind !== "Sales Order" &&
-                              orderTypesNameFind !== "Sales Invoice" &&
-                              orderTypesNameFind !== "Proforma Invoice" &&
-                              orderTypesNameFind !== "Purchase Order" &&
-                              cartnumber
+                                orderTypesNameFind !== "Sales Order" &&
+                                orderTypesNameFind !== "Sales Invoice" &&
+                                orderTypesNameFind !== "Proforma Invoice" &&
+                                orderTypesNameFind !== "Purchase Order" &&
+                                cartnumber
                                 ? "disabled"
                                 : false
                             }
@@ -10662,12 +10663,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     onKeyDown={handleKeyDown}
                                     disabled={
                                       orderTypesNameFind !== "Quotation" &&
-                                      orderTypesNameFind !== "Sales Order" &&
-                                      orderTypesNameFind !== "Sales Invoice" &&
-                                      orderTypesNameFind !==
+                                        orderTypesNameFind !== "Sales Order" &&
+                                        orderTypesNameFind !== "Sales Invoice" &&
+                                        orderTypesNameFind !==
                                         "Proforma Invoice" &&
-                                      orderTypesNameFind !== "Purchase Order" &&
-                                      cartnumber
+                                        orderTypesNameFind !== "Purchase Order" &&
+                                        cartnumber
                                         ? true
                                         : false || canViewProduct
                                           ? false
@@ -10703,9 +10704,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                           )}
                         </div>
                         <div
-                          className={`${
-                            dynamicImageView.includes(2) ? "w-100" : "w-50"
-                          } mt-2`}
+                          className={`${dynamicImageView.includes(2) ? "w-100" : "w-50"
+                            } mt-2`}
                           style={{ paddingInline: "10px" }}
                         >
                           <CustomSearchDropdown
@@ -10715,11 +10715,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                             className="w-100 "
                             isDisabled={
                               orderTypesNameFind !== "Quotation" &&
-                              orderTypesNameFind !== "Sales Order" &&
-                              orderTypesNameFind !== "Proforma Invoice" &&
-                              orderTypesNameFind !== "Sales Invoice" &&
-                              orderTypesNameFind !== "Purchase Order" &&
-                              cartnumber
+                                orderTypesNameFind !== "Sales Order" &&
+                                orderTypesNameFind !== "Proforma Invoice" &&
+                                orderTypesNameFind !== "Sales Invoice" &&
+                                orderTypesNameFind !== "Purchase Order" &&
+                                cartnumber
                                 ? "disabled"
                                 : false
                             }
@@ -10752,59 +10752,57 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                               {productList &&
                                 productList.map((item: any, idx: number) => (
                                   <div
-                                    className={`${
-                                      dynamicImageView.includes(2)
-                                        ? "col-12"
-                                        : "col-md-4"
-                                    }`}
+                                    className={`${dynamicImageView.includes(2)
+                                      ? "col-12"
+                                      : "col-md-4"
+                                      }`}
                                     key={item.id}
                                   >
                                     <div
                                       ref={(el) =>
                                         (productRefs.current[idx] = el)
                                       }
-                                      className={`${
-                                        dynamicImageView.includes(2)
-                                          ? "mb-1"
-                                          : "mb-3"
-                                      } card`}
+                                      className={`${dynamicImageView.includes(2)
+                                        ? "mb-1"
+                                        : "mb-3"
+                                        } card`}
                                       style={{
                                         cursor:
                                           (orderTypesNameFind !== "Quotation" &&
                                             orderTypesNameFind !==
-                                              "Sales Order" &&
+                                            "Sales Order" &&
                                             orderTypesNameFind !==
-                                              "Proforma Invoice" &&
+                                            "Proforma Invoice" &&
                                             orderTypesNameFind !==
-                                              "Sales Invoice" &&
+                                            "Sales Invoice" &&
                                             orderTypesNameFind !==
-                                              "Purchase Order" &&
+                                            "Purchase Order" &&
                                             cartnumber) ||
-                                          ((isOrderShowNum === 9 ||
-                                            isOrderShowNum === 8) &&
-                                            (orderById?.cart
-                                              ?.referance_cart_id ||
-                                              orderbyidList?.cart
-                                                ?.referance_cart_id))
+                                            ((isOrderShowNum === 9 ||
+                                              isOrderShowNum === 8) &&
+                                              (orderById?.cart
+                                                ?.referance_cart_id ||
+                                                orderbyidList?.cart
+                                                  ?.referance_cart_id))
                                             ? "not-allowed"
                                             : "pointer",
                                         opacity:
                                           (orderTypesNameFind !== "Quotation" &&
                                             orderTypesNameFind !==
-                                              "Sales Order" &&
+                                            "Sales Order" &&
                                             orderTypesNameFind !==
-                                              "Proforma Invoice" &&
+                                            "Proforma Invoice" &&
                                             orderTypesNameFind !==
-                                              "Sales Invoice" &&
+                                            "Sales Invoice" &&
                                             orderTypesNameFind !==
-                                              "Purchase Order" &&
+                                            "Purchase Order" &&
                                             cartnumber) ||
-                                          ((isOrderShowNum === 9 ||
-                                            isOrderShowNum === 8) &&
-                                            (orderById?.cart
-                                              ?.referance_cart_id ||
-                                              orderbyidList?.cart
-                                                ?.referance_cart_id))
+                                            ((isOrderShowNum === 9 ||
+                                              isOrderShowNum === 8) &&
+                                              (orderById?.cart
+                                                ?.referance_cart_id ||
+                                                orderbyidList?.cart
+                                                  ?.referance_cart_id))
                                             ? 0.6
                                             : 1,
                                         // borderColor:
@@ -10816,7 +10814,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         //       : "",
                                         backgroundColor:
                                           highlightedProductId === item.id ||
-                                          focusedProductIndex === idx
+                                            focusedProductIndex === idx
                                             ? "#DDF4E7"
                                             : isProductInCart(item.id)
                                               ? "#DDF4E7"
@@ -10833,7 +10831,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           orderTypesNameFind == "Quotation" ||
                                           orderTypesNameFind == "Sales Order" ||
                                           orderTypesNameFind ==
-                                            "Sales Invoice" ||
+                                          "Sales Invoice" ||
                                           (orderTypesNameFind ==
                                             "Purchase Order" &&
                                             isOrderShowNum != 9 &&
@@ -10895,7 +10893,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           if (
                                             isProductInCart(
                                               item.id &&
-                                                dynamicProductAdd.includes(1),
+                                              dynamicProductAdd.includes(1),
                                             )
                                           ) {
                                             updateCartQuantity(item.id, 1);
@@ -11119,12 +11117,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                 style={{
                   maxHeight:
                     cart[selectedSerialItemIndex || 0]?.serial_numbers?.length >
-                    3
+                      3
                       ? "220px"
                       : "auto",
                   overflowY:
                     cart[selectedSerialItemIndex || 0]?.serial_numbers?.length >
-                    3
+                      3
                       ? "auto"
                       : "hidden",
                   border: "1px solid #ddd",
@@ -11148,7 +11146,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                   </thead>
                   <tbody>
                     {selectedSerialItemIndex !== null &&
-                    cart[selectedSerialItemIndex]?.serial_numbers?.length >
+                      cart[selectedSerialItemIndex]?.serial_numbers?.length >
                       0 ? (
                       cart[selectedSerialItemIndex].serial_numbers.map(
                         (sn: string, serialIndex: number) => (

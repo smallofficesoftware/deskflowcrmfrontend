@@ -109,22 +109,40 @@ const RoutePlannerListView = ({
     );
 
     useEffect(() => {
-        if (!filters.startSearchDate || !filters.endSearchDate) {
-            const [startDate, endDate] = getCurrentMonthDateRange();
+        const [startDate, endDate] = getCurrentMonthDateRange();
 
-            setFilters("Route_Planner_List_View", {
-                ...filters,
-                startSearchDate: startDate,
-                endSearchDate: endDate,
-                selectedDateArray: [
-                    startDate,
-                    endDate,
-                ],
-            });
-        }
+        setFilters("Route_Planner_List_View", {
+            ...filters,
+            startSearchDate: startDate,
+            endSearchDate: endDate,
+            selectedDateArray: [
+                startDate,
+                endDate,
+            ],
+        });
     }, []);
 
-    useEscapeKey(onHide);
+    useEscapeKey(() => {
+        if (
+            showUpdateRouteView ||
+            showAddRouteView ||
+            isModalFilterVisible ||
+            isModalAssignStatusVisible ||
+            isOpenContactList ||
+            openRouteAssignContact ||
+            isDeleteConfirmation
+        ) {
+            setShowUpdateRouteView(false);
+            setShowAddRouteView(false);
+            setIsModalAssignStatusVisible(false);
+            setIsOpenContactList(false);
+            setOpenRouteAssignContact(false);
+            setOpenDropdownId(null);
+            setIsDeleteConfirmation(false);
+        } else {
+            onHide();
+        }
+    });
 
     // Click outside dropdown
     useEffect(() => {
@@ -368,7 +386,9 @@ const RoutePlannerListView = ({
         setFilters("Route_Planner_List_View", updatedFilters);
 
         const hasData = updatedFilters.checkedOptionsUser.length > 0 ||
-            updatedFilters.checkedOptionsStageStatus.length > 0;
+            updatedFilters.checkedOptionsStageStatus.length > 0 ||
+            updatedFilters.startSearchDate != startDate ||
+            updatedFilters.endSearchDate != endDate;
 
         setHasData(hasData);
 

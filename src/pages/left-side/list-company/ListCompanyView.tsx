@@ -131,8 +131,12 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
   }, []);
   useEffect(() => {
     if (companyLists.length > 0) {
-      // Get the first company's plan_id (or whichever logic you need)
-      const planId = companyLists[0]?.plan_id; // Adjust this based on your data structure
+      // Use the active workspace's plan_id, not always the first company.
+      const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+      const activeCompany = activeCompanyId
+        ? companyLists.find((c) => c.id === activeCompanyId)
+        : companyLists[0];
+      const planId = activeCompany?.plan_id || companyLists[0]?.plan_id;
       if (planId) {
         fetchPlanStatisticsCounts(setPlanStatistics, planId);
       }
@@ -416,18 +420,39 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                       <>
                         {loading
                           ? // Render skeleton placeholders when loading
-                            Array.from({ length: 12 }).map((_, index) => (
-                              <div className="block chat-list" key={index}>
-                                <Skeleton
-                                  width={50}
-                                  height={50}
-                                  circle={true}
-                                  duration={5}
-                                  style={{ opacity: darkMode ? "" : 0.5 }}
-                                />
-                                <div className="h-text">
-                                  <div className="head">
-                                    <h4>
+                          Array.from({ length: 12 }).map((_, index) => (
+                            <div className="block chat-list" key={index}>
+                              <Skeleton
+                                width={50}
+                                height={50}
+                                circle={true}
+                                duration={5}
+                                style={{ opacity: darkMode ? "" : 0.5 }}
+                              />
+                              <div className="h-text">
+                                <div className="head">
+                                  <h4>
+                                    <Skeleton
+                                      style={{
+                                        marginLeft: "10px",
+                                        opacity: darkMode ? "" : 0.5,
+                                      }}
+                                      width={100}
+                                    />
+                                  </h4>
+                                  <p className="time">
+                                    <Skeleton
+                                      width={80}
+                                      style={{
+                                        opacity: darkMode ? "" : 0.5,
+                                      }}
+                                      height={10}
+                                    />
+                                  </p>
+                                </div>
+                                <div className="message-chat">
+                                  <div className="chat-text-icon">
+                                    <span className="thanks">
                                       <Skeleton
                                         style={{
                                           marginLeft: "10px",
@@ -435,84 +460,62 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                         }}
                                         width={100}
                                       />
-                                    </h4>
-                                    <p className="time">
+                                    </span>
+                                    <div className="icon-more">
                                       <Skeleton
-                                        width={80}
+                                        width={40}
                                         style={{
                                           opacity: darkMode ? "" : 0.5,
                                         }}
                                         height={10}
                                       />
-                                    </p>
-                                  </div>
-                                  <div className="message-chat">
-                                    <div className="chat-text-icon">
-                                      <span className="thanks">
-                                        <Skeleton
-                                          style={{
-                                            marginLeft: "10px",
-                                            opacity: darkMode ? "" : 0.5,
-                                          }}
-                                          width={100}
-                                        />
-                                      </span>
-                                      <div className="icon-more">
-                                        <Skeleton
-                                          width={40}
-                                          style={{
-                                            opacity: darkMode ? "" : 0.5,
-                                          }}
-                                          height={10}
-                                        />
-                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            ))
+                            </div>
+                          ))
                           : // Render actual user data when not loading
-                            companyLists &&
-                            companyLists.map((item, index) => {
-                              return (
-                                <>
-                                  <div>
-                                    <ul
-                                      className={`labelDropLeft labelDropLeft-myteam-1 ${
-                                        hasOneData === item.id &&
+                          companyLists &&
+                          companyLists.map((item, index) => {
+                            return (
+                              <>
+                                <div>
+                                  <ul
+                                    className={`labelDropLeft labelDropLeft-myteam-1 ${hasOneData === item.id &&
                                         companyDropdownOpen === item.id
-                                          ? "isVisible"
-                                          : "isHidden"
+                                        ? "isVisible"
+                                        : "isHidden"
                                       } `}
-                                      ref={(el) => {
-                                        if (el) {
-                                          dropdownCompanyRef.current[item.id] =
-                                            el;
-                                        } else {
-                                          delete dropdownCompanyRef.current[
-                                            item.id
-                                          ];
-                                        }
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {item.company_flag !== 2 ? (
-                                        <>
-                                          <li
-                                            className="listItem"
-                                            role="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handelChangeEditCompany(item);
-                                              setCompanyDropdownOpen(null);
-                                              setHasOneData(null);
-                                            }}
-                                          >
-                                            Edit
-                                          </li>
-                                          {(item.parent_company_id === null ||
-                                            item.parent_company_id ===
-                                              undefined) && (
+                                    ref={(el) => {
+                                      if (el) {
+                                        dropdownCompanyRef.current[item.id] =
+                                          el;
+                                      } else {
+                                        delete dropdownCompanyRef.current[
+                                          item.id
+                                        ];
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {item.company_flag !== 2 ? (
+                                      <>
+                                        <li
+                                          className="listItem"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handelChangeEditCompany(item);
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
+                                          }}
+                                        >
+                                          Edit
+                                        </li>
+                                        {(item.parent_company_id === null ||
+                                          item.parent_company_id ===
+                                          undefined) && (
                                             <li
                                               className="listItem"
                                               role="button"
@@ -526,43 +529,43 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                               Add Workspace
                                             </li>
                                           )}
-                                        </>
-                                      ) : (
-                                        ""
-                                      )}
-                                      {item.company_flag !== 2 ? (
-                                        <li
-                                          className="listItem"
-                                          role="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handelChangeNewEditCompany(item);
-                                            setCompanyDropdownOpen(null);
-                                            setHasOneData(null);
-                                          }}
-                                        >
-                                          New Edit
-                                        </li>
-                                      ) : (
-                                        ""
-                                      )}
-                                      {item.company_flag === 2 ? (
-                                        <li
-                                          className="listItem"
-                                          role="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            leaveCompany(item.id);
-                                            setCompanyDropdownOpen(null);
-                                            setHasOneData(null);
-                                          }}
-                                        >
-                                          Leave
-                                        </li>
-                                      ) : (
-                                        ""
-                                      )}
-                                      {/* {item.company_flag === 1 ? (
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                    {/* {item.company_flag !== 2 ? (
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handelChangeNewEditCompany(item);
+                                          setCompanyDropdownOpen(null);
+                                          setHasOneData(null);
+                                        }}
+                                      >
+                                        New Edit
+                                      </li>
+                                    ) : (
+                                      ""
+                                    )} */}
+                                    {item.company_flag === 2 ? (
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          leaveCompany(item.id);
+                                          setCompanyDropdownOpen(null);
+                                          setHasOneData(null);
+                                        }}
+                                      >
+                                        Leave
+                                      </li>
+                                    ) : (
+                                      ""
+                                    )}
+                                    {/* {item.company_flag === 1 ? (
                                         <li
                                           className="listItem"
                                           role="button"
@@ -575,21 +578,21 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                       ) : (
                                         ""
                                       )} */}
-                                      {item.company_flag === 1 ? (
-                                        <>
-                                          <li
-                                            className="listItem"
-                                            role="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              openCompanySide(item);
-                                              setCompanyDropdownOpen(null);
-                                              setHasOneData(null);
-                                            }}
-                                          >
-                                            My Team
-                                          </li>
-                                          {/* <li
+                                    {item.company_flag === 1 ? (
+                                      <>
+                                        <li
+                                          className="listItem"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openCompanySide(item);
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
+                                          }}
+                                        >
+                                          My Team
+                                        </li>
+                                        {/* <li
                                           className="listItem"
                                           role="button"
                                           onClick={(e) => {
@@ -601,153 +604,153 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                         >
                                           copy Invitation Key
                                         </li> */}
-                                          <li
-                                            className="listItem"
-                                            role="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              window.open("/qr_code", "_blank");
-                                              setCompanyDropdownOpen(null);
-                                              setHasOneData(null);
-                                            }}
-                                          >
-                                            Print my QR Code
-                                          </li>
-                                          <li
-                                            className="listItem"
-                                            role="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              window.open(
-                                                `/website/${item.qr_code}`,
-                                                "_blank",
-                                              );
-                                              setCompanyDropdownOpen(null);
-                                              setHasOneData(null);
-                                            }}
-                                          >
-                                            Online Store
-                                          </li>
-                                          <li
-                                            className="listItem"
-                                            role="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setCompanyIdToDelete(item.id);
-                                              setIsDeleteCloseConfirmation(
-                                                true,
-                                              );
-                                              setCompanyDropdownOpen(null);
-                                              setHasOneData(null);
-                                            }}
-                                          >
-                                            Delete Company
-                                          </li>
-                                        </>
-                                      ) : (
-                                        ""
-                                      )}
-                                    </ul>
-                                  </div>
-                                  <div key={index} className="block chat-list p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
-                                    <div className="h-text w-100">
-                                      {/* Header Row: Title & Chevron Dropdown */}
-                                      <div
-                                        className="d-flex align-items-start justify-content-between mb-1"
-                                        onClick={() => openCompanySide(item)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        <div>
-                                          <div
-                                            className="fw-bold"
-                                            style={{
-                                              fontSize: "14px",
-                                              color: "#1e293b",
-                                              lineHeight: "1.3",
-                                            }}
-                                          >
-                                            {item.company_name}
-                                          </div>
-                                          <div className="mt-1">
-                                            {(item.parent_company_id === null || item.parent_company_id === undefined) ? (
-                                              <span
-                                                className="badge rounded-pill px-2.5 py-1"
-                                                style={{
-                                                  backgroundColor: "#f58634",
-                                                  color: "#ffffff",
-                                                  fontSize: "10px",
-                                                  fontWeight: "600",
-                                                }}
-                                              >
-                                                Main Company
-                                              </span>
-                                            ) : (
-                                              <span
-                                                className="badge rounded-pill px-2.5 py-1"
-                                                style={{
-                                                  backgroundColor: "#64748b",
-                                                  color: "#ffffff",
-                                                  fontSize: "10px",
-                                                  fontWeight: "600",
-                                                }}
-                                              >
-                                                Workspace
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        <button
-                                          className="icon-more btn p-0 border-0 ms-2"
+                                        <li
+                                          className="listItem"
+                                          role="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            toggleDropdownCompany(item.id);
+                                            window.open("/qr_code", "_blank");
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
                                           }}
-                                          style={{ cursor: "pointer" }}
                                         >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 19 20"
-                                            width="18"
-                                            height="18"
-                                          >
-                                            <path
-                                              fill="#64748b"
-                                              d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
-                                            ></path>
-                                          </svg>
-                                        </button>
+                                          Print my QR Code
+                                        </li>
+                                        <li
+                                          className="listItem"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(
+                                              `/website/${item.qr_code}`,
+                                              "_blank",
+                                            );
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
+                                          }}
+                                        >
+                                          Online Store
+                                        </li>
+                                        <li
+                                          className="listItem"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCompanyIdToDelete(item.id);
+                                            setIsDeleteCloseConfirmation(
+                                              true,
+                                            );
+                                            setCompanyDropdownOpen(null);
+                                            setHasOneData(null);
+                                          }}
+                                        >
+                                          Delete Company
+                                        </li>
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </ul>
+                                </div>
+                                <div key={index} className="block chat-list p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
+                                  <div className="h-text w-100">
+                                    {/* Header Row: Title & Chevron Dropdown */}
+                                    <div
+                                      className="d-flex align-items-start justify-content-between mb-1"
+                                      onClick={() => openCompanySide(item)}
+                                      style={{ cursor: "pointer" }}
+                                    >
+                                      <div>
+                                        <div
+                                          className="fw-bold"
+                                          style={{
+                                            fontSize: "14px",
+                                            color: "#1e293b",
+                                            lineHeight: "1.3",
+                                          }}
+                                        >
+                                          {item.company_name}
+                                        </div>
+                                        <div className="mt-1">
+                                          {(item.parent_company_id === null || item.parent_company_id === undefined) ? (
+                                            <span
+                                              className="badge rounded-pill px-2.5 py-1"
+                                              style={{
+                                                backgroundColor: "#f58634",
+                                                color: "#ffffff",
+                                                fontSize: "10px",
+                                                fontWeight: "600",
+                                              }}
+                                            >
+                                              Main Company
+                                            </span>
+                                          ) : (
+                                            <span
+                                              className="badge rounded-pill px-2.5 py-1"
+                                              style={{
+                                                backgroundColor: "#64748b",
+                                                color: "#ffffff",
+                                                fontSize: "10px",
+                                                fontWeight: "600",
+                                              }}
+                                            >
+                                              Workspace
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
 
-                                      {/* Contact & Email */}
-                                      <div
-                                        className="mb-1.5 text-secondary text-truncate"
-                                        style={{ fontSize: "12px", color: "#64748b" }}
-                                        onClick={() => openCompanySide(item)}
+                                      <button
+                                        className="icon-more btn p-0 border-0 ms-2"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleDropdownCompany(item.id);
+                                        }}
+                                        style={{ cursor: "pointer" }}
                                       >
-                                        {item.company_contact}
-                                        {item.company_contact && item.company_email ? ", " : ""}
-                                        {item.company_email}
-                                      </div>
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          viewBox="0 0 19 20"
+                                          width="18"
+                                          height="18"
+                                        >
+                                          <path
+                                            fill="#64748b"
+                                            d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
+                                          ></path>
+                                        </svg>
+                                      </button>
+                                    </div>
 
-                                      {/* Plan Details */}
-                                      <div
-                                        className="d-flex flex-column gap-0.5 mb-1"
-                                        style={{ fontSize: "12px", color: "#475569" }}
-                                        onClick={() => openCompanySide(item)}
-                                      >
-                                        <div>
-                                          <b>Plan Type :</b> {item.plan_name}
-                                        </div>
-                                        <div>
-                                          <b>Plan Act. Date :</b>{" "}
-                                          {item.plan_date ? formatDate(item.plan_date) : ""}
-                                        </div>
-                                        <div>
-                                          <b>Plan Expiry Date :</b>{" "}
-                                          {item.plan_expiry_date ? formatDate(item.plan_expiry_date) : ""}
-                                        </div>
-                                        {/* Date Footer */}
+                                    {/* Contact & Email */}
+                                    <div
+                                      className="mb-1.5 text-secondary text-truncate"
+                                      style={{ fontSize: "12px", color: "#64748b" }}
+                                      onClick={() => openCompanySide(item)}
+                                    >
+                                      {item.company_contact}
+                                      {item.company_contact && item.company_email ? ", " : ""}
+                                      {item.company_email}
+                                    </div>
+
+                                    {/* Plan Details */}
+                                    <div
+                                      className="d-flex flex-column gap-0.5 mb-1"
+                                      style={{ fontSize: "12px", color: "#475569" }}
+                                      onClick={() => openCompanySide(item)}
+                                    >
+                                      <div>
+                                        <b>Plan Type :</b> {item.plan_name}
+                                      </div>
+                                      <div>
+                                        <b>Plan Act. Date :</b>{" "}
+                                        {item.plan_date ? formatDate(item.plan_date) : ""}
+                                      </div>
+                                      <div>
+                                        <b>Plan Expiry Date :</b>{" "}
+                                        {item.plan_expiry_date ? formatDate(item.plan_expiry_date) : ""}
+                                      </div>
+                                      {/* Date Footer */}
                                       <div
                                         className="d-flex justify-content-end text-muted mt-1"
                                         style={{ fontSize: "11px", color: "#94a3b8" }}
@@ -766,7 +769,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                 </div>
                               </>
                             );
-                            })}
+                          })}
                         <div
                           style={{
                             flex: "60%",
@@ -1110,7 +1113,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                     companyToEdit={companyToEdit}
                     setRefresh={setRefresh}
                     headerName={"Edit Company"}
-                    // isShowApiKey={1}
+                  // isShowApiKey={1}
                   />
                   <ManageWorkspacesModal
                     show={showManageWorkspaces}

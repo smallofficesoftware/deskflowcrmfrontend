@@ -8,7 +8,7 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, Col, Container, Row } from "react-bootstrap";
 import { Bar, Doughnut } from "react-chartjs-2";
 import Skeleton from "react-loading-skeleton";
@@ -106,6 +106,11 @@ const DashboardView = ({
   const [teamMemberList, setTeamMemberList] = useState<TeamMember[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<OptionType[]>([]);
   const [localError, setLocalError] = useState("");
+
+  const selectedTeamMemberValues = useMemo(
+    () => selectedUsers.map((user) => user.value),
+    [selectedUsers],
+  );
 
   const [totalReturnSalesInvoice, setTotalReturnSalesInvoice] = useState(0);
   const [returnSalesInvoiceApprovedCount, setReturnSalesInvoiceApprovedCount] =
@@ -457,6 +462,9 @@ const DashboardView = ({
       setIsReportShow(true);
       setReportName(name);
     } else if (canViewTask && name === "alltask_report") {
+      setIsReportShow(true);
+      setReportName(name);
+    } else if (canViewAllReminder && name === "allreminder_report") {
       setIsReportShow(true);
       setReportName(name);
     } else {
@@ -883,6 +891,9 @@ const DashboardView = ({
                         {
                           count: totalReminder,
                           title: "Pending Reminder",
+                          onClick: () => {
+                            handelChangeShowModelReport("allreminder_report");
+                          },
                           svg: (
                             <svg
                               height="30px"
@@ -1292,6 +1303,7 @@ const DashboardView = ({
                     btn2={"Approve"}
                     reportName={reportName}
                     date={selectedDates}
+                    selectedTeamMembers={selectedTeamMemberValues}
                   />
                 )}
               </Container>

@@ -112,8 +112,10 @@ const BottomView = ({
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
   const [showAichat, setshowAichat] = useState(false);
 
-  const { getFilter, setFilter, setFilters, clearFilters } =
-    useCommonFilterStore();
+  const getFilter = useCommonFilterStore((state) => state.getFilter);
+  const setFilter = useCommonFilterStore((state) => state.setFilter);
+  const setFilters = useCommonFilterStore((state) => state.setFilters);
+  const clearFilters = useCommonFilterStore((state) => state.clearFilters);
 
   const filters = getFilter("appliedReportType");
 
@@ -169,8 +171,30 @@ const BottomView = ({
   }, [setTitle]);
 
   useEffect(() => {
-    if (title[0]?.id) {
-      fetchCompanyTeamApi(setCompanyTeamLists, title[0]?.id, "");
+    if (appliedReportType && appliedReportType !== "") {
+      clearFilters(appliedReportType);
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const defaultDates = [startOfMonth, endOfMonth];
+
+      setFilters(appliedReportType, {
+        selectedDateArray: defaultDates,
+        startSearchDate: defaultDates[0],
+        endSearchDate: defaultDates[1],
+      });
+    }
+  }, [appliedReportType, clearFilters, setFilters]);
+
+  useEffect(() => {
+    // Use the active workspace company, not always title[0] (which may be the main company).
+    const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+    const activeTitle = activeCompanyId
+      ? title.find((t: any) => t.id === activeCompanyId)
+      : title[0];
+    const companyIdToUse = activeTitle?.id || title[0]?.id;
+    if (companyIdToUse) {
+      fetchCompanyTeamApi(setCompanyTeamLists, companyIdToUse, "");
     }
   }, [title]);
 
@@ -565,7 +589,7 @@ const BottomView = ({
         {appliedReportType === "Emp_Transaction_Report" && (
           <EmployeeTransactionReports onHide={handleonHide} />
         )}
-        {appliedReportType === "Status_wise_task_Report" && (
+        {appliedReportType === "status_wise_report" && (
           <StatusWiseReport onHide={handleonHide} />
         )}
         {appliedReportType === "Process_Attendance" && (

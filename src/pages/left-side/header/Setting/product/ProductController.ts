@@ -46,6 +46,7 @@ export interface IProductView {
   product_types: string;
   hsn_code: string;
   product_barcode_number: string;
+  miracle_uom_name?: string;
   is_serial_number: any;
 }
 

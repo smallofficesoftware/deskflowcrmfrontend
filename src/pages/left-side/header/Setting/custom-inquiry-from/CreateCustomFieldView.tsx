@@ -5,9 +5,9 @@ import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown
 import { BIG_TEXT_LENGTH, DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { IOption } from "../../../../../helpers/AppInterface";
-import { TOnChangeInput, TReactSetState } from "../../../../../helpers/AppType";
+import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
-import { createCustomInquiryFrom, fetchCompanyForTitle, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
+import { createCustomInquiryFrom, fetchCompanyForTitle, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
 
 interface IPropsCreateCustomField {
     show: boolean;
@@ -37,6 +37,8 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [selectedrowOrColumn, setSelectedrowOrColumn] =
         useState<SingleValue<IOption> | null>(null);
+    const [selectedApplicableModules, setSelectedApplicableModules] =
+        useState<any[]>([]);
     const [selectedRequiredFor, setSelectedRequiredFor] =
         useState<SingleValue<IOption> | null>(null);
     const [selectedReqList, setSelectedReqList] =
@@ -44,15 +46,17 @@ const CreateCustomFieldView = ({
     const [selectedPageType, setSelectedPageType] =
         useState<SingleValue<IOption> | null>(null);
 
-
-
     const [companyTitle, setCompanyTitle] = useState<ICompany | undefined>();
     const [titleInput, setTitleInput] = useState("");
+    const [thirdPartyFieldNameInput, setThirdPartyFieldNameInput] = useState("");
     const [isReqDisabled, setIsReqDisabled] = useState(false);
 
     const [dataTypeError, setDataTypeError] = useState("");
     const [pageTypeError, setPageTypeError] = useState("");
     const [printTypeError, setPrintTypeError] = useState("");
+    const [printReportTypeError, setPrintReportTypeError] = useState("");
+    const [applicableModulesError, setApplicableModulesError] = useState("");
+    const [rowOrColumnError, setRowOrColumnError] = useState("");
     const [requiredForError, setRequiredForError] = useState("");
     const [titleError, setTitleListError] = useState("");
     const [minLimit, setMinLimit] = useState<string>("");
@@ -88,6 +92,7 @@ const CreateCustomFieldView = ({
     );
 
     const customLabels: Record<string, string> = {
+        "4": "Product Master",
         "5": companyTitle?.quotation_title || "Quotation",
         "6": companyTitle?.order_title || "Sales Order",
         "7": companyTitle?.invoice_title || "Sales Invoice",
@@ -99,23 +104,8 @@ const CreateCustomFieldView = ({
         "13": companyTitle?.dispatch_title || "Dispatch",
     };
 
-    const clearForm = () => {
-        setTitleInput("");
-        setDisplayOrderInput(0);
-        setSelectedOrderList(null);
-        setSelectedPrintList(null);
-        setSelectedPrintReport(null);
-        setSelectedrowOrColumn(null);
-        setSelectedRequiredFor(null);
-        setSelectedReqList(null);
-        setSelectedPageType(selectedPageType);
-        setMinLimit("0");
-        setMaxLimit("0");
-        setSelectedValidationType(null);
-        setLimitError("");
-    };
-
     const validationDisplayOptions =
+        validationTypeList &&
         validationTypeList.map((option) => ({
             value: String(option.id),
             label: option.label,
@@ -142,11 +132,11 @@ const CreateCustomFieldView = ({
             label: option.order_type_display,
         }));
 
-    const RequiredForDisplayOptions =
-        requiredForTypesCustomInquiryList &&
-        requiredForTypesCustomInquiryList.map((option) => ({
+    const applicableModulesDisplayOptions =
+        productApplicableModulesList &&
+        productApplicableModulesList.map((option) => ({
             value: option.id,
-            label: option.order_type_display,
+            label: customLabels[option.id] || option.order_type_display,
         }));
 
     const pageTypeDisplayOptions =
@@ -166,33 +156,24 @@ const CreateCustomFieldView = ({
     const handlePageTypeDisplayChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedPageType(selectedOption);
         setPageTypeError(selectedOption ? "" : "Type is required");
-        // Reset selected data type when form type changes
         setSelectedOrderList(null);
         setDataTypeError("");
     };
 
     const getFilteredOrderOptions = () => {
         const selectedPageTypeValue: any = selectedPageType?.value?.toString();
-
         const isFormType5to9 =
             selectedPageTypeValue &&
             ["5", "6", "7", "8", "9", "10", "11"].includes(selectedPageTypeValue);
-
         const attachmentAllowedPages = ["3", "14", "15"];
-
         return orderTypesCustomInquiryList
             .filter((option) => {
-                // Attachments
                 if (option.id == "13") {
                     return attachmentAllowedPages.includes(selectedPageTypeValue);
                 }
-
-                // Page Text & Page URL
                 if (["11", "12"].includes(option.id)) {
                     return isFormType5to9;
                 }
-
-                // All other field types
                 return true;
             })
             .map((option) => ({
@@ -206,7 +187,6 @@ const CreateCustomFieldView = ({
     const handleOrderDisplayChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedOrderList(selectedOption);
         setDataTypeError(selectedOption ? "" : "Data type is required");
-
         if (selectedOption?.value === "11" || selectedOption?.value === "12") {
             const noOption = reqTypesCustomInquiryList.find(opt => opt.id === "2");
             setSelectedReqList({
@@ -220,9 +200,7 @@ const CreateCustomFieldView = ({
     };
 
     const handleReqDisplayChange = (selectedOption: SingleValue<IOption>) => {
-        if (!isReqDisabled) {
-            setSelectedReqList(selectedOption);
-        }
+        setSelectedReqList(selectedOption);
     };
 
     const handlePrintDisplayChange = (selectedOption: SingleValue<IOption>) => {
@@ -232,37 +210,65 @@ const CreateCustomFieldView = ({
 
     const handlePrintReportChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedPrintReport(selectedOption);
-        setPrintTypeError(selectedOption ? "" : "Print Report is required");
+        setPrintReportTypeError(selectedOption ? "" : "Print Report is required");
     };
 
     const handleRowORColumnChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedrowOrColumn(selectedOption);
-        setPrintTypeError(selectedOption ? "" : "Feild in Row OR column is required");
+        setRowOrColumnError(selectedOption ? "" : "Row or Column is required");
+    };
+
+    const handleApplicableModulesChange = (selectedOptions: any) => {
+        setSelectedApplicableModules(selectedOptions || []);
+        if (selectedOptions && selectedOptions.length > 0) {
+            setApplicableModulesError("");
+        }
     };
 
     const handleRequiredForChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedRequiredFor(selectedOption);
-        setRequiredForError(
-            selectedPageType?.value == "3" && !selectedOption
-                ? "Please select when this field should be required."
-                : ""
-        );
+        setRequiredForError(selectedOption ? "" : "Please select when this field should be required.");
     };
 
-    const handelChangeTitle = (event: TOnChangeInput) => {
-        const value = event.target.value;
-        setTitleInput(value);
-        setTitleListError(value ? "" : "Field Name is required");
+    const clearForm = () => {
+        setSelectedOrderList(null);
+        setSelectedPrintList(null);
+        setSelectedPrintReport(null);
+        setSelectedrowOrColumn(null);
+        setSelectedApplicableModules([]);
+        setSelectedPageType(null);
+        setSelectedRequiredFor(null);
+        setSelectedValidationType(null);
+        setTitleInput("");
+        setThirdPartyFieldNameInput("");
+        setDisplayOrderInput(0);
+        setMinLimit("");
+        setMaxLimit("");
     };
 
     const handelSubmit = async () => {
+        setPageTypeError("");
+        setDataTypeError("");
+        setTitleListError("");
+        setPrintTypeError("");
+        setPrintReportTypeError("");
+        setApplicableModulesError("");
+        setRowOrColumnError("");
+        setRequiredForError("");
+        setLimitError("");
+
         let hasError = false;
         let errorMsg;
 
         if (showLimitFields) {
             if (minLimit && maxLimit) {
                 if (Number(maxLimit) <= Number(minLimit)) {
-                    setLimitError("Maximum char limit must be greater");
+                    errorMsg = "Maximum limit must be greater than minimum limit";
+                    setLimitError(errorMsg);
+                    hasError = true;
+                } else if (Number(minLimit) < 0 || Number(maxLimit) < 0) {
+                    errorMsg = "Character limit cannot be negative";
+                    setLimitError(errorMsg);
                     hasError = true;
                 }
             }
@@ -276,19 +282,16 @@ const CreateCustomFieldView = ({
         if (!selectedPageType) {
             setPageTypeError("Type is required");
             errorMsg = "Type is required";
-
             hasError = true;
         }
         if (!selectedPrintList) {
             setPrintTypeError("Print is required");
             errorMsg = "Print is required";
-
             hasError = true;
         }
         if (!selectedPrintReport) {
-            setPrintTypeError("Print Report is required");
+            setPrintReportTypeError("Print Report is required");
             errorMsg = "Print Report is required";
-
             hasError = true;
         }
         if (selectedPageType?.value == "3" && !selectedRequiredFor) {
@@ -296,18 +299,31 @@ const CreateCustomFieldView = ({
             errorMsg = "Please select when this field should be required.";
             hasError = true;
         }
+        if (selectedPageType?.value == "4" && !selectedrowOrColumn) {
+            setRowOrColumnError("Row or Column is required");
+            errorMsg = "Row or Column is required";
+            hasError = true;
+        }
+        if (selectedPageType?.value == "4" && (!selectedApplicableModules || selectedApplicableModules.length === 0)) {
+            setApplicableModulesError("Applicable Modules selection is required.");
+            errorMsg = "Please select at least one applicable module.";
+            hasError = true;
+        }
 
         if (titleInput.trim() === "") {
             setTitleListError("Field Name is required");
             errorMsg = "Field Name is required";
-
             hasError = true;
         }
 
         if (hasError) {
-            toast.error(errorMsg)
+            if (errorMsg) toast.error(errorMsg);
             return;
         }
+
+        const applicableModulesStr = selectedApplicableModules
+            ? selectedApplicableModules.map((item: any) => item.value).join(",")
+            : "";
 
         if (productToEdit) {
             if (canUpdateCustomInquiry) {
@@ -322,24 +338,23 @@ const CreateCustomFieldView = ({
                         print_or_not: Number(selectedPrintList?.value)
                             ? Number(selectedPrintList?.value)
                             : 0,
-                        report_print_or_not
-                            : Number(selectedPrintReport?.value)
-                                ? Number(selectedPrintReport?.value)
-                                : 0,
-                        product_feild_row_column
-                            : Number(selectedrowOrColumn?.value)
-                                ? Number(selectedrowOrColumn?.value)
-                                : 0,
-                        required_for
-                            : Number(selectedRequiredFor?.value)
-                                ? Number(selectedRequiredFor?.value)
-                                : 0,
+                        report_print_or_not: Number(selectedPrintReport?.value)
+                            ? Number(selectedPrintReport?.value)
+                            : 0,
+                        product_feild_row_column: Number(selectedrowOrColumn?.value)
+                            ? Number(selectedrowOrColumn?.value)
+                            : 0,
+                        required_for: Number(selectedRequiredFor?.value)
+                            ? Number(selectedRequiredFor?.value)
+                            : 0,
                         form_type: Number(selectedPageType?.value),
                         min_limit: Number(minLimit),
                         max_limit: Number(maxLimit),
                         validation_type: selectedValidationType?.value
                             ? Number(selectedValidationType.value)
-                            : 0
+                            : 0,
+                        third_party_field_name: thirdPartyFieldNameInput.trim(),
+                        applicable_modules: applicableModulesStr
                     },
                     setLoading,
                     productToEdit.id,
@@ -376,7 +391,9 @@ const CreateCustomFieldView = ({
                         max_limit: Number(maxLimit),
                         validation_type: selectedValidationType?.value
                             ? Number(selectedValidationType.value)
-                            : 0
+                            : 0,
+                        third_party_field_name: thirdPartyFieldNameInput.trim(),
+                        applicable_modules: applicableModulesStr
                     },
                     setLoading,
                     clearForm,
@@ -394,6 +411,7 @@ const CreateCustomFieldView = ({
     useEffect(() => {
         if (productToEdit) {
             setTitleInput(productToEdit.title);
+            setThirdPartyFieldNameInput(productToEdit.third_party_field_name || "");
             setDisplayOrderInput(productToEdit.display_order);
             setMinLimit(productToEdit.min_limit ? String(productToEdit.min_limit) : "0");
             setMaxLimit(productToEdit.max_limit ? String(productToEdit.max_limit) : "0");
@@ -410,11 +428,6 @@ const CreateCustomFieldView = ({
                 pageTypeDisplayOptions.find(
                     (option: { value: string }) => option.value === String(productToEdit.form_type)
                 ) || null;
-
-            // const selectedOption =
-            //     filteredOrderDisplayOptions.find(
-            //         (option: { value: string }) => option.value === String(productToEdit.data_type)
-            //     ) || null;
 
             const selectedOption =
                 orderTypesCustomInquiryList
@@ -451,10 +464,24 @@ const CreateCustomFieldView = ({
                 ) || null;
 
             const requiredForSelectedOption =
-                RequiredForDisplayOptions.find(
-                    (option: { value: string }) =>
-                        option.value === String(productToEdit.required_for)
-                ) || null;
+                requiredForTypesCustomInquiryList && requiredForTypesCustomInquiryList.find(
+                    (option: { id: string }) =>
+                        option.id === String(productToEdit.required_for)
+                );
+
+            if (productToEdit.applicable_modules) {
+                const modIds = String(productToEdit.applicable_modules).split(",").map(m => m.trim());
+                const initialMods = applicableModulesDisplayOptions.filter(opt => modIds.includes(String(opt.value)));
+                setSelectedApplicableModules(initialMods);
+            } else if (Number(productToEdit.form_type) === 4) {
+                if (Number(productToEdit.product_feild_row_column) === 2) {
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13"].includes(String(opt.value)));
+                    setSelectedApplicableModules(initialMods);
+                } else {
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => String(opt.value) === "4");
+                    setSelectedApplicableModules(initialMods);
+                }
+            }
 
             setSelectedPageType(formTypeSelectedOption);
             setSelectedOrderList(selectedOption);
@@ -462,7 +489,7 @@ const CreateCustomFieldView = ({
             setSelectedPrintList(printSelectedOption);
             setSelectedPrintReport(reportSelectedOption);
             setSelectedrowOrColumn(rowOrColumnSelectedOption);
-            setSelectedRequiredFor(requiredForSelectedOption);
+            setSelectedRequiredFor(requiredForSelectedOption ? { value: requiredForSelectedOption.id, label: requiredForSelectedOption.order_type_display } : null);
         }
     }, []);
 
@@ -470,23 +497,17 @@ const CreateCustomFieldView = ({
         <React.Fragment>
             {show && (
                 <div className="modal1">
-                    <div className="modal-content1" style={{ width: "40%" }}>
+                    <div className="modal-content1" style={{ maxWidth: "680px", width: "92%", padding: "24px" }}>
                         <span className="close" onClick={onHide}>
                             &times;
                         </span>
                         <h2 className="modal-title1 form_header_text">{headerName}</h2>
 
-                        <div className="head" style={{ display: "block", marginLeft: "20px" }}>
+                        <div className="head mt-2" style={{ display: "block" }}>
                             <div className="row">
                                 <div className="col-6 mt-1">
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>
-                                            Form Type
-                                            <span className="text-danger">*</span>
-                                        </h6>
+                                    <label className="form-check-label">
+                                        <h6>Form Type<span className="text-danger">*</span></h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -495,25 +516,40 @@ const CreateCustomFieldView = ({
                                                 value={selectedPageType}
                                                 onChange={handlePageTypeDisplayChange}
                                                 className="w-100"
-                                                isDisabled={
-                                                    productToEdit || !companyTitle ? "disabled" : false
-                                                }
+                                                isDisabled={!!productToEdit}
                                             />
                                         </div>
                                     </div>
-                                    {pageTypeError && (
-                                        <span className="text-danger">{pageTypeError}</span>
-                                    )}
+                                    {pageTypeError && <span className="text-danger">{pageTypeError}</span>}
                                 </div>
+
                                 <div className="col-6 mt-1">
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>
-                                            Select Field Data Type
-                                            <span className="text-danger">*</span>
-                                        </h6>
+                                    <label className="form-check-label">
+                                        <h6>Field Name<span className="text-danger">*</span></h6>
+                                    </label>
+                                    <div className="">
+                                        <div className="add-source-of-type-section ">
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="Field Name"
+                                                value={titleInput}
+                                                maxLength={BIG_TEXT_LENGTH}
+                                                onChange={(e) => {
+                                                    setTitleInput(e.target.value);
+                                                    if (e.target.value.trim() !== "") setTitleListError("");
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {titleError && <span className="text-danger">{titleError}</span>}
+                                </div>
+                            </div>
+
+                            <div className="row mt-2">
+                                <div className="col-6 mt-1">
+                                    <label className="form-check-label">
+                                        <h6>Data Type<span className="text-danger">*</span></h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -522,48 +558,35 @@ const CreateCustomFieldView = ({
                                                 value={selectedOrderList}
                                                 onChange={handleOrderDisplayChange}
                                                 className="w-100"
-                                                isDisabled={productToEdit ? "disabled" : false}
                                             />
                                         </div>
                                     </div>
-                                    {dataTypeError && (
-                                        <span className="text-danger">{dataTypeError}</span>
-                                    )}
+                                    {dataTypeError && <span className="text-danger">{dataTypeError}</span>}
                                 </div>
-                            </div>
-                            <div className="row mt-1">
-                                <div className="col-12">
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>
-                                            Enter Field Name
-                                            <span className="text-danger">*</span>
-                                        </h6>
+
+                                <div className="col-6 mt-1">
+                                    <label className="form-check-label">
+                                        <h6>Third-Party Field Mapping Name</h6>
                                     </label>
-                                    <div className="search-bar ">
+                                    <div className="">
                                         <div className="add-source-of-type-section ">
                                             <input
                                                 type="text"
-                                                title="Enter Field Name"
-                                                placeholder="Enter Field Name"
-                                                value={titleInput}
-                                                maxLength={BIG_TEXT_LENGTH}
-                                                onChange={(e) => handelChangeTitle(e)}
+                                                className="form-control"
+                                                placeholder="e.g. U0000001, U0000002"
+                                                value={thirdPartyFieldNameInput}
+                                                onChange={(e) => setThirdPartyFieldNameInput(e.target.value)}
                                             />
                                         </div>
+                                        <small className="text-muted" style={{ fontSize: "11px" }}>Used for Miracle API sync field matching.</small>
                                     </div>
-                                    {titleError && (
-                                        <span className="text-danger">{titleError}</span>
-                                    )}
                                 </div>
-                                <div className="col-4" style={{ paddingInline: "5px", width: "135px", marginLeft: "10px" }}>
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>Is Field <br />Required?</h6>
+                            </div>
+
+                            <div className="row mt-2">
+                                <div className="col-6 mt-2">
+                                    <label className="form-check-label">
+                                        <h6>Is Field Compulsory?</h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -571,19 +594,16 @@ const CreateCustomFieldView = ({
                                                 options={requiredDisplayOptions}
                                                 value={selectedReqList}
                                                 onChange={handleReqDisplayChange}
-                                                className="w-100"
                                                 isDisabled={isReqDisabled}
+                                                className="w-100"
                                             />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="col-4" style={{ paddingInline: "5px", width: "135px" }}>
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>Is Field <br />On Print? <span className="text-danger">*</span></h6>
 
+                                <div className="col-6 mt-2">
+                                    <label className="form-check-label">
+                                        <h6>Print In Document? <span className="text-danger">*</span></h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -595,17 +615,14 @@ const CreateCustomFieldView = ({
                                             />
                                         </div>
                                     </div>
-                                    {printTypeError && (
-                                        <span className="text-danger">{printTypeError}</span>
-                                    )}
+                                    {printTypeError && <span className="text-danger">{printTypeError}</span>}
                                 </div>
-                                <div className="col-3 " style={{ paddingInline: "5px", width: "135px" }}>
-                                    <label
-                                        className="form-check-label"
-                                        htmlFor="flexCheckDefault"
-                                    >
-                                        <h6>Is Field <br />On Report? <span className="text-danger">*</span></h6>
+                            </div>
 
+                            <div className="row mt-2">
+                                <div className="col-6 mt-2">
+                                    <label className="form-check-label">
+                                        <h6>Print In Report? <span className="text-danger">*</span></h6>
                                     </label>
                                     <div className="">
                                         <div className="add-source-of-type-section ">
@@ -617,49 +634,56 @@ const CreateCustomFieldView = ({
                                             />
                                         </div>
                                     </div>
-                                    {printTypeError && (
-                                        <span className="text-danger">{printTypeError}</span>
-                                    )}
+                                    {printReportTypeError && <span className="text-danger">{printReportTypeError}</span>}
                                 </div>
 
-                                {selectedPageType?.value == 4 &&
-                                    <div className="col-4" style={{ paddingInline: "5px" }}>
-                                        <label
-                                            className="form-check-label"
-                                            htmlFor="flexCheckDefault"
-                                        >
-                                            <h6>Is Field <br />On Row Or Column? <span className="text-danger">*</span></h6>
-
-                                        </label>
-                                        <div className="">
-                                            <div className="add-source-of-type-section ">
-                                                <CustomSearchDropdown
-                                                    options={rowORColumnDisplayOptions}
-                                                    value={selectedrowOrColumn}
-                                                    onChange={handleRowORColumnChange}
-                                                    className="w-100"
-                                                />
+                                {selectedPageType?.value == "4" && (
+                                    <>
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Row or Column <span className="text-danger">*</span></h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={rowORColumnDisplayOptions}
+                                                        value={selectedrowOrColumn}
+                                                        onChange={handleRowORColumnChange}
+                                                        className="w-100"
+                                                    />
+                                                </div>
                                             </div>
+                                            {rowOrColumnError && <span className="text-danger">{rowOrColumnError}</span>}
                                         </div>
-                                        {printTypeError && (
-                                            <span className="text-danger">{printTypeError}</span>
-                                        )}
-                                    </div>
-                                }
-                                {selectedPageType?.value == 3 &&
-                                    <div className="col-4" style={{ paddingInline: "5px" }}>
-                                        <label
-                                            className="form-check-label"
-                                            htmlFor="flexCheckDefault"
-                                        >
-                                            <h6>Make This <br />Field Required For
-                                                <span className="text-danger">*</span></h6>
 
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Applicable Modules <span className="text-danger">*</span></h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={applicableModulesDisplayOptions}
+                                                        value={selectedApplicableModules}
+                                                        onChange={handleApplicableModulesChange}
+                                                        isMulti={true}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
+                                        </div>
+                                    </>
+                                )}
+                                {selectedPageType?.value == "3" && (
+                                    <div className="col-6 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Required For <span className="text-danger">*</span></h6>
                                         </label>
                                         <div className="">
                                             <div className="add-source-of-type-section ">
                                                 <CustomSearchDropdown
-                                                    options={RequiredForDisplayOptions}
+                                                    options={requiredForTypesCustomInquiryList.map(opt => ({ value: opt.id, label: opt.order_type_display }))}
                                                     value={selectedRequiredFor}
                                                     onChange={handleRequiredForChange}
                                                     className="w-100"
@@ -670,59 +694,71 @@ const CreateCustomFieldView = ({
                                             <span className="text-danger">{requiredForError}</span>
                                         )}
                                     </div>
-                                }
-                                {showLimitFields && (
-                                    <div className="mt-4 mb-4 p-3 border rounded bg-light ms-3" style={{ width: "96%" }}>
-                                        <div className="row g-4">
-                                            {/* Limits row */}
-                                            <div className="col-md-6">
-                                                <div className="row g-3">
-                                                    <div className="col-6">
-                                                        <label className="form-label">Min Characters</label>
-                                                        <input
-                                                            type="number"
-                                                            className="form-control"
-                                                            value={minLimit}
-                                                            onChange={(e) => setMinLimit(e.target.value)}
-                                                            placeholder="0"
-                                                            min="0"
-                                                        />
-                                                    </div>
-                                                    <div className="col-6">
-                                                        <label className="form-label">Max Characters</label>
-                                                        <input
-                                                            type="number"
-                                                            className="form-control"
-                                                            value={maxLimit}
-                                                            onChange={(e) => setMaxLimit(e.target.value)}
-                                                            placeholder="∞"
-                                                            min="0"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {selectedOrderList?.value !== "1" && selectedOrderList?.value !== "8" && <div className="col-md-6">
-                                                <label className="form-label">Validation Type</label>
-                                                <CustomSearchDropdown
-                                                    options={validationDisplayOptions}
-                                                    value={selectedValidationType}
-                                                    onChange={(option) => setSelectedValidationType(option)}
-                                                    className="w-100"
-                                                />
-                                            </div>}
+                                )}
+                            </div>
 
+                            {showLimitFields && (
+                                <div className="row mt-2">
+                                    <div className="col-4 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Validation Type</h6>
+                                        </label>
+                                        <CustomSearchDropdown
+                                            options={validationDisplayOptions}
+                                            value={selectedValidationType}
+                                            onChange={(selected) => setSelectedValidationType(selected)}
+                                            className="w-100"
+                                        />
+                                    </div>
+                                    <div className="col-4 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Min Character Limit</h6>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            placeholder="Min Limit"
+                                            value={minLimit}
+                                            onChange={(e) => setMinLimit(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-4 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Max Character Limit</h6>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            placeholder="Max Limit"
+                                            value={maxLimit}
+                                            onChange={(e) => setMaxLimit(e.target.value)}
+                                        />
+                                    </div>
+                                    {limitError && (
+                                        <div className="col-12 mt-1">
+                                            <span className="text-danger">{limitError}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
-                                            {/* Error - full width */}
-                                            {limitError && (
-                                                <div className="col-12">
-                                                    <div className="alert alert-danger py-2 mb-0 small">
-                                                        {limitError}
-                                                    </div>
-                                                </div>
-                                            )}
+                            <div className="row mt-2">
+                                <div className="col-6 mt-2">
+                                    <label className="form-check-label">
+                                        <h6>Display Order</h6>
+                                    </label>
+                                    <div className="">
+                                        <div className="add-source-of-type-section ">
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                placeholder="Display Order"
+                                                value={displayOrderInput}
+                                                onChange={(e) => setDisplayOrderInput(Number(e.target.value))}
+                                            />
                                         </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
 

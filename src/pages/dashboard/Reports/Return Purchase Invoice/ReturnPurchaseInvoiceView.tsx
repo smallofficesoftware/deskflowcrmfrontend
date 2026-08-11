@@ -868,18 +868,17 @@ const TeamReturnPurchaseDataReportsView = ({
               <th>Round Off (${currencyName})</th>
               <th>Grand Total (${currencyName})</th>
               ${uniqueCustomFields
-                .map((field: any) => `<th>${field.fieldLabel}</th>`)
-                .join("")}
+        .map((field: any) => `<th>${field.fieldLabel}</th>`)
+        .join("")}
             </tr>
           </thead>
           <tbody>
             ${dataToExport
-              .map(
-                (item: any) => `
+        .map(
+          (item: any) => `
                 <tr>
-                         ${
-                           showProductDetails
-                             ? `
+                         ${showProductDetails
+              ? `
 <td>
   <table style="width:100%; border-collapse: collapse; border:1px solid #ccc; table-layout:auto;">
     <tr>
@@ -887,13 +886,12 @@ const TeamReturnPurchaseDataReportsView = ({
       <th style="border:1px solid #ccc;">Qty</th>
       <th style="border:1px solid #ccc;">Rate</th>
     </tr>
-    ${
-      item.items
-        ?.map((i: any) => {
-          const name = i.item_product_name || "";
-          const code = i.item_product_code || "";
+    ${item.items
+                ?.map((i: any) => {
+                  const name = i.item_product_name || "";
+                  const code = i.item_product_code || "";
 
-          return `
+                  return `
           <tr>
             <td style="border:1px solid #ccc;">
               ${code ? `${name} (${code})` : name}
@@ -906,14 +904,14 @@ const TeamReturnPurchaseDataReportsView = ({
             </td>
           </tr>
         `;
-        })
-        .join("") || `<tr><td colspan="2">-</td></tr>`
-    }
+                })
+                .join("") || `<tr><td colspan="2">-</td></tr>`
+              }
   </table>
 </td>
 `
-                             : ""
-                         }
+              : ""
+            }
                   <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
                   <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
                   <td>${item.to_customer_phone || "-"}</td>
@@ -928,15 +926,15 @@ const TeamReturnPurchaseDataReportsView = ({
                   <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
                   <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
                   ${uniqueCustomFields
-                    .map(
-                      (field: any) =>
-                        `<td>${item[field.fieldName] || "-"}</td>`,
-                    )
-                    .join("")}
-                </tr>
-              `,
+              .map(
+                (field: any) =>
+                  `<td>${item[field.fieldName] || "-"}</td>`,
               )
               .join("")}
+                </tr>
+              `,
+        )
+        .join("")}
           </tbody>
         </table>
       </body>
@@ -1146,9 +1144,8 @@ const TeamReturnPurchaseDataReportsView = ({
                   />
 
                   <ul
-                    className={`labelDropLeft ${
-                      isExportDropdownOpen ? "isVisible" : "isHidden"
-                    }`}
+                    className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"
+                      }`}
                     style={{
                       width: "170px",
                       position: "absolute",
@@ -1395,58 +1392,58 @@ const TeamReturnPurchaseDataReportsView = ({
               {(!MobileFlag ||
                 MobileFlag === undefined ||
                 MobileFlag === null) && (
-                <Column
-                  selectionMode="multiple"
-                  headerStyle={{
-                    width: "3rem",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                  }}
-                  bodyStyle={{ textAlign: "center" }}
-                />
-              )}
+                  <Column
+                    selectionMode="multiple"
+                    headerStyle={{
+                      width: "3rem",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                    }}
+                    bodyStyle={{ textAlign: "center" }}
+                  />
+                )}
 
               {(!MobileFlag ||
                 MobileFlag === undefined ||
                 MobileFlag === null) && (
-                <Column
-                  field="actions"
-                  header="Actions"
-                  headerStyle={{
-                    width: "80px",
-                    textAlign: "center",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                  }}
-                  body={(rowData: any) => (
-                    <div
-                      className="gap-2"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        position: "relative",
-                      }}
-                    >
-                      <Button
-                        icon="pi pi-cog"
-                        className="p-button-text source-of-type-list-grid-options"
+                  <Column
+                    field="actions"
+                    header="Actions"
+                    headerStyle={{
+                      width: "80px",
+                      textAlign: "center",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                    }}
+                    body={(rowData: any) => (
+                      <div
+                        className="gap-2"
                         style={{
-                          color: "green",
-                          width: "2rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          position: "relative",
                         }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveRowData(rowData);
-                          op.current?.show(e, e.currentTarget);
-                        }}
-                      />
-                    </div>
-                  )}
-                />
-              )}
+                      >
+                        <Button
+                          icon="pi pi-cog"
+                          className="p-button-text source-of-type-list-grid-options"
+                          style={{
+                            color: "green",
+                            width: "2rem",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRowData(rowData);
+                            op.current?.show(e, e.currentTarget);
+                          }}
+                        />
+                      </div>
+                    )}
+                  />
+                )}
               {showProductDetails && (
                 <Column
                   field="items"
@@ -1632,9 +1629,11 @@ const TeamReturnPurchaseDataReportsView = ({
                 body={(rowData: any) => (
                   <div>
                     <div>
-                      {rowData.to_customer_company_name || "-"}(
-                      {rowData.to_customer_name || "-"}){" -"}{" "}
-                      {rowData.to_customer_phone || "-"}
+                      <div>
+                        {rowData.to_customer_company_name || "-"}(
+                        {rowData.to_customer_name || "-"})
+                      </div>
+                      <div>{rowData.to_customer_phone || "-"}</div>
                     </div>
                   </div>
                 )}

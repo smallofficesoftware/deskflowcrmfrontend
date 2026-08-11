@@ -8,6 +8,7 @@ import * as Yup from "yup";
 import { AppContext } from "../../../common/AppContext";
 import CustomSearchMultiSelectDropdown from "../../../components/CustomSearchMultiSelectDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
+import FormikStaticSelect from "../../../components/FormikStaticSelect";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import {
   BIG_TEXT_LENGTH,
@@ -93,10 +94,32 @@ const attendanceValidationSchema = Yup.object({
     .of(Yup.number().integer().min(0).max(6))
     .nullable(),
   daily_working_hours: Yup.string()
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
     .nullable(),
   half_day_hours: Yup.string()
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
+    .nullable(),
+  min_overtime_hours: Yup.string()
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
+    .nullable(),
+  approve_ot_hours: Yup.string()
+    .test(
+      "is-valid-time",
+      "Invalid time format (HH:mm)",
+      (val) => !val || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(val),
+    )
     .nullable(),
   bonus_percentage: Yup.string()
     .matches(/^\d*\.?\d*$/, "Must be a valid percentage")
@@ -160,9 +183,9 @@ const TimepickerField = ({
     value={
       value
         ? new DateObject({
-            date: `1970-01-01 ${value}`,
-            format: "YYYY-MM-DD HH:mm",
-          })
+          date: `1970-01-01 ${value}`,
+          format: "YYYY-MM-DD HH:mm",
+        })
         : null
     }
     onChange={(date) => {
@@ -183,20 +206,23 @@ const TimepickerField = ({
 
 /** Section divider used to group Attendance & Salary sub-sections */
 const SectionTitle = ({ title }: { title: string }) => (
-  <div className="col-12 mt-3 mb-1">
+  <div className="col-12 mt-3 mb-2">
     <div
       style={{
         borderLeft: "4px solid #f58634",
-        paddingLeft: "10px",
+        paddingLeft: "12px",
+        paddingTop: "4px",
+        paddingBottom: "4px",
         fontSize: "14px",
         fontWeight: 700,
-        color: "#333",
+        color: "#2c3e50",
         letterSpacing: "0.3px",
+        backgroundColor: "#fff5ed",
+        borderRadius: "0 6px 6px 0",
       }}
     >
       {title}
     </div>
-    <hr style={{ marginTop: "6px", borderColor: "#eee" }} />
   </div>
 );
 
@@ -212,6 +238,17 @@ const EditTeamMemberView = ({
   const { showRightSide, setShowRightSide } = useContext(AppContext)!;
 
   // Dropdown data
+  const penaltyTypeOptions = [
+    { value: "1", label: "Fixed Given Hours Penalty (Hours Debit)" },
+    { value: "2", label: "Actual Late In / Early Out Duration Hours Penalty" },
+    { value: "3", label: "Fixed Given Amount Penalty (Rupee Deduction ₹)" },
+  ];
+
+  const otRateTypeOptions = [
+    { value: "1", label: "Formula Rate (Basic Salary Based)" },
+    { value: "2", label: "Overtime Amount Per Hour (₹)" },
+  ];
+
   const [reportingEmployees, setReportingEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [expenseTypeList, setExpenseTypeList] = useState<any[]>([]);
@@ -220,7 +257,7 @@ const EditTeamMemberView = ({
     useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"basic" | "attendance">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "attendance" | "penalty" | "hourly_leave">("basic");
   // console.log("activeTab", activeTab);
 
   // Separate form values per tab
@@ -312,7 +349,7 @@ const EditTeamMemberView = ({
     }
   }, [activeTab, show, companyTeamInfo]);
 
-  const loadTabData = (tab: "basic" | "attendance") => {
+  const loadTabData = (tab: "basic" | "attendance" | "penalty") => {
     if (!companyTeamInfo?.id) return;
 
     if (tab === "basic") {
@@ -323,6 +360,18 @@ const EditTeamMemberView = ({
       fetchAttendanceSettingsApi(companyTeamInfo.id, (data: any) => {
         setAttendanceValues({
           ...data,
+          daily_working_hours: data?.daily_working_hours
+            ? String(data.daily_working_hours).slice(0, 5)
+            : "",
+          half_day_hours: data?.half_day_hours
+            ? String(data.half_day_hours).slice(0, 5)
+            : "",
+          min_overtime_hours: data?.min_overtime_hours
+            ? String(data.min_overtime_hours).slice(0, 5)
+            : "",
+          approve_ot_hours: data?.approve_ot_hours
+            ? String(data.approve_ot_hours).slice(0, 5)
+            : "",
 
           // convert comma string to array
           // week_off_days: data?.week_off_days
@@ -368,10 +417,10 @@ const EditTeamMemberView = ({
 
   const filteredReportingEmployees = companyTeamInfo?.id
     ? reportingEmployees.filter(
-        (emp) =>
-          emp.id !== Number(companyTeamInfo.id) ||
-          emp.id === Number(companyTeamInfo.reporting_member),
-      )
+      (emp) =>
+        emp.id !== Number(companyTeamInfo.id) ||
+        emp.id === Number(companyTeamInfo.reporting_member),
+    )
     : reportingEmployees;
 
   const reportingEmployeeOptions = [
@@ -437,9 +486,9 @@ const EditTeamMemberView = ({
               week_off_days: data?.week_off_days
                 ? typeof data.week_off_days === "string"
                   ? data.week_off_days
-                      .split(",")
-                      .map((x: string) => Number(x.trim()))
-                      .filter((num: any) => !isNaN(num)) // Remove invalid numbers
+                    .split(",")
+                    .map((x: string) => Number(x.trim()))
+                    .filter((num: any) => !isNaN(num)) // Remove invalid numbers
                   : Array.isArray(data.week_off_days)
                     ? data.week_off_days.map((x: any) => Number(x))
                     : []
@@ -532,52 +581,72 @@ const EditTeamMemberView = ({
     setFieldValue(field, val);
   };
 
-  /** Auto calculate salary structure */
-  const calculateSalaryStructure = (
-    basicDa: number,
-    values: any,
+  /** Helper to auto-calculate HRA (40% of Basic) and total Monthly CTC */
+  const updateSalaryComponents = (
+    updatedFields: Partial<{
+      basic_da: string;
+      hra: string;
+      medical_allowance: string;
+      conveyance_allowance: string;
+      special_allowance: string;
+      ctc: string;
+    }>,
+    currentValues: any,
     setFieldValue: (field: string, value: any) => void,
   ) => {
-    const hra = (basicDa * 40) / 100;
+    const merged = { ...currentValues, ...updatedFields };
+    let basicDa = parseFloat(merged.basic_da) || 0;
+    let hra = parseFloat(merged.hra) || 0;
 
-    setFieldValue("hra", hra.toFixed(2));
+    if ("basic_da" in updatedFields) {
+      hra = Math.round(((basicDa * 40) / 100) * 100) / 100;
+      setFieldValue("hra", hra > 0 ? hra.toFixed(2) : "");
+    }
 
-    const ctc =
-      basicDa +
-      hra +
-      (parseFloat(values.conveyance_allowance) || 0) +
-      (parseFloat(values.medical_allowance) || 0) +
-      (parseFloat(values.special_allowance) || 0);
+    const medical = parseFloat(merged.medical_allowance) || 0;
+    const conveyance = parseFloat(merged.conveyance_allowance) || 0;
+    const special = parseFloat(merged.special_allowance) || 0;
 
-    setFieldValue("ctc", ctc.toFixed(2));
+    if (!("ctc" in updatedFields)) {
+      const ctc = basicDa + hra + medical + conveyance + special;
+      setFieldValue("ctc", ctc > 0 ? ctc.toFixed(2) : "");
+      if (Number(currentValues.salary_type) === 3) {
+        setFieldValue("salary_amount_type_wise", ctc > 0 ? ctc.toFixed(2) : "");
+      }
+    }
   };
   return (
     <>
       <style>{`
         .custom-tab-wrapper {
           display: flex;
-          gap: 10px;
-          border-bottom: 1px solid #ddd;
-          padding-bottom: 10px;
+          gap: 8px;
+          border-bottom: 1px solid #e5e7eb;
+          padding-bottom: 12px;
+          flex-wrap: wrap;
         }
         .custom-tab-btn {
-          flex: 1;
-          border: 1px solid #ddd;
-          background: #f7f7f7;
-          padding: 12px;
-          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          color: #475569;
+          padding: 7px 14px;
+          border-radius: 6px;
+          font-size: 13px;
           font-weight: 600;
-          transition: 0.3s;
+          transition: all 0.2s ease-in-out;
           cursor: pointer;
+          white-space: nowrap;
         }
         .custom-tab-btn.active {
           background: #f58634;
           color: white;
           border-color: #f58634;
+          box-shadow: 0 2px 4px rgba(245, 134, 52, 0.25);
         }
-        .custom-tab-btn:hover {
-          background: #f58634;
-          color: white;
+        .custom-tab-btn:hover:not(.active) {
+          background: #fff3ea;
+          color: #f58634;
+          border-color: #f58634;
         }
         .etm-section-scroll {
           max-height: 600px;
@@ -618,6 +687,20 @@ const EditTeamMemberView = ({
                 onClick={() => setActiveTab("attendance")}
               >
                 Attendance & Salary
+              </button>
+              <button
+                type="button"
+                className={`custom-tab-btn ${activeTab === "penalty" ? "active" : ""}`}
+                onClick={() => setActiveTab("penalty")}
+              >
+                Late In & Early Out Penalty Rules
+              </button>
+              <button
+                type="button"
+                className={`custom-tab-btn ${activeTab === "hourly_leave" ? "active" : ""}`}
+                onClick={() => setActiveTab("hourly_leave")}
+              >
+                Hourly Leave Rules
               </button>
             </div>
 
@@ -729,17 +812,17 @@ const EditTeamMemberView = ({
                                 options={reportingEmployeeOptions}
                                 value={
                                   values.reporting_member === null ||
-                                  values.reporting_member === 0
+                                    values.reporting_member === 0
                                     ? { value: "", label: "None" }
                                     : reportingEmployeeOptions.find(
-                                        (o) =>
-                                          o.value === values.reporting_member,
-                                      ) || { value: "", label: "None" }
+                                      (o) =>
+                                        o.value === values.reporting_member,
+                                    ) || { value: "", label: "None" }
                                 }
                                 onChange={(selected: SingleValue<IOption>) => {
                                   const val =
                                     selected?.value === "" ||
-                                    selected?.value === undefined
+                                      selected?.value === undefined
                                       ? null
                                       : Number(selected.value);
                                   setFieldValue("reporting_member", val, true);
@@ -791,7 +874,7 @@ const EditTeamMemberView = ({
                                 onChange={(selected: SingleValue<IOption>) => {
                                   const val =
                                     selected?.value === "" ||
-                                    selected?.value === undefined
+                                      selected?.value === undefined
                                       ? ""
                                       : Number(selected.value);
                                   setFieldValue("department", val, true);
@@ -845,12 +928,11 @@ const EditTeamMemberView = ({
                                 name="aadhar_card_number"
                                 maxLength={12}
                                 placeholder="Enter Aadhar Number"
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.aadhar_card_number &&
-                                  touched.aadhar_card_number
+                                className={`form-control font-size-15 rounded-1 ${errors.aadhar_card_number &&
+                                    touched.aadhar_card_number
                                     ? "is-invalid input-box-error"
                                     : ""
-                                }`}
+                                  }`}
                                 onChange={(
                                   e: React.ChangeEvent<HTMLInputElement>,
                                 ) => {
@@ -879,12 +961,11 @@ const EditTeamMemberView = ({
                                 name="pan_card_number"
                                 maxLength={10}
                                 placeholder="ABCDE1234F"
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.pan_card_number &&
-                                  touched.pan_card_number
+                                className={`form-control font-size-15 rounded-1 ${errors.pan_card_number &&
+                                    touched.pan_card_number
                                     ? "is-invalid input-box-error"
                                     : ""
-                                }`}
+                                  }`}
                                 onChange={(
                                   e: React.ChangeEvent<HTMLInputElement>,
                                 ) => {
@@ -914,12 +995,11 @@ const EditTeamMemberView = ({
                               <Field
                                 type="date"
                                 name="date_of_joining"
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.date_of_joining &&
-                                  touched.date_of_joining
+                                className={`form-control font-size-15 rounded-1 ${errors.date_of_joining &&
+                                    touched.date_of_joining
                                     ? "is-invalid input-box-error"
                                     : ""
-                                }`}
+                                  }`}
                               />
 
                               <ErrorMessage
@@ -941,12 +1021,11 @@ const EditTeamMemberView = ({
                                 type="text"
                                 name="employee_pf_no"
                                 placeholder="Enter PF Number"
-                                className={`form-control font-size-15 rounded-1 ${
-                                  errors.employee_pf_no &&
-                                  touched.employee_pf_no
+                                className={`form-control font-size-15 rounded-1 ${errors.employee_pf_no &&
+                                    touched.employee_pf_no
                                     ? "is-invalid input-box-error"
                                     : ""
-                                }`}
+                                  }`}
                               />
 
                               <ErrorMessage
@@ -1221,7 +1300,7 @@ const EditTeamMemberView = ({
                                     )}
                                     className={
                                       errors.compulsary_attendance &&
-                                      touched.compulsary_attendance
+                                        touched.compulsary_attendance
                                         ? "is-invalid input-box-error"
                                         : ""
                                     }
@@ -1261,7 +1340,7 @@ const EditTeamMemberView = ({
                                     )}
                                     className={
                                       errors.compulsary_attendance_image &&
-                                      touched.compulsary_attendance_image
+                                        touched.compulsary_attendance_image
                                         ? "is-invalid input-box-error"
                                         : ""
                                     }
@@ -1415,7 +1494,7 @@ const EditTeamMemberView = ({
                                     }
                                     className={
                                       errors.salary_cal_month_count &&
-                                      touched.salary_cal_month_count
+                                        touched.salary_cal_month_count
                                         ? "is-invalid"
                                         : ""
                                     }
@@ -1480,11 +1559,8 @@ const EditTeamMemberView = ({
                                       }
 
                                       setFieldValue("basic_da", val);
-
-                                      const basicDa = parseFloat(val) || 0;
-
-                                      calculateSalaryStructure(
-                                        basicDa,
+                                      updateSalaryComponents(
+                                        { basic_da: val },
                                         values,
                                         setFieldValue,
                                       );
@@ -1510,9 +1586,21 @@ const EditTeamMemberView = ({
                                     className="form-control font-size-15 rounded-1"
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
-                                    ) =>
-                                      numericOnChange(e, "hra", setFieldValue)
-                                    }
+                                    ) => {
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("hra", val);
+                                      updateSalaryComponents(
+                                        { hra: val },
+                                        values,
+                                        setFieldValue,
+                                      );
+                                    }}
                                   />
                                   <ErrorMessage
                                     name="hra"
@@ -1535,22 +1623,19 @@ const EditTeamMemberView = ({
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "medical_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("medical_allowance", val);
+                                      updateSalaryComponents(
+                                        { medical_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            medical_allowance: e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1571,29 +1656,22 @@ const EditTeamMemberView = ({
                                     name="conveyance_allowance"
                                     placeholder="e.g. 1600"
                                     className="form-control font-size-15 rounded-1"
-                                    // onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    //   numericOnChange(e, "conveyance_allowance", setFieldValue)
-                                    // }
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "conveyance_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("conveyance_allowance", val);
+                                      updateSalaryComponents(
+                                        { conveyance_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            conveyance_allowance:
-                                              e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1614,28 +1692,22 @@ const EditTeamMemberView = ({
                                     name="special_allowance"
                                     placeholder="e.g. 2000"
                                     className="form-control font-size-15 rounded-1"
-                                    // onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    //   numericOnChange(e, "special_allowance", setFieldValue)
-                                    // }
                                     onChange={(
                                       e: React.ChangeEvent<HTMLInputElement>,
                                     ) => {
-                                      numericOnChange(
-                                        e,
-                                        "special_allowance",
+                                      let val = e.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      );
+                                      if ((val.match(/\./g) || []).length > 1) {
+                                        val = val.slice(0, -1);
+                                      }
+                                      setFieldValue("special_allowance", val);
+                                      updateSalaryComponents(
+                                        { special_allowance: val },
+                                        values,
                                         setFieldValue,
                                       );
-
-                                      setTimeout(() => {
-                                        calculateSalaryStructure(
-                                          parseFloat(values.basic_da) || 0,
-                                          {
-                                            ...values,
-                                            special_allowance: e.target.value,
-                                          },
-                                          setFieldValue,
-                                        );
-                                      }, 0);
                                     }}
                                   />
                                   <ErrorMessage
@@ -1680,10 +1752,17 @@ const EditTeamMemberView = ({
                                   <label className="pb-2 form_label">
                                     Minimum Overtime Hour (In Hours)
                                   </label>
-                                  <Field
-                                    type="time"
-                                    name="min_overtime_hours"
-                                    className={`form-control font-size-15 rounded-1 ${errors.min_overtime_hours && touched.min_overtime_hours ? "is-invalid" : ""}`}
+                                  <TimepickerField
+                                    value={values.min_overtime_hours || ""}
+                                    onChange={(v) =>
+                                      setFieldValue("min_overtime_hours", v)
+                                    }
+                                    hasError={
+                                      !!(
+                                        errors.min_overtime_hours &&
+                                        touched.min_overtime_hours
+                                      )
+                                    }
                                   />
                                   <ErrorMessage
                                     name="min_overtime_hours"
@@ -1726,20 +1805,42 @@ const EditTeamMemberView = ({
                                   <label className="pb-2 form_label">
                                     Maximum OT (Hours)
                                   </label>
+                                  <TimepickerField
+                                    value={values.approve_ot_hours || ""}
+                                    onChange={(v) =>
+                                      setFieldValue("approve_ot_hours", v)
+                                    }
+                                    hasError={
+                                      !!(
+                                        errors.approve_ot_hours &&
+                                        touched.approve_ot_hours
+                                      )
+                                    }
+                                  />
                                   <ErrorMessage
                                     name="approve_ot_hours"
                                     component="div"
                                     className="field-error text-danger"
                                   />
-                                  <Field
-                                    type="time"
-                                    name="approve_ot_hours"
-                                    className={`form-control font-size-15 rounded-1 ${errors.approve_ot_hours && touched.approve_ot_hours ? "is-invalid" : ""}`}
+                                </div>
+                              </div>
+
+                              <div className="col-4">
+                                <div className="form-group">
+                                  <FormikStaticSelect
+                                    name="regular_ot_type"
+                                    label="Regular OT Rate Option"
+                                    options={otRateTypeOptions}
                                   />
-                                  <ErrorMessage
-                                    name="approve_ot_hours"
-                                    component="div"
-                                    className="field-error text-danger"
+                                </div>
+                              </div>
+
+                              <div className="col-4">
+                                <div className="form-group">
+                                  <FormikStaticSelect
+                                    name="extra_ot_type"
+                                    label="Extra OT Rate Option"
+                                    options={otRateTypeOptions}
                                   />
                                 </div>
                               </div>
@@ -2268,6 +2369,181 @@ const EditTeamMemberView = ({
                           className="col-12 pt-4 d-flex justify-content-end modal-buttons"
                           style={{ paddingRight: "20px" }}
                         >
+                          <button
+                            className="modal-button1"
+                            onClick={onHide}
+                            type="button"
+                          >
+                            Close
+                          </button>
+                          <button
+                            type="submit"
+                            className="btn btn-primary px-4 py-2 ms-2 text-light form_label rounded-1"
+                            style={{ backgroundColor: "#f58634" }}
+                            disabled={isSubmitting}
+                          >
+                            {values.payroll_id == null ? "Create" : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
+            )}
+
+            {/* ── LATE IN & EARLY OUT PENALTY RULES TAB ── */}
+            {activeTab === "penalty" && (
+              <Formik
+                enableReinitialize
+                initialValues={attendanceValues}
+                onSubmit={handleAttendanceSubmit}
+              >
+                {({ values, setFieldValue, isSubmitting }) => (
+                  <Form>
+                    <div className="row g-3">
+                      <div className="col-12 mb-2">
+                        <h6 className="fw-bold border-bottom pb-2">
+                          Late In & Early Out Penalty Rules
+                        </h6>
+                      </div>
+
+                      {/* Late In Rules */}
+                      <div className="col-4">
+                        <div className="form-group">
+                          <label className="pb-2 form_label">
+                            Allowed Late In Count (Per Month)
+                          </label>
+                          <Field
+                            type="number"
+                            name="late_in_allowed_count"
+                            placeholder="e.g. 3"
+                            className="form-control font-size-15 rounded-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-4">
+                        <div className="form-group">
+                          <FormikStaticSelect
+                            name="late_in_penalty_type"
+                            label="Late In Penalty Type"
+                            options={penaltyTypeOptions}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-4">
+                        <div className="form-group">
+                          <label className="pb-2 form_label">
+                            Late In Penalty Value
+                          </label>
+                          <Field
+                            type="number"
+                            step="any"
+                            name="late_in_penalty_value"
+                            placeholder="Penalty Hours or Amount"
+                            className="form-control font-size-15 rounded-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Early Out Rules */}
+                      <div className="col-4">
+                        <div className="form-group">
+                          <label className="pb-2 form_label">
+                            Allowed Early Out Count (Per Month)
+                          </label>
+                          <Field
+                            type="number"
+                            name="early_out_allowed_count"
+                            placeholder="e.g. 3"
+                            className="form-control font-size-15 rounded-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-4">
+                        <div className="form-group">
+                          <FormikStaticSelect
+                            name="early_out_penalty_type"
+                            label="Early Out Penalty Type"
+                            options={penaltyTypeOptions}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-4">
+                        <div className="form-group">
+                          <label className="pb-2 form_label">
+                            Early Out Penalty Value
+                          </label>
+                          <Field
+                            type="number"
+                            step="any"
+                            name="early_out_penalty_value"
+                            placeholder="Penalty Hours or Amount"
+                            className="form-control font-size-15 rounded-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="col-12 text-end mt-4">
+                        <button
+                          className="modal-button1"
+                          onClick={onHide}
+                          type="button"
+                        >
+                          Close
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn btn-primary px-4 py-2 ms-2 text-light form_label rounded-1"
+                          style={{ backgroundColor: "#f58634" }}
+                          disabled={isSubmitting}
+                        >
+                          {values.payroll_id == null ? "Create" : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
+            )}
+
+            {/* ── HOURLY LEAVE RULES TAB ── */}
+            {activeTab === "hourly_leave" && (
+              <Formik
+                enableReinitialize
+                initialValues={attendanceValues}
+                onSubmit={handleAttendanceSubmit}
+              >
+                {({ values, setFieldValue, isSubmitting }) => (
+                  <Form>
+                    <div className="row g-3">
+                      <div className="col-12 mb-2">
+                        <h6 className="fw-bold border-bottom pb-2">
+                          Hourly Leave Free Allowance Rules
+                        </h6>
+                      </div>
+
+                      <div className="col-6">
+                        <div className="form-group">
+                          <label className="pb-2 form_label">
+                            Allowed Free Hourly Leave Limit (Hours / Month)
+                          </label>
+                          <Field
+                            type="text"
+                            name="hourly_leave_allowed_hours"
+                            placeholder="e.g. 04:00 or 4"
+                            className="form-control font-size-15 rounded-1"
+                          />
+                          <small className="text-muted mt-1 d-block">
+                            Hourly leaves within this limit will be automatically credited to working time so the employee is not deducted.
+                          </small>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="col-12 text-end mt-4">
+                        <div className="modal-footer px-0 border-top pt-3">
                           <button
                             className="modal-button1"
                             onClick={onHide}

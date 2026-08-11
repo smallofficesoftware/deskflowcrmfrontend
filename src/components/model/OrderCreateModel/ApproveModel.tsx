@@ -134,9 +134,9 @@ const ApproveModel = ({
   >(
     defaultCustomSeriesValue?.customSeriesDate
       ? new DateObject({
-          date: defaultCustomSeriesValue?.customSeriesDate,
-          format: "YYYY-MM-DD",
-        })
+        date: defaultCustomSeriesValue?.customSeriesDate,
+        format: "YYYY-MM-DD",
+      })
       : undefined,
   );
   const [srNumberGenerateFlag, setSrNumberGenerateFlag] = useState<number>();
@@ -218,11 +218,22 @@ const ApproveModel = ({
 
   const getPrifix = async (setAllSeries: TReactSetState<any[]>) => {
     const uuid = localStorage.getItem("UUID");
+    const activeCompanyId = localStorage.getItem("COMPANY_ID");
+    const isValidCompanyId =
+      activeCompanyId &&
+      activeCompanyId !== "undefined" &&
+      activeCompanyId !== "null" &&
+      Number(activeCompanyId) > 0;
+
+    const whereClause = isValidCompanyId
+      ? JSON.stringify({ id: Number(activeCompanyId), isDelete: 0 })
+      : JSON.stringify({ a_application_login_id: uuid, isDelete: 0 });
+
     const requestData = {
       table: "company_masters",
       columns:
         "order_prefix,return_sales_invoice_prefix,invoice_prefix,quotation_prefix,purchase_prefix,purchase_ord_prefix,return_purchase_invoice_prefix,inward_prefix,dispatch_prefix,workorder_prefix,id,quotation_sr_number_generate_flag,order_sr_number_generate_flag,sales_invoice_sr_number_generate_flag,return_sales_invoice_sr_number_generate_flag,purchase_order_sr_number_generate_flag,purchase_invoice_sr_number_generate_flag,return_purchase_invoice_sr_number_generate_flag,inward_sr_number_generate_flag,dispatch_sr_number_generate_flag,proforma_invoice_prefix,proforma_invoice_sr_number_generate_flag",
-      where: JSON.stringify({ a_application_login_id: uuid }),
+      where: whereClause,
       request_flag: 2,
     };
     try {
@@ -655,10 +666,7 @@ const ApproveModel = ({
                   </div>
                 </>
               )}
-              {(orderType == 3 ||
-                orderType == 4 ||
-                orderType == 6 ||
-                orderType == 7) && (
+              {(orderType != 6 && orderType != 7) && (
                 <div>
                   <div
                     style={{

@@ -130,8 +130,11 @@ export const OTPSubmit = async (
               onOtpSuccess();
             }
           } else {
-            if (workspaces.length === 1) {
-              localStorage.setItem("COMPANY_ID", workspaces[0].id.toString());
+            const activeCompanyId =
+              response.data?.data?.findItShouldPayornot?.id ||
+              workspaces[0]?.id;
+            if (activeCompanyId) {
+              localStorage.setItem("COMPANY_ID", activeCompanyId.toString());
             }
             setCheckCompanyAlreadyExists(
               response.data?.data.checkCompanyAlreadyExists,

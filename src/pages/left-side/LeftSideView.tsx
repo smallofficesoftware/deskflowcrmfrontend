@@ -3781,102 +3781,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                         />
                       </div>
 
-                      <div
-                        style={{
-                          position: "absolute",
-                          right: "2%",
-                          marginTop: "10%",
-                        }}
-                      >
-                        <ul
-                          className={`dropLeft ${dropdownOpen ? "isVisible" : "isHidden"
-                            } `}
-                          id="dropLeft"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* <li
-                            className="listItem"
-                            role="button"
-                            onClick={openCompany}
-                          >
-                            My Company
-                          </li> */}
-                          {/* <li
-                            className="listItem"
-                            role="button"
-                            onClick={openNotes}
-                          >
-                            Personal Notes
-                          </li> */}
 
-                          <li
-                            className="listItem"
-                            role="button"
-                            onClick={openSettings}
-                          >
-                            Settings
-                          </li>
-                          <li
-                            className="listItem"
-                            role="button"
-                            data-bs-toggle="modal"
-                            onClick={handelExportExcel}
-                          >
-                            Export Contact
-                          </li>
-
-                          {isFeatureEnabled && (
-                            <li
-                              className="listItem"
-                              role="button"
-                              data-bs-toggle="modal"
-                              onClick={fetchFromMiracle}
-                            >
-                              Fetch Miracle
-                            </li>
-                          )}
-
-                          <li
-                            className={`listItem  ${selectedButton === "archive" ? " " : ""
-                              }`}
-                            style={{ whiteSpace: "nowrap" }}
-                            onClick={() => handleButtonClick("archive")}
-                          >
-                            Archive Contacts
-                          </li>
-                          <li
-                            className="listItem"
-                            role="button"
-                            onClick={handleAddFromImport}
-                          >
-                            Import Contact
-                          </li>
-                          <li
-                            className="listItem"
-                            role="button"
-                            onClick={handleViewMap}
-                          >
-                            View In Map
-                          </li>
-                          {/* <li
-                            className="listItem"
-                            role="button"
-                            onClick={handleDashboardOpen}
-                          >
-                            View Insights
-                          </li> */}
-
-                          <li
-                            className="listItem"
-                            role="button"
-                            data-bs-toggle="modal"
-                            data-bs-target="#exampleModalSec"
-                            onClick={() => setIsCloseConfirmation(true)}
-                          >
-                            Log out
-                          </li>
-                        </ul>
-                      </div>
 
                       <div className="ICON">
                         {/* <button className="icons" onClick={openDashBoard}>
@@ -3941,29 +3846,36 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                         </button>
 
                         <button
-                          className="icons "
+                          className="icons"
                           onClick={() => setShowListAllReminder(true)}
+                          style={{ position: "relative" }}
                         >
+                          {reminderCount != 0 && (
+                            <span
+                              style={{
+                                width: "15px",
+                                height: "15px",
+                                fontSize: "9px",
+                                lineHeight: "15px",
+                                position: "absolute",
+                                top: "-3px",
+                                right: "-3px",
+                                background: "#ef4444",
+                                color: "white",
+                                borderRadius: "50%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: "bold",
+                                boxShadow: "0 0 0 1.5px #f0f2f5",
+                                zIndex: 2,
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {reminderCount}
+                            </span>
+                          )}
                           <span title="Reminder">
-                            {reminderCount != 0 && (
-                              <span
-                                style={{
-                                  width: "15px",
-                                  height: "15px",
-                                  fontSize: "9px",
-                                  lineHeight: "15px",
-                                  position: "absolute",
-                                  top: "11px",
-                                  right: "117px",
-                                  // left: "148px",
-                                  background: "red",
-                                  color: "white",
-                                  borderRadius: "100%",
-                                }}
-                              >
-                                {reminderCount}
-                              </span>
-                            )}
                             <svg
                               height="24px"
                               viewBox="0 -960 960 960"
@@ -4031,21 +3943,103 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                             </svg>
                           </span>
                         </button>
-                        <button
-                          id="dropDown2"
-                          className="icons"
-                          onClick={toggleDropdown}
-                          ref={dropdownRef}
-                        >
-                          <span>
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                              <path
-                                fill="currentColor"
-                                d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"
-                              ></path>
-                            </svg>
-                          </span>
-                        </button>
+
+                        <div className="position-relative d-inline-block">
+                          <button
+                            id="dropDown2"
+                            className="icons"
+                            onClick={toggleDropdown}
+                            ref={dropdownRef}
+                          >
+                            <span>
+                              <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path
+                                  fill="currentColor"
+                                  d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"
+                                ></path>
+                              </svg>
+                            </span>
+                          </button>
+
+                          <ul
+                            className={`dropLeft header-dropdown-menu ${dropdownOpen ? "isVisible" : "isHidden"}`}
+                            id="dropLeft"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              right: "0",
+                              zIndex: 1050,
+                              minWidth: "185px",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "10px",
+                              boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                              border: "1px solid rgba(226, 232, 240, 0.9)",
+                              padding: "6px",
+                              listStyle: "none",
+                              margin: 0,
+                            }}
+                          >
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={openSettings}
+                            >
+                              <i className="bi bi-gear me-2"></i> Settings
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              data-bs-toggle="modal"
+                              onClick={handelExportExcel}
+                            >
+                              <i className="bi bi-file-earmark-excel me-2"></i> Export Contact
+                            </li>
+
+                            {isFeatureEnabled && (
+                              <li
+                                className="listItem"
+                                role="button"
+                                data-bs-toggle="modal"
+                                onClick={fetchFromMiracle}
+                              >
+                                <i className="bi bi-arrow-repeat me-2"></i> Fetch Miracle
+                              </li>
+                            )}
+
+                            <li
+                              className={`listItem ${selectedButton === "archive" ? "active" : ""}`}
+                              style={{ whiteSpace: "nowrap" }}
+                              onClick={() => handleButtonClick("archive")}
+                            >
+                              <i className="bi bi-archive me-2"></i> Archive Contacts
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={handleAddFromImport}
+                            >
+                              <i className="bi bi-file-earmark-arrow-up me-2"></i> Import Contact
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={handleViewMap}
+                            >
+                              <i className="bi bi-geo-alt me-2"></i> View In Map
+                            </li>
+
+                            <li
+                              className="listItem text-danger"
+                              role="button"
+                              data-bs-toggle="modal"
+                              data-bs-target="#exampleModalSec"
+                              onClick={() => setIsCloseConfirmation(true)}
+                            >
+                              <i className="bi bi-box-arrow-right me-2"></i> Log out
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
 
@@ -4425,7 +4419,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                               {" "}
                               All{" "}
                             </span>
-                            {totalContactCount > 0 && hasData && (
+                            {totalContactCount > 0 && (
                               <span
                                 className="badge bg-danger ms-1"
                                 style={{
@@ -5489,7 +5483,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                             })
                           ) : (
                             <p className="text-danger p-1">
-                              {DEFAULT_MESSAGE_ERROR_PERMISSION}
+                              {/* {DEFAULT_MESSAGE_ERROR_PERMISSION} */}
                             </p>
                           )}
                       </>

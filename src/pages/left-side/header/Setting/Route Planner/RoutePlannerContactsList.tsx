@@ -59,16 +59,8 @@ const RoutePlannerContactsList = ({
     );
 
     useEffect(() => {
-        const fetchSelectedContacts = async () => {
-            await fetchSelectedContactsList(setSelectedContacts, routeId, setLoading);
-        }
-
-        fetchSelectedContacts();
-    }, [show, routeId]);
-
-    useEffect(() => {
         const fetchContacts = async () => {
-            if (show && selectedContacts.length > 0) {
+            if (show && routeId) {
                 setOffset(0);
                 setHasMore(true);
                 setContactList([]);
@@ -79,18 +71,19 @@ const RoutePlannerContactsList = ({
                     PAGE_SIZE,
                     0,
                     false,
-                    selectedContacts.map((c) => c.contact_id)
+                    undefined,
+                    routeId
                 ).then((more) => setHasMore(more));
             }
         };
 
         fetchContacts();
-    }, [show, selectedContacts]);
+    }, [show, routeId]);
 
     // On-scroll: fetch next page from API when near bottom
     useEffect(() => {
         const container = scrollContainerRef.current;
-        if (!container || selectedContacts.length <= 0) return;
+        if (!container || !routeId) return;
 
         const handleScroll = () => {
             const { scrollTop, scrollHeight, clientHeight } = container;
@@ -105,7 +98,8 @@ const RoutePlannerContactsList = ({
                     PAGE_SIZE,
                     nextOffset,
                     true, // append
-                    selectedContacts.map((c) => c.contact_id)
+                    undefined,
+                    routeId
                 ).then((more) => {
                     setOffset(nextOffset);
                     setHasMore(more);
@@ -116,28 +110,24 @@ const RoutePlannerContactsList = ({
 
         container.addEventListener("scroll", handleScroll);
         return () => container.removeEventListener("scroll", handleScroll);
-    }, [offset, hasMore, isFetchingMore]);
+    }, [offset, hasMore, isFetchingMore, routeId]);
 
     const handleRefreshContacts = async () => {
-        if (true) {
-            await fetchSelectedContactsList(setSelectedContacts, routeId, setLoading);
-            if (selectedContacts.length > 0) {
-                setOffset(0);
-                setHasMore(true);
-                setContactList([]);
-                setLoading(true);
-                const more = await fetchContactsApi(
-                    setContactList,
-                    setLoading,
-                    PAGE_SIZE,
-                    0,
-                    false,
-                    selectedContacts.map((c) => c.contact_id)
-                );
-                setHasMore(more);
-            }
-        } else {
-            toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+        if (show && routeId) {
+            setOffset(0);
+            setHasMore(true);
+            setContactList([]);
+            setLoading(true);
+            const more = await fetchContactsApi(
+                setContactList,
+                setLoading,
+                PAGE_SIZE,
+                0,
+                false,
+                undefined,
+                routeId
+            );
+            setHasMore(more);
         }
     };
 

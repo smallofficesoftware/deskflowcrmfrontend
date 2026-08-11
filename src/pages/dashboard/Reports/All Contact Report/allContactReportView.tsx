@@ -274,6 +274,10 @@ const AllcontactReport = ({
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [
+          startDate,
+          endDate,
+        ],
       });
     }
   }, []);

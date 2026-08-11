@@ -42,7 +42,13 @@ const SidebarView = ({
     if (!pagePermission) return false;
 
     try {
-      const rights = JSON.parse(pagePermission.a_page_id_rights_jason);
+      let rights = pagePermission.a_page_id_rights_jason;
+      if (typeof rights === "string") {
+        rights = JSON.parse(rights);
+        if (typeof rights === "string") {
+          rights = JSON.parse(rights);
+        }
+      }
       return rights?.[permissionType] === 1;
     } catch {
       return false;
@@ -600,7 +606,7 @@ const SidebarView = ({
         },
         {
           label: "Status Wise Task Or Supp. Ticket Report",
-          value: "Status_wise_task_Report",
+          value: "status_wise_report",
           pageId: PAGE_ID.STATUS_REPORT,
         },
         {

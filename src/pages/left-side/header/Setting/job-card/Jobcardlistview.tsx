@@ -27,6 +27,8 @@ import {
 import { IJobCardListItem } from "./JobCardTypes";
 import JobCardView from "./JobCardView";
 import ProductionEntryListModel from "./ProductionEntryListModel";
+import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
+import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
 
 interface IProps {
   show: boolean;
@@ -87,6 +89,16 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   const [deleteJobCardId, setDeleteJobCardId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPOModalFromJobCard, setShowPOModalFromJobCard] = useState(false);
+  const [showAddStockModalFromJobCard, setShowAddStockModalFromJobCard] = useState(false);
+
+  const handleAddStockFromJobCard = (_materialId: number, _materialName: string) => {
+    setShowAddStockModalFromJobCard(true);
+  };
+
+  const handleGeneratePOFromJobCard = (_materialId: number, _materialName: string) => {
+    setShowPOModalFromJobCard(true);
+  };
 
   const { darkMode } = useTheme();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1162,6 +1174,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           show={showJobCard}
           onHide={() => setShowJobCard(false)}
           onComplete={handleRefresh}
+          onGeneratePO={handleGeneratePOFromJobCard}
         />
       )}
 
@@ -1172,6 +1185,183 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           onComplete={handleRefresh}
           editJobCardId={selectedJobCardId ?? 0}
           initialProductQty={selectedJobCardProdQty ?? 0}
+          onGeneratePO={handleGeneratePOFromJobCard}
+        />
+      )}
+
+      {deleteJobCardId && (
+        <div
+          onClick={() => !isDeleting && setDeleteJobCardId(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1080,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(90vw, 420px)",
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
+              borderTop: "6px solid #f58634",
+            }}
+          >
+            <h5 className="mb-2 fw-bold" style={{ color: "#374151" }}>
+              Confirm Deletion
+            </h5>
+            <p className="text-muted mb-4" style={{ fontSize: "0.88rem" }}>
+              Are you sure you want to delete this Job Card?
+              <br />
+              <br />
+              <span className="text-danger fw-semibold">
+                Note: You can only delete this Job Card if all associated
+                Production Entries have been deleted first.
+              </span>
+            </p>
+
+            <div className="d-flex justify-content-end gap-2">
+              <button
+                className="btn btn-sm btn-light border"
+                onClick={() => setDeleteJobCardId(null)}
+                disabled={isDeleting}
+                style={{ minWidth: "90px" }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-sm btn-danger text-white d-flex align-items-center justify-content-center"
+                onClick={confirmDeleteJobCard}
+                disabled={isDeleting}
+                style={{
+                  minWidth: "120px",
+                  border: "#f58634",
+                  backgroundColor: "#f58634",
+                }}
+              >
+                {isDeleting ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm me-2"
+                      style={{ width: 12, height: 12, borderWidth: 2 }}
+                    />
+                    Deleting...
+                  </>
+                ) : (
+                  "Yes, Delete"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Production Entry: list modal (shows existing entries, + Add opens the form) */}
+      {showProductionEntry && selectedOrderItemId && (
+        <ProductionEntryListModel
+          show={showProductionEntry}
+          onHide={() => setShowProductionEntry(false)}
+          jobId={selectedOrderItemId}
+          itemName={selectedJobCardItem?.item_name}
+          orderNo={selectedJobCardItem?.order_no}
+          isStockCheckRequired={companyInfo.is_strict_check_product_stock == 2}
+          order_item_id={selectedJobCardItem?.order_item_id || 0}
+        />
+      )}
+
+      {isModalVisible && (
+        <CheckBoxModal
+          show={isModalVisible}
+          onHide={handleModalClose}
+          handleSubmit={handleConfirm}
+          title="Assign Labels to Jobs"
+          btn1="Cancel"
+          btn2="Submit"
+          options={options}
+          // selectedLabelIds={selectedLabelIds}
+          selectedLabelIds={
+            jobCardList?.find((job) => job.id === jobId)?.label_ids
+          }
+          contactId={jobId}
+          getOptionColor={(option) => option.color || "#eeeeee"}
+          getOptionName={(option) => option.lable_name}
+          showColorBadge={true}
+        />
+      )}
+
+      {isModalAssignStatusVisible && (
+        <RadioButtonModal
+          show={isModalAssignStatusVisible}
+          onHide={() => setIsModalAssignStatusVisible(false)}
+          handleSubmit={handleConfirmRadioButton}
+          title="Assign Status to Jobs"
+          message="Please select the Status for this contact."
+          btn1="Cancel"
+          btn2="Submit"
+          options={optionRadioButtonStatus}
+          selectedLabelIds={
+            jobCardList?.find((job) => job.id === statusAssignJobId)?.status_id
+          }
+          contactId={jobId}
+          getOptionColor={(option) => option.color || "#eeeeee"}
+          getOptionName={(option) => option.name}
+          showColorBadge={true}
+        />
+      )}
+
+      {isModalAssignUserVisible && (
+        <CheckBoxModal
+          show={isModalAssignUserVisible}
+          onHide={() => setIsModalAssignUserVisible(false)}
+          handleSubmit={handleConfirmAssignUser}
+          title="Assign your User"
+          message="Please select the Users for this Job."
+          btn1="Cancel"
+          btn2="Submit"
+          options={optionJoinCompany}
+          selectedLabelIds={
+            jobCardList?.find((job) => job.id === userAssignJobId)
+              ?.team_assign_ids
+          }
+          contactId={jobId}
+          getOptionName={getOptionName}
+          showColorBadge={false}
+          smallInfoMessage={
+            "Clearing all checkboxes will unassign every selected Team Member"
+          }
+          hideSmallInfoMessageInCheck={true}
+          isContactAssigedTeamMemberBirfercationShow={true}
+        />
+      )}
+
+
+      {/* New Job Card modal */}
+      {showJobCard && (
+        <JobCardView
+          show={showJobCard}
+          onHide={() => setShowJobCard(false)}
+          onComplete={handleRefresh}
+          onAddStock={handleAddStockFromJobCard}
+          onGeneratePO={handleGeneratePOFromJobCard}
+        />
+      )}
+
+      {showEditJobCard && (
+        <JobCardView
+          show={showEditJobCard}
+          onHide={() => setShowEditJobCard(false)}
+          onComplete={handleRefresh}
+          editJobCardId={selectedJobCardId ?? 0}
+          initialProductQty={selectedJobCardProdQty ?? 0}
+          onAddStock={handleAddStockFromJobCard}
+          onGeneratePO={handleGeneratePOFromJobCard}
         />
       )}
 
@@ -1351,6 +1541,27 @@ const JobCardListView = ({ show, onHide }: IProps) => {
             filterParams.createdByMultiTeamMember
           }
           labelFilderApplyAndOr={filterParams.labelwiseContactShowAndOrNot}
+        />
+      )}
+      {showPOModalFromJobCard && (
+        <OrderCreateModal
+          show={showPOModalFromJobCard}
+          onHide={() => setShowPOModalFromJobCard(false)}
+          handleSubmit={() => setShowPOModalFromJobCard(false)}
+          title={"Create Purchase Order"}
+          message={"Please Enter Your Purchase Order Details"}
+          btn1={"CANCEL"}
+          btn2={"Approve"}
+          isOrderShowNum={4}
+          flag={"quick"}
+        />
+      )}
+      {showAddStockModalFromJobCard && (
+        <StockAdjustmentModel
+          show={showAddStockModalFromJobCard}
+          onHide={() => setShowAddStockModalFromJobCard(false)}
+          flag={1}
+          where_action={1}
         />
       )}
     </>
