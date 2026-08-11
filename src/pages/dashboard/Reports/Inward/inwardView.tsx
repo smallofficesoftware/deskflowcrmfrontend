@@ -296,6 +296,7 @@ const TeamInwardDataReportsView = ({
   useEffect(() => {
     offsetRef.current = 0;
     currentOffset.current = 0;
+    setHasMore(true);
     onVirtualScroll(0, 50, true);
   }, [
     filters.selectedDateArray,
