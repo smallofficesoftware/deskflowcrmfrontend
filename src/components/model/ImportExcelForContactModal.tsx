@@ -730,11 +730,189 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
                 </>
               )}
               {potions == 7 && (
-                <>
-                  <p className="text-dark">
-                    In the Compensation Adjustment Sheet, specify <b>employee_id</b>, <b>type</b> (e.g. Early Exit Hours-HOURS-DEBIT, Overtime, etc.), <b>adjustment_type</b> (1=Credit Hours, 2=Debit Hours, 3=Credit Amount, 4=Debit Amount), <b>hours</b> / <b>amount</b>, and <b>apply_date</b> (YYYY-MM-DD).
-                  </p>
-                </>
+                <div
+                  className="rounded p-3 my-2"
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    border: "1px solid #e2e8f0",
+                    fontSize: "13px",
+                    textAlign: "left",
+                  }}
+                >
+                  <div
+                    className="fw-bold mb-2 text-secondary"
+                    style={{
+                      fontSize: "11px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Sheet Column Guidelines
+                  </div>
+
+                  <div className="d-flex flex-column gap-2">
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        employee_id
+                      </code>
+                      <span className="ms-2 text-muted">— Employee ID number</span>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        type
+                      </code>
+                      <span className="ms-2 text-muted">
+                        — e.g. <em>Early Exit Hours-HOURS-DEBIT</em>, <em>Overtime</em>
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="mb-1">
+                        <code
+                          className="fw-semibold rounded"
+                          style={{
+                            backgroundColor: "#eef2f6",
+                            color: "#344054",
+                            border: "1px solid #d0d5dd",
+                            fontSize: "12px",
+                            padding: "2px 7px",
+                            cursor: "default",
+                          }}
+                        >
+                          adjustment_type
+                        </code>
+                        <span className="ms-2 text-muted">
+                          — Numeric code (1 to 4):
+                        </span>
+                      </div>
+                      <div className="d-flex flex-wrap gap-1 ps-2 mt-1">
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#d4edda",
+                            color: "#155724",
+                            border: "1px solid #c3e6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>1</b> = Credit Hours
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#f8d7da",
+                            color: "#721c24",
+                            border: "1px solid #f5c6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>2</b> = Debit Hours
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#d4edda",
+                            color: "#155724",
+                            border: "1px solid #c3e6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>3</b> = Credit Amount
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#f8d7da",
+                            color: "#721c24",
+                            border: "1px solid #f5c6cb",
+                            fontWeight: 500,
+                            fontSize: "11px",
+                            padding: "4px 7px",
+                          }}
+                        >
+                          <b>4</b> = Debit Amount
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        hours
+                      </code>
+                      <span className="mx-1 text-muted">/</span>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        amount
+                      </code>
+                      <span className="ms-2 text-muted">— Adjustment value</span>
+                    </div>
+
+                    <div>
+                      <code
+                        className="fw-semibold rounded"
+                        style={{
+                          backgroundColor: "#eef2f6",
+                          color: "#344054",
+                          border: "1px solid #d0d5dd",
+                          fontSize: "12px",
+                          padding: "2px 7px",
+                          cursor: "default",
+                        }}
+                      >
+                        apply_date
+                      </code>
+                      <span className="ms-2 text-muted">
+                        — Date of adjustment (e.g. <span className="fw-semibold text-dark">DD-MM-YYYY</span>, <span className="fw-semibold text-dark">DD-MM-YY</span>, <span className="fw-semibold text-dark">YYYY-MM-DD</span>)
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             {errorResponceMeg && (
