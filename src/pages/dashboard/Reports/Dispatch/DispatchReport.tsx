@@ -1716,19 +1716,29 @@ const TeamDispatchDataReportsView = ({
                   filterPlaceholder={`Search ${field.fieldLabel}`}
                   filterMatchMode={field.dataType === 1 ? "equals" : "contains"}
                   headerStyle={{
-                    width: "250px",
+                    width: field.dataType === 3 ? "250px" : "150px",
                     whiteSpace: "pre-wrap",
                     position: "sticky",
                     top: 0,
                     zIndex: 1,
                     fontSize: "14px",
                   }}
-                  bodyStyle={{ fontSize: "14px" }}
+                  bodyStyle={{
+                    fontSize: "14px",
+                    whiteSpace: field.dataType === 3 ? "pre-wrap" : undefined,
+                    wordBreak: field.dataType === 3 ? "break-word" : undefined,
+                  }}
                   body={(row) => {
                     const val = row[field.fieldName];
-                    return val !== null && val !== undefined && val !== ""
-                      ? val
-                      : "-";
+                    if (val === null || val === undefined || val === "") return "-";
+                    if (field.dataType === 3) {
+                      return (
+                        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {val}
+                        </div>
+                      );
+                    }
+                    return val;
                   }}
                 />
               ))}

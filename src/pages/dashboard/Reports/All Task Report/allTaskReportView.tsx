@@ -1396,7 +1396,15 @@ ${showExternalStatusColumn
                   sortable
                   filter
                   filterPlaceholder="Search"
-                  headerStyle={{ width: "150px", fontSize: "14px" }}
+                  headerStyle={{
+                    width: item.data_type === 3 ? "220px" : "150px",
+                    fontSize: "14px",
+                  }}
+                  bodyStyle={{
+                    fontSize: "14px",
+                    whiteSpace: item.data_type === 3 ? "pre-wrap" : undefined,
+                    wordBreak: item.data_type === 3 ? "break-word" : undefined,
+                  }}
                   body={(rowData) => {
                     const fieldData = rowData?.customForm?.find(
                       (cf: any) => cf.id === item.id,
@@ -1428,6 +1436,20 @@ ${showExternalStatusColumn
                             tooltip="Download"
                             onClick={() => handleAttachmentDownload(fileUrl)}
                           />
+                        </div>
+                      );
+                    }
+
+                    // Text Area field (data_type === 3)
+                    if (fieldData?.data_type === 3) {
+                      return (
+                        <div
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {value}
                         </div>
                       );
                     }

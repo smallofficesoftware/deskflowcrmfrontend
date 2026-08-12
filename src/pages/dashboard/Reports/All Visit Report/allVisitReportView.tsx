@@ -1670,14 +1670,18 @@ const AllVisitReportsView = ({
                       : "contains"
                   }
                   headerStyle={{
-                    width: "150px",
+                    width: field.dataType === 3 ? "220px" : "150px",
                     whiteSpace: "pre-wrap",
                     position: "sticky",
                     top: 0,
                     zIndex: 1,
                     fontSize: "14px",
                   }}
-                  bodyStyle={{ fontSize: "14px" }}
+                  bodyStyle={{
+                    fontSize: "14px",
+                    whiteSpace: field.dataType === 3 ? "pre-wrap" : undefined,
+                    wordBreak: field.dataType === 3 ? "break-word" : undefined,
+                  }}
                   body={(rowData: any) => {
                     const value = rowData[field.fieldName];
 
@@ -1708,6 +1712,19 @@ const AllVisitReportsView = ({
 
                     if (value === null || value === undefined || value === "") {
                       return "-";
+                    }
+
+                    if (field.dataType === 3) {
+                      return (
+                        <div
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {value}
+                        </div>
+                      );
                     }
 
                     return value;

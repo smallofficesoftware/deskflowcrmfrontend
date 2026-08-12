@@ -1535,7 +1535,7 @@ const AllInqueryReport = ({
                   : "contains"
               }
               headerStyle={{
-                width: "150px",
+                width: field.dataType === 3 ? "220px" : "150px",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
@@ -1543,12 +1543,29 @@ const AllInqueryReport = ({
                 fontSize: "14px",
                 whiteSpace: "pre-wrap",
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IInquiryReport) =>
-                rowData[field.fieldName]
-                  .replace(/<br\s*\/?>/gi, "\n")
-                  .replace(/<[^>]+>/g, "") || "-"
-              }
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: field.dataType === 3 ? "pre-wrap" : undefined,
+                wordBreak: field.dataType === 3 ? "break-word" : undefined,
+              }}
+              body={(rowData: IInquiryReport) => {
+                const val = rowData[field.fieldName];
+                if (val === null || val === undefined || val === "") return "-";
+                const text =
+                  typeof val === "string"
+                    ? val
+                        .replace(/<br\s*\/?>/gi, "\n")
+                        .replace(/<[^>]+>/g, "")
+                    : val;
+                if (field.dataType === 3) {
+                  return (
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      {text}
+                    </div>
+                  );
+                }
+                return text || "-";
+              }}
             />
           ))}
         </DataTable>

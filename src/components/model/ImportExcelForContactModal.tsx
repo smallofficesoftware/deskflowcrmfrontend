@@ -39,7 +39,10 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorResponceMeg, setErrorResponceMeg] = useState<string>("");
+  const [successResponseMsg, setSuccessResponseMsg] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const onSubmit = async () => {
+    if (isSubmitting) return;
     if (!attachment) {
       toast.error("Please select a file to upload");
       return;
@@ -62,6 +65,10 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
     const formData = new FormData();
     formData.append("file", attachment);
     formData.append("a_application_login_id", getUUID);
+
+    setIsSubmitting(true);
+    setErrorResponceMeg("");
+    setSuccessResponseMsg("");
 
     switch (potions) {
       case 1:
@@ -107,6 +114,7 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 2:
@@ -152,6 +160,7 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 3:
@@ -197,6 +206,7 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 4:
@@ -242,11 +252,13 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 5:
         try {
           setErrorResponceMeg("");
+          setSuccessResponseMsg("");
           const response = await axiosInstanceProductAndContact.post(
             "excel-sheet-product-update-data",
             formData,
@@ -271,22 +283,27 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
             },
           );
 
-          if (response && response.data.ack === 1) {
-            handleSubmit();
-            setAttachment(null);
-            toast.success(response.data.ack_msg || DEFAULT_STATUS_CODE_SUCCESS);
-          } else {
-            // toast.error(
-            //   response.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED
-            // );
+          const errorDetails = response?.data?.data;
+          if (errorDetails && typeof errorDetails === "string") {
+            setErrorResponceMeg(errorDetails);
           }
-          const msg = response?.data?.data;
-          setErrorResponceMeg(typeof msg === "string" ? msg : "");
+
+          if (response && response.data.ack === 1) {
+            setAttachment(null);
+            setSuccessResponseMsg(
+              response.data.ack_msg || "Successfully updated products.",
+            );
+          } else if (!errorDetails) {
+            setErrorResponceMeg(
+              response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
+            );
+          }
         } catch (error) {
           console.error("Error uploading file:", error);
-          toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
+          setErrorResponceMeg(MESSAGE_UNKNOWN_ERROR_OCCURRED);
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 6:
@@ -332,6 +349,7 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED); // Show error toast
         } finally {
           setUploadProgress(0); // Reset progress in all cases
+          setIsSubmitting(false);
         }
         break;
       case 7:
@@ -377,6 +395,7 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
         } finally {
           setUploadProgress(0);
+          setIsSubmitting(false);
         }
         break;
       default:
@@ -386,8 +405,16 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
   };
 
   const handleHide = () => {
+    if (isSubmitting) return;
     setAttachment(null);
-    onHide();
+    setErrorResponceMeg("");
+    const wasSuccess = !!successResponseMsg;
+    setSuccessResponseMsg("");
+    if (wasSuccess) {
+      handleSubmit();
+    } else {
+      onHide();
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -608,7 +635,15 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
       {show && (
         <div className="modal1">
           <div className="modal-content1" style={{ width: "40%" }}>
-            <span className="close" onClick={onHide}>
+            <span
+              className="close"
+              onClick={!isSubmitting ? handleHide : undefined}
+              style={{
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+                opacity: isSubmitting ? 0.4 : 1,
+                pointerEvents: isSubmitting ? "none" : "auto",
+              }}
+            >
               ×
             </span>
             <h2 className="modal-title1 form_header_text">{title}</h2>
@@ -915,29 +950,70 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
                 </div>
               )}
             </div>
-            {errorResponceMeg && (
+            {(successResponseMsg || errorResponceMeg) && (
               <div
                 style={{
-                  height: "200px",
-                  overflow: "scroll",
-                  border: "2px solid #000000",
-                  padding: "5px",
+                  maxHeight: "180px",
+                  overflowY: "auto",
+                  backgroundColor:
+                    successResponseMsg && !errorResponceMeg
+                      ? "#f0fff4"
+                      : "#fff5f5",
+                  border: `1px solid ${
+                    successResponseMsg && !errorResponceMeg
+                      ? "#9ae6b4"
+                      : "#feb2b2"
+                  }`,
+                  borderRadius: "6px",
+                  padding: "10px 14px",
+                  marginTop: "10px",
+                  marginBottom: "15px",
+                  fontSize: "13px",
+                  lineHeight: "1.6",
+                  textAlign: "left",
                 }}
-                className="text-danger"
               >
-                {<SafeHtml htmlContent={errorResponceMeg} />}
+                {successResponseMsg && (
+                  <div
+                    style={{
+                      color: "#22543d",
+                      fontWeight: "bold",
+                      marginBottom: errorResponceMeg ? "8px" : "0px",
+                    }}
+                  >
+                    ✓ {successResponseMsg}
+                  </div>
+                )}
+                {errorResponceMeg && (
+                  <div style={{ color: "#c53030" }}>
+                    <SafeHtml htmlContent={errorResponceMeg} />
+                  </div>
+                )}
               </div>
             )}
             <div className="modal-buttons">
-              <button className="modal-button1" onClick={handleHide}>
+              <button
+                className="modal-button1"
+                onClick={handleHide}
+                disabled={isSubmitting}
+                style={{
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.6 : 1,
+                }}
+              >
                 {btn1}
               </button>
               <button
                 className="modal-button2"
-                style={{ color: "white" }}
+                style={{
+                  color: "white",
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.6 : 1,
+                }}
                 onClick={onSubmit}
+                disabled={isSubmitting}
               >
-                {btn2}
+                {isSubmitting ? "Importing..." : btn2}
               </button>
             </div>
           </div>

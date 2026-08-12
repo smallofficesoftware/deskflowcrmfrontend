@@ -1614,17 +1614,30 @@ const AllDeletedcontactReport = ({
                   : "contains"
               }
               headerStyle={{
-                width: "150px",
+                width: field.dataType === 3 ? "220px" : "150px",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
                 background: "#f8f9fa",
                 fontSize: "14px",
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IAllDeletedcontact) =>
-                rowData[field.fieldName] || "-"
-              }
+              bodyStyle={{
+                fontSize: "14px",
+                whiteSpace: field.dataType === 3 ? "pre-wrap" : undefined,
+                wordBreak: field.dataType === 3 ? "break-word" : undefined,
+              }}
+              body={(rowData: IAllDeletedcontact) => {
+                const val = rowData[field.fieldName];
+                if (val === null || val === undefined || val === "") return "-";
+                if (field.dataType === 3) {
+                  return (
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      {val}
+                    </div>
+                  );
+                }
+                return val;
+              }}
             />
           ))}
         </DataTable>
