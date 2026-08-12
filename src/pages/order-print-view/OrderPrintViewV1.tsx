@@ -882,7 +882,7 @@ const OrderPrintViewV1 = () => {
   const loadWha = async () => {
     const a_application_login_id = getID || localStorage.getItem("UUID");
     const response = await getWhatsappFlag(a_application_login_id);
-    setWhatsappConfigDetail(response.WHATSAPP_PLATEFORM);
+    setWhatsappConfigDetail(response?.WHATSAPP_PLATEFORM);
   };
   const loadRights = async () => {
     const a_application_login_id = getID || localStorage.getItem("UUID");
