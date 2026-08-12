@@ -1124,7 +1124,8 @@ const TaskChatRightSide = ({
                     />
                   )}
 
-                {supportTicketFlag == 1 && (
+                {signleDataTask?.contact_masters_id != 0 &&
+                  signleDataTask?.contact_masters_id != null && (
                   <button
                     className="icons mx-2 text-end"
                     onClick={openContactDetailLog}
