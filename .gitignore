@@ -19,7 +19,6 @@ desktop.ini
 .env.development.local
 .env.test.local
 .env.production.local
-.env.dhaval
 
 # IDE & Tooling
 .vscode/
