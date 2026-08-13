@@ -1385,7 +1385,13 @@ const TaskChatRightSide = ({
             )}
             {/* view Task Title And Remakrk */}
             <div className="header-task mt-2">
-              <div className="task-contant">
+              <div
+                className="task-contant"
+                style={{
+                  maxHeight: isExpanded ? "220px" : undefined,
+                  overflowY: isExpanded ? "auto" : undefined,
+                }}
+              >
                 <p
                   className="task-desc"
                   style={{
