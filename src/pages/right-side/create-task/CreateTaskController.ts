@@ -478,6 +478,38 @@ export const taskTypesList = [
   { id: "10", type_name: "Repeat After Eight Month" },
 ];
 
+export interface ITeamMemberWorkload {
+  low: number;
+  medium: number;
+  high: number;
+  critical: number;
+  total: number;
+}
+
+export const fetchTeamMemberTaskWorkload = async (
+  teamMemberIds: (number | string)[],
+  getID?: string,
+): Promise<Record<string, ITeamMemberWorkload>> => {
+  const getUUID = getID || localStorage.getItem("UUID");
+
+  if (!teamMemberIds || teamMemberIds.length === 0) return {};
+
+  try {
+    const response = await axiosInstance.post(
+      "/get-team-member-task-workload",
+      {
+        a_application_login_id: getUUID,
+        team_member_ids: teamMemberIds,
+      },
+    );
+
+    return response.data?.data?.item || {};
+  } catch (error) {
+    console.error("Failed to fetch team member task workload", error);
+    return {};
+  }
+};
+
 export const taskPriorityList = [
   { id: "1", mode_name: "Low", color: "#36a4dd" },
   { id: "2", mode_name: "Medium", color: "#fc6e0f" },

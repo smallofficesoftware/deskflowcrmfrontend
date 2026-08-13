@@ -43,9 +43,11 @@ import {
   createTaskValidationSchema,
   fetchCategoryApiForProduct,
   fetchCustomInqFromApiForTask,
+  fetchTeamMemberTaskWorkload,
   fetchTemplateName,
   ICustomFromList,
   ITaskCreate,
+  ITeamMemberWorkload,
   selectWeeklyDays,
   taskPriorityList,
   taskTypesList,
@@ -102,6 +104,9 @@ const CreateTaskView = ({
   const [taskCategoryList, setTaskCategoryList] = useState<any>([]);
   const [taskTemplateList, setTaskTemplateList] = useState<any>([]);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [teamMemberWorkload, setTeamMemberWorkload] = useState<
+    Record<string, ITeamMemberWorkload>
+  >({});
   const [selectedDays, setSelectedDays] = useState<any[]>([]);
   const [isOpenAddTaskCategoryModal, setIsOpenAddTaskCategoryModal] =
     useState<boolean>(false);
@@ -344,6 +349,26 @@ const CreateTaskView = ({
       init();
     }
   }, [show, productToEdit]);
+
+  useEffect(() => {
+    const memberIds = selectedUsers.map((u: any) => u.value);
+
+    if (memberIds.length === 0) {
+      setTeamMemberWorkload({});
+      return;
+    }
+
+    let cancelled = false;
+
+    fetchTeamMemberTaskWorkload(memberIds).then((workload) => {
+      if (!cancelled) setTeamMemberWorkload(workload);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUsers.map((u: any) => u.value).join(",")]);
 
   // Constants
   const TASK_TYPES_WITH_DAYS = ["2"];
@@ -1675,6 +1700,62 @@ const CreateTaskView = ({
                                       component="div"
                                       className="field-error text-danger"
                                     />
+                                    {selectedUsers.length > 0 && (
+                                      <div
+                                        className="mt-2 d-flex flex-column gap-1"
+                                        style={{
+                                          background: "#f8f9fa",
+                                          borderRadius: "6px",
+                                          padding: "8px 10px",
+                                        }}
+                                      >
+                                        {selectedUsers.map((user: any) => {
+                                          const load =
+                                            teamMemberWorkload[
+                                              String(user.value)
+                                            ];
+
+                                          return (
+                                            <div
+                                              key={user.value}
+                                              className="d-flex align-items-center flex-wrap gap-2"
+                                            >
+                                              <span
+                                                style={{
+                                                  fontSize: "12px",
+                                                  fontWeight: 600,
+                                                  minWidth: "90px",
+                                                }}
+                                              >
+                                                {user.label}:
+                                              </span>
+                                              {taskPriorityList.map(
+                                                (priority) => (
+                                                  <span
+                                                    key={priority.id}
+                                                    className="badge"
+                                                    style={{
+                                                      backgroundColor:
+                                                        priority.color,
+                                                      color: "#fff",
+                                                      fontSize: "11px",
+                                                      fontWeight: 500,
+                                                    }}
+                                                  >
+                                                    {priority.mode_name}{" "}
+                                                    {load
+                                                      ? (load as any)[
+                                                          priority.mode_name.toLowerCase()
+                                                        ]
+                                                      : 0}
+                                                  </span>
+                                                ),
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 {supportTicketFlag === 0 && (
