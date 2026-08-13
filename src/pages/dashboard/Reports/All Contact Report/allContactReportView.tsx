@@ -549,6 +549,8 @@ const AllcontactReport = ({
     debouncedSearchText,
     selectedProductSearchId: filters.selectedProductSearchId,
     setSelectOrderType: filters.selectedOrderListId,
+    leadAgingBucket: filters.leadAgingBucket,
+    leadAgingActivityTypes: filters.leadAgingActivityTypes,
   });
 
   useEffect(() => {
@@ -593,6 +595,8 @@ const AllcontactReport = ({
           filters.assignedByMultiTeamMember,
           filters.createdByMultiTeamMember,
           isArchivState,
+          filters.leadAgingBucket,
+          filters.leadAgingActivityTypes,
         );
 
         if (newData.length < limit) {
@@ -641,6 +645,8 @@ const AllcontactReport = ({
       filters.selectedProductSearchId,
       filters.selectedOrderListId,
       debouncedSearchText,
+      filters.leadAgingBucket,
+      filters.leadAgingActivityTypes,
       hasMore,
     ],
   );
@@ -1159,6 +1165,8 @@ const AllcontactReport = ({
         globalSearch: debouncedSearchText,
         assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
         createdByMultiTeamMember: filters.createdByMultiTeamMember,
+        leadAgingBucket: filters.leadAgingBucket,
+        leadAgingActivityTypes: filters.leadAgingActivityTypes,
       });
 
       if (!allContacts.length) {
@@ -1751,7 +1759,7 @@ const AllcontactReport = ({
           message="Please select the Dates and Team Members for the Report."
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 2, 3, 4, 5, 6, 9, 19]}
+          filtersToShow={[1, 2, 3, 4, 5, 6, 9, 19, 29]}
           pageId={1}
           stageandStatusOrderType={1}
           initialFilterData={{
@@ -1775,6 +1783,8 @@ const AllcontactReport = ({
           initialSelectedDays={filters.selectedDays}
           selectedWarehouseIds={filters.selectedWarehouseIds}
           initialReferenceWiseContact={filters.referenceWiseContact}
+          initialLeadAgingBucket={filters.leadAgingBucket}
+          initialLeadAgingActivityTypes={filters.leadAgingActivityTypes}
           isApplyReport={1}
         />
       )}

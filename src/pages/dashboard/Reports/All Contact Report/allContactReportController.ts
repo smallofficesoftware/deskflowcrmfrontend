@@ -96,7 +96,9 @@ export const fetchAllcontact = async (
   globalSearch?: string,
   assignedByMultiTeamMember?: any,
   createdByMultiTeamMember?: any,
-  isArchivState: boolean = false
+  isArchivState: boolean = false,
+  leadAgingBucket?: string | null,
+  leadAgingActivityTypes?: string[] | null
 ): Promise<IAllcontact[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -118,7 +120,9 @@ export const fetchAllcontact = async (
     globalSearch: globalSearch?.trim() || "",
     assignedByMultiTeamMember,
     createdByMultiTeamMember,
-    is_archive: isArchivState
+    is_archive: isArchivState,
+    leadAgingBucket,
+    leadAgingActivityTypes,
   };
 
   try {
@@ -162,6 +166,8 @@ export const fetchAllContactsForExport = async (
     globalSearch?: string;
     assignedByMultiTeamMember?: any,
     createdByMultiTeamMember?: any,
+    leadAgingBucket?: string | null,
+    leadAgingActivityTypes?: string[] | null,
   }
 ): Promise<IAllcontact[]> => {
   const LIMIT = 500;
@@ -188,6 +194,9 @@ export const fetchAllContactsForExport = async (
       params.globalSearch,
       params.assignedByMultiTeamMember,
       params.createdByMultiTeamMember,
+      false,
+      params.leadAgingBucket,
+      params.leadAgingActivityTypes,
     );
 
     if (!chunk.length) break;

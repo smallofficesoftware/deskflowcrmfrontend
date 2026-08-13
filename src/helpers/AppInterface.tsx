@@ -43,6 +43,8 @@ export interface ICoreFilterData {
   filterData: IFilterData | null;
   labelAndOr?: number;
   referenceWiseContact?: number;
+  leadAgingBucket?: string | null;
+  leadAgingActivityTypes?: string[] | null;
 }
 
 /* ----------------------------------------

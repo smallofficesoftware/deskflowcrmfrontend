@@ -51,6 +51,26 @@ export const monthOptions = [
   { value: 12, label: "December" },
 ];
 
+const LEAD_AGING_BUCKET_OPTIONS = [
+  { value: "7", label: "7 Days" },
+  { value: "15", label: "15 Days" },
+  { value: "30", label: "30 Days" },
+  { value: "never", label: "Never Contacted" },
+];
+
+const LEAD_AGING_ACTIVITY_OPTIONS = [
+  { value: "call", label: "Call" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "visit", label: "Visit" },
+  { value: "task", label: "Task" },
+  { value: "inquiry", label: "Inquiry" },
+  { value: "sales_order", label: "Sales Order" },
+  { value: "quotation", label: "Quotation" },
+  { value: "proforma_invoice", label: "Proforma Invoice" },
+  { value: "invoice", label: "Invoice" },
+  { value: "purchase_order", label: "Purchase Order" },
+];
+
 // Define interface for filterData
 
 interface CheckBoxModalProps {
@@ -97,6 +117,8 @@ interface CheckBoxModalProps {
   initialselectedOrderListId?: any | null;
   initialCheckedOptionsContactAssignOrnot?: any[] | null;
   initialReferenceWiseContact?: number;
+  initialLeadAgingBucket?: string | null;
+  initialLeadAgingActivityTypes?: string[] | null;
   isApplyReport?: number;
 }
 
@@ -143,6 +165,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   initialselectedOrderListId,
   initialCheckedOptionsContactAssignOrnot,
   initialReferenceWiseContact = 1,
+  initialLeadAgingBucket,
+  initialLeadAgingActivityTypes,
   isApplyReport,
 }) => {
   const convertToDateObject = (date: any) => {
@@ -315,6 +339,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   const [referenceWiseContact, setReferenceWiseContact] = useState<number>(
     initialReferenceWiseContact || 1,
   );
+
+  const [leadAgingBucket, setLeadAgingBucket] = useState<string | null>(
+    initialLeadAgingBucket ?? null,
+  );
+  const [leadAgingActivityTypes, setLeadAgingActivityTypes] = useState<
+    string[]
+  >(initialLeadAgingActivityTypes || []);
 
   const [sourceSearch, setSourceSearch] = useState("");
   const [expenseSearch, setExpenseSearch] = useState("");
@@ -610,7 +641,9 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       endSearchDate ||
       warehouseIds ||
       selectedOrderListId ||
-      referenceWiseContact;
+      referenceWiseContact ||
+      leadAgingBucket ||
+      leadAgingActivityTypes.length > 0;
     setIsFilterModified(!!hasAnyFilter);
   }, [
     checkedOptions,
@@ -649,6 +682,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     warehouseIds,
     selectedOrderListId,
     referenceWiseContact,
+    leadAgingBucket,
+    leadAgingActivityTypes,
   ]);
   const onSubmit = async () => {
     if (isLoading) {
@@ -753,6 +788,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedProductSearchId,
       selectedOrderListId,
       referenceWiseContact,
+      leadAgingBucket,
+      leadAgingActivityTypes,
     });
   };
 
@@ -799,6 +836,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setCheckedOptionsContactassignOrNot([]);
     setCheckedOptionsShowTemplateTask([]);
     setReferenceWiseContact(1);
+    setLeadAgingBucket(null);
+    setLeadAgingActivityTypes([]);
     handleSubmit({
       filterData: null,
       checkedOptionsLabel: [],
@@ -829,6 +868,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedProductSearchId: null,
       selectedOrderListId: null,
       referenceWiseContact: 1,
+      leadAgingBucket: null,
+      leadAgingActivityTypes: [],
     });
     onHide();
     setLabelAndOr(0);
@@ -4355,6 +4396,85 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                             })}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {filtersToShow.includes(29) && (
+                  <div className="col-xxl-4 col-xl-4 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
+                    <div className="">
+                      <div className="ms-2 mt-1 d-flex align-items-center justify-content-between">
+                        <label className="fw-bold">Lead Ageing</label>
+                        {leadAgingBucket && (
+                          <span
+                            role="button"
+                            className="text-danger"
+                            style={{ fontSize: "12px", cursor: "pointer" }}
+                            onClick={() => {
+                              setLeadAgingBucket(null);
+                              setLeadAgingActivityTypes([]);
+                            }}
+                          >
+                            Clear
+                          </span>
+                        )}
+                      </div>
+                      <hr />
+                      <div className="p-2">
+                        <div className="d-flex flex-wrap gap-2">
+                          {LEAD_AGING_BUCKET_OPTIONS.map((bucket) => {
+                            const active = leadAgingBucket === bucket.value;
+
+                            return (
+                              <span
+                                key={bucket.value}
+                                role="button"
+                                className={`fw-bold badge ${active ? "bg-danger" : "bg-light text-dark"}`}
+                                style={{
+                                  padding: "8px 12px",
+                                  cursor: isLoading ? "default" : "pointer",
+                                }}
+                                onClick={() =>
+                                  !isLoading &&
+                                  setLeadAgingBucket(active ? null : bucket.value)
+                                }
+                              >
+                                {bucket.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        {leadAgingBucket && (
+                          <div className="mt-3">
+                            <label
+                              className="pb-2 form_label"
+                              style={{ fontSize: "13px", fontWeight: "500" }}
+                            >
+                              Contacted Via (leave empty for all sources)
+                            </label>
+
+                            <MultiSelect
+                              options={LEAD_AGING_ACTIVITY_OPTIONS}
+                              value={LEAD_AGING_ACTIVITY_OPTIONS.filter((opt) =>
+                                leadAgingActivityTypes.includes(
+                                  String(opt.value),
+                                ),
+                              )}
+                              onChange={(selected) =>
+                                setLeadAgingActivityTypes(
+                                  selected.map((opt) => String(opt.value)),
+                                )
+                              }
+                              isSelectAll={true}
+                              isMulti
+                              isClearable={leadAgingActivityTypes.length > 0}
+                              isDisabled={isLoading}
+                              menuPlacement="top"
+                              placeholder="All sources"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

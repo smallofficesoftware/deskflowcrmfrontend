@@ -49,6 +49,8 @@ export interface ReportsFilter {
   referenceWiseContact?: number;
   month?: number | string;
   year?: number | string;
+  leadAgingBucket?: string | null;
+  leadAgingActivityTypes?: string[] | null;
 }
 
 export const initialState: ReportsFilter = {
@@ -82,6 +84,8 @@ export const initialState: ReportsFilter = {
   referenceWiseContact: undefined,
   month: "",
   year: "",
+  leadAgingBucket: null,
+  leadAgingActivityTypes: [],
 };
 
 interface ReportsFilterState {
