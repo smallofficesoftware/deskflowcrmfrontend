@@ -811,6 +811,8 @@ const AllTaskReportsView = ({
           BADGE_COLUMNS.includes(data.column.dataKey)
         ) {
           const row = tableData[data.row.index];
+          if (!row) return;
+
           const isExternal = data.column.dataKey === "external_status_name";
 
           const statusText =
