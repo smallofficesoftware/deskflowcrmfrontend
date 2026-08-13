@@ -14,14 +14,16 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { VirtualScrollerState } from "primereact/virtualscroller";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -508,15 +510,164 @@ const CategoryPendingReport = ({
 
     return filteredData;
   };
-  const exportColumns = [
-    { title: "Category Name", dataKey: "item_category_name" },
-    { title: `${orderTitle}`, dataKey: "salesorder" },
-    { title: `${invoiceTitle}`, dataKey: "salesinvoice" },
-    { title: "Pending Sales", dataKey: "pending_sales" },
-    { title: `${purchaseTitle}`, dataKey: "purchaseinvoice" },
-    { title: `${purchaseOrderTitle}`, dataKey: "purchaseorder" },
-    { title: "Pending Purchase", dataKey: "pending_purchase" },
-  ];
+
+  type CategoryColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    bg?: string;
+    body: (rowData: ICategorySalesData) => React.ReactNode;
+    footer?: React.ReactNode | (() => React.ReactNode);
+    footerStyle?: React.CSSProperties;
+  };
+
+  const baseColumnDefs: CategoryColumnDef[] = useMemo(
+    () => [
+      {
+        key: "item_category_name",
+        label: "Category Name",
+        header: (
+          <span>
+            Category <br /> Name
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => rowData.item_category_name || "-",
+        footer: "Total",
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f8f9fa",
+          paddingLeft: "10px",
+        },
+      },
+      {
+        key: "salesorder",
+        label: orderTitle,
+        header: `${orderTitle.replace(/ /g, "\n")}`,
+        width: "150px",
+        bg: "#d7e8f8ff",
+        body: (rowData) => rowData.salesorder ?? "-",
+        footer: () => calculateColumnTotals(customers, "salesorder"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "salesinvoice",
+        label: invoiceTitle,
+        header: `${invoiceTitle.replace(/ /g, "\n")}`,
+        width: "150px",
+        bg: "#d7e8f8ff",
+        body: (rowData) => rowData.salesinvoice ?? "-",
+        footer: () => calculateColumnTotals(customers, "salesinvoice"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "pending_sales",
+        label: "Pending Sales",
+        header: (
+          <span>
+            Pending <br /> Sales
+          </span>
+        ),
+        width: "150px",
+        bg: "#d7e8f8ff",
+        body: (rowData) => rowData.pending_sales ?? "-",
+        footer: () => calculateColumnTotals(customers, "pending_sales"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "purchaseorder",
+        label: purchaseOrderTitle,
+        header: `${purchaseOrderTitle.replace(/ /g, "\n")}`,
+        width: "150px",
+        bg: "#f1f8d7ff",
+        body: (rowData) => rowData.purchaseorder ?? "-",
+        footer: () => calculateColumnTotals(customers, "purchaseorder"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "purchaseinvoice",
+        label: purchaseTitle,
+        header: `${purchaseTitle.replace(/ /g, "\n")}`,
+        width: "150px",
+        bg: "#f1f8d7ff",
+        body: (rowData) => rowData.purchaseinvoice ?? "-",
+        footer: () => calculateColumnTotals(customers, "purchaseinvoice"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "pending_purchase",
+        label: "Pending Purchase",
+        header: (
+          <span>
+            Pending <br /> Purchase
+          </span>
+        ),
+        width: "150px",
+        bg: "#f1f8d7ff",
+        body: (rowData) => rowData.pending_purchase ?? "-",
+        footer: () => calculateColumnTotals(customers, "pending_purchase"),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+    ],
+    [orderTitle, invoiceTitle, purchaseTitle, purchaseOrderTitle, customers],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("category_pending_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: CategoryColumnDef,
+    customer: any,
+  ): string => {
+    if (col.key === "item_category_name") {
+      return customer.item_category_name || "-";
+    }
+    return customer[col.key] ?? "-";
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
@@ -526,25 +677,21 @@ const CategoryPendingReport = ({
         : isFilterApplied()
           ? getFilteredData()
           : customers;
-    const tableData = dataToExport.map((customer) => ({
-      item_category_name: customer.item_category_name || "-",
-      salesorder: customer.salesorder ?? "-",
-      salesinvoice: customer.salesinvoice ?? "-",
-      pending_sales: customer.pending_sales ?? "-",
-      purchaseinvoice: customer.purchaseinvoice ?? "-",
-      purchaseorder: customer.purchaseorder ?? "-",
-      pending_purchase: customer.pending_purchase ?? "-",
-    }));
+    const tableData = dataToExport.map((customer) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, customer);
+      });
+      return row;
+    });
 
-    const totals = {
-      item_category_name: "Total",
-      salesorder: calculateColumnTotals(dataToExport, "salesorder"),
-      salesinvoice: calculateColumnTotals(dataToExport, "salesinvoice"),
-      pending_sales: calculateColumnTotals(dataToExport, "pending_sales"),
-      purchaseinvoice: calculateColumnTotals(dataToExport, "purchaseinvoice"),
-      purchaseorder: calculateColumnTotals(dataToExport, "purchaseorder"),
-      pending_purchase: calculateColumnTotals(dataToExport, "pending_purchase"),
-    };
+    const totals: any = {};
+    visibleColumns.forEach((col) => {
+      totals[col.key] =
+        col.key === "item_category_name"
+          ? "Total"
+          : calculateColumnTotals(dataToExport, col.key);
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
@@ -555,7 +702,10 @@ const CategoryPendingReport = ({
     tableData.push(totals);
 
     autoTable(doc, {
-      columns: exportColumns,
+      columns: visibleColumns.map((col) => ({
+        title: col.label,
+        dataKey: col.key,
+      })),
       body: tableData,
       theme: "grid",
       styles: { fontSize: 10 },
@@ -604,46 +754,30 @@ const CategoryPendingReport = ({
         return;
       }
 
-      const excelRows = (
+      const excelRows: Record<string, any>[] = (
         selectedCustomers.length > 0 ? selectedCustomers : allData
-      ).map((item) => ({
-        "Category Name": item.item_category_name || "-",
-        // Quotation: item.quotation || "-",
-        "Sales Order": item.salesorder || "-",
-        "Sales Invoice": item.salesinvoice || "-",
-        "Pending Sales": item.pending_sales || "-",
-        "Purchase Invoice": item.purchaseinvoice || "-",
-        "Purchase Order": item.purchaseorder || "-",
-        "Pending Purchase": item.pending_purchase || "-",
-      }));
-
-      // ✅ Totals row
-      excelRows.push({
-        "Category Name": "Total",
-        // Quotation: calculateColumnTotals(excelRows, "Quotation"),
-        "Sales Order": calculateColumnTotals(excelRows, "Sales Order"),
-        "Sales Invoice": calculateColumnTotals(excelRows, "Sales Invoice"),
-        "Pending Sales": calculateColumnTotals(excelRows, "Pending Sales"),
-        "Purchase Invoice": calculateColumnTotals(
-          excelRows,
-          "Purchase Invoice",
-        ),
-        "Purchase Order": calculateColumnTotals(excelRows, "Purchase Order"),
-        "Pending Purchase": calculateColumnTotals(
-          excelRows,
-          "Pending Purchase",
-        ),
+      ).map((item) => {
+        const row: Record<string, any> = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item);
+        });
+        return row;
       });
 
+      // ✅ Totals row
+      const totalsRow: Record<string, any> = {};
+      visibleColumns.forEach((col) => {
+        totalsRow[col.label] =
+          col.key === "item_category_name"
+            ? "Total"
+            : calculateColumnTotals(excelRows, col.label);
+      });
+      excelRows.push(totalsRow);
+
       const worksheet = xlsx.utils.json_to_sheet(excelRows);
-      worksheet["!cols"] = [
-        { wpx: 180 },
-        { wpx: 130 },
-        { wpx: 130 },
-        { wpx: 130 },
-        { wpx: 130 },
-        { wpx: 130 },
-      ];
+      worksheet["!cols"] = visibleColumns.map((col) => ({
+        wpx: col.key === "item_category_name" ? 180 : 130,
+      }));
 
       const workbook = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(
@@ -733,14 +867,42 @@ const CategoryPendingReport = ({
     const tableData =
       selectedCustomers.length > 0 ? selectedCustomers : filteredData;
 
-    const totals = {
-      salesorder: calculateColumnTotals(tableData, "salesorder"),
-      salesinvoice: calculateColumnTotals(tableData, "salesinvoice"),
-      pending_sales: calculateColumnTotals(tableData, "pending_sales"),
-      purchaseinvoice: calculateColumnTotals(tableData, "purchaseinvoice"),
-      purchaseorder: calculateColumnTotals(tableData, "purchaseorder"),
-      pending_purchase: calculateColumnTotals(tableData, "pending_purchase"),
-    };
+    const totals: Record<string, string> = {};
+    visibleColumns.forEach((col) => {
+      totals[col.key] =
+        col.key === "item_category_name"
+          ? "Total"
+          : calculateColumnTotals(tableData, col.key);
+    });
+
+    const headerCells = visibleColumns
+      .map((col) =>
+        col.key === "item_category_name"
+          ? `<th>${col.label}</th>`
+          : `<th style="text-align: right; padding-right: 50px;">${col.label}</th>`,
+      )
+      .join("");
+
+    const bodyRows = tableData
+      .map((customer) => {
+        const cells = visibleColumns
+          .map((col) =>
+            col.key === "item_category_name"
+              ? `<td>${getExportCellValue(col, customer)}</td>`
+              : `<td class="text-right">${getExportCellValue(col, customer)}</td>`,
+          )
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+
+    const totalCells = visibleColumns
+      .map((col) =>
+        col.key === "item_category_name"
+          ? `<td>Total</td>`
+          : `<td class="text-right">${totals[col.key]}</td>`,
+      )
+      .join("");
 
     const printContent = `
       <html>
@@ -760,39 +922,13 @@ const CategoryPendingReport = ({
           <table>
             <thead>
               <tr>
-                <th>Category Name</th>
-                <th style="text-align: right; padding-right: 50px;">Order</th>
-                <th style="text-align: right; padding-right: 50px;">Invoice</th>
-                <th style="text-align: right; padding-right: 50px;">Pending Sales</th>
-                <th style="text-align: right; padding-right: 50px;">Purchase Invoice</th>
-                <th style="text-align: right; padding-right: 50px;">Purchase Order</th>
-                <th style="text-align: right; padding-right: 50px;">Pending Purchase</th>
+                ${headerCells}
               </tr>
             </thead>
             <tbody>
-              ${tableData
-                .map(
-                  (customer) => `
-                <tr>
-                  <td>${customer.item_category_name || "-"}</td>
-                  <td class="text-right">${customer.salesorder ?? "-"}</td>
-                  <td class="text-right">${customer.salesinvoice ?? "-"}</td>
-                  <td class="text-right">${customer.pending_sales ?? "-"}</td>
-                  <td class="text-right">${customer.purchaseinvoice ?? "-"}</td>
-                  <td class="text-right">${customer.purchaseorder ?? "-"}</td>
-                  <td class="text-right">${customer.pending_purchase ?? "-"}</td>
-                </tr>
-              `,
-                )
-                .join("")}
+              ${bodyRows}
               <tr class="total-row">
-                <td>Total</td>
-                <td class="text-right">${totals.salesorder}</td>
-                <td class="text-right">${totals.salesinvoice}</td>
-                <td class="text-right">${totals.pending_sales}</td>
-                <td class="text-right">${totals.purchaseinvoice}</td>
-                <td class="text-right">${totals.purchaseorder}</td>
-                <td class="text-right">${totals.pending_purchase}</td>
+                ${totalCells}
               </tr>
             </tbody>
           </table>
@@ -1014,6 +1150,14 @@ const CategoryPendingReport = ({
                 </li>
               </ul>
             </div>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1087,241 +1231,33 @@ const CategoryPendingReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="item_category_name"
-            header={
-              <span>
-                Category <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterField="item_category_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-            body={(rowData: ICategorySalesData) =>
-              rowData.item_category_name || "-"
-            }
-            footer="Total"
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              paddingLeft: "10px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="salesorder"
-            header={`${orderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesorder"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#d7e8f8ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) => rowData.salesorder ?? "-"}
-            footer={() => calculateColumnTotals(customers, "salesorder")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="salesinvoice"
-            header={`${invoiceTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesinvoice"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#d7e8f8ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) => rowData.salesinvoice ?? "-"}
-            footer={() => calculateColumnTotals(customers, "salesinvoice")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-              // paddingBlock: "10px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="pending_sales"
-            header={
-              <span>
-                Pending <br /> Sales
-              </span>
-            }
-            sortable
-            filter
-            filterField="pending_sales"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#d7e8f8ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) => rowData.pending_sales ?? "-"}
-            footer={() => calculateColumnTotals(customers, "pending_sales")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-              // paddingBlock: "10px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="purchaseorder"
-            header={`${purchaseOrderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseorder"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) => rowData.purchaseorder ?? "-"}
-            footer={() => calculateColumnTotals(customers, "purchaseorder")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="purchaseinvoice"
-            header={`${purchaseTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseinvoice"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) =>
-              rowData.purchaseinvoice ?? "-"
-            }
-            footer={() => calculateColumnTotals(customers, "purchaseinvoice")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="pending_purchase"
-            header={
-              <span>
-                Pending <br /> Purchase
-              </span>
-            }
-            sortable
-            filter
-            filterField="pending_purchase"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ICategorySalesData) =>
-              rowData.pending_purchase ?? "-"
-            }
-            footer={() => calculateColumnTotals(customers, "pending_purchase")}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              style={col.bg ? { background: col.bg } : undefined}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                whiteSpace: "pre-wrap",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: col.bg || "#f8f9fa",
+              }}
+              bodyStyle={{
+                textAlign: col.key === "item_category_name" ? undefined : "right",
+              }}
+              body={col.body}
+              footer={col.footer}
+              footerStyle={col.footerStyle}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

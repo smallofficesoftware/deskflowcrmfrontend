@@ -15,13 +15,15 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -115,7 +117,8 @@ const EmployeeTransactionReports = ({
   });
 
   const [hasData, setHasData] = useState<boolean>(false);
-  const { filters, setFilters, setFilter } = useCommonFilterStore();
+  const { getFilter, setFilters, setFilter } = useCommonFilterStore();
+  const filters = getFilter("employee_account_transaction_report");
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -151,7 +154,7 @@ const EmployeeTransactionReports = ({
       ],
     };
 
-    setFilters(updatedFilters);
+    setFilters("employee_account_transaction_report", updatedFilters);
 
     setHasData(Object.keys(updatedFilters || {}).length > 0);
 
@@ -172,8 +175,7 @@ const EmployeeTransactionReports = ({
     if (!filters.startSearchDate || !filters.endSearchDate) {
       const [startDate, endDate] = getCurrentMonthDateRange();
 
-      setFilters({
-        ...filters,
+      setFilters("employee_account_transaction_report", {
         startSearchDate: startDate,
         endSearchDate: endDate,
       });
@@ -466,33 +468,190 @@ const EmployeeTransactionReports = ({
     }
   };
 
+  type EmployeeAccountColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    bodyStyle?: React.CSSProperties;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    filterPlaceholder?: string;
+    body?: (rowData: IEmployeeAccountTransaction) => React.ReactNode;
+  };
+
+  const baseColumnDefs: EmployeeAccountColumnDef[] = useMemo(
+    () => [
+      {
+        key: "acc_series",
+        label: "ID",
+        header: "ID",
+        width: "50px",
+      },
+      {
+        key: "contact_masters_id",
+        label: "Employee Details",
+        header: (
+          <span>
+            Employee <br /> Details
+          </span>
+        ),
+        width: "250px",
+        body: (rowData) => {
+          const emp = rowData.username || "";
+          const mobile = rowData.recovery_mobile || "";
+          const parts = [];
+          if (emp) parts.push(emp);
+          if (mobile) parts.push(mobile);
+          return parts.length > 0 ? parts.join(" - ") : "-";
+        },
+      },
+      {
+        key: "typeItem",
+        label: "Payment Type",
+        header: (
+          <span>
+            Payment <br /> Type
+          </span>
+        ),
+        width: "200px",
+        filterCol: true,
+        filterPlaceholder: "Search type",
+        body: (rowData) => {
+          const type = rowData.typeItem || "";
+          let color = "black";
+          if (type.toLowerCase() === "credit") color = "green";
+          else if (type.toLowerCase() === "debit") color = "red";
+          return <span style={{ color, fontWeight: "bold" }}>{type}</span>;
+        },
+      },
+      {
+        key: "modeItem",
+        label: "Payment Mode",
+        header: (
+          <span>
+            Payment <br /> Mode
+          </span>
+        ),
+        width: "200px",
+        filterCol: true,
+        filterPlaceholder: "Search mode",
+      },
+      {
+        key: "amount",
+        label: currencyName ? `Amount (${currencyName})` : "Amount",
+        header: "Amount",
+        width: "150px",
+        bodyStyle: { textAlign: "right" },
+        body: (rowData) =>
+          rowData.amountwithcurrency ||
+          `₹${rowData.amount?.toLocaleString() || "0.00"}`,
+      },
+      {
+        key: "payment_date_time",
+        label: "Payment Date & Time",
+        header: (
+          <span>
+            Payment <br />
+            Date & Time
+          </span>
+        ),
+        width: "200px",
+        body: (rowData) => rowData.payment_date_time || "-",
+      },
+      {
+        key: "approved_name",
+        label: "Approved By",
+        header: (
+          <span>
+            Approved <br /> By
+          </span>
+        ),
+        width: "200px",
+        filterCol: true,
+        filterPlaceholder: "Search approver",
+        body: (rowData) => rowData.approved_name || "-",
+      },
+      {
+        key: "created_name",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        width: "200px",
+        filterCol: true,
+        filterPlaceholder: "Search approver",
+        body: (rowData) => rowData.created_name || "-",
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        width: "200px",
+        sortableCol: false,
+        filterCol: true,
+        filterPlaceholder: "Search remark",
+        body: (rowData) => (
+          <div dangerouslySetInnerHTML={{ __html: rowData.remark || "-" }} />
+        ),
+      },
+    ],
+    [currencyName],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences(
+    "employee_account_transaction_report",
+    baseColumnDefs,
+  );
+
+  const getExportCellValue = (
+    col: EmployeeAccountColumnDef,
+    txn: IEmployeeAccountTransaction,
+  ): string => {
+    switch (col.key) {
+      case "acc_series":
+        return String(txn.acc_series ?? "-");
+      case "contact_masters_id":
+        return (
+          [txn.username, txn.recovery_mobile].filter(Boolean).join(" - ") ||
+          "-"
+        );
+      case "typeItem":
+        return txn.typeItem ?? "-";
+      case "modeItem":
+        return txn.modeItem ?? "-";
+      case "amount":
+        return String(txn.amountwithoutcurrency || txn.amount || "-");
+      case "payment_date_time":
+        return formatDateTime(txn.payment_date_time);
+      case "approved_name":
+        return txn.approved_name ?? "-";
+      case "created_name":
+        return txn.created_name ?? "-";
+      case "remark":
+        return (
+          txn.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ??
+          "-"
+        );
+      default:
+        return "-";
+    }
+  };
+
   const exportPdf = () => {
     const dataToExport =
       selectedTransactions.length > 0 ? selectedTransactions : getExportData();
 
-    const tableData = dataToExport.map((txn) => ({
-      ID: txn.acc_series || "-",
-      "Employee Name": `(${txn.username})` || "-",
-      "Contact Phone": txn.recovery_mobile || "-",
-      "Payment Type": txn.typeItem,
-      "Payment Mode": txn.modeItem,
-      [`Amount (${currencyName})`]:
-        txn.amountwithoutcurrency || `${txn.amount}`,
-      "Payment Date & Time": `${formatDateTime(txn.payment_date_time)}`,
-      // "Approver ID": txn.approve_by_a_application_login_id,
-      "Approved By": txn.approved_name || "-",
-      "Created By": txn.created_name || "-",
-      Remark:
-        txn.remark.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") || "-",
-      // "Approve Date": txn.approve_date_time
-      //   ? new Date(txn.approve_date_time).toLocaleDateString()
-      //   : "-",
-      // "Ref ID": txn.reference_id,
-      // "Ref Table": txn.reference_table || "-",
-      // "Created At": new Date(txn.created_date_time).toLocaleDateString(),
-      // "Timestamp": new Date(txn.s_timestemp).toLocaleDateString(),
-      // "Is Active": txn.isActive === 1 ? "Yes" : "No",
-    }));
+    const tableData = dataToExport.map((txn) =>
+      visibleColumns.map((col) => getExportCellValue(col, txn)),
+    );
 
     if (tableData.length === 0) {
       const doc = new jsPDF();
@@ -503,8 +662,8 @@ const EmployeeTransactionReports = ({
 
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
     autoTable(doc, {
-      head: [Object.keys(tableData[0])],
-      body: tableData.map((row) => Object.values(row)),
+      head: [visibleColumns.map((col) => col.label)],
+      body: tableData,
       theme: "grid",
       styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -565,21 +724,13 @@ const EmployeeTransactionReports = ({
 
       const exportData = (
         selectedTransactions.length > 0 ? selectedTransactions : allTransactions
-      ).map((txn) => ({
-        ID: txn.acc_series ?? "-",
-        "Contact Name": txn.username ?? "",
-        "Contact Phone": txn.recovery_mobile ?? "-",
-        "Payment Type": txn.typeItem ?? "-",
-        "Payment Mode": txn.modeItem ?? "-",
-        [`Amount (${currencyName})`]:
-          txn.amountwithoutcurrency || txn.amount || "-",
-        "Payment Date & Time": `${formatDateTime(txn.payment_date_time)}`,
-        "Approved By": txn.approved_name ?? "-",
-        "Created By": txn.created_name ?? "-",
-        Remark:
-          txn.remark.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ??
-          "-",
-      }));
+      ).map((txn) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, txn);
+        });
+        return row;
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
@@ -623,15 +774,7 @@ const EmployeeTransactionReports = ({
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Contact Details</th>
-                <th>Payment Type</th>
-                <th>Payment Mode</th>
-                <th>Amount (${currencyName})</th>
-                <th>Payment Date & Time</th>
-                <th>Approved By</th>
-                <th>Created By</th>
-                <th>Remark</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -639,17 +782,9 @@ const EmployeeTransactionReports = ({
                 .map(
                   (txn) => `
                 <tr>
-                  <td>${txn.acc_series || "-"}</td>
-      <td>${
-        [txn.username, txn.recovery_mobile].filter(Boolean).join(" - ") || "-"
-      }</td>
-                  <td>${txn.typeItem}</td>
-                  <td>${txn.modeItem}</td>
-                  <td>${txn.amountwithoutcurrency || `${txn.amount}`}</td>
-                  <td>${formatDateTime(txn.payment_date_time)}</td>
-                  <td>${txn.approved_name || "-"}</td>
-                  <td>${txn.created_name || "-"}</td>
-                  <td>${txn.remark || "-"}</td>
+                  ${visibleColumns
+                    .map((col) => `<td>${getExportCellValue(col, txn)}</td>`)
+                    .join("")}
                 </tr>
               `,
                 )
@@ -876,6 +1011,14 @@ const EmployeeTransactionReports = ({
                 Print
               </li>
             </ul>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         )}
       </div>
@@ -1023,147 +1166,19 @@ const EmployeeTransactionReports = ({
               )}
             />
           )}
-          <Column
-            field="acc_series"
-            header="ID"
-            sortable
-            style={{ width: "50px" }}
-          />
-
-          <Column
-            field="contact_masters_id"
-            header={
-              <span>
-                Employee <br /> Details
-              </span>
-            }
-            sortable
-            style={{ width: "250px" }}
-            body={(rowData: IEmployeeAccountTransaction) => {
-              const emp = rowData.username || "";
-              const mobile = rowData.recovery_mobile || "";
-
-              let parts = [];
-
-              if (emp) {
-                parts.push(emp);
-              }
-
-              if (mobile) {
-                parts.push(mobile);
-              }
-
-              return parts.length > 0 ? parts.join(" - ") : "-";
-            }}
-          />
-
-          <Column
-            field="typeItem"
-            header={
-              <span>
-                Payment <br /> Type
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search type"
-            style={{ width: "200px" }}
-            body={(rowData: IEmployeeAccountTransaction) => {
-              const type = rowData.typeItem || "";
-              let color = "black"; // default
-
-              if (type.toLowerCase() === "credit") {
-                color = "green";
-              } else if (type.toLowerCase() === "debit") {
-                color = "red";
-              }
-
-              return <span style={{ color, fontWeight: "bold" }}>{type}</span>;
-            }}
-          />
-
-          <Column
-            field="modeItem"
-            header={
-              <span>
-                Payment <br /> Mode
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search mode"
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="amount"
-            header="Amount"
-            sortable
-            body={(rowData: IEmployeeAccountTransaction) =>
-              rowData.amountwithcurrency ||
-              `₹${rowData.amount?.toLocaleString() || "0.00"}`
-            }
-            style={{ textAlign: "right", width: "150px" }}
-          />
-
-          <Column
-            field="payment_date_time"
-            header={
-              <span>
-                Payment <br />
-                Date & Time
-              </span>
-            }
-            sortable
-            body={(rowData: IEmployeeAccountTransaction) =>
-              rowData.payment_date_time || "-"
-            }
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="approved_name"
-            header={
-              <span>
-                Approved <br /> By
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search approver"
-            body={(rowData: IEmployeeAccountTransaction) =>
-              rowData.approved_name || "-"
-            }
-            style={{ width: "200px" }}
-          />
-          <Column
-            field="created_name"
-            header={
-              <span>
-                Created <br /> By
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search approver"
-            body={(rowData: IEmployeeAccountTransaction) =>
-              rowData.created_name || "-"
-            }
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="remark"
-            header="Remark"
-            filter
-            filterPlaceholder="Search remark"
-            style={{ minWidth: "200px" }}
-            body={(rowData: IEmployeeAccountTransaction) => (
-              <div
-                dangerouslySetInnerHTML={{ __html: rowData.remark || "-" }}
-              />
-            )}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable={col.sortableCol !== false}
+              filter={col.filterCol === true}
+              filterField={col.key}
+              filterPlaceholder={col.filterPlaceholder || "Search"}
+              style={{ width: col.width, ...col.bodyStyle }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
         <div className="mb-3 p-3 bg-light rounded"></div>
       </div>

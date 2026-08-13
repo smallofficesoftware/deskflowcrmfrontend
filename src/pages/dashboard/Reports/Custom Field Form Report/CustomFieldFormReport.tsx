@@ -8,14 +8,16 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { IOption } from "../../../../helpers/AppInterface";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import CreateCustomFieldView from "../../../left-side/header/Setting/custom-inquiry-from/CreateCustomFieldView";
 import CustomFormFiledEditor from "../../../left-side/header/Setting/custom-inquiry-from/CustomFormFiledEditor";
@@ -349,6 +351,137 @@ const CustomFieldFormReport = ({ onHide }: IVisitTypeReport) => {
         }
     };
 
+    type CustomFieldColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: ICustomInquiryFromList) => React.ReactNode;
+    };
+
+    const baseColumnDefs: CustomFieldColumnDef[] = useMemo(() => {
+        return [
+            {
+                key: "form_type",
+                label: "Form Type",
+                header: (
+                    <span>
+                        Form Type
+                    </span>
+                ),
+                width: "100px",
+                body: (rowData: ICustomInquiryFromList) => (
+                    <span>
+                        {
+                            pageTypeDisplayOptions.find(
+                                (option) =>
+                                    Number(option.value) === Number(rowData.form_type)
+                            )?.label || ""
+                        }
+                    </span>
+                ),
+            },
+            {
+                key: "display_order",
+                label: "Sr.no",
+                header: (
+                    <span>
+                        Sr.no
+                    </span>
+                ),
+                width: "200px",
+                body: (rowData: ICustomInquiryFromList) => rowData.display_order,
+            },
+            {
+                key: "order_type_display",
+                label: "Data Type",
+                header: (
+                    <span>
+                        Data Type
+                    </span>
+                ),
+                width: "200px",
+                body: (rowData: ICustomInquiryFromList) => {
+
+                    const selectedType = orderTypesCustomInquiryList.find(
+                        (option) => String(option.id) === String(rowData.data_type)
+                    );
+
+                    return (
+                        <div>
+                            <span>
+                                {selectedType?.order_type_display || "N/A"}
+                            </span>
+
+                            <br />
+
+                            {rowData.required_or_not === 1 && (
+                                <span className="text-danger me-1">
+                                    *Req
+                                </span>
+                            )}
+
+                            {rowData.print_or_not === 1 && (
+                                <span className="text-danger me-1">
+                                    *Print
+                                </span>
+                            )}
+
+                            {rowData.report_print_or_not === 1 && (
+                                <span className="text-danger me-1">
+                                    *Report
+                                </span>
+                            )}
+
+                            {rowData.product_feild_row_column == 2 && (
+                                <span className="text-danger me-1">
+                                    *In Column
+                                </span>
+                            )}
+
+                            {rowData.required_for == 1 && (
+                                <span className="text-danger me-1">
+                                    *Create
+                                </span>
+                            )}
+
+                            {rowData.required_for == 2 && (
+                                <span className="text-danger me-1">
+                                    *Stop
+                                </span>
+                            )}
+
+                            {rowData.required_for == 3 && (
+                                <span className="text-danger me-1">
+                                    *Both
+                                </span>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                key: "title",
+                label: "Title",
+                header: (
+                    <span>
+                        Title
+                    </span>
+                ),
+                width: "100px",
+                body: (rowData: ICustomInquiryFromList) => rowData.title,
+            },
+        ];
+    }, [pageTypeDisplayOptions]);
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("custom_field_form_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -379,6 +512,13 @@ const CustomFieldFormReport = ({ onHide }: IVisitTypeReport) => {
                                 fontSize: "14px",
                             },
                         }}
+                    />
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
                     />
                 </div>
             </div>
@@ -416,150 +556,28 @@ const CustomFieldFormReport = ({ onHide }: IVisitTypeReport) => {
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="form_type"
-                        header={
-                            <span>
-                                Form Type
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "100px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICustomInquiryFromList) => (
-                            <span>
-                                {
-                                    pageTypeDisplayOptions.find(
-                                        (option) =>
-                                            Number(option.value) === Number(rowData.form_type)
-                                    )?.label || ""
-                                }
-                            </span>
-                        )}
-                    />
-
-                    <Column
-                        field="display_order"
-                        header={
-                            <span>
-                                Sr.no
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICustomInquiryFromList) => rowData.display_order}
-                    />
-
-                    <Column
-                        field="order_type_display"
-                        header={
-                            <span>
-                                Data Type
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICustomInquiryFromList) => {
-
-                            const selectedType = orderTypesCustomInquiryList.find(
-                                (option) => String(option.id) === String(rowData.data_type)
-                            );
-
-                            return (
-                                <div>
-                                    <span>
-                                        {selectedType?.order_type_display || "N/A"}
-                                    </span>
-
-                                    <br />
-
-                                    {rowData.required_or_not === 1 && (
-                                        <span className="text-danger me-1">
-                                            *Req
-                                        </span>
-                                    )}
-
-                                    {rowData.print_or_not === 1 && (
-                                        <span className="text-danger me-1">
-                                            *Print
-                                        </span>
-                                    )}
-
-                                    {rowData.report_print_or_not === 1 && (
-                                        <span className="text-danger me-1">
-                                            *Report
-                                        </span>
-                                    )}
-
-                                    {rowData.product_feild_row_column == 2 && (
-                                        <span className="text-danger me-1">
-                                            *In Column
-                                        </span>
-                                    )}
-
-                                    {rowData.required_for == 1 && (
-                                        <span className="text-danger me-1">
-                                            *Create
-                                        </span>
-                                    )}
-
-                                    {rowData.required_for == 2 && (
-                                        <span className="text-danger me-1">
-                                            *Stop
-                                        </span>
-                                    )}
-
-                                    {rowData.required_for == 3 && (
-                                        <span className="text-danger me-1">
-                                            *Both
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        }}
-                    />
-                    <Column
-                        field="title"
-                        header={
-                            <span>
-                                Title
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "100px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICustomInquiryFromList) => rowData.title}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isDeleteConfirmation && (

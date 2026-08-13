@@ -19,9 +19,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -653,55 +658,249 @@ const AllInqueryReport = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Inquiry Id", dataKey: "inquiry_id" },
-    { title: "Customer Name", dataKey: "customerName" },
-    { title: "Customer Mobile Number", dataKey: "customerNumber" },
-    { title: "Category Name", dataKey: "category_name" },
-    { title: "Product Name", dataKey: "product_id" },
-    { title: "Source Type", dataKey: "source_type_id" },
-    { title: "Stages And Status", dataKey: "status_name" },
-    { title: "Labels", dataKey: "label_names_text" },
-    { title: "Qty.", dataKey: "qty" },
-    { title: "Description", dataKey: "description" },
-    { title: "Created By", dataKey: "created_by_name" },
-    { title: "Assign To", dataKey: "assined_team_person" },
-    ...uniqueCustomFields.map((field: any) => ({
-      title: field.fieldLabel,
-      dataKey: field.fieldName,
-    })),
-  ];
+  type InquiryColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IInquiryReport) => React.ReactNode;
+  };
+
+  const baseColumnDefs: InquiryColumnDef[] = useMemo(() => {
+    const defs: InquiryColumnDef[] = [
+      {
+        key: "inquiry_id",
+        label: "Inquiry Id",
+        header: (
+          <span>
+            Inquiry <br /> Id
+          </span>
+        ),
+        width: "100px",
+        filterMatchMode: "custom",
+        body: (rowData) => rowData.inquiry_id || "-",
+      },
+      {
+        key: "customerName",
+        label: "Customer Name",
+        header: (
+          <span>
+            Customer <br /> Name
+          </span>
+        ),
+        width: "150px",
+        filterMatchMode: "custom",
+        body: (rowData) => rowData.person_name || "-",
+      },
+      {
+        key: "customerNumber",
+        label: "Customer Mobile Number",
+        header: (
+          <span>
+            Customer <br />
+            Mobile Number
+          </span>
+        ),
+        width: "150px",
+        filterMatchMode: "custom",
+        body: (rowData) => rowData.mobile_number || "-",
+      },
+      {
+        key: "category_name",
+        label: "Category Name",
+        header: (
+          <span>
+            Category <br /> Name
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => rowData.category_name || "-",
+      },
+      {
+        key: "product_id",
+        label: "Product Name",
+        header: (
+          <span>
+            Product <br /> Name
+          </span>
+        ),
+        width: "190px",
+        body: (rowData) => rowData.product_id || "-",
+      },
+      {
+        key: "source_type_id",
+        label: "Source Type",
+        header: (
+          <span>
+            Source <br /> Type
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.source_colour
+                ? rowData.source_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.source_type_id}
+          </span>
+        ),
+      },
+      // NOTE: original code reused field="source_type_id" for this column too
+      // (rendered status_name/status_colour). Given a unique key with the same
+      // field prop, it silently dropped this column from the table entirely, so
+      // it is keyed as "status_name" here (matches the data it actually renders)
+      // to keep it visible and toggleable.
+      {
+        key: "status_name",
+        label: "Stages And Status",
+        header: (
+          <span>
+            Stages And <br /> Status
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour
+                ? rowData.status_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.status_name}
+          </span>
+        ),
+      },
+      {
+        key: "lable",
+        label: "Labels",
+        header: "Labels",
+        width: "150px",
+        body: (rowData) => {
+          const labels = rowData.label_name || [];
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                alignItems: "center",
+              }}
+            >
+              {labels.map((label, index) => (
+                <span
+                  key={index}
+                  style={{
+                    backgroundColor: label.color || "#eeeeee",
+                    color: "#fff",
+                    padding: "4px 8px",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    fontWeight: "500",
+                    whiteSpace: "nowrap",
+                  }}
+                  className="badge rounded-pill"
+                >
+                  {label.name || "Unknown"}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        key: "qty",
+        label: "Qty.",
+        header: "Qty.",
+        width: "100px",
+        body: (rowData) => rowData.qty ?? "-",
+      },
+      {
+        key: "description",
+        label: "Description",
+        header: "Description",
+        width: "150px",
+        body: (rowData) => rowData.description || "-",
+      },
+      {
+        key: "assined_team_person",
+        label: "Assign To",
+        header: "Assign To",
+        width: "150px",
+        body: (rowData) => rowData.assined_team_person || "-",
+      },
+      {
+        key: "created_by_name",
+        label: "Created By",
+        header: "Created By",
+        width: "150px",
+        body: (rowData) => rowData.created_by_name || "-",
+      },
+    ];
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel,
+        width: "150px",
+        filterMatchMode:
+          field.dataType === 1 || field.dataType === 7 ? "equals" : "contains",
+        body: (rowData: any) =>
+          rowData[field.fieldName]
+            ?.replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<[^>]+>/g, "") || "-",
+      });
+    });
+
+    return defs;
+  }, [uniqueCustomFields]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_inquiry_report", baseColumnDefs);
+
+  const getLabelsText = (labels: Array<{ name: string; color: string }>) => {
+    return labels && labels.length > 0
+      ? labels.map((label) => label.name).join(", ")
+      : "-";
+  };
+
+  const getExportCellValue = (
+    col: InquiryColumnDef,
+    customer: IInquiryReport,
+  ): string => {
+    switch (col.key) {
+      case "customerName":
+        return customer.person_name || "-";
+      case "customerNumber":
+        return customer.mobile_number || "-";
+      case "lable":
+        return getLabelsText(customer.label_name);
+      default:
+        return (customer as any)[col.key] ?? "-";
+    }
+  };
+
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
     const filteredData = getFilteredData();
     const tableData = (
       selectedCustomers.length > 0 ? selectedCustomers : filteredData
     ).map((customer) => {
-      // Helper function to get labels as comma-separated text
-      const getLabelsText = (
-        labels: Array<{ name: string; color: string }>,
-      ) => {
-        return labels && labels.length > 0
-          ? labels.map((label) => label.name).join(", ")
-          : "-";
-      };
-
-      const rowData: any = {
-        inquiry_id: customer.inquiry_id || "-",
-        customerName: `${customer.person_name || "-"}`,
-        customerNumber: `${customer.mobile_number || "-"}`,
-        category_name: customer.category_name || "-",
-        product_id: customer.product_id || "-",
-        source_type_id: customer.source_type_id || "-",
-        status_name: customer.status_name || "-", // Just the text
-        label_names_text: getLabelsText(customer.label_name), // Comma-separated labels
-        qty: customer.qty || "-",
-        description: customer.description || "-",
-        created_by_name: customer.created_by_name || "-",
-        assined_team_person: customer.assined_team_person || "-",
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = customer[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, customer);
       });
       return rowData;
     });
@@ -711,6 +910,11 @@ const AllInqueryReport = ({
       doc.save(`all_inquiry_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -815,48 +1019,17 @@ const AllInqueryReport = ({
       const exportData = (
         selectedCustomers.length > 0 ? selectedCustomers : allInquiries
       ).map((customer) => {
-        const getLabelsText = (
-          labels: Array<{ name: string; color: string }>,
-        ) =>
-          labels && labels.length > 0
-            ? labels.map((l) => l.name).join(", ")
-            : "-";
-
-        const rowData: any = {
-          "Inquiry ID": customer.inquiry_id || "-",
-          "Customer Name": `${customer.person_name || "-"}`,
-          "Customer Mobile Number": `${customer.mobile_number || "-"}`,
-          "Category Name": customer.category_name || "-",
-          "Product Name": customer.product_id || "-",
-          "Source Type": customer.source_type_id || "-",
-          "Stages And Status": customer.status_name || "-",
-          Labels: getLabelsText(customer.label_name),
-          Qty: customer.qty || "-",
-          Description: customer.description || "-",
-          "Created By": customer.created_by_name || "-",
-          "Assign To": customer.assined_team_person || "-",
-        };
-
-        uniqueCustomFields.forEach((field: any) => {
-          rowData[field.fieldLabel] = customer[field.fieldName] ?? "-";
+        const rowData: any = {};
+        visibleColumns.forEach((col) => {
+          rowData[col.label] = getExportCellValue(col, customer);
         });
-
         return rowData;
       });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = [
-        { wch: 20 },
-        { wch: 30 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 25 },
-        { wch: 15 },
-        { wch: 30 },
-        ...uniqueCustomFields.map(() => ({ wch: 20 })),
-      ];
+      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
+        wch: 25,
+      }));
 
       const workbook = {
         Sheets: { Inquiries: worksheet },
@@ -892,11 +1065,6 @@ const AllInqueryReport = ({
     const tableData =
       selectedCustomers.length > 0 ? selectedCustomers : filteredData;
 
-    const getLabelsText = (labels: Array<{ name: string; color: string }>) => {
-      return labels && labels.length > 0
-        ? labels.map((label) => label.name).join(", ")
-        : "-";
-    };
     const printContent = `
     <html>
       <head>
@@ -913,7 +1081,7 @@ const AllInqueryReport = ({
         <table>
           <thead>
             <tr>
-              ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+              ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -921,22 +1089,10 @@ const AllInqueryReport = ({
               .map(
                 (customer) => `
                   <tr>
-                    <td>${customer.inquiry_id || "-"}</td>
-                    <td>${customer.person_name || "-"}</td>
-                    <td> ${customer.mobile_number || "-"}</td>
-                    <td>${customer.category_name || "-"}</td>
-                    <td>${customer.product_id || "-"}</td>
-                    <td>${customer.source_type_id || "-"}</td>
-                    <td>${customer.status_name || "-"}</td>
-                    <td>${getLabelsText(customer.label_name)}</td>
-                    <td>${customer.qty || "-"}</td>
-                    <td>${customer.description || "-"}</td>
-                    <td>${customer.created_by_name || "-"}</td>
-                    <td>${customer.assined_team_person || "-"}</td>
-                    ${uniqueCustomFields
+                    ${visibleColumns
                       .map(
-                        (field: any) =>
-                          `<td>${customer[field.fieldName] || "-"}</td>`,
+                        (col) =>
+                          `<td>${getExportCellValue(col, customer)}</td>`,
                       )
                       .join("")}
                   </tr>
@@ -1159,6 +1315,14 @@ const AllInqueryReport = ({
               </li>
             </ul>
           </div>
+
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1219,336 +1383,26 @@ const AllInqueryReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="inquiry_id"
-            header={
-              <span>
-                Inquiry <br /> Id
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerStyle={{
-              width: "100px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.inquiry_id || "-"}
-          />
-          <Column
-            field="customerName"
-            header={
-              <span>
-                Customer <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.person_name || "-"}
-          />
-          <Column
-            field="customerNumber"
-            header={
-              <span>
-                Customer <br />
-                Mobile Number
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.mobile_number || "-"}
-          />
-          <Column
-            field="category_name"
-            header={
-              <span>
-                Category <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.category_name || "-"}
-          />
-          <Column
-            field="product_id"
-            header={
-              <span>
-                Product <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "190px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.product_id || "-"}
-          />
-          <Column
-            field="source_type_id"
-            header={
-              <span>
-                Source <br /> Type
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => (
-              <span
-                style={{
-                  backgroundColor: rowData.source_colour
-                    ? rowData.source_colour
-                    : "#eeeeee",
-                }}
-                className="badge rounded-pill"
-              >
-                {rowData.source_type_id}
-              </span>
-            )}
-          />
-          <Column
-            field="source_type_id"
-            header={
-              <span>
-                Stages And <br /> Status
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => (
-              <span
-                style={{
-                  backgroundColor: rowData.status_colour
-                    ? rowData.status_colour
-                    : "#eeeeee",
-                }}
-                className="badge rounded-pill"
-              >
-                {rowData.status_name}
-              </span>
-            )}
-          />
-          <Column
-            field="lable"
-            header="Labels"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => {
-              const labels = rowData.label_name || [];
-
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                    alignItems: "center",
-                  }}
-                >
-                  {labels.map((label, index) => (
-                    <span
-                      key={index}
-                      style={{
-                        backgroundColor: label.color || "#eeeeee",
-                        color: "#fff",
-                        padding: "4px 8px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "500",
-                        whiteSpace: "nowrap",
-                      }}
-                      className="badge rounded-pill"
-                    >
-                      {label.name || "Unknown"}
-                    </span>
-                  ))}
-                </div>
-              );
-            }}
-          />
-          <Column
-            field="qty"
-            header="Qty."
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "100px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.qty ?? "-"}
-          />
-          <Column
-            field="description"
-            header="Description"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.description || "-"}
-          />
-          <Column
-            field="assined_team_person"
-            header="Assign To"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) =>
-              rowData.assined_team_person || "-"
-            }
-          />
-          <Column
-            field="created_by_name"
-            header="Created By"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IInquiryReport) => rowData.created_by_name || "-"}
-          />
-
-          {uniqueCustomFields.map((field: any) => (
+          {visibleColumns.map((col) => (
             <Column
-              key={field.fieldName}
-              field={field.fieldName}
-              header={field.fieldLabel.replace(/ /g, "\n")}
+              key={col.key}
+              field={col.key}
+              header={col.header}
               sortable
               filter
-              filterField={field.fieldName}
+              filterField={col.key}
               filterPlaceholder="Search"
-              filterMatchMode={
-                field.dataType === 1 || field.dataType === 7
-                  ? "equals"
-                  : "contains"
-              }
+              filterMatchMode={col.filterMatchMode || "contains"}
               headerStyle={{
-                width: "150px",
+                width: col.width || "150px",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
                 background: "#f8f9fa",
                 fontSize: "14px",
-                whiteSpace: "pre-wrap",
               }}
               bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IInquiryReport) =>
-                rowData[field.fieldName]
-                  .replace(/<br\s*\/?>/gi, "\n")
-                  .replace(/<[^>]+>/g, "") || "-"
-              }
+              body={col.body}
             />
           ))}
         </DataTable>

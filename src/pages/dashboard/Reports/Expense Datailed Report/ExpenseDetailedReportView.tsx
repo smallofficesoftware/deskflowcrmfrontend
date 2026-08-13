@@ -19,11 +19,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCompanyStore } from "../../../../store/company/useCompanyStore";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
@@ -493,15 +495,176 @@ const ExpenseDetailedReport = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Expense Type", dataKey: "type" },
-    { title: "Amount", dataKey: "amount" },
-    { title: "Pass Amount", dataKey: "pass_amount" },
-    { title: "Remark", dataKey: "remark" },
-    { title: "Date", dataKey: "date" },
-    { title: "Employee Name", dataKey: "employee" },
-    { title: "Status", dataKey: "status" },
-  ];
+  type ExpenseColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    bodyStyle?: React.CSSProperties;
+    body: (rowData: IExpenseDetailedReport) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ExpenseColumnDef[] = useMemo(
+    () => [
+      {
+        key: "employee",
+        label: "Expense By",
+        header: "Expense By",
+        width: "200px",
+        bodyStyle: { width: "250px", textAlign: "left", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) => rowData.created_by_username || "-",
+      },
+      {
+        key: "expense_date",
+        label: "Expense Date",
+        header: "Expense Date",
+        width: "150px",
+        bodyStyle: { width: "250px", textAlign: "center", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) =>
+          rowData.expense_date ? formatDateToDDMMYYYY(rowData.expense_date) : "-",
+      },
+      {
+        key: "expense_name",
+        label: "Expense Type",
+        header: "Expense Type",
+        width: "200px",
+        body: (rowData) => (
+          <span style={{ backgroundColor: rowData.color }} className="badge rounded-pill">
+            {rowData.expense_name || "-"}
+          </span>
+        ),
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        header: "Amount",
+        width: "150px",
+        bodyStyle: { width: "250px", textAlign: "right", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) => rowData.amount || "₹0(₹0)",
+      },
+      {
+        key: "pass_amount",
+        label: "Passed Amount",
+        header: "Passed Amount",
+        width: "150px",
+        bodyStyle: { width: "250px", textAlign: "right", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) => rowData.pass_amount || "₹0(₹0)",
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        width: "250px",
+        bodyStyle: { width: "250px", textAlign: "left", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) => rowData.remark || "-",
+      },
+      {
+        key: "status",
+        label: "Status",
+        header: "Status",
+        width: "150px",
+        bodyStyle: { width: "250px", textAlign: "left", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) => {
+          const color =
+            rowData.expense_status === 1
+              ? "#ccc"
+              : rowData.expense_status === 2
+                ? "#06923E"
+                : rowData.expense_status === 3
+                  ? "#FF0000"
+                  : "#eeeeee";
+
+          const status =
+            rowData.expense_status === 1
+              ? "Pending"
+              : rowData.expense_status === 2
+                ? "Approved"
+                : rowData.expense_status === 3
+                  ? "Rejected"
+                  : "-";
+          return (
+            <span style={{ backgroundColor: color }} className="badge rounded-pill">
+              {status}
+            </span>
+          );
+        },
+      },
+      {
+        key: "created_date_time",
+        label: "Created Date",
+        header: "Created Date",
+        width: "150px",
+        bodyStyle: { width: "250px", textAlign: "center", paddingRight: "20px", fontSize: "14px" },
+        body: (rowData) =>
+          rowData.created_date_time ? formatDateToDDMMYYYY(rowData.created_date_time) : "-",
+      },
+      {
+        key: "image",
+        label: "Image",
+        header: "Image",
+        width: "100px",
+        bodyStyle: { textAlign: "center", width: "100px" },
+        body: (rowData) => {
+          const visit_image = rowData.image;
+          return visit_image !== null ? (
+            <Button
+              icon="pi pi-image"
+              className="p-button-text"
+              style={{ color: "green", fontSize: "18px" }}
+              onClick={() => handleChangeImgViewer({ visit_image: visit_image })}
+            />
+          ) : (
+            "-"
+          );
+        },
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("expense_detailed_report", baseColumnDefs);
+
+  // "image" can't be represented in PDF/Excel/print text export — always excluded.
+  const exportableColumns = visibleColumns.filter((col) => col.key !== "image");
+
+  const getExportCellValue = (col: ExpenseColumnDef, exp: any): string => {
+    switch (col.key) {
+      case "employee":
+        return exp.created_by_username ?? "-";
+      case "expense_date":
+        return exp.expense_date ?? "-";
+      case "expense_name":
+        return exp.expense_name ?? "-";
+      case "amount":
+        return exp.amount ?? "0";
+      case "pass_amount":
+        return exp.pass_amount ?? "0";
+      case "remark":
+        return exp.remark ?? "-";
+      case "status":
+        return exp.expense_status === 1
+          ? "Pending"
+          : exp.expense_status === 2
+            ? "Approved"
+            : exp.expense_status === 3
+              ? "Rejected"
+              : "-";
+      case "created_date_time":
+        return exp.created_date_time ?? "-";
+      default:
+        return "-";
+    }
+  };
+
+  const exportColumns = exportableColumns.map((col) => ({
+    title: col.label,
+    dataKey: col.key,
+  }));
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a2" });
@@ -509,24 +672,10 @@ const ExpenseDetailedReport = ({
     const tableData = (
       (selectedExpenses?.length ?? 0 > 0) ? selectedExpenses : filteredData
     ).map((exp) => {
-      const status =
-        exp.expense_status === 1
-          ? "Pending"
-          : exp.expense_status === 2
-            ? "Approved"
-            : exp.expense_status === 3
-              ? "Rejected"
-              : "-";
-
-      const row: Record<string, any> = { type: exp.expense_name ?? "-" };
-
-      row.amount = exp.amount ?? "0";
-      row.pass_amount = exp.pass_amount ?? "0";
-      row.remark = exp.remark ?? "-";
-      row.date = exp.expense_date ?? "-";
-      row.employee = exp.created_by_username ?? "-";
-      row.status = status;
-
+      const row: Record<string, any> = {};
+      exportableColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, exp);
+      });
       return row;
     });
 
@@ -561,24 +710,10 @@ const ExpenseDetailedReport = ({
     const exportData = (
       (selectedExpenses?.length ?? 0 > 0) ? selectedExpenses : filteredData
     ).map((exp) => {
-      const status =
-        exp.expense_status === 1
-          ? "Pending"
-          : exp.expense_status === 2
-            ? "Approved"
-            : exp.expense_status === 3
-              ? "Rejected"
-              : "-";
-
-      const row: any = {
-        "Expense Type": exp.expense_name || "-",
-        Amount: Number(exp.amount.split(" ")[1] ?? 0),
-        "Pass Amount": Number(exp.pass_amount.split(" ")[1] ?? 0),
-        Remark: exp.remark || "-",
-        Date: exp.expense_date || "-",
-        "Employee Name": exp.created_by_username || "-",
-        Status: status,
-      };
+      const row: any = {};
+      exportableColumns.forEach((col) => {
+        row[col.label] = getExportCellValue(col, exp);
+      });
       return row;
     });
 
@@ -651,23 +786,11 @@ const ExpenseDetailedReport = ({
           <tbody>
             ${tableData
               .map((exp) => {
-                const status =
-                  exp.expense_status === 1
-                    ? "Pending"
-                    : exp.expense_status === 2
-                      ? "Approved"
-                      : exp.expense_status === 3
-                        ? "Rejected"
-                        : "-";
                 return `
                             <tr>
-                            <td>${exp.expense_name || "-"}</td>
-                            <td>${exp.amount || "0"}</td>
-                            <td>${exp.pass_amount || "0"}</td>
-                            <td>${exp.remark || "-"}</td>
-                            <td>${exp.expense_date || "-"}</td>
-                            <td>${exp.created_by_username || "-"}</td>
-                            <td>${status}</td>
+                            ${exportableColumns
+                              .map((col) => `<td>${getExportCellValue(col, exp)}</td>`)
+                              .join("")}
                             </tr>
                         `;
               })
@@ -960,6 +1083,14 @@ const ExpenseDetailedReport = ({
                       Print
                     </li>
                   </ul>
+
+                  <ColumnsButton
+                    columns={orderedColumns}
+                    hiddenKeys={hiddenKeys}
+                    onToggle={toggleColumn}
+                    onReorder={reorderColumns}
+                    onReset={resetColumns}
+                  />
                 </div>
               </div>
               {/* )} */}
@@ -1039,267 +1170,28 @@ const ExpenseDetailedReport = ({
                   }}
                   body={actionBodyTemplate}
                 />
-                <Column
-                  field="employee"
-                  header="Expense By"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "200px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "left",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.created_by_username || "-"
-                  }
-                />
-                <Column
-                  field="expense_date"
-                  header="Expense Date"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "150px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "center",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.expense_date
-                      ? formatDateToDDMMYYYY(rowData.expense_date)
-                      : "-"
-                  }
-                />
-                <Column
-                  field="expense_name"
-                  header="Expense Type"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "200px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{ fontSize: "14px" }}
-                  body={(rowData: IExpenseDetailedReport) => {
-                    return (
-                      <span
-                        style={{ backgroundColor: rowData.color }}
-                        className="badge rounded-pill"
-                      >
-                        {rowData.expense_name || "-"}
-                      </span>
-                    );
-                  }}
-                />
-                <Column
-                  field="amount"
-                  header="Amount"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "150px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "right",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.amount || "₹0(₹0)"
-                  }
-                />
-                <Column
-                  field="pass_amount"
-                  header="Passed Amount"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "150px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "right",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.pass_amount || "₹0(₹0)"
-                  }
-                />
-                <Column
-                  field="remark"
-                  header="Remark"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "250px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "left",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.remark || "-"
-                  }
-                />
-                <Column
-                  field="status"
-                  header="Status"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "150px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "left",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) => {
-                    const color =
-                      rowData.expense_status === 1
-                        ? "#ccc"
-                        : rowData.expense_status === 2
-                          ? "#06923E"
-                          : rowData.expense_status === 3
-                            ? "#FF0000"
-                            : "#eeeeee";
-
-                    const status =
-                      rowData.expense_status === 1
-                        ? "Pending"
-                        : rowData.expense_status === 2
-                          ? "Approved"
-                          : rowData.expense_status === 3
-                            ? "Rejected"
-                            : "-";
-                    return (
-                      <span
-                        style={{ backgroundColor: color }}
-                        className="badge rounded-pill"
-                      >
-                        {status}
-                      </span>
-                    );
-                  }}
-                />
-                <Column
-                  field="created_date_time"
-                  header="Created Date"
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  filterMatchMode="contains"
-                  headerStyle={{
-                    width: "150px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    width: "250px",
-                    textAlign: "center",
-                    paddingRight: "20px",
-                    fontSize: "14px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) =>
-                    rowData.created_date_time
-                      ? formatDateToDDMMYYYY(rowData.created_date_time)
-                      : "-"
-                  }
-                />
-                <Column
-                  field="image"
-                  header="Image"
-                  headerStyle={{
-                    width: "100px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "#f8f9fa",
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{
-                    textAlign: "center",
-                    width: "100px",
-                  }}
-                  body={(rowData: IExpenseDetailedReport) => {
-                    const visit_image = rowData.image;
-                    return visit_image !== null ? (
-                      <Button
-                        icon="pi pi-image"
-                        className="p-button-text"
-                        style={{ color: "green", fontSize: "18px" }}
-                        onClick={() =>
-                          handleChangeImgViewer({ visit_image: visit_image })
-                        }
-                      />
-                    ) : (
-                      "-"
-                    );
-                  }}
-                />
+                {visibleColumns.map((col) => (
+                  <Column
+                    key={col.key}
+                    field={col.key}
+                    header={col.header}
+                    sortable
+                    filter
+                    filterField={col.key}
+                    filterPlaceholder="Search"
+                    filterMatchMode="contains"
+                    headerStyle={{
+                      width: col.width || "150px",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                      background: "#f8f9fa",
+                      fontSize: "14px",
+                    }}
+                    bodyStyle={col.bodyStyle || { fontSize: "14px" }}
+                    body={col.body}
+                  />
+                ))}
               </DataTable>
               <OverlayPanel ref={op} className="action-overlay">
                 <ul className="list-unstyled m-0 p-0" id="dropLeft">

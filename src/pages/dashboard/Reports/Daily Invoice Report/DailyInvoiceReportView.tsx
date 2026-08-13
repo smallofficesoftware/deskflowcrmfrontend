@@ -18,10 +18,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
@@ -581,6 +583,205 @@ const DailyInvoiceReportView = ({
     })),
   ];
 
+  type DailyInvoiceColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    headerClassName?: string;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: DailyInvoiceColumnDef[] = useMemo(() => {
+    return [
+      {
+        key: "contact_details",
+        label: "Contact Details",
+        header: "Contact Details",
+        width: "250px",
+        body: (rowData: any) => {
+          const contact = rowData.contact_details || {};
+
+          return (
+            <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
+              <b>Name:</b> {contact.to_customer_name || "-"} <br />
+              <b>Company:</b> {contact.to_customer_company_name || "-"}{" "}
+              <br />
+              <b>Phone:</b> {contact.to_customer_phone || "-"}
+            </div>
+          );
+        },
+      },
+      {
+        key: "invoice_details",
+        label: "Invoice Details",
+        header: "Invoice Details",
+        width: "300px",
+        body: (rowData: any) => {
+          const cart = rowData.cart_details || {};
+          const custom = rowData.custom_fields || {};
+          const fields = custom.fields || [];
+          const values = custom.values || {};
+
+          return (
+            <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
+              <b>No:</b> {cart.cart_number || "-"}
+              <br />
+              <b>Created By:</b> {cart.username || "-"} <br />
+              <b>Status:</b>{" "}
+              <span
+                style={{
+                  backgroundColor: cart.is_approve?.bg_color,
+                  border: `2px solid ${cart.is_approve?.border_color}`,
+                  color: cart.is_approve?.text_color,
+                  fontSize: "2px",
+                  padding: "1px 1px",
+                  fontWeight: "500",
+                }}
+                className="badge rounded-pill"
+              >
+                {cart.is_approve?.name}
+              </span>{" "}
+              <br />
+              <b>Grand Total:</b> {cart.grand_total || "-"} <br />
+              {parseFloat(cart.adv_payment.replace(/[^\d.-]/g, "")) > 0 && (
+                <>
+                  <b>Advance Amount:</b> {cart.adv_payment} <br />
+                  <b>Payable Amount:</b> {cart.payable_amount || "-"} <br />
+                </>
+              )}
+              <b>Date:</b> {formatDateTime(cart.created_date_time)} <br />
+              <hr style={{ margin: "5px 0" }} />
+              {fields.map((f: any) => (
+                <div key={f.reference_column_name}>
+                  <b>{f.title}:</b> {values[f.reference_column_name] || "-"}
+                </div>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        key: "product_items",
+        label: "Product Details",
+        header: <span>Product Details</span>,
+        width: "250px",
+        headerClassName: "center-header",
+        body: (rowData: any) => {
+          const items = rowData.product_items || [];
+          const shouldScroll = items.length > 5;
+
+          return (
+            <div
+              style={{
+                maxHeight: shouldScroll ? "200px" : "auto",
+                overflowY: shouldScroll ? "auto" : "visible",
+                border: shouldScroll ? "1px solid #ccc" : "none",
+              }}
+            >
+              {items.length > 0 ? (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    verticalAlign: "top",
+                  }}
+                >
+                  <thead
+                    style={{
+                      position: shouldScroll ? "sticky" : "static",
+                      top: 0,
+                      background: "#fff",
+                      zIndex: 1,
+                    }}
+                  >
+                    <tr>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "left",
+                          padding: "4px",
+                        }}
+                      >
+                        Product Name
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Qty
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Rate
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any, index: number) => {
+                      const name = item.item_product_name || "";
+                      const code = item.item_product_code || "";
+
+                      return (
+                        <tr key={index}>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              padding: "4px",
+                            }}
+                          >
+                            {name}
+                            {code ? ` (${code})` : ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_qty}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_rate}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                "-"
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, []);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("daily_invoice_report", baseColumnDefs);
+
   const handelChangeShowModesalesInvoice = (item: IUserList) => {
     setContactInfoOrder(item);
     setIsOrderShowFromContactType(3);
@@ -639,24 +840,43 @@ ${fields
     };
   };
 
+  // Cell width used for the PDF export table, per column key
+  const EXPORT_COLUMN_WIDTH: Record<string, number> = {
+    contact_details: 65,
+    invoice_details: 85,
+    product_items: 115,
+  };
+
+  const getExportCellText = (col: DailyInvoiceColumnDef, row: any): string => {
+    if (col.key === "contact_details") return row.contact_details || "-";
+    if (col.key === "invoice_details") return row.invoice_details || "-";
+    if (col.key === "product_items") return ""; // nested table drawn separately
+    return row[col.key] ?? "-";
+  };
+
   // ==================== EXPORT PDF (with nested table in Product Details) ====================
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
 
     const dataToExport = customers || []; // Safety check
 
+    const productColIndex = visibleColumns.findIndex(
+      (col) => col.key === "product_items",
+    );
+
     // Prepare main table body (without product details)
     const body = dataToExport.map((item: any) => {
       const row = buildRowForExport(item);
-      return [
-        row.contact_details || "-",
-        row.invoice_details || "-",
-        "", // Product column - we will draw nested table here
-      ];
+      return visibleColumns.map((col) => getExportCellText(col, row));
+    });
+
+    const columnStyles: Record<number, { cellWidth: number }> = {};
+    visibleColumns.forEach((col, idx) => {
+      columnStyles[idx] = { cellWidth: EXPORT_COLUMN_WIDTH[col.key] || 80 };
     });
 
     autoTable(doc, {
-      head: [["Contact Details", "Invoice Details", "Product Details"]],
+      head: [visibleColumns.map((col) => col.label)],
       body,
       styles: {
         fontSize: 8,
@@ -664,20 +884,24 @@ ${fields
         valign: "top",
         overflow: "linebreak",
       },
-      columnStyles: {
-        0: { cellWidth: 65 },
-        1: { cellWidth: 85 },
-        2: { cellWidth: 115 }, // Give more space to Product column
-      },
+      columnStyles,
       didParseCell: (data) => {
         // Optional: Increase row height if needed for nested tables
-        if (data.column.index === 2 && data.section === "body") {
+        if (
+          productColIndex !== -1 &&
+          data.column.index === productColIndex &&
+          data.section === "body"
+        ) {
           data.cell.styles.minCellHeight = 25; // Adjust based on your data
         }
       },
       didDrawCell: (data) => {
-        // Only process body cells in the Product Details column (index 2)
-        if (data.section === "body" && data.column.index === 2) {
+        // Only process body cells in the Product Details column
+        if (
+          productColIndex !== -1 &&
+          data.section === "body" &&
+          data.column.index === productColIndex
+        ) {
           const rowIndex = data.row.index;
 
           // Safety checks to prevent undefined error
@@ -1060,6 +1284,14 @@ ${fields
                     </div>
                   </li>
                 </ul>
+
+                <ColumnsButton
+                  columns={orderedColumns}
+                  hiddenKeys={hiddenKeys}
+                  onToggle={toggleColumn}
+                  onReorder={reorderColumns}
+                  onReset={resetColumns}
+                />
               </div>
             </div>
           </div>
@@ -1224,135 +1456,77 @@ ${fields
                 )}
               />
             )}
-            <Column
-              header="Contact Details"
-              headerStyle={{
-                width: "250px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              body={(rowData: any) => {
-                const contact = rowData.contact_details || {};
+            {visibleColumns.map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                headerClassName={col.headerClassName}
+                headerStyle={{
+                  width: col.width || "250px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  fontSize: "14px",
+                }}
+                bodyStyle={{ fontSize: "14px" }}
+                body={col.body}
+              />
+            ))}
+            {false && (
+              <Column
+                field="product_items"
+                header={<span>Product Details</span>}
+                headerClassName="center-header"
+                headerStyle={{
+                  width: "250px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  fontSize: "14px",
+                }}
+                bodyStyle={{ fontSize: "14px" }}
+                body={(rowData: any) => {
+                  const items = rowData.product_items || [];
+                  const shouldScroll = items.length > 5;
 
-                return (
-                  <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
-                    <b>Name:</b> {contact.to_customer_name || "-"} <br />
-                    <b>Company:</b> {contact.to_customer_company_name || "-"}{" "}
-                    <br />
-                    <b>Phone:</b> {contact.to_customer_phone || "-"}
-                  </div>
-                );
-              }}
-            />
-            <Column
-              header="Invoice Details"
-              headerStyle={{
-                width: "300px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              body={(rowData: any) => {
-                const cart = rowData.cart_details || {};
-                const custom = rowData.custom_fields || {};
-                const fields = custom.fields || [];
-                const values = custom.values || {};
-
-                return (
-                  <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
-                    <b>No:</b> {cart.cart_number || "-"}
-                    <br />
-                    <b>Created By:</b> {cart.username || "-"} <br />
-                    <b>Status:</b>{" "}
-                    <span
+                  return (
+                    <div
                       style={{
-                        backgroundColor: cart.is_approve?.bg_color,
-                        border: `2px solid ${cart.is_approve?.border_color}`,
-                        color: cart.is_approve?.text_color,
-                        fontSize: "2px",
-                        padding: "1px 1px",
-                        fontWeight: "500",
+                        maxHeight: shouldScroll ? "200px" : "auto",
+                        overflowY: shouldScroll ? "auto" : "visible",
+                        border: shouldScroll ? "1px solid #ccc" : "none",
                       }}
-                      className="badge rounded-pill"
                     >
-                      {cart.is_approve?.name}
-                    </span>{" "}
-                    <br />
-                    <b>Grand Total:</b> {cart.grand_total || "-"} <br />
-                    {parseFloat(cart.adv_payment.replace(/[^\d.-]/g, "")) >
-                      0 && (
-                      <>
-                        <b>Advance Amount:</b> {cart.adv_payment} <br />
-                        <b>Payable Amount:</b> {cart.payable_amount || "-"}{" "}
-                        <br />
-                      </>
-                    )}
-                    <b>Date:</b> {formatDateTime(cart.created_date_time)} <br />
-                    <hr style={{ margin: "5px 0" }} />
-                    {fields.map((f: any) => (
-                      <div key={f.reference_column_name}>
-                        <b>{f.title}:</b>{" "}
-                        {values[f.reference_column_name] || "-"}
-                      </div>
-                    ))}
-                  </div>
-                );
-              }}
-            />
-            <Column
-              field="product_items"
-              header={<span>Product Details</span>}
-              headerClassName="center-header"
-              headerStyle={{
-                width: "250px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => {
-                const items = rowData.product_items || [];
-                const shouldScroll = items.length > 5;
-
-                return (
-                  <div
-                    style={{
-                      maxHeight: shouldScroll ? "200px" : "auto",
-                      overflowY: shouldScroll ? "auto" : "visible",
-                      border: shouldScroll ? "1px solid #ccc" : "none",
-                    }}
-                  >
-                    {items.length > 0 ? (
-                      <table
-                        style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          verticalAlign: "top",
-                        }}
-                      >
-                        <thead
+                      {items.length > 0 ? (
+                        <table
                           style={{
-                            position: shouldScroll ? "sticky" : "static",
-                            top: 0,
-                            background: "#fff",
-                            zIndex: 1,
+                            width: "100%",
+                            borderCollapse: "collapse",
+                            verticalAlign: "top",
                           }}
                         >
-                          <tr>
-                            <th
-                              style={{
-                                border: "1px solid #ccc",
-                                textAlign: "left",
-                                padding: "4px",
-                              }}
-                            >
-                              Product Name
-                            </th>
-                            <th
-                              style={{
-                                border: "1px solid #ccc",
+                          <thead
+                            style={{
+                              position: shouldScroll ? "sticky" : "static",
+                              top: 0,
+                              background: "#fff",
+                              zIndex: 1,
+                            }}
+                          >
+                            <tr>
+                              <th
+                                style={{
+                                  border: "1px solid #ccc",
+                                  textAlign: "left",
+                                  padding: "4px",
+                                }}
+                              >
+                                Product Name
+                              </th>
+                              <th
+                                style={{
+                                  border: "1px solid #ccc",
                                 textAlign: "right",
                                 padding: "4px",
                               }}
@@ -1416,6 +1590,7 @@ ${fields
                 );
               }}
             />
+            )}
           </DataTable>
         </div>
         {isOrderCreateFromContactShow && (

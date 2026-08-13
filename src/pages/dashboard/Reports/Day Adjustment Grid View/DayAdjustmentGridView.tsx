@@ -4,11 +4,13 @@ import { Column } from "primereact/column";
 import { DataTable, DataTableFilterEvent, DataTableFilterMeta } from "primereact/datatable";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import AddDayAdjustmentView from "../../../left-side/header/Setting/Day Adjustment/AddDayAdjustmentView";
 import { deleteAdjustment, fetchAdjustmentApi, holidayOptions, IAdjustmentView } from "../../../left-side/header/Setting/Day Adjustment/DayAdjustmentController";
 
@@ -199,6 +201,104 @@ const DayAdjustmentGridView = ({
         }
     };
 
+    type AdjustmentGridColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        width?: string;
+        body: (rowData: IAdjustmentView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: AdjustmentGridColumnDef[] = useMemo(
+        () => [
+            {
+                key: "date",
+                label: "Date",
+                header: <span>Date</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span>
+                        {rowData.date
+                            ? new Date(rowData.date).toLocaleDateString("en-GB")
+                            : "-"}
+                    </span>
+                ),
+            },
+            {
+                key: "adjustment_date",
+                label: "Adjustment Date",
+                header: <span>Adjustment Date</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span className="mx-1 text-muted">
+                        {rowData.adjustment_date
+                            ? new Date(rowData.adjustment_date).toLocaleDateString("en-GB")
+                            : "-"}
+                    </span>
+                ),
+            },
+            {
+                key: "type_of_holiday",
+                label: "Holiday Type",
+                header: <span>Holiday Type</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span className="mx-1 text-muted">
+                        {holidayOptions.find((opt) => opt.value === rowData.type_of_holiday)?.label || "-"}
+                    </span>
+                ),
+            },
+            {
+                key: "employee_name",
+                label: "Employee",
+                header: <span>Employee</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <div
+                        className="mx-1 text-muted"
+                        style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            whiteSpace: "normal",
+                        }}
+                    >
+                        {rowData.employee_name || "-"}
+                    </div>
+                ),
+            },
+            {
+                key: "description",
+                label: "Description",
+                header: <span>Description</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <div
+                        className="mx-1 text-muted"
+                        style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            whiteSpace: "normal",
+                        }}
+                    >
+                        {rowData.description || "-"}
+                    </div>
+                ),
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("day_adjustment_grid_view", baseColumnDefs);
+
     const actionBodyTemplate = (rowData: IAdjustmentView) => {
         return (
             <Button
@@ -248,6 +348,13 @@ const DayAdjustmentGridView = ({
                                 },
                             }}
                         />
+                        <ColumnsButton
+                            columns={orderedColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onReorder={reorderColumns}
+                            onReset={resetColumns}
+                        />
                     </div>
                 </div>
 
@@ -293,157 +400,25 @@ const DayAdjustmentGridView = ({
                             }}
                             body={actionBodyTemplate}
                         />
-                        <Column
-                            field="date"
-                            header={
-                                <span>
-                                    Date
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentView) => {
-                                return (
-                                    <span>
-                                        {rowData.date
-                                            ? new Date(rowData.date).toLocaleDateString("en-GB")
-                                            : "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="adjustment_date"
-                            header={
-                                <span>
-                                    Adjustment Date
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentView) => {
-                                return (
-                                    <span
-                                        className="mx-1 text-muted"
-                                    >
-                                        {rowData.adjustment_date
-                                            ? new Date(rowData.adjustment_date).toLocaleDateString("en-GB")
-                                            : "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="type_of_holiday"
-                            header={
-                                <span>
-                                    Holiday Type
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentView) => {
-                                return (
-                                    <span
-                                        className="mx-1 text-muted"
-                                    >
-                                        {holidayOptions.find((opt) => opt.value === rowData.type_of_holiday)?.label || "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="employee_name"
-                            header={
-                                <span>
-                                    Employee
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentView) => {
-                                return (
-                                    <div
-                                        className="mx-1 text-muted"
-                                        style={{
-                                            display: "-webkit-box",
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: "vertical",
-                                            overflow: "hidden",
-                                            whiteSpace: "normal",
-                                        }}
-                                    >
-                                        {rowData.employee_name || "-"}
-                                    </div>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="description"
-                            header={
-                                <span>
-                                    Description
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentView) => {
-                                return (
-                                    <div
-                                        className="mx-1 text-muted"
-                                        style={{
-                                            display: "-webkit-box",
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: "vertical",
-                                            overflow: "hidden",
-                                            whiteSpace: "normal",
-                                        }}
-                                    >
-                                        {rowData.description || "-"}
-                                    </div>
-                                );
-                            }}
-                        />
+                        {visibleColumns.map((col) => (
+                            <Column
+                                key={col.key}
+                                field={col.key}
+                                header={col.header}
+                                sortable
+                                filter
+                                filterField={col.key}
+                                filterPlaceholder="Search"
+                                filterMatchMode="contains"
+                                headerStyle={{
+                                    width: col.width || "250px",
+                                    background: "#f8f9fa",
+                                    fontSize: "14px",
+                                }}
+                                bodyStyle={{ fontSize: "14px" }}
+                                body={col.body}
+                            />
+                        ))}
                     </DataTable>
                     <OverlayPanel ref={op} className="action-overlay">
                         <ul className="list-unstyled m-0 p-0" id="dropLeft">

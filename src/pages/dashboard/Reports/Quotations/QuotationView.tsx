@@ -18,10 +18,15 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
@@ -543,29 +548,376 @@ const TeamQuotationDataReportsView = ({
     )}`;
   };
 
-  const exportColumns = [
-    ...(showProductDetails
-      ? [{ title: "Product Details", dataKey: "product_details" }]
-      : []),
-    { title: "Product Details", dataKey: "product_details" },
-    { title: `${title} Number`, dataKey: "cart_number" },
-    { title: "Customer Name", dataKey: "to_customer_name" },
-    { title: "Customer Phone", dataKey: "to_customer_phone" },
-    { title: "Created By", dataKey: "username" },
-    { title: "Status", dataKey: "cart_status" },
-    // { title: "Type", dataKey: "type" },
-    { title: "Created Date-Time", dataKey: "created_date_time" },
-    { title: "Approve Date-Time", dataKey: "update_Date_time" },
-    { title: `Taxable Amount (${currencyName})`, dataKey: "taxable_amt" },
-    { title: `Tax Amount (${currencyName})`, dataKey: "gst_amt" },
-    { title: `TCS Amount (${currencyName})`, dataKey: "tcs_amt" },
-    { title: `Round Off (${currencyName})`, dataKey: "round_off" },
-    { title: `Grand Total (${currencyName})`, dataKey: "grand_total" },
-    ...uniqueCustomFields.map((f: any) => ({
-      title: f.fieldLabel,
-      dataKey: f.fieldName,
-    })),
-  ];
+  type QuotationColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    headerClassName?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: QuotationColumnDef[] = useMemo(() => {
+    const defs: QuotationColumnDef[] = [];
+
+    if (showProductDetails) {
+      defs.push({
+        key: "items",
+        label: "Product Details",
+        header: <span>Product Details</span>,
+        width: "250px",
+        headerClassName: "center-header",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: any) => {
+          const items = rowData.items || [];
+          const shouldScroll = items.length > 5;
+
+          return (
+            <div
+              style={{
+                maxHeight: shouldScroll ? "200px" : "auto",
+                overflowY: shouldScroll ? "auto" : "visible",
+                border: shouldScroll ? "1px solid #ccc" : "none",
+              }}
+            >
+              {items.length > 0 ? (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead
+                    style={{
+                      position: shouldScroll ? "sticky" : "static",
+                      top: 0,
+                      background: "#fff",
+                      zIndex: 1,
+                    }}
+                  >
+                    <tr>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "left",
+                          padding: "4px",
+                        }}
+                      >
+                        Product Name
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Qty
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Rate
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any, index: number) => {
+                      const name = item.item_product_name || "";
+                      const code = item.item_product_code || "";
+
+                      return (
+                        <tr key={index}>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              padding: "4px",
+                            }}
+                          >
+                            {name}
+                            {code ? ` (${code})` : ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_qty}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_rate}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                "-"
+              )}
+            </div>
+          );
+        },
+      });
+    }
+
+    defs.push(
+      {
+        key: "cart_number",
+        label: `${title} Number`,
+        header: `${title} Number`.replace(/ /g, "\n"),
+        width: "125px",
+        headerClassName: "center-header",
+        body: (row) => (
+          <span
+            style={{ cursor: "pointer" }}
+            onClick={() => !MobileFlag && handelChangeShowModelQuotation(row)}
+          >
+            {row.cart_number || "# XXXXXXX"} <br />
+            <span
+              style={{
+                backgroundColor: row.is_approve?.bg_color,
+                border: `2px solid ${row.is_approve?.border_color}`,
+                color: row.is_approve?.text_color,
+                fontSize: "2px",
+                padding: "1px 1px",
+                fontWeight: "500",
+              }}
+              className="badge rounded-pill"
+            >
+              {row.is_approve?.name}
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: "to_customer_name",
+        label: "Contact Details",
+        header: (
+          <span>
+            Contact <br /> Details
+          </span>
+        ),
+        width: "120px",
+        headerClassName: "center-header",
+        filterMatchMode: "custom",
+        body: (row) => (
+          <div>
+            <div>
+              {row.to_customer_company_name || "-"} (
+              {row.to_customer_name || "-"})
+            </div>
+            <div>{row.to_customer_phone || "-"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "username",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.username || "-",
+      },
+      {
+        key: "cart_status",
+        label: "Status",
+        header: "Status",
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => (
+          <span
+            className="badge rounded-pill"
+            style={{ backgroundColor: row.status_colour || "#eeeeee" }}
+          >
+            {row.cart_status}
+          </span>
+        ),
+      },
+      {
+        key: "created_date_time",
+        label: "Created Date-Time",
+        header: (
+          <span>
+            Created <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        headerClassName: "center-header",
+        body: (row) => formatDateTime(row.created_date_time),
+      },
+      {
+        key: "update_Date_time",
+        label: "Approve Date-Time",
+        header: (
+          <span>
+            Approve <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        headerClassName: "center-header",
+        body: (row) => formatDateTime(row.update_Date_time),
+      },
+      {
+        key: "taxable_amt",
+        label: "Taxable Amount",
+        header: (
+          <span>
+            Taxable <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.taxable_amt || "0",
+      },
+      {
+        key: "gst_amt",
+        label: "Tax Amount",
+        header: (
+          <span>
+            Tax <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.gst_amt || "0",
+      },
+      {
+        key: "tcs_amt",
+        label: "TCS Amount",
+        header: (
+          <span>
+            TCS <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.tcs_amt || "0",
+      },
+      {
+        key: "round_off",
+        label: "Round Off",
+        header: (
+          <span>
+            Round <br /> Off
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.round_off || "0",
+      },
+      {
+        key: "grand_total",
+        label: "Grand Total",
+        header: (
+          <span>
+            Grand <br /> Total
+          </span>
+        ),
+        width: "90px",
+        headerClassName: "center-header",
+        body: (row) => row.grand_total || "0",
+      },
+    );
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel.replace(/ /g, "\n"),
+        width: "150px",
+        filterMatchMode: field.dataType === 1 ? "equals" : "contains",
+        body: (row) => {
+          const val = row[field.fieldName];
+          return val !== null && val !== undefined && val !== "" ? val : "-";
+        },
+      });
+    });
+
+    return defs;
+  }, [showProductDetails, title, MobileFlag, uniqueCustomFields]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("quotation_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: QuotationColumnDef,
+    item: any,
+  ): string => {
+    switch (col.key) {
+      case "items":
+        return (
+          item.items
+            ?.map((i: any) => {
+              const name = i.item_product_name || "";
+              const code = i.item_product_code || "";
+              const product = code ? `${name} (${code})` : name;
+              return `${product} | ${i.item_qty} | ${i.item_rate}`;
+            })
+            .join("\n") || "-"
+        );
+      case "cart_number":
+        return `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`;
+      case "to_customer_name":
+        return `${item.to_customer_company_name || "-"} (${item.to_customer_name || "-"}) - ${item.to_customer_phone || "-"}`;
+      case "username":
+        return item.username || "-";
+      case "cart_status":
+        return item.cart_status !== undefined ? item.cart_status : "-";
+      case "created_date_time":
+        return formatDateTime(item.created_date_time);
+      case "update_Date_time":
+        return formatDateTime(item.update_Date_time);
+      case "taxable_amt":
+        return item.taxable_amt_wo_c !== undefined
+          ? `${item.taxable_amt_wo_c}`
+          : "-";
+      case "gst_amt":
+        return item.gst_amt_wo_c !== undefined
+          ? `${item.gst_amt_wo_c}`
+          : "-";
+      case "tcs_amt":
+        return item.tcs_amt_wo_c !== undefined
+          ? `${item.tcs_amt_wo_c}`
+          : "-";
+      case "round_off":
+        return item.round_off_wo_c !== undefined
+          ? `${item.round_off_wo_c}`
+          : "-";
+      case "grand_total":
+        return item.grand_total_wo_c !== undefined
+          ? `${item.grand_total_wo_c}`
+          : "-";
+      default: {
+        const val = item[col.key];
+        return val !== null && val !== undefined && val !== "" ? val : "-";
+      }
+    }
+  };
 
   const handelChangeShowModelQuotation = (item: IUserList) => {
     if (!canEditQuotation) {
@@ -610,23 +962,7 @@ const TeamQuotationDataReportsView = ({
         <table>
           <thead>
             <tr>
-              ${showProductDetails ? `<th>Product Details</th>` : ""}
-              <th>${title} Number</th>
-              <th>Customer Name</th>
-              <th>Customer Phone</th>
-              <th>Created By</th>
-              <th>Status</th>
-              <!-- <th>Type</th> -->
-              <th>Created Date Time</th>
-              <th>Approve Date Time</th>
-              <th>Taxable Amount (${currencyName})</th>
-              <th>Tax Amount (${currencyName})</th>
-              <th>TCS Amount (${currencyName})</th>
-              <th>Round Off (${currencyName})</th>
-              <th>Grand Total (${currencyName})</th>
-              ${uniqueCustomFields
-        .map((field: any) => `<th>${field.fieldLabel}</th>`)
-        .join("")}
+              ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -634,60 +970,12 @@ const TeamQuotationDataReportsView = ({
         .map(
           (item: any) => `
                 <tr>
-         ${showProductDetails
-              ? `
-<td>
-  <table style="width:100%; border-collapse: collapse; border:1px solid #ccc; table-layout:auto;">
-    <tr>
-      <th style="border:1px solid #ccc;">Product</th>
-      <th style="border:1px solid #ccc;">Qty</th>
-      <th style="border:1px solid #ccc;">Rate</th>
-    </tr>
-    ${item.items
-                ?.map((i: any) => {
-                  const name = i.item_product_name || "";
-                  const code = i.item_product_code || "";
-
-                  return `
-          <tr>
-            <td style="border:1px solid #ccc;">
-              ${code ? `${name} (${code})` : name}
-            </td>
-            <td style="border:1px solid #ccc; text-align:right;">
-              ${i.item_qty}
-            </td>
-            <td style="border:1px solid #ccc; text-align:right;">
-              ${i.item_rate}
-            </td>
-          </tr>
-        `;
-                })
-                .join("") || `<tr><td colspan="2">-</td></tr>`
-              }
-  </table>
-</td>
-`
-              : ""
-            }
-                  <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
-                  <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
-                  <td>${item.to_customer_phone || "-"}</td>
-                  <td>${item.username || "-"}</td>
-                  <td>${item.cart_status !== undefined ? item.cart_status : "-"}</td>
-                  <!-- <td>${item.type || "-"}</td> -->
-                  <td>${formatDateTime(item.created_date_time)}</td>
-                  <td>${formatDateTime(item.update_Date_time)}</td>
-                  <td>${item.taxable_amt_wo_c !== undefined ? `${item.taxable_amt_wo_c}` : "-"}</td>
-                  <td>${item.gst_amt_wo_c !== undefined ? `${item.gst_amt_wo_c}` : "-"}</td>
-                  <td>${item.tcs_amt_wo_c !== undefined ? `${item.tcs_amt_wo_c}` : "-"}</td>
-                  <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
-                  <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
-                  ${uniqueCustomFields
-              .map(
-                (field: any) =>
-                  `<td>${item[field.fieldName] || "-"}</td>`,
-              )
-              .join("")}
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, item).replace(/\n/g, "<br/>")}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
         )
@@ -736,43 +1024,9 @@ const TeamQuotationDataReportsView = ({
           : filteredData;
 
     const tableData = dataToExport.map((item) => {
-      const rowData: any = {
-        ...(showProductDetails && {
-          product_details:
-            item.items
-              ?.map((i: any) => {
-                const name = i.item_product_name || "";
-                const code = i.item_product_code || "";
-                const product = code ? `${name} (${code})` : name;
-
-                return `${product} | ${i.item_qty} | ${i.item_rate}`;
-              })
-              .join("\n") || "-",
-        }),
-        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
-        to_customer_name:
-          `${item.to_customer_company_name}(${item.to_customer_name})` || "-",
-        to_customer_phone: item.to_customer_phone || "-",
-        username: item.username || "-",
-        cart_status: item.cart_status !== undefined ? item.cart_status : "-",
-        // type: item.type || "-",
-        created_date_time: formatDateTime(item.created_date_time),
-        update_Date_time: formatDateTime(item.update_Date_time),
-        taxable_amt:
-          item.taxable_amt_wo_c !== undefined
-            ? `${item.taxable_amt_wo_c}`
-            : "-",
-        gst_amt: item.gst_amt_wo_c !== undefined ? `${item.gst_amt_wo_c}` : "-",
-        tcs_amt: item.tcs_amt_wo_c !== undefined ? `${item.tcs_amt_wo_c}` : "-",
-        round_off:
-          item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-",
-        grand_total:
-          item.grand_total_wo_c !== undefined
-            ? `${item.grand_total_wo_c}`
-            : "-",
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = item[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.label] = getExportCellValue(col, item);
       });
       return rowData;
     });
@@ -782,6 +1036,11 @@ const TeamQuotationDataReportsView = ({
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.label,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -896,57 +1155,13 @@ const TeamQuotationDataReportsView = ({
         return;
       }
 
-      // collect custom fields
-      const customFieldMap: Record<string, string> = {};
-      exportData.forEach((item) => {
-        (item.customForm || [])
-          .filter((cf: any) => cf.report_print_or_not === 1)
-          .forEach((cf: any) => {
-            customFieldMap[cf.reference_column_name] =
-              cf.title || cf.reference_column_name;
-          });
-      });
-
-      const customFields = Object.keys(customFieldMap);
-
       const excelRows = (
         selectedCustomers.length > 0 ? selectedCustomers : exportData
       ).map((item) => {
-        const row: any = {
-          ...(showProductDetails && {
-            "Product Details":
-              item.items
-                ?.map((i: any) => {
-                  const name = i.item_product_name || "";
-                  const code = i.item_product_code || "";
-                  return `${code ? `${name} (${code})` : name} | Qty: ${i.item_qty} | Rate: ${i.item_rate}  `;
-                })
-                .join("\n") || "-",
-          }),
-          "Quotation Number": item.cart_number || "XXXXXXX",
-          "Approval Status": item.is_approve?.name || "-",
-          "Company Name": item.to_customer_company_name || "",
-          "Customer Name": item.to_customer_name || "-",
-          "Customer Phone": item.to_customer_phone || "-",
-          "Created By": item.username || "-",
-          // type: title || "Quotation",
-          Status: item.cart_status || "-",
-          "Created Date Time": formatDateTime(item.created_date_time),
-          "Approve Date Time": formatDateTime(item.update_Date_time),
-          [`Taxable_Amount (${currencyName})`]: item.taxable_amt_wo_c || "-",
-          [`Tax Amount (${currencyName})`]: item.gst_amt_wo_c || "-",
-          [`TCS Amount (${currencyName})`]: item.tcs_amt_wo_c || "-",
-          [`Round Off (${currencyName})`]: item.round_off_wo_c || "-",
-          [`Grand Total (${currencyName})`]: item.grand_total_wo_c || "-",
-        };
-
-        customFields.forEach((fieldName: string) => {
-          const label = customFieldMap[fieldName];
-          const val = item[fieldName];
-          row[label] =
-            val !== null && val !== undefined && val !== "" ? val : "-";
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item);
         });
-
         return row;
       });
 
@@ -1300,6 +1515,14 @@ const TeamQuotationDataReportsView = ({
                   )}
                 </ul>
               </div>
+
+              <ColumnsButton
+                columns={orderedColumns}
+                hiddenKeys={hiddenKeys}
+                onToggle={toggleColumn}
+                onReorder={reorderColumns}
+                onReset={resetColumns}
+              />
             </div>
             {/* )} */}
           </div>
@@ -1428,328 +1651,35 @@ const TeamQuotationDataReportsView = ({
                   }}
                 />
               )}
-              {showProductDetails && (
+              {visibleColumns.map((col) => (
                 <Column
-                  field="items"
-                  header={<span>Product Details</span>}
-                  headerClassName="center-header"
+                  key={col.key}
+                  field={col.key}
+                  header={col.header}
+                  sortable={col.sortableCol !== false}
+                  filter={col.filterCol !== false}
+                  filterField={col.key}
+                  filterPlaceholder="Search"
+                  filterMatchMode={col.filterMatchMode || "contains"}
+                  headerClassName={col.headerClassName}
                   headerStyle={{
-                    width: "250px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    fontSize: "14px",
+                    width: col.width || "150px",
+                    whiteSpace:
+                      typeof col.header === "string" ? "pre-wrap" : undefined,
                   }}
-                  bodyStyle={{ fontSize: "14px" }}
-                  body={(rowData: any) => {
-                    const items = rowData.items || [];
-                    const shouldScroll = items.length > 5;
-
-                    return (
-                      <div
-                        style={{
-                          maxHeight: shouldScroll ? "200px" : "auto",
-                          overflowY: shouldScroll ? "auto" : "visible",
-                          border: shouldScroll ? "1px solid #ccc" : "none",
-                        }}
-                      >
-                        {items.length > 0 ? (
-                          <table
-                            style={{
-                              width: "100%",
-                              borderCollapse: "collapse",
-                            }}
-                          >
-                            <thead
-                              style={{
-                                position: shouldScroll ? "sticky" : "static",
-                                top: 0,
-                                background: "#fff",
-                                zIndex: 1,
-                              }}
-                            >
-                              <tr>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "left",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Product Name
-                                </th>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "right",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Qty
-                                </th>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "right",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Rate
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {items.map((item: any, index: number) => {
-                                const name = item.item_product_name || "";
-                                const code = item.item_product_code || "";
-
-                                return (
-                                  <tr key={index}>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {name}
-                                      {code ? ` (${code})` : ""}
-                                    </td>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        textAlign: "right",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {item.item_qty}
-                                    </td>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        textAlign: "right",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {item.item_rate}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        ) : (
-                          "-"
-                        )}
-                      </div>
-                    );
+                  bodyStyle={{
+                    textAlign: [
+                      "taxable_amt",
+                      "gst_amt",
+                      "tcs_amt",
+                      "round_off",
+                      "grand_total",
+                    ].includes(col.key)
+                      ? "right"
+                      : undefined,
+                    fontSize: col.key === "items" ? "14px" : undefined,
                   }}
-                />
-              )}
-              <Column
-                field="cart_number"
-                header={`${title} Number`.replace(/ /g, "\n")}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                headerStyle={{ whiteSpace: "pre-wrap", width: "125px" }}
-                body={(row) => (
-                  <span
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      !MobileFlag && handelChangeShowModelQuotation(row)
-                    }
-                  >
-                    {row.cart_number || "# XXXXXXX"} <br />
-                    <span
-                      style={{
-                        backgroundColor: row.is_approve?.bg_color,
-                        border: `2px solid ${row.is_approve?.border_color}`,
-                        color: row.is_approve?.text_color,
-                        fontSize: "2px",
-                        padding: "1px 1px",
-                        fontWeight: "500",
-                      }}
-                      className="badge rounded-pill"
-                    >
-                      {row.is_approve?.name}
-                    </span>
-                  </span>
-                )}
-              />
-              <Column
-                field="to_customer_name"
-                header={
-                  <span>
-                    Contact <br /> Details
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                filterMatchMode="custom"
-                body={(row) => (
-                  <div>
-                    <div>
-                      {row.to_customer_company_name || "-"} (
-                      {row.to_customer_name || "-"})
-                    </div>
-                    <div>{row.to_customer_phone || "-"}</div>
-                  </div>
-                )}
-              />
-              <Column
-                field="username"
-                header={
-                  <span>
-                    Created <br /> By
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.username || "-"}
-              />
-              <Column
-                field="cart_status"
-                header="Status"
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => (
-                  <span
-                    className="badge rounded-pill"
-                    style={{ backgroundColor: row.status_colour || "#eeeeee" }}
-                  >
-                    {row.cart_status}
-                  </span>
-                )}
-              />
-              <Column
-                field="created_date_time"
-                header={
-                  <span>
-                    Created <br /> Date-Time
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => formatDateTime(row.created_date_time)}
-              />
-              <Column
-                field="update_Date_time"
-                header={
-                  <span>
-                    Approve <br /> Date-Time
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => formatDateTime(row.update_Date_time)}
-              />
-              <Column
-                field="taxable_amt"
-                header={
-                  <span>
-                    Taxable <br /> Amount
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.taxable_amt || "0"}
-                bodyStyle={{ textAlign: "right" }}
-              />
-              <Column
-                field="gst_amt"
-                header={
-                  <span>
-                    Tax <br /> Amount
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.gst_amt || "0"}
-                bodyStyle={{ textAlign: "right" }}
-              />
-              <Column
-                field="tcs_amt"
-                header={
-                  <span>
-                    TCS <br /> Amount
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.tcs_amt || "0"}
-                bodyStyle={{ textAlign: "right" }}
-              />
-              <Column
-                field="round_off"
-                header={
-                  <span>
-                    Round <br /> Off
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.round_off || "0"}
-                bodyStyle={{ textAlign: "right" }}
-              />
-              <Column
-                field="grand_total"
-                header={
-                  <span>
-                    Grand <br /> Total
-                  </span>
-                }
-                headerStyle={{ width: "90px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                body={(row) => row.grand_total || "0"}
-                bodyStyle={{ textAlign: "right" }}
-              />
-
-              {uniqueCustomFields.map((field: any) => (
-                <Column
-                  key={field.fieldName}
-                  field={field.fieldName}
-                  header={field.fieldLabel.replace(/ /g, "\n")}
-                  sortable
-                  filter
-                  filterMatchMode={field.dataType === 1 ? "equals" : "contains"}
-                  body={(row) => {
-                    const val = row[field.fieldName];
-                    return val !== null && val !== undefined && val !== ""
-                      ? val
-                      : "-";
-                  }}
-                  headerStyle={{ whiteSpace: "pre-wrap" }}
+                  body={col.body}
                 />
               ))}
             </DataTable>

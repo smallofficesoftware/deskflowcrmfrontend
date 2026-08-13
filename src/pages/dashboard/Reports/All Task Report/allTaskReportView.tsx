@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import {
@@ -24,6 +25,10 @@ import {
   TASK_ATTEECHMENT_VIEW,
 } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { ITaskView } from "../../../left-side/header/Setting/taskList/TaskListController";
@@ -400,96 +405,321 @@ const AllTaskReportsView = ({
     is_support_ticket_flag !== 0 &&
     displayTasks?.some((item) => Number(item?.external_status || 0) !== 0);
 
-  const dynamicCustomColumns =
-    displayTasks?.[0]?.customForm
-      ?.filter((item: any) => item.data_type != 13)
-      ?.map((item: any) => ({
-        title: item.title,
-        dataKey: `customForm_${item.id}`,
-        id: item.id,
-      })) || [];
+  type TaskColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    isAttachment?: boolean;
+    body: (rowData: ITaskitem) => React.ReactNode;
+  };
 
-  const exportColumns =
-    is_support_ticket_flag == 0
-      ? [
-        { title: "Task ID", dataKey: "id" },
-        { title: "Task Title", dataKey: "task_title" },
-        { title: "Status", dataKey: "status_name" },
-        { title: "Category", dataKey: "category_name" },
-        { title: "Priority", dataKey: "priority_name" },
-        { title: "Type", dataKey: "type_name" },
-        { title: "Remark", dataKey: "task_remark" },
-        { title: "Selected Days", dataKey: "selected_days_names" },
-        { title: "From Date", dataKey: "task_fromdate" },
-        { title: "End Date", dataKey: "task_enddate" },
-        { title: "Created By", dataKey: "created_by_name" },
-        { title: "Assigned To", dataKey: "assigned_team_member_names" },
-        ...dynamicCustomColumns,
-      ]
-      : [
-        { title: "Support Ticket ID", dataKey: "id" },
-        { title: "Support Ticket Title", dataKey: "task_title" },
-        { title: "Status", dataKey: "status_name" },
-        ...(showExternalStatusColumn
-          ? [
-            {
-              title: "External Status",
-              dataKey: "external_status_name",
-            },
-          ]
-          : []),
-        { title: "Category", dataKey: "category_name" },
-        { title: "Priority", dataKey: "priority_name" },
-        { title: "Type", dataKey: "type_name" },
-        { title: "Remark", dataKey: "task_remark" },
-        { title: "Selected Days", dataKey: "selected_days_names" },
-        { title: "From Date", dataKey: "task_fromdate" },
-        { title: "End Date", dataKey: "task_enddate" },
-        { title: "Created By", dataKey: "created_by_name" },
-        { title: "Assigned To", dataKey: "assigned_team_member_names" },
-        ...dynamicCustomColumns,
-      ];
+  const baseColumnDefs: TaskColumnDef[] = useMemo(() => {
+    const defs: TaskColumnDef[] = [
+      {
+        key: "id",
+        label: is_support_ticket_flag === 0 ? "Task ID" : "Support Ticket ID",
+        header:
+          is_support_ticket_flag === 0 ? (
+            <span>
+              Task <br /> ID
+            </span>
+          ) : (
+            <span>
+              Support <br /> Ticket <br /> ID
+            </span>
+          ),
+        width: "80px",
+        body: (rowData) => rowData.id || "-",
+      },
+      {
+        key: "task_title",
+        label:
+          is_support_ticket_flag === 0 ? "Task Title" : "Support Ticket Title",
+        header:
+          is_support_ticket_flag === 0 ? (
+            <span>
+              Task <br /> Title
+            </span>
+          ) : (
+            <span>
+              Support <br /> Ticket <br /> Title
+            </span>
+          ),
+        width: "130px",
+        body: (rowData) => rowData.task_title || "-",
+      },
+      {
+        key: "status_name",
+        label: "Status",
+        header: "Status",
+        width: "120px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour || "#eeeeee",
+              padding: "4px 8px",
+              borderRadius: "12px",
+              color: "#fff",
+            }}
+          >
+            {rowData.status_name}
+          </span>
+        ),
+      },
+    ];
+
+    if (showExternalStatusColumn) {
+      defs.push({
+        key: "external_status_name",
+        label: "External Status",
+        header: "External Status",
+        width: "160px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.external_status_colour || "#eeeeee",
+              padding: "4px 8px",
+              borderRadius: "12px",
+              color: "#fff",
+            }}
+          >
+            {rowData.external_status_name || "-"}
+          </span>
+        ),
+      });
+    }
+
+    defs.push(
+      {
+        key: "category_name",
+        label: "Category",
+        header: "Category",
+        width: "130px",
+        body: (rowData) => rowData.category_name || "-",
+      },
+      {
+        key: "priority_name",
+        label: "Priority",
+        header: "Priority",
+        width: "100px",
+        body: (rowData) => rowData.priority_name || "-",
+      },
+      {
+        key: "type_name",
+        label: "Type",
+        header: "Type",
+        width: "100px",
+        body: (rowData) => rowData.type_name || "-",
+      },
+      {
+        key: "task_remark",
+        label: "Remark",
+        header: "Remark",
+        width: "200px",
+        body: (rowData) => (
+          <div
+            dangerouslySetInnerHTML={{
+              __html: rowData.task_remark || "-",
+            }}
+            style={{
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          />
+        ),
+      },
+      {
+        key: "selected_days_names",
+        label: "Selected Days",
+        header: "Selected Days",
+        width: "130px",
+        body: (rowData) =>
+          Array.isArray(rowData.selected_days_names)
+            ? rowData.selected_days_names.join(", ")
+            : "-",
+      },
+      {
+        key: "task_fromdate",
+        label: "From Date",
+        header: "From Date",
+        width: "120px",
+        body: (rowData) => formatDateTime(rowData.task_fromdate),
+      },
+      {
+        key: "task_enddate",
+        label: "End Date",
+        header: "End Date",
+        width: "120px",
+        body: (rowData) => formatDateTime(rowData.task_enddate),
+      },
+      {
+        key: "created_by_name",
+        label: "Created By",
+        header: "Created By",
+        width: "130px",
+        body: (rowData) => rowData.created_by_name || "-",
+      },
+      {
+        key: "assigned_team_member_names",
+        label: "Assigned To",
+        header: "Assigned To",
+        width: "160px",
+        body: (rowData) =>
+          Array.isArray(rowData.assigned_team_member_names)
+            ? rowData.assigned_team_member_names.join(", ")
+            : "-",
+      },
+    );
+
+    if (displayTasks?.length > 0 && displayTasks[0]?.customForm) {
+      displayTasks[0].customForm.forEach((item: any) => {
+        defs.push({
+          key: `customForm_${item.id}`,
+          label: item.title,
+          header: item.title,
+          width: "150px",
+          isAttachment: item.data_type === 13,
+          body: (rowData) => {
+            const fieldData = rowData?.customForm?.find(
+              (cf: any) => cf.id === item.id,
+            );
+
+            const value = fieldData?.value;
+
+            if (value === null || value === undefined || value === "") {
+              return "-";
+            }
+
+            if (fieldData?.data_type === 13) {
+              const fileUrl = `${TASK_ATTEECHMENT_VIEW}${value}`;
+
+              return (
+                <div className="d-flex gap-2">
+                  <Button
+                    icon="pi pi-eye"
+                    className="p-button-text"
+                    tooltip="View"
+                    onClick={() => handleAttachmentView(fileUrl)}
+                  />
+
+                  <Button
+                    icon="pi pi-download"
+                    className="p-button-text"
+                    tooltip="Download"
+                    onClick={() => handleAttachmentDownload(fileUrl)}
+                  />
+                </div>
+              );
+            }
+
+            return value;
+          },
+        });
+      });
+    }
+
+    return defs;
+  }, [is_support_ticket_flag, showExternalStatusColumn, displayTasks]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_task_report", baseColumnDefs);
+
+  const exportableColumns = visibleColumns.filter((col) => !col.isAttachment);
+
+  const EXPORT_WIDTH_MAP: Record<string, number> = {
+    id: 10,
+    task_title: 38,
+    status_name: 40,
+    external_status_name: 70,
+    category_name: 30,
+    priority_name: 15,
+    type_name: 15,
+    task_remark: 40,
+    selected_days_names: 20,
+    task_fromdate: 28,
+    task_enddate: 28,
+    created_by_name: 28,
+    assigned_team_member_names: 32,
+  };
+
+  const EXPORT_CENTER_KEYS = new Set([
+    "id",
+    "priority_name",
+    "type_name",
+    "task_fromdate",
+    "task_enddate",
+  ]);
+
+  const getExportCellValue = (
+    col: TaskColumnDef,
+    item: ITaskitem,
+    mode: "pdf" | "excel" | "print",
+  ): string => {
+    switch (col.key) {
+      case "id":
+        return item.id ? String(item.id) : "XXXXXXX";
+      case "task_title":
+        return item.task_title || "-";
+      case "status_name":
+        return item.status_name || "-";
+      case "external_status_name":
+        return item.external_status_name || "-";
+      case "category_name":
+        return item.category_name || "-";
+      case "priority_name":
+        return item.priority_name || "-";
+      case "type_name":
+        return item.type_name || "-";
+      case "task_remark":
+        if (mode === "pdf") {
+          return item.task_remark
+            ? item.task_remark.replace(/<[^>]*>/g, "").trim() || "-"
+            : "-";
+        }
+        return item.task_remark || "-";
+      case "selected_days_names":
+        return Array.isArray(item.selected_days_names)
+          ? item.selected_days_names.join(", ")
+          : "-";
+      case "task_fromdate":
+        return formatDateTime(item.task_fromdate);
+      case "task_enddate":
+        return formatDateTime(item.task_enddate);
+      case "created_by_name":
+        return item.created_by_name || "-";
+      case "assigned_team_member_names":
+        return Array.isArray(item.assigned_team_member_names)
+          ? item.assigned_team_member_names.join(", ")
+          : "-";
+      default: {
+        const cf = item?.customForm?.find(
+          (c: any) => `customForm_${c.id}` === col.key,
+        );
+        return cf?.value || "-";
+      }
+    }
+  };
 
   const exportPdf = () => {
     const dataToExport =
       selectedTasks.length > 0 ? selectedTasks : filteredAndSortedData;
     const tableData = dataToExport.map((item) => {
-      const customFields: any = {};
+      const rowData: any = {
+        status_colour: item.status_colour || "#eeeeee",
+        external_status_colour: item.external_status_colour || "#eeeeee",
+      };
 
-      item?.customForm?.forEach((cf: any) => {
-        if (cf.data_type === 13) return;
-
-        customFields[`customForm_${cf.id}`] = cf.value || "-";
+      exportableColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "pdf");
       });
 
-      return {
-        id: item.id || "XXXXXXX",
-        task_title: item.task_title || "-",
-        status_name: item.status_name || "-",
-        status_colour: item.status_colour || "#eeeeee",
-        ...(showExternalStatusColumn && {
-          external_status_name: item.external_status_name || "-",
-          external_status_colour: item.external_status_colour || "#eeeeee",
-        }),
-        category_name: item.category_name || "-",
-        priority_name: item.priority_name || "-",
-        type_name: item.type_name || "-",
-        task_remark: item.task_remark
-          ? item.task_remark.replace(/<[^>]*>/g, "").trim() || "-"
-          : "-",
-        selected_days_names: Array.isArray(item.selected_days_names)
-          ? item.selected_days_names.join(", ")
-          : "-",
-        task_fromdate: formatDateTime(item.task_fromdate),
-        task_enddate: formatDateTime(item.task_enddate),
-        created_by_name: item.created_by_name || "-",
-        assigned_team_member_names: Array.isArray(
-          item.assigned_team_member_names,
-        )
-          ? item.assigned_team_member_names.join(", ")
-          : "-",
-        ...customFields,
-      };
+      return rowData;
     });
 
     if (tableData.length === 0) {
@@ -499,7 +729,11 @@ const AllTaskReportsView = ({
       return;
     }
 
-    const BADGE_COLUMNS = ["status_name", "external_status_name"];
+    const BADGE_COLUMNS = exportableColumns
+      .filter(
+        (col) => col.key === "status_name" || col.key === "external_status_name",
+      )
+      .map((col) => col.key);
 
     // ✅ Scale: white space hatane ke liye
     const doc = new jsPDF({ orientation: "landscape", format: "a2" });
@@ -507,50 +741,28 @@ const AllTaskReportsView = ({
     const margins = 30;
     const usableWidth = pageWidth - margins;
 
-    const totalFixedWidth =
-      10 +
-      38 +
-      40 +
-      70 +
-      30 +
-      15 +
-      15 +
-      40 +
-      20 +
-      28 +
-      28 +
-      28 +
-      32 +
-      dynamicCustomColumns.length * 30;
+    const totalFixedWidth = exportableColumns.reduce(
+      (sum, col) => sum + (EXPORT_WIDTH_MAP[col.key] ?? 30),
+      0,
+    );
 
     const scale = usableWidth / totalFixedWidth;
 
-    const COLUMN_CONFIG: Record<string, any> = {
-      id: { cellWidth: 10 * scale, halign: "center" },
-      task_title: { cellWidth: 38 * scale, overflow: "linebreak" },
-      status_name: { cellWidth: 40 * scale, overflow: "linebreak" },
-      external_status_name: { cellWidth: 70 * scale, overflow: "linebreak" },
-      category_name: { cellWidth: 30 * scale, overflow: "linebreak" },
-      priority_name: { cellWidth: 15 * scale, halign: "center" },
-      type_name: { cellWidth: 15 * scale, halign: "center" },
-      task_remark: { cellWidth: 40 * scale, overflow: "linebreak" },
-      selected_days_names: { cellWidth: 20 * scale, overflow: "linebreak" },
-      task_fromdate: { cellWidth: 28 * scale, halign: "center" },
-      task_enddate: { cellWidth: 28 * scale, halign: "center" },
-      created_by_name: { cellWidth: 28 * scale, overflow: "linebreak" },
-      assigned_team_member_names: {
-        cellWidth: 32 * scale,
-        overflow: "linebreak",
-      },
-      ...Object.fromEntries(
-        dynamicCustomColumns.map(
-          (col: { dataKey: string; title: string; id: any }) => [
-            col.dataKey,
-            { cellWidth: 30 * scale, overflow: "linebreak" },
-          ],
-        ),
-      ),
-    };
+    const COLUMN_CONFIG: Record<string, any> = Object.fromEntries(
+      exportableColumns.map((col) => [
+        col.key,
+        {
+          cellWidth: (EXPORT_WIDTH_MAP[col.key] ?? 30) * scale,
+          overflow: "linebreak",
+          ...(EXPORT_CENTER_KEYS.has(col.key) ? { halign: "center" } : {}),
+        },
+      ]),
+    );
+
+    const exportColumns = exportableColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -669,11 +881,6 @@ const AllTaskReportsView = ({
     try {
       setLoading(true);
 
-      const idTitle =
-        is_support_ticket_flag === 0 ? "Task ID" : "Support Ticket ID";
-      const titleTitle =
-        is_support_ticket_flag === 0 ? "Task Title" : "Support Ticket Title";
-
       const allTasks = await exportTaskAndSupportTicketData<ITaskitem>(
         (offset, limit) =>
           fetchTaskReport(
@@ -700,40 +907,16 @@ const AllTaskReportsView = ({
       const exportData = (
         selectedTasks.length > 0 ? selectedTasks : allTasks
       ).map((item) => {
-        const dynamicFields: any = {};
-
-        item?.customForm?.forEach((cf: any) => {
-          if (cf.data_type === 13) return;
-
-          dynamicFields[cf.title] = cf.value || "-";
+        const row: any = {};
+        exportableColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "excel");
         });
-        return {
-          [idTitle]: item.id || "XXXXXXX",
-          [titleTitle]: item.task_title || "-",
-          Status: item.status_name || "-",
-          ...(showExternalStatusColumn && {
-            "External Status": item.external_status_name || "-",
-          }),
-          Category: item.category_name || "-",
-          Priority: item.priority_name || "-",
-          Type: item.type_name || "-",
-          Remark: item.task_remark || "-",
-          "Selected Days": Array.isArray(item.selected_days_names)
-            ? item.selected_days_names.join(", ")
-            : "-",
-          "From Date": formatDateTime(item.task_fromdate),
-          "End Date": formatDateTime(item.task_enddate),
-          "Created By": item.created_by_name || "-",
-          "Assigned To": Array.isArray(item.assigned_team_member_names)
-            ? item.assigned_team_member_names.join(", ")
-            : "-",
-
-          // dynamic custom fields
-          ...dynamicFields,
-        };
+        return row;
       });
       const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
+      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
+        wch: 25,
+      }));
 
       const workbook = {
         Sheets: { Tasks: worksheet },
@@ -795,92 +978,28 @@ const AllTaskReportsView = ({
         <table>
           <thead>
             <tr>
-              ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+              ${exportableColumns.map((col) => `<th>${col.label}</th>`).join("")}
             </tr>
           </thead>
 
           <tbody>
             ${dataToExport
         .map((item) => {
-          // =========================
-          // Dynamic Custom Fields
-          // =========================
-
-          const customFields =
-            item?.customForm
-              ?.filter((cf: any) => cf.data_type !== 13)
-              ?.map((cf: any) => `<td>${cf?.value || "-"}</td>`)
-              .join("") || "";
+          const getPrintCellHtml = (col: TaskColumnDef): string => {
+            if (col.key === "status_name") {
+              return `<span style="background:${item.status_colour || "#eeeeee"};padding:4px 8px;border-radius:12px;color:#fff;display:inline-block;">${item.status_name || "-"}</span>`;
+            }
+            if (col.key === "external_status_name") {
+              return `<span style="background:${item.external_status_colour || "#eeeeee"};padding:4px 8px;border-radius:12px;color:#fff;display:inline-block;">${item.external_status_name || "-"}</span>`;
+            }
+            return getExportCellValue(col, item, "print");
+          };
 
           return `
                   <tr>
-                    <td>${item.id || "XXXXXXX"}</td>
-
-                    <td>${item.task_title || "-"}</td>
-
-                    <td>
-  <span 
-    style="
-      background:${item.status_colour || "#eeeeee"};
-      padding:4px 8px;
-      border-radius:12px;
-      color:#fff;
-      display:inline-block;
-    "
-  >  
-    ${item.status_name || "-"}
-  </span>
-</td>
-${showExternalStatusColumn
-              ? `
-<td>
-  <span 
-    style="
-      background:${item.external_status_colour || "#eeeeee"};
-      padding:4px 8px;
-      border-radius:12px;
-      color:#fff;
-      display:inline-block;
-    "
-  >  
-    ${item.external_status_name || "-"}
-  </span>
-</td>
-`
-              : ""
-            }
-
-                    <td>${item.category_name || "-"}</td>
-
-                    <td>${item.priority_name || "-"}</td>
-
-                    <td>${item.type_name || "-"}</td>
-
-                    <td>${item.task_remark || "-"}</td>
-
-                    <td>
-                      ${Array.isArray(item.selected_days_names)
-              ? item.selected_days_names.join(", ")
-              : "-"
-            }
-                    </td>
-
-                    <td>${formatDateTime(item.task_fromdate)}</td>
-
-                    <td>${formatDateTime(item.task_enddate)}</td>
-
-                    
-
-                    <td>${item.created_by_name || "-"}</td>
-
-                    <td>
-                      ${Array.isArray(item.assigned_team_member_names)
-              ? item.assigned_team_member_names.join(", ")
-              : "-"
-            }
-                    </td>
-
-                    ${customFields}
+                    ${exportableColumns
+              .map((col) => `<td>${getPrintCellHtml(col)}</td>`)
+              .join("")}
                   </tr>
                 `;
         })
@@ -1141,6 +1260,14 @@ ${showExternalStatusColumn
                     Print
                   </li>
                 </ul>
+
+                <ColumnsButton
+                  columns={orderedColumns}
+                  hiddenKeys={hiddenKeys}
+                  onToggle={toggleColumn}
+                  onReorder={reorderColumns}
+                  onReset={resetColumns}
+                />
               </div>
             </div>
           </div>
@@ -1200,242 +1327,28 @@ ${showExternalStatusColumn
                   bodyStyle={{ textAlign: "center" }}
                 />
               )}
-            <Column
-              field="id"
-              // IF flag is 0, show "Task ID", ELSE show "Support Ticket ID"
-              header={
-                is_support_ticket_flag === 0 ? (
-                  <span>
-                    Task <br /> ID
-                  </span>
-                ) : (
-                  <span>
-                    Support <br /> Ticket <br /> ID
-                  </span>
-                )
-              }
-              sortable
-              headerStyle={{ width: "80px", fontSize: "14px" }}
-              body={(rowData) => rowData.id || "-"}
-            />
-            <Column
-              field="task_title"
-              // IF flag is 0, show "Task Title", ELSE show "Support Ticket Title"
-              header={
-                is_support_ticket_flag === 0 ? (
-                  <span>
-                    Task <br /> Title
-                  </span>
-                ) : (
-                  <span>
-                    Support <br /> Ticket <br /> Title
-                  </span>
-                )
-              }
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "130px", fontSize: "14px" }}
-              body={(rowData) => rowData.task_title || "-"}
-            />
-            <Column
-              field="status_name"
-              header="Status"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "120px", fontSize: "14px" }}
-              body={(rowData) => (
-                <span
-                  style={{
-                    backgroundColor: rowData.status_colour || "#eeeeee",
-                    padding: "4px 8px",
-                    borderRadius: "12px",
-                    color: "#fff",
-                  }}
-                >
-                  {rowData.status_name}
-                </span>
-              )}
-            />
-            {showExternalStatusColumn && (
+            {visibleColumns.map((col) => (
               <Column
-                field="external_status_name"
-                header="External Status"
+                key={col.key}
+                field={col.key}
+                header={col.header}
                 sortable
-                filter
+                filter={col.key !== "id"}
                 filterPlaceholder="Search"
-                headerStyle={{ width: "160px", fontSize: "14px" }}
-                body={(rowData) => (
-                  <span
-                    style={{
-                      backgroundColor:
-                        rowData.external_status_colour || "#eeeeee",
-                      padding: "4px 8px",
-                      borderRadius: "12px",
-                      color: "#fff",
-                    }}
-                  >
-                    {rowData.external_status_name || "-"}
-                  </span>
-                )}
+                headerStyle={{ width: col.width || "150px", fontSize: "14px" }}
+                bodyStyle={
+                  col.key === "task_remark"
+                    ? {
+                        fontSize: "14px",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                      }
+                    : { fontSize: "14px" }
+                }
+                body={col.body}
               />
-            )}
-            <Column
-              field="category_name"
-              header="Category"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "130px", fontSize: "14px" }}
-              body={(rowData) => rowData.category_name || "-"}
-            />
-            <Column
-              field="priority_name"
-              header="Priority"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "100px", fontSize: "14px" }}
-              body={(rowData) => rowData.priority_name || "-"}
-            />
-            <Column
-              field="type_name"
-              header="Type"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "100px", fontSize: "14px" }}
-              body={(rowData) => rowData.type_name || "-"}
-            />
-            <Column
-              field="task_remark"
-              header="Remark"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "200px", fontSize: "14px" }}
-              bodyStyle={{
-                fontSize: "14px",
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-              }}
-              body={(rowData) => (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: rowData.task_remark || "-",
-                  }}
-                  style={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                />
-              )}
-            />
-            <Column
-              field="selected_days_names"
-              header="Selected Days"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "130px", fontSize: "14px" }}
-              body={(rowData) =>
-                Array.isArray(rowData.selected_days_names)
-                  ? rowData.selected_days_names.join(", ")
-                  : "-"
-              }
-            />
-            <Column
-              field="task_fromdate"
-              header="From Date"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "120px", fontSize: "14px" }}
-              body={(rowData) => formatDateTime(rowData.task_fromdate)}
-            />
-            <Column
-              field="task_enddate"
-              header="End Date"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "120px", fontSize: "14px" }}
-              body={(rowData) => formatDateTime(rowData.task_enddate)}
-            />
-            <Column
-              field="created_by_name"
-              header="Created By"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "130px", fontSize: "14px" }}
-              body={(rowData) => rowData.created_by_name || "-"}
-            />
-            <Column
-              field="assigned_team_member_names"
-              header="Assigned To"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              headerStyle={{ width: "160px", fontSize: "14px" }}
-              body={(rowData) =>
-                Array.isArray(rowData.assigned_team_member_names)
-                  ? rowData.assigned_team_member_names.join(", ")
-                  : "-"
-              }
-            />
-            {displayTasks?.length > 0 &&
-              displayTasks[0]?.customForm?.map((item: any, index: number) => (
-                <Column
-                  key={index}
-                  field={`customForm_${item.id}`}
-                  header={item.title}
-                  sortable
-                  filter
-                  filterPlaceholder="Search"
-                  headerStyle={{ width: "150px", fontSize: "14px" }}
-                  body={(rowData) => {
-                    const fieldData = rowData?.customForm?.find(
-                      (cf: any) => cf.id === item.id,
-                    );
-
-                    const value = fieldData?.value;
-
-                    // Empty value
-                    if (value === null || value === undefined || value === "") {
-                      return "-";
-                    }
-
-                    // Attachment field
-                    if (fieldData?.data_type === 13) {
-                      const fileUrl = `${TASK_ATTEECHMENT_VIEW}${value}`;
-
-                      return (
-                        <div className="d-flex gap-2">
-                          <Button
-                            icon="pi pi-eye"
-                            className="p-button-text"
-                            tooltip="View"
-                            onClick={() => handleAttachmentView(fileUrl)}
-                          />
-
-                          <Button
-                            icon="pi pi-download"
-                            className="p-button-text"
-                            tooltip="Download"
-                            onClick={() => handleAttachmentDownload(fileUrl)}
-                          />
-                        </div>
-                      );
-                    }
-
-                    return value;
-                  }}
-                />
-              ))}
+            ))}
           </DataTable>
         </div>
 

@@ -8,12 +8,14 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { formatDateAndTime, useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { fetchProductApi, handleDeleteBillOfMaterials, IBillOfMaterialsView } from "../../../left-side/header/Setting/bill-of-materials/BillOfMaterialsController";
 import BomMasterView from "../../../left-side/header/Setting/product/bom-master/BomMasterView";
@@ -242,6 +244,55 @@ const BillOfMaterialReport = ({
         };
     }, []);
 
+    type BomColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: IBillOfMaterialsView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: BomColumnDef[] = useMemo(() => [
+        {
+            key: "bom_number",
+            label: "Bom Number",
+            header: <span>Bom Number</span>,
+            body: (rowData) => rowData.bom_number,
+        },
+        {
+            key: "bom_name",
+            label: "BOM Name",
+            header: <span>BOM Name</span>,
+            body: (rowData) => rowData.bom_name,
+        },
+        {
+            key: "product_name",
+            label: "Product Name",
+            header: <span>Product Name</span>,
+            body: (rowData) => rowData.product_name,
+        },
+        {
+            key: "createdByName",
+            label: "Created By",
+            header: <span>Created By</span>,
+            body: (rowData) => rowData.createdByName,
+        },
+        {
+            key: "created_date_time",
+            label: "Created Date-Time",
+            header: <span>Created Date-Time</span>,
+            body: (rowData) => formatDateAndTime(rowData.created_date_time),
+        },
+    ], []);
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("bill_of_material_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -251,6 +302,13 @@ const BillOfMaterialReport = ({
                 >
                     Bill Of Material
                 </h3>
+                <ColumnsButton
+                    columns={orderedColumns}
+                    hiddenKeys={hiddenKeys}
+                    onToggle={toggleColumn}
+                    onReorder={reorderColumns}
+                    onReset={resetColumns}
+                />
             </div>
 
             <div
@@ -287,96 +345,28 @@ const BillOfMaterialReport = ({
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="bom_number"
-                        header={
-                            <span>
-                                Bom Number
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IBillOfMaterialsView) => rowData.bom_number}
-                    />
-                    <Column
-                        field="bom_name"
-                        header={
-                            <span>
-                                BOM Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IBillOfMaterialsView) => rowData.bom_name}
-                    />
-                    <Column
-                        field="product_name"
-                        header={
-                            <span>
-                                Product Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IBillOfMaterialsView) => rowData.product_name}
-                    />
-                    <Column
-                        field="createdByName"
-                        header={
-                            <span>
-                                Created By
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IBillOfMaterialsView) => rowData.createdByName}
-                    />
-                    <Column
-                        field="created_date_time"
-                        header={
-                            <span>
-                                Created Date-Time
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IBillOfMaterialsView) => formatDateAndTime(rowData.created_date_time)}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isBomDetailsOpen && selectedProduct && (

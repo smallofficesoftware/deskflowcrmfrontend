@@ -17,9 +17,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -421,48 +426,29 @@ const TeamPendingWorkReportsView = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Team Member", dataKey: "Name" },
-    { title: "Quotation", dataKey: "Quotation" },
-    { title: "Order", dataKey: "Sales Order" },
-    { title: "Invoice", dataKey: "Sales Invoice" },
-    { title: "Purchase Invoice", dataKey: "Purchase Invoice" },
-    { title: "Purchase Order", dataKey: "Purchase Order" },
-    { title: "Pending Reminder", dataKey: "Pending Reminder Total" },
-    { title: "Requested Expense Total", dataKey: "Requested Expense Total" },
-  ];
-
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
     const filteredData = getFilteredData();
     const tableData = (
       selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => ({
-      Name: customer.username || "-",
-      Quotation: `${customer.quotation?.count ?? "-"} ( ${
-        customer.quotation?.amount ?? "-"
-      })`,
-      "Sales Order": `${customer.order?.count ?? "-"} ( ${
-        customer.order?.amount ?? "-"
-      })`,
-      "Sales Invoice": `${customer.sell_invoice?.count ?? "-"} ( ${
-        customer.sell_invoice?.amount ?? "-"
-      })`,
-      "Purchase Invoice": `${customer.purchase_invoice?.count ?? "-"} ( ${
-        customer.purchase_invoice?.amount ?? "-"
-      })`,
-      "Purchase Order": `${customer.purchase_order?.count ?? "-"} ( ${
-        customer.purchase_order?.amount ?? "-"
-      })`,
-      "Pending Reminder Total": customer.pendingReminder ?? "-",
-      "Requested Expense Total": customer.reqExpenseAmount ?? "-",
-    }));
+    ).map((customer) => {
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, customer);
+      });
+      return rowData;
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`all_Team_PendingWork_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -602,30 +588,13 @@ const TeamPendingWorkReportsView = ({
 
       const excelRows = (
         selectedCustomers.length > 0 ? selectedCustomers : allData
-      ).map((customer) => ({
-        "Team Member": customer.username || "-",
-
-        Quotation: `${customer.quotation?.count ?? 0} ( ${
-          customer.quotation?.amount ?? "₹0.00"
-        } )`,
-
-        Order: `${customer.order?.count ?? 0} ( ${
-          customer.order?.amount ?? "₹0.00"
-        } )`,
-
-        Invoice: `${customer.sell_invoice?.count ?? 0} ( ${
-          customer.sell_invoice?.amount ?? "₹0.00"
-        } )`,
-
-        "Purchase Invoice": `${customer.purchase_invoice?.count ?? 0} ( ${
-          customer.purchase_invoice?.amount ?? "₹0.00"
-        } )`,
-        "Purchase Order": `${customer.purchase_order?.count ?? 0} ( ${
-          customer.purchase_order?.amount ?? "₹0.00"
-        } )`,
-        "Pending Reminder": customer.pendingReminder ?? 0,
-        "Requested Expense": customer.reqExpenseAmount ?? 0,
-      }));
+      ).map((customer) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer);
+        });
+        return row;
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(excelRows);
       worksheet["!cols"] = [
@@ -688,14 +657,7 @@ const TeamPendingWorkReportsView = ({
           <table>
             <thead>
               <tr>
-                <th>Team Member</th>
-                <th>Quotation</th>
-                <th>Order</th>
-                <th>Invoice</th>
-                <th>Purchase Invoice</th>
-                <th>Purchase Order</th>
-                <th>Pending Reminder</th>
-                <th>Requested Expense</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -703,24 +665,12 @@ const TeamPendingWorkReportsView = ({
                 .map(
                   (customer) => `
                 <tr>
-                  <td>${customer.username || "-"}</td>
-                  <td>${customer.quotation?.count ?? "-"} ( ${
-                    customer.quotation?.amount ?? "-"
-                  })</td>
-                  <td>${customer.order?.count ?? "-"} ( ${
-                    customer.order?.amount ?? "-"
-                  })</td>
-                  <td>${customer.sell_invoice?.count ?? "-"} ( ${
-                    customer.sell_invoice?.amount ?? "-"
-                  })</td>
-                  <td>${customer.purchase_invoice?.count ?? "-"} ( ${
-                    customer.purchase_invoice?.amount ?? "-"
-                  })</td>
-                  <td>${customer.purchase_order?.count ?? "-"} ( ${
-                    customer.purchase_order?.amount ?? "-"
-                  })</td>
-                  <td>${customer.pendingReminder ?? "-"}</td>
-                  <td>${customer.reqExpenseAmount ?? "-"}</td>
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, customer)}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
                 )
@@ -736,6 +686,151 @@ const TeamPendingWorkReportsView = ({
       printWindow.document.write(printContent);
       printWindow.document.close();
       printWindow.print();
+    }
+  };
+
+  type PendingWorkColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IPendingWork) => React.ReactNode;
+  };
+
+  const baseColumnDefs: PendingWorkColumnDef[] = useMemo(
+    () => [
+      {
+        key: "username",
+        label: "Team Member",
+        header: (
+          <span>
+            Team <br /> Member
+          </span>
+        ),
+        width: "120px",
+        body: (rowData: IPendingWork) => rowData.username || "-",
+      },
+      {
+        key: "quotation_total",
+        label: quotationTitle,
+        header: `${quotationTitle.replace(/ /g, "\n")}`,
+        width: "120px",
+        body: (rowData: IPendingWork) =>
+          `${rowData.quotation?.count ?? "-"} ( ${
+            rowData.quotation?.amount ?? "-"
+          })`,
+      },
+      {
+        key: "salesOrder_total",
+        label: orderTitle,
+        header: `${orderTitle.replace(/ /g, "\n")}`,
+        width: "120px",
+        body: (rowData: IPendingWork) =>
+          `${rowData.order?.count ?? "-"} ( ${rowData.order?.amount ?? "-"})`,
+      },
+      {
+        key: "salesInvoice_total",
+        label: invoiceTitle,
+        header: `${invoiceTitle.replace(/ /g, "\n")}`,
+        width: "120px",
+        body: (rowData: IPendingWork) =>
+          `${rowData.sell_invoice?.count ?? "-"} ( ${
+            rowData.sell_invoice?.amount ?? "-"
+          })`,
+      },
+      {
+        key: "purchaseInvoice_total",
+        label: purchaseTitle,
+        header: `${purchaseTitle.replace(/ /g, "\n")}`,
+        width: "120px",
+        body: (rowData: IPendingWork) =>
+          `${rowData.purchase_invoice?.count ?? "-"} ( ${
+            rowData.purchase_invoice?.amount ?? "-"
+          })`,
+      },
+      {
+        key: "purchaseOrder_total",
+        label: purchaseOrderTitle,
+        header: `${purchaseOrderTitle.replace(/ /g, "\n")}`,
+        width: "120px",
+        body: (rowData: IPendingWork) =>
+          `${rowData.purchase_order?.count ?? "-"} ( ${
+            rowData.purchase_order?.amount ?? "-"
+          })`,
+      },
+      {
+        key: "pendingReminder_total",
+        label: "Pending Reminder",
+        header: (
+          <span>
+            Pending <br /> Reminder
+          </span>
+        ),
+        width: "120px",
+        body: (rowData: IPendingWork) => rowData.pendingReminder ?? "-",
+      },
+      {
+        key: "reqExpenseAmount",
+        label: "Requested Expense",
+        header: (
+          <span>
+            Requested <br /> Expense
+          </span>
+        ),
+        width: "120px",
+        body: (rowData: IPendingWork) => rowData.reqExpenseAmount ?? "-",
+      },
+    ],
+    [
+      quotationTitle,
+      orderTitle,
+      invoiceTitle,
+      purchaseTitle,
+      purchaseOrderTitle,
+    ],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("team_pending_work_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: PendingWorkColumnDef,
+    customer: IPendingWork,
+  ): string => {
+    switch (col.key) {
+      case "username":
+        return customer.username || "-";
+      case "quotation_total":
+        return `${customer.quotation?.count ?? "-"} ( ${
+          customer.quotation?.amount ?? "-"
+        })`;
+      case "salesOrder_total":
+        return `${customer.order?.count ?? "-"} ( ${
+          customer.order?.amount ?? "-"
+        })`;
+      case "salesInvoice_total":
+        return `${customer.sell_invoice?.count ?? "-"} ( ${
+          customer.sell_invoice?.amount ?? "-"
+        })`;
+      case "purchaseInvoice_total":
+        return `${customer.purchase_invoice?.count ?? "-"} ( ${
+          customer.purchase_invoice?.amount ?? "-"
+        })`;
+      case "purchaseOrder_total":
+        return `${customer.purchase_order?.count ?? "-"} ( ${
+          customer.purchase_order?.amount ?? "-"
+        })`;
+      case "pendingReminder_total":
+        return `${customer.pendingReminder ?? "-"}`;
+      case "reqExpenseAmount":
+        return `${customer.reqExpenseAmount ?? "-"}`;
+      default:
+        return `${(customer as any)[col.key] ?? "-"}`;
     }
   };
 
@@ -945,6 +1040,14 @@ const TeamPendingWorkReportsView = ({
                   Print
                 </li>
               </ul>
+
+              <ColumnsButton
+                columns={orderedColumns}
+                hiddenKeys={hiddenKeys}
+                onToggle={toggleColumn}
+                onReorder={reorderColumns}
+                onReset={resetColumns}
+              />
             </div>
           </div>
         </div>
@@ -1013,178 +1116,29 @@ const TeamPendingWorkReportsView = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="username"
-            header={
-              <span>
-                Team <br /> Member
-              </span>
-            }
-            sortable
-            filter
-            filterField="username"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={(rowData: IPendingWork) => rowData.username || "-"}
-          />
-          <Column
-            field="quotation_total"
-            header={`${quotationTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="quotation_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) =>
-              `${rowData.quotation?.count ?? "-"} ( ${
-                rowData.quotation?.amount ?? "-"
-              })`
-            }
-          />
-          <Column
-            field="salesOrder_total"
-            header={`${orderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesOrder_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) =>
-              `${rowData.order?.count ?? "-"} ( ${
-                rowData.order?.amount ?? "-"
-              })`
-            }
-          />
-          <Column
-            field="salesInvoice_total"
-            header={`${invoiceTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesInvoice_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) =>
-              `${rowData.sell_invoice?.count ?? "-"} ( ${
-                rowData.sell_invoice?.amount ?? "-"
-              })`
-            }
-          />
-          <Column
-            field="purchaseInvoice_total"
-            header={`${purchaseTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseInvoice_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) =>
-              `${rowData.purchase_invoice?.count ?? "-"} ( ${
-                rowData.purchase_invoice?.amount ?? "-"
-              })`
-            }
-          />
-          <Column
-            field="purchaseOrder_total"
-            header={`${purchaseOrderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseOrder_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) =>
-              `${rowData.purchase_order?.count ?? "-"} ( ${
-                rowData.purchase_order?.amount ?? "-"
-              })`
-            }
-          />
-          <Column
-            field="pendingReminder_total"
-            header={
-              <span>
-                Pending <br /> Reminder
-              </span>
-            }
-            sortable
-            filter
-            filterField="pendingReminder_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) => rowData.pendingReminder ?? "-"}
-          />
-          <Column
-            field="reqExpenseAmount"
-            header={
-              <span>
-                Requested <br /> Expense
-              </span>
-            }
-            sortable
-            filter
-            filterField="reqExpenseAmount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IPendingWork) => rowData.reqExpenseAmount ?? "-"}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: col.width || "120px",
+                whiteSpace: "pre-wrap",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+              }}
+              bodyStyle={{
+                textAlign: col.key === "username" ? undefined : "right",
+              }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

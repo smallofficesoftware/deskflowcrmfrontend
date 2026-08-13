@@ -16,9 +16,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -323,17 +325,13 @@ const CustomerSalesPurchaseReport: React.FC<
       selectedCustomers.length > 0 ? selectedCustomers : customers;
     if (dataToExport.length === 0) return;
 
-    const formattedData = dataToExport.map((item, idx) => ({
-      "S.No": idx + 1,
-      "Customer Code": item.customer_code,
-      "Customer Name": item.customer_name,
-      State: item.state,
-      GSTIN: item.gstin,
-      "Total Sales": `${currSym}${item.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      "Total Purchase": `${currSym}${item.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      "Net Balance": formatBalance(item.net_balance),
-      Relationship: item.relationship,
-    }));
+    const formattedData = dataToExport.map((item, idx) => {
+      const row: Record<string, string | number> = {};
+      visibleColumns.forEach((col) => {
+        row[col.label] = getExportCellValue(col, item, idx);
+      });
+      return row;
+    });
 
     const worksheet = xlsx.utils.json_to_sheet(formattedData);
     const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
@@ -363,31 +361,11 @@ const CustomerSalesPurchaseReport: React.FC<
     const doc = new jsPDF("l", "pt", "a4");
     doc.text("Customer-Wise Sales & Purchase Report", 40, 40);
 
-    const head = [
-      [
-        "S.No",
-        "Customer Code",
-        "Customer Name",
-        "State",
-        "GSTIN",
-        "Total Sales",
-        "Total Purchase",
-        "Net Balance",
-        "Relationship",
-      ],
-    ];
+    const head = [visibleColumns.map((col) => col.label)];
 
-    const body = dataToExport.map((item, idx) => [
-      idx + 1,
-      item.customer_code,
-      item.customer_name,
-      item.state,
-      item.gstin,
-      `${currSym}${item.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      `${currSym}${item.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      formatBalance(item.net_balance),
-      item.relationship,
-    ]);
+    const body = dataToExport.map((item, idx) =>
+      visibleColumns.map((col) => getExportCellValue(col, item, idx)),
+    );
 
     autoTable(doc, {
       head: head,
@@ -428,15 +406,7 @@ const CustomerSalesPurchaseReport: React.FC<
           <table>
             <thead>
               <tr>
-                <th>S.No</th>
-                <th>Customer Code</th>
-                <th>Customer Name</th>
-                <th>State</th>
-                <th>GSTIN</th>
-                <th>Total Sales (${currSym})</th>
-                <th>Total Purchase (${currSym})</th>
-                <th>Net Balance (${currSym})</th>
-                <th>Relationship</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -444,15 +414,16 @@ const CustomerSalesPurchaseReport: React.FC<
                 .map(
                   (item, idx) => `
                     <tr>
-                      <td>${idx + 1}</td>
-                      <td>${item.customer_code}</td>
-                      <td>${item.customer_name}</td>
-                      <td>${item.state}</td>
-                      <td>${item.gstin}</td>
-                      <td>${currSym}${item.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                      <td>${currSym}${item.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                      <td>${formatBalance(item.net_balance)}</td>
-                      <td class="${item.relationship === "Net Creditor" ? "creditor" : item.relationship === "Net Debtor" ? "debtor" : ""}">${item.relationship}</td>
+                      ${visibleColumns
+                        .map(
+                          (col) =>
+                            `<td${
+                              col.key === "relationship"
+                                ? ` class="${item.relationship === "Net Creditor" ? "creditor" : item.relationship === "Net Debtor" ? "debtor" : ""}"`
+                                : ""
+                            }>${getExportCellValue(col, item, idx)}</td>`,
+                        )
+                        .join("")}
                     </tr>
                   `,
                 )
@@ -493,6 +464,106 @@ const CustomerSalesPurchaseReport: React.FC<
           ? "text-success fw-bold"
           : "text-dark";
     return <span className={textColor}>{formatted}</span>;
+  };
+
+  type SalesPurchaseColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: ICustomerSalesPurchaseItem, options?: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: SalesPurchaseColumnDef[] = useMemo(() => {
+    return [
+      {
+        key: "s_no",
+        label: "S.No",
+        header: "S.No",
+        width: "4rem",
+        body: (_rowData, options) => options.rowIndex + 1,
+      },
+      {
+        key: "customer_code",
+        label: "Customer Code",
+        header: "Customer Code",
+        body: (rowData) => rowData.customer_code,
+      },
+      {
+        key: "customer_name",
+        label: "Customer Name",
+        header: "Customer Name",
+        body: (rowData) => rowData.customer_name,
+      },
+      {
+        key: "state",
+        label: "State",
+        header: "State",
+        body: (rowData) => rowData.state,
+      },
+      {
+        key: "gstin",
+        label: "GSTIN",
+        header: "GSTIN",
+        body: (rowData) => rowData.gstin,
+      },
+      {
+        key: "total_sales",
+        label: "Total Sales",
+        header: `Total Sales (${currSym})`,
+        body: (rowData) =>
+          `${currSym}${rowData.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      },
+      {
+        key: "total_purchase",
+        label: "Total Purchase",
+        header: `Total Purchase (${currSym})`,
+        body: (rowData) =>
+          `${currSym}${rowData.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      },
+      {
+        key: "net_balance",
+        label: "Net Balance",
+        header: `Net Balance (${currSym})`,
+        body: netBalanceBodyTemplate,
+      },
+      {
+        key: "relationship",
+        label: "Relationship",
+        header: "Relationship",
+        body: relationshipBodyTemplate,
+      },
+    ];
+  }, [currSym]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences(
+    "customer_sales_purchase_report",
+    baseColumnDefs,
+  );
+
+  const getExportCellValue = (
+    col: SalesPurchaseColumnDef,
+    item: ICustomerSalesPurchaseItem,
+    idx: number,
+  ): string | number => {
+    switch (col.key) {
+      case "s_no":
+        return idx + 1;
+      case "total_sales":
+        return `${currSym}${item.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      case "total_purchase":
+        return `${currSym}${item.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      case "net_balance":
+        return formatBalance(item.net_balance);
+      default:
+        return (item as any)[col.key] ?? "-";
+    }
   };
 
   if (!canViewReport) {
@@ -689,6 +760,14 @@ const CustomerSalesPurchaseReport: React.FC<
                 </li>
               </ul>
             </div>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
       </div>
@@ -797,78 +876,28 @@ const CustomerSalesPurchaseReport: React.FC<
             />
           )}
 
-          <Column
-            header="S.No"
-            headerStyle={{
-              width: "4rem",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={(_, options) => options.rowIndex + 1}
-          />
-          <Column
-            field="customer_code"
-            header="Customer Code"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            sortable
-            filter
-            filterPlaceholder="Code"
-          />
-          <Column
-            field="customer_name"
-            header="Customer Name"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            sortable
-            filter
-            filterPlaceholder="Search Name"
-          />
-          <Column
-            field="state"
-            header="State"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            sortable
-          />
-          <Column
-            field="gstin"
-            header="GSTIN"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            sortable
-          />
-          <Column
-            field="total_sales"
-            header={`Total Sales (${currSym})`}
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              `${currSym}${rowData.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-            }
-            sortable
-          />
-          <Column
-            field="total_purchase"
-            header={`Total Purchase (${currSym})`}
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              `${currSym}${rowData.total_purchase.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-            }
-            sortable
-          />
-          <Column
-            field="net_balance"
-            header={`Net Balance (${currSym})`}
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={netBalanceBodyTemplate}
-            sortable
-          />
-          <Column
-            field="relationship"
-            header="Relationship"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={relationshipBodyTemplate}
-            sortable
-            filter
-            filterPlaceholder="Relationship"
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
 

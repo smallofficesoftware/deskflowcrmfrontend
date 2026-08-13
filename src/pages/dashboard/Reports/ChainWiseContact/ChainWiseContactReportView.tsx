@@ -20,9 +20,11 @@ import {
   formatDateAndTime,
   useEscapeKey,
 } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -57,8 +59,16 @@ interface IPropallcontactReports {
   referenceWiseContact?: number;
   onHide?: () => void;
 }
+interface ChildColumnDef extends ColumnDef {
+  header: React.ReactNode;
+  width?: string;
+  filterMatchMode?: string;
+  body?: (rowData: IChainContact) => React.ReactNode;
+}
+
 interface ChildContactTableProps {
   chainContact: IChainContact[];
+  columns: ChildColumnDef[];
 }
 const getNestedValue = (obj: any, path: string): any => {
   try {
@@ -480,7 +490,10 @@ const ChainWiseContactReportView = ({
     );
   };
 
-  const ChildContactTable = ({ chainContact }: ChildContactTableProps) => {
+  const ChildContactTable = ({
+    chainContact,
+    columns,
+  }: ChildContactTableProps) => {
     return (
       <div
         style={{
@@ -501,42 +514,16 @@ const ChainWiseContactReportView = ({
             width: "100%",
           }}
         >
-          <Column
-            field="person_name"
-            header="Person Name"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
-          <Column
-            field="mobile_number"
-            header="Mobile"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
-          <Column
-            field="company_name"
-            header="Company"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
-          <Column
-            field="country_name"
-            header="Country"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
-          <Column
-            field="state_name"
-            header="State"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
-          <Column
-            field="status_name"
-            header="Status"
-            headerStyle={{ border: "1px solid #ccc" }}
-            bodyStyle={{ border: "1px solid #eee" }}
-          />
+          {columns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              headerStyle={{ border: "1px solid #ccc", width: col.width }}
+              bodyStyle={{ border: "1px solid #eee" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
     );
@@ -551,6 +538,70 @@ const ChainWiseContactReportView = ({
       (str) => JSON.parse(str),
     );
   }, [dataArray]);
+
+  const baseColumnDefs: ChildColumnDef[] = useMemo(() => {
+    const defs: ChildColumnDef[] = [
+      { key: "person_name", label: "Person Name", header: "Person Name" },
+      { key: "mobile_number", label: "Mobile", header: "Mobile" },
+      { key: "company_name", label: "Company", header: "Company" },
+      { key: "country_name", label: "Country", header: "Country" },
+      { key: "state_name", label: "State", header: "State" },
+      { key: "city_name", label: "City", header: "City" },
+      { key: "area_name", label: "Area", header: "Area" },
+      { key: "address", label: "Address", header: "Address" },
+      { key: "source_name", label: "Source", header: "Source" },
+      { key: "lable_name", label: "Label", header: "Label" },
+      { key: "status_name", label: "Status", header: "Status" },
+    ];
+
+    if (showCartColumns.cart_number) {
+      defs.push({
+        key: "cart_number",
+        label: "Last Cart Number",
+        header: "Last Cart Number",
+      });
+    }
+
+    if (showCartColumns.created_date_time) {
+      defs.push({
+        key: "created_date_time",
+        label: "Created Date",
+        header: "Created Date",
+        body: (rowData) =>
+          formatDateAndTime(rowData.created_date_time) || "-",
+      });
+    }
+
+    if (showCartColumns.grand_total) {
+      defs.push({
+        key: "grand_total",
+        label: "Grand Total",
+        header: "Grand Total",
+        body: (rowData) =>
+          rowData.grand_total ? `₹${rowData.grand_total}` : "-",
+      });
+    }
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel,
+        body: (rowData: any) => rowData[field.fieldName] || "-",
+      });
+    });
+
+    return defs;
+  }, [showCartColumns, uniqueCustomFields]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("chain_wise_contact_report", baseColumnDefs);
 
   const isAllSelected = useMemo(() => {
     const filteredData = getFilteredData();
@@ -657,32 +708,24 @@ const ChainWiseContactReportView = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Person Name", dataKey: "person_name" },
-    { title: "Mobile Number", dataKey: "mobile_number" },
-    { title: "Company Name", dataKey: "company_name" },
-    { title: "Country Name", dataKey: "country_name" },
-    { title: "State Name", dataKey: "state_name" },
-    { title: "City Name", dataKey: "city_name" },
-    { title: "Area Name", dataKey: "area_name" },
-    { title: "Address", dataKey: "address" },
-    { title: "Source Name", dataKey: "source_name" },
-    { title: "Label Name", dataKey: "lable_name" },
-    { title: "Status Name", dataKey: "status_name" },
-    ...(showCartColumns.cart_number
-      ? [{ title: "Last Cart Number", dataKey: "cart_number" }]
-      : []),
-    ...(showCartColumns.created_date_time
-      ? [{ title: "Created Date", dataKey: "created_date_time" }]
-      : []),
-    ...(showCartColumns.grand_total
-      ? [{ title: "Grand Total", dataKey: "grand_total" }]
-      : []),
-    ...uniqueCustomFields.map((field: any) => ({
-      title: field.fieldLabel,
-      dataKey: field.fieldName,
-    })),
-  ];
+  const getExportCellValue = (
+    col: ChildColumnDef,
+    customer: any,
+    moneyPrefix: string = "INR ",
+  ): string => {
+    if (col.key === "created_date_time") {
+      return formatDateAndTime(customer.created_date_time) || "-";
+    }
+    if (col.key === "grand_total") {
+      return customer.grand_total ? `${moneyPrefix}${customer.grand_total}` : "-";
+    }
+    return customer[col.key] ?? "-";
+  };
+
+  const exportColumns = visibleColumns.map((col) => ({
+    title: col.label,
+    dataKey: col.key,
+  }));
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
@@ -690,37 +733,9 @@ const ChainWiseContactReportView = ({
     const tableData = (
       selectedCustomers.length > 0 ? selectedCustomers : filteredData
     ).map((customer) => {
-      const rowData: any = {
-        person_name: customer.person_name || "-",
-        mobile_number: customer.mobile_number || "-",
-        company_name: customer.company_name || "-",
-        country_name: customer.country_name || "-",
-        state_name: customer.state_name || "-",
-        city_name: customer.city_name || "-",
-        area_name: customer.area_name || "-",
-        address: customer.address || "-",
-        source_name: customer.source_name || "-",
-        lable_name: customer.lable_name || "-",
-        status_name: customer.status_name || "-",
-        ...(showCartColumns.cart_number
-          ? { cart_number: customer.cart_number || "-" }
-          : {}),
-        ...(showCartColumns.created_date_time
-          ? {
-              created_date_time:
-                formatDateAndTime(customer.created_date_time) || "-",
-            }
-          : {}),
-        ...(showCartColumns.grand_total
-          ? {
-              grand_total: customer.grand_total
-                ? `INR ${customer.grand_total}`
-                : "-",
-            }
-          : {}),
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = customer[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, customer);
       });
       return rowData;
     });
@@ -781,28 +796,10 @@ const ChainWiseContactReportView = ({
       const exportData = (
         selectedCustomers.length > 0 ? selectedCustomers : allContacts
       ).map((customer) => {
-        const row: any = {
-          "Person Name": customer.person_name || "-",
-          "Mobile Number": customer.mobile_number || "-",
-          "Company Name": customer.company_name || "-",
-          "Country Name": customer.country_name || "-",
-          "State Name": customer.state_name || "-",
-          "City Name": customer.city_name || "-",
-          "Area Name": customer.area_name || "-",
-          Address: customer.address || "-",
-          "Source Name": customer.source_name || "-",
-          "Label Name": customer.lable_name || "-",
-          "Status Name": customer.status_name || "-",
-          "Cart Number": customer.cart_number || "-",
-          "Created Date": formatDateAndTime(customer.created_date_time) || "-",
-          "Grand Total": customer.grand_total || "-",
-        };
-
-        // Dynamic custom fields
-        uniqueCustomFields.forEach((field: any) => {
-          row[field.fieldLabel] = customer[field.fieldName] || "-";
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer);
         });
-
         return row;
       });
 
@@ -859,7 +856,7 @@ const ChainWiseContactReportView = ({
           <table>
             <thead>
               <tr>
-                ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -867,36 +864,10 @@ const ChainWiseContactReportView = ({
                 .map(
                   (customer) => `
                   <tr>
-                    <td>${customer.person_name || "-"}</td>
-                    <td>${customer.mobile_number || "-"}</td>
-                    <td>${customer.company_name || "-"}</td>
-                    <td>${customer.country_name || "-"}</td>
-                    <td>${customer.state_name || "-"}</td>
-                    <td>${customer.city_name || "-"}</td>
-                    <td>${customer.area_name || "-"}</td>
-                    <td>${customer.address || "-"}</td>
-                    <td>${customer.source_name || "-"}</td>
-                    <td>${customer.lable_name || "-"}</td>
-                    <td>${customer.status_name || "-"}</td>
-                    ${
-                      showCartColumns.cart_number
-                        ? `<td>${customer.cart_number || "-"}</td>`
-                        : ""
-                    }
-                    ${
-                      showCartColumns.created_date_time
-                        ? `<td>${formatDateAndTime(customer.created_date_time) || "-"}</td>`
-                        : ""
-                    }
-                    ${
-                      showCartColumns.grand_total
-                        ? `<td>${customer.grand_total ? `₹${customer.grand_total}` : "-"}</td>`
-                        : ""
-                    }
-                    ${uniqueCustomFields
+                    ${visibleColumns
                       .map(
-                        (field: any) =>
-                          `<td>${customer[field.fieldName] || "-"}</td>`,
+                        (col) =>
+                          `<td>${getExportCellValue(col, customer, "₹")}</td>`,
                       )
                       .join("")}
                   </tr>
@@ -1124,6 +1095,14 @@ const ChainWiseContactReportView = ({
                 </li>
               </ul>
             </div>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1158,7 +1137,10 @@ const ChainWiseContactReportView = ({
             header="Contacts"
             body={(rowData: IChainContact) =>
               rowData.chainContact?.length ? (
-                <ChildContactTable chainContact={rowData.chainContact} />
+                <ChildContactTable
+                  chainContact={rowData.chainContact}
+                  columns={visibleColumns}
+                />
               ) : (
                 <span style={{ color: "#999" }}>No chainContact</span>
               )

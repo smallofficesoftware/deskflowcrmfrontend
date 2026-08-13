@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import {
@@ -32,6 +33,7 @@ import {
   GOOGLE_MAP_KEY,
 } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController"; // Adjust path as needed
@@ -735,61 +737,350 @@ const AllVisitReportsView = ({
     setIsOrderCreateFromContactShow(true);
   };
 
-  const exportColumns = [
-    { title: "Visit ID", dataKey: "id" },
-    { title: "Contact Name", dataKey: "person_name" },
-    { title: "Contact Company", dataKey: "contactNumber" },
-    // { title: "Contact ID", dataKey: "contact_id" },
-    { title: "Created By", dataKey: "username" },
-    { title: "Status", dataKey: "status" },
-    { title: "Start Date", dataKey: "start_date" },
-    { title: "End Date", dataKey: "end_date" },
-    { title: "Start Day", dataKey: "start_day" },
-    { title: "End Day", dataKey: "end_day" },
-    { title: "Duration", dataKey: "duration" },
-    { title: "Remark", dataKey: "remark" },
+  type VisitColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    filterMatchMode?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    bodyStyle?: React.CSSProperties;
+    body: (rowData: any) => React.ReactNode;
+  };
 
-    // Filter out fields where dataType === 13
-    ...uniqueCustomFields
-      .filter((field: any) => field.dataType != 13)
-      .map((field: any) => ({
-        title: field.fieldLabel,
-        dataKey: field.fieldName,
-      })),
+  const baseColumnDefs: VisitColumnDef[] = useMemo(() => {
+    const defs: VisitColumnDef[] = [
+      {
+        key: "id",
+        label: "Visit ID",
+        header: (
+          <span>
+            Visit <br /> ID
+          </span>
+        ),
+        width: "100px",
+        body: (rowData) => (
+          <span
+            style={{ cursor: "pointer", fontSize: "14px" }}
+            onClick={() => handleChangeShowModelVisit(rowData)}
+            title="View Visit"
+          >
+            {rowData.id || "# XXXXXXX"}
+          </span>
+        ),
+      },
+      {
+        key: "start_date",
+        label: "Start Date",
+        header: (
+          <span>
+            Start <br /> Date
+          </span>
+        ),
+        width: "150px",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) => {
+          const dayName = rowData.start_day || getDayName(rowData.start_date);
+          return (
+            <>
+              <div>{formatDateTime(rowData.start_date)}</div>
+              <div>{dayName}</div>
+            </>
+          );
+        },
+      },
+      {
+        key: "end_date",
+        label: "End Date",
+        header: (
+          <span>
+            End <br /> Date
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => {
+          const dayName = rowData.end_day || getDayName(rowData.end_date);
+          return (
+            <>
+              <div>{formatDateTime(rowData.end_date)}</div>
+              <div>{dayName}</div>
+            </>
+          );
+        },
+      },
+      {
+        key: "duration",
+        label: "Duration",
+        header: "Duration",
+        width: "150px",
+        body: (rowData) => rowData.duration || "-",
+      },
+      {
+        key: "person_name",
+        label: "Contact Name",
+        header: (
+          <span>
+            Contact <br /> Name
+          </span>
+        ),
+        width: "150px",
+        filterMatchMode: "custom",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) => (
+          <div>
+            <div>{rowData.person_name || "-"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "contactNumber",
+        label: "Contact Company",
+        header: (
+          <span>
+            Contact <br />Company
+          </span>
+        ),
+        width: "150px",
+        filterMatchMode: "custom",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) => (
+          <div>
+            <div>{rowData.contactNumber || "-"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "address",
+        label: "Contact Address",
+        header: (
+          <span>
+            Contact <br />Address
+          </span>
+        ),
+        width: "150px",
+        bodyStyle: {
+          fontSize: "14px",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+        },
+        body: (rowData) => (
+          <div
+            style={{
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {rowData.address || "-"}
+          </div>
+        ),
+      },
+      {
+        key: "username",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        width: "150px",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) => rowData.username || "-",
+      },
+      {
+        key: "status",
+        label: "Status",
+        header: "Status",
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              color: rowData.status === "Active" ? "green" : "blue",
+              fontSize: "14px",
+            }}
+          >
+            {rowData.status !== undefined ? rowData.status : "-"}
+          </span>
+        ),
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        width: "150px",
+        bodyStyle: {
+          fontSize: "14px",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+        },
+        body: (rowData) => (
+          <div
+            style={{
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {rowData.remark || "-"}
+          </div>
+        ),
+      },
+      {
+        key: "visit_image",
+        label: "Image",
+        header: "Image",
+        width: "110px",
+        sortableCol: false,
+        filterCol: false,
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) =>
+          rowData.visit_image !== null ? (
+            <Button
+              icon="pi pi-image"
+              className="p-button-text"
+              style={{ color: "green", fontSize: "18px" }}
+              onClick={() => handleChangeImgViewer(rowData)}
+            />
+          ) : (
+            "-"
+          ),
+      },
+      {
+        key: "location",
+        label: "Location",
+        header: "Location",
+        width: "110px",
+        sortableCol: false,
+        filterCol: false,
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) =>
+          rowData.longitude && rowData.latitude ? (
+            <Button
+              icon="pi pi-map-marker"
+              className="p-button-text"
+              style={{ color: "green", fontSize: "18px" }}
+              onClick={() => handleLocationViewer(rowData)}
+            />
+          ) : (
+            "-"
+          ),
+      },
+    ];
+
+    uniqueCustomFields.forEach((field: any) => {
+      const safeHeader = (field.fieldLabel || field.fieldName || "")?.replace(
+        / /g,
+        "\n",
+      );
+
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel || field.fieldName,
+        header: safeHeader,
+        width: "150px",
+        filterMatchMode:
+          field.dataType === 1 || field.dataType === 7 ? "equals" : "contains",
+        body: (rowData) => {
+          const value = rowData[field.fieldName];
+
+          if (field.dataType === 13) {
+            if (!value || value === "-" || String(value).trim() === "") {
+              return "-";
+            }
+
+            return (
+              <div className="d-flex gap-2">
+                <Button
+                  icon="pi pi-eye"
+                  className="p-button-text"
+                  onClick={() => handleAttachmentView(value)}
+                />
+                <Button
+                  icon="pi pi-download"
+                  className="p-button-text"
+                  onClick={() => handleAttachmentDownload(value)}
+                />
+              </div>
+            );
+          }
+
+          if (value === null || value === undefined || value === "") {
+            return "-";
+          }
+
+          return value;
+        },
+      });
+    });
+
+    return defs;
+  }, [uniqueCustomFields]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_visit_report", baseColumnDefs);
+
+  const getExportCellValue = (col: VisitColumnDef, item: any): any => {
+    switch (col.key) {
+      case "id":
+        return item.id || "XXXXXXX";
+      case "start_date":
+        return formatDateTime(item.start_date);
+      case "end_date":
+        return formatDateTime(item.end_date);
+      case "start_day":
+        return item.start_day || getDayName(item.start_date);
+      case "end_day":
+        return item.end_day || getDayName(item.end_date);
+      case "status":
+        return item.status ?? "-";
+      case "visit_image":
+      case "location":
+        return "-";
+      case "contact_id":
+        return item.contact_id ?? "-";
+      default: {
+        const field = uniqueCustomFields.find((f: any) => f.fieldName === col.key);
+        if (field) {
+          const value = item[field.fieldName];
+          return field.dataType == 13
+            ? "-"
+            : value === undefined || value === null || value === ""
+              ? "-"
+              : value;
+        }
+        return item[col.key] ?? "-";
+      }
+    }
+  };
+
+  const exportableColumns = [
+    ...visibleColumns.filter((col) => col.key !== "visit_image" && col.key !== "location"),
+    { key: "start_day", label: "Start Day" } as VisitColumnDef,
+    { key: "end_day", label: "End Day" } as VisitColumnDef,
+    { key: "contact_id", label: "Contact ID" } as VisitColumnDef,
   ];
+
+  const exportColumns = exportableColumns.map((col) => ({
+    title: col.label,
+    dataKey: col.key,
+  }));
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     const dataToExport =
       selectedVisits.length > 0 ? selectedVisits : filteredData;
     const tableData = dataToExport.map((item) => {
-      const rowData: any = {
-        id: item.id || "XXXXXXX",
-        person_name: item.person_name || "-",
-        contactNumber: item.contactNumber || "-",
-        // contact_id: item.contact_id || "-",
-        username: item.username || "-",
-        status: item.status ?? "-",
-        start_date: formatDateTime(item.start_date),
-        end_date: formatDateTime(item.end_date),
-        start_day: item.start_day || getDayName(item.start_date),
-        end_day: item.end_day || getDayName(item.end_date),
-        duration: item.duration || "-",
-        remark: item.remark || "-",
-      };
-
-      // ← This is the important fix
-      uniqueCustomFields.forEach((field: any) => {
-        const value = item[field.fieldName];
-
-        rowData[field.fieldName] =
-          field.dataType == 13
-            ? "-"
-            : value === undefined || value === null || value === ""
-              ? "-"
-              : value;
+      const rowData: any = {};
+      exportableColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item);
       });
-
       return rowData;
     });
 
@@ -884,36 +1175,10 @@ const AllVisitReportsView = ({
       const exportData = (
         selectedVisits.length > 0 ? selectedVisits : flattenedVisits
       ).map((item) => {
-        const row: any = {
-          "Visit ID": item.id,
-          "Contact Name": item.person_name,
-          "Contact Company": item.contactNumber,
-          "Contact ID": item.contact_id,
-          "Created By": item.username,
-          Status: item.status,
-          "Start Date": formatDateTime(item.start_date),
-          "End Date": formatDateTime(item.end_date),
-          "Start Day": item.start_day || getDayName(item.start_date),
-          "End Day": item.end_day || getDayName(item.end_date),
-          Duration: item.duration,
-          Remark: item.remark,
-        };
-
-        // ← Add this block
-        uniqueCustomFields.forEach((field: any) => {
-          const value = item[field.fieldName];
-
-          console.log("value", value);
-          console.log("fieldName", field.fieldName);
-
-          row[field.fieldLabel] =
-            field.dataType == 13
-              ? "-"
-              : value === undefined || value === null || value === ""
-                ? "-"
-                : value;
+        const row: any = {};
+        exportableColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item);
         });
-
         return row;
       });
 
@@ -974,23 +1239,8 @@ const AllVisitReportsView = ({
         .map(
           (item) => `
                 <tr>
-                  <td>${item.id || "XXXXXXX"}</td>
-                  <td>${item.person_name || "-"}</td>
-                  <td>${item.contactNumber || "-"}</td>
-                  <td>${item.username || "-"}</td>
-                  <td>${item.status !== undefined ? item.status : "-"}</td>
-                  <td>${formatDateTime(item.start_date)}</td>
-                  <td>${formatDateTime(item.end_date)}</td>
-                  <td>${item.duration || "-"}</td>
-                  <td>${item.remark || "-"}</td>
-                 ${uniqueCustomFields
-              .map((field: any) => {
-                if (field.dataType == 13) {
-                  return ``;
-                }
-
-                return `<td>${item[field.fieldName] || "-"}</td>`;
-              })
+                  ${exportableColumns
+              .map((col) => `<td>${getExportCellValue(col, item)}</td>`)
               .join("")}
                 </tr>
               `,
@@ -1256,6 +1506,14 @@ const AllVisitReportsView = ({
                   Print
                 </li>
               </ul>
+
+              <ColumnsButton
+                columns={orderedColumns}
+                hiddenKeys={hiddenKeys}
+                onToggle={toggleColumn}
+                onReorder={reorderColumns}
+                onReset={resetColumns}
+              />
             </div>
           </div>
           {/* )} */}
@@ -1327,394 +1585,28 @@ const AllVisitReportsView = ({
                   bodyStyle={{ textAlign: "center" }}
                 />
               )}
-            <Column
-              field="id"
-              header={
-                <span>
-                  Visit <br /> ID
-                </span>
-              }
-              sortable
-              filter
-              filterField="id"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "100px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
-                  onClick={() => handleChangeShowModelVisit(rowData)}
-                  title="View Visit"
-                >
-                  {rowData.id || "# XXXXXXX"}
-                </span>
-              )}
-            />
-            <Column
-              field="start_date"
-              header={
-                <span>
-                  Start <br /> Date
-                </span>
-              }
-              sortable
-              filter
-              filterField="start_date"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => {
-                const dayName = rowData.start_day || getDayName(rowData.start_date);
-                return <>
-                  <div>{formatDateTime(rowData.start_date)}</div>
-                  <div>{dayName}</div>
-                </>;
-              }}
-            />
-            <Column
-              field="end_date"
-              header={
-                <span>
-                  End <br /> Date
-                </span>
-              }
-              sortable
-              filter
-              filterField="end_date"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => {
-                const dayName = rowData.end_day || getDayName(rowData.end_date);
-                return <>
-                  <div>{formatDateTime(rowData.end_date)}</div>
-                  <div>{dayName}</div>
-                </>;
-              }}
-            />
-            <Column
-              field="duration"
-              header="Duration"
-              sortable
-              filter
-              filterField="duration"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => rowData.duration || "-"}
-            />
-            <Column
-              field="person_name"
-              header={
-                <span>
-                  Contact <br /> Name
-                </span>
-              }
-              sortable
-              filter
-              filterField="person_name"
-              filterPlaceholder="Search"
-              filterMatchMode="custom"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => (
-                <div>
-                  <div>{rowData.person_name || "-"}</div>
-                </div>
-              )}
-            />
-            <Column
-              field="contactNumber"
-              header={
-                <span>
-                  Contact <br />Company
-                </span>
-              }
-              sortable
-              filter
-              filterField="contactNumber"
-              filterPlaceholder="Search"
-              filterMatchMode="custom"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => (
-                <div>
-                  <div>{rowData.contactNumber || "-"}</div>
-                </div>
-              )}
-            />
-            <Column
-              field="address"
-              header={
-                <span>
-                  Contact <br />Address
-                </span>
-              }
-              sortable
-              filter
-              filterField="address"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{
-                fontSize: "14px",
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-              }}
-              body={(rowData: any) => (
-                <div
-                  style={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  {rowData.address || "-"}
-                </div>
-              )}
-            />
-            <Column
-              field="username"
-              header={
-                <span>
-                  Created <br /> By
-                </span>
-              }
-              sortable
-              filter
-              filterField="username"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => rowData.username || "-"}
-            />
-            <Column
-              field="status"
-              header="Status"
-              sortable
-              filter
-              filterField="status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    color: rowData.status === "Active" ? "green" : "blue",
-                    fontSize: "14px",
-                  }}
-                >
-                  {rowData.status !== undefined ? rowData.status : "-"}
-                </span>
-              )}
-            />
-            <Column
-              field="remark"
-              header="Remark"
-              sortable
-              filter
-              filterField="remark"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{
-                fontSize: "14px",
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-              }}
-              body={(rowData: any) => (
-                <div
-                  style={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  {rowData.remark || "-"}
-                </div>
-              )}
-            />
-            <Column
-              field="visit_image"
-              header="Image"
-              headerStyle={{
-                width: "110px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) =>
-                rowData.visit_image !== null ? (
-                  <Button
-                    icon="pi pi-image"
-                    className="p-button-text"
-                    style={{ color: "green", fontSize: "18px" }}
-                    onClick={() => handleChangeImgViewer(rowData)}
-                  />
-                ) : (
-                  "-"
-                )
-              }
-            />
-            <Column
-              // field="visit_image"
-              header="Location"
-              headerStyle={{
-                width: "110px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) =>
-                rowData.longitude && rowData.latitude ? (
-                  <Button
-                    icon="pi pi-map-marker"
-                    className="p-button-text"
-                    style={{ color: "green", fontSize: "18px" }}
-                    onClick={() => handleLocationViewer(rowData)}
-                  />
-                ) : (
-                  "-"
-                )
-              }
-            />
-            {uniqueCustomFields.map((field: any) => {
-              const safeHeader = (
-                field.fieldLabel ||
-                field.fieldName ||
-                ""
-              )?.replace(/ /g, "\n");
-              return (
-                <Column
-                  key={field.fieldName}
-                  field={field.fieldName}
-                  header={safeHeader}
-                  sortable
-                  filter
-                  filterField={field.fieldName}
-                  filterPlaceholder="Search"
-                  filterMatchMode={
-                    field.dataType === 1 || field.dataType === 7
-                      ? "equals"
-                      : "contains"
-                  }
-                  headerStyle={{
-                    width: "150px",
-                    whiteSpace: "pre-wrap",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    fontSize: "14px",
-                  }}
-                  bodyStyle={{ fontSize: "14px" }}
-                  body={(rowData: any) => {
-                    const value = rowData[field.fieldName];
-
-                    if (field.dataType === 13) {
-                      if (
-                        !value ||
-                        value === "-" ||
-                        String(value).trim() === ""
-                      ) {
-                        return "-";
-                      }
-
-                      return (
-                        <div className="d-flex gap-2">
-                          <Button
-                            icon="pi pi-eye"
-                            className="p-button-text"
-                            onClick={() => handleAttachmentView(value)}
-                          />
-                          <Button
-                            icon="pi pi-download"
-                            className="p-button-text"
-                            onClick={() => handleAttachmentDownload(value)}
-                          />
-                        </div>
-                      );
-                    }
-
-                    if (value === null || value === undefined || value === "") {
-                      return "-";
-                    }
-
-                    return value;
-                  }}
-                />
-              );
-            })}
+            {visibleColumns.map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable={col.sortableCol !== false}
+                filter={col.filterCol !== false}
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerStyle={{
+                  width: col.width || "150px",
+                  whiteSpace: "pre-wrap",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  fontSize: "14px",
+                }}
+                bodyStyle={col.bodyStyle || { fontSize: "14px" }}
+                body={col.body}
+              />
+            ))}
           </DataTable>
         </div>
         {viewerOpen && (

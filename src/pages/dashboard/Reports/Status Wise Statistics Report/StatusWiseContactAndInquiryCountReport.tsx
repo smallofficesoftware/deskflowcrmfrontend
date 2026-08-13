@@ -14,13 +14,15 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { exportStatusWise, fetchStatusWise, fetchStatusWiseForExport, IStatusWiseContactCountReport } from "./StatusWiseContactAndInquiryCountReportController";
@@ -378,28 +380,82 @@ const StatusWiseContactAndInquiryCountReport = ({
         }
     };
 
-    const exportColumns = [
-        { title: "Status Name", dataKey: "status_name" },
-        { title: "Contact Count", dataKey: "contactCount" },
-        { title: "Inquiry Count", dataKey: "inquiryCount" },
-    ];
+    type StatusColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: IStatusWiseContactCountReport) => React.ReactNode;
+    };
+
+    const baseColumnDefs: StatusColumnDef[] = useMemo(
+        () => [
+            {
+                key: "status_name",
+                label: "Status Name",
+                header: "Status Name",
+                width: "200px",
+                body: (rowData) => rowData.status_name || "-",
+            },
+            {
+                key: "contactCount",
+                label: "Contact Count",
+                header: "Contact Count",
+                width: "150px",
+                body: (rowData) => rowData.contactCount,
+            },
+            {
+                key: "inquiryCount",
+                label: "Inquiry Count",
+                header: "Inquiry Count",
+                width: "150px",
+                body: (rowData) => rowData.inquiryCount,
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("status_wise_statistics_report", baseColumnDefs);
+
+    const getExportCellValue = (
+        col: StatusColumnDef,
+        customer: any,
+    ): any => {
+        if (col.key === "status_name") return customer.status_name || "-";
+        if (col.key === "contactCount") return customer.contactCount ?? 0;
+        if (col.key === "inquiryCount") return customer.inquiryCount ?? 0;
+        return customer[col.key] ?? "-";
+    };
 
     const exportPdf = () => {
         const doc = new jsPDF({ orientation: "landscape", format: "a4" });
         const filteredData = getFilteredData();
         const tableData = (
             selectedCustomers.length > 0 ? selectedCustomers : filteredData
-        ).map((customer) => ({
-            status_name: customer.status_name || "-",
-            contactCount: customer.contactCount || "-",
-            inquiryCount: customer.inquiryCount || "-",
-        }));
+        ).map((customer) => {
+            const rowData: any = {};
+            visibleColumns.forEach((col) => {
+                rowData[col.key] = getExportCellValue(col, customer);
+            });
+            return rowData;
+        });
 
         if (tableData.length === 0) {
             doc.text("No data available to export", 10, 10);
             doc.save(`status_wise_contact_count_report_${new Date().getTime()}.pdf`);
             return;
         }
+
+        const exportColumns = visibleColumns.map((col) => ({
+            title: col.label,
+            dataKey: col.key,
+        }));
 
         autoTable(doc, {
             columns: exportColumns,
@@ -446,14 +502,16 @@ const StatusWiseContactAndInquiryCountReport = ({
 
             const exportData = (
                 selectedCustomers.length > 0 ? selectedCustomers : allContacts
-            ).map((customer: IStatusWiseContactCountReport) => ({
-                status_name: customer.status_name || "-",
-                contactCount: customer.contactCount ?? 0,
-                inquiryCount: customer.inquiryCount ?? 0,
-            }));
+            ).map((customer: IStatusWiseContactCountReport) => {
+                const row: any = {};
+                visibleColumns.forEach((col) => {
+                    row[col.label] = getExportCellValue(col, customer);
+                });
+                return row;
+            });
 
             const worksheet = xlsx.utils.json_to_sheet(exportData);
-            worksheet["!cols"] = [{ wpx: 220 }, { wpx: 160 }, { wpx: 160 }];
+            worksheet["!cols"] = visibleColumns.map(() => ({ wpx: 180 }));
 
             const workbook = xlsx.utils.book_new();
             xlsx.utils.book_append_sheet(workbook, worksheet, "Status Wise Report");
@@ -504,7 +562,7 @@ const StatusWiseContactAndInquiryCountReport = ({
           <table>
             <thead>
               <tr>
-                ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -512,9 +570,12 @@ const StatusWiseContactAndInquiryCountReport = ({
                 .map(
                     (customer) => `
                   <tr>
-                    <td>${customer.status_name || "-"}</td>
-                    <td>${customer.contactCount || "-"}</td>
-                    <td>${customer.inquiryCount || "-"}</td>
+                    ${visibleColumns
+                        .map(
+                            (col) =>
+                                `<td>${getExportCellValue(col, customer)}</td>`,
+                        )
+                        .join("")}
                   </tr>
                 `,
                 )
@@ -676,6 +737,13 @@ const StatusWiseContactAndInquiryCountReport = ({
                                 </li>
                             </ul>
                         </div>
+                        <ColumnsButton
+                            columns={orderedColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onReorder={reorderColumns}
+                            onReset={resetColumns}
+                        />
                     </div>
                 </div>
                 {/* )} */}
@@ -726,60 +794,28 @@ const StatusWiseContactAndInquiryCountReport = ({
                             bodyStyle={{ textAlign: "center" }}
                         />
                     )}
-                    <Column
-                        field="status_name"
-                        header="Status Name"
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 1,
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IStatusWiseContactCountReport) => rowData.status_name || "-"}
-                    />
-                    <Column
-                        field="contactCount"
-                        header="Contact Count"
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "150px",
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 1,
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IStatusWiseContactCountReport) => rowData.contactCount}
-                    />
-                    <Column
-                        field="inquiryCount"
-                        header="Inquiry Count"
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "150px",
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 1,
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IStatusWiseContactCountReport) => rowData.inquiryCount}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isModalFilterVisible && (

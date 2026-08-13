@@ -17,9 +17,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import AttendanceDayWiseDetails from "./AttendanceDayWiseDetails";
@@ -340,6 +342,123 @@ const TeamAttendanceReportsView = ({
     return getDateRange(start, end);
   }, [filters.selectedDateArray]);
 
+  type AttendanceColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IAttendanceHistory) => React.ReactNode;
+  };
+
+  const baseColumnDefs: AttendanceColumnDef[] = useMemo(
+    () => [
+      {
+        key: "username",
+        label: "Team Member",
+        header: (
+          <span>
+            Team <br /> Member
+          </span>
+        ),
+        width: "150px",
+        body: (rowData) => rowData.username || "-",
+      },
+      {
+        key: "total_working_hours",
+        label: "Actual Working Hours",
+        header: (
+          <span>
+            Actual <br />
+            Working Hours
+          </span>
+        ),
+        width: "180px",
+        body: (rowData) =>
+          formatMinutesToHHMMSS(
+            calculateTotalWorkingMinutes(rowData, allDates),
+          ) || "00:00:00",
+      },
+      {
+        key: "company_paid_leave",
+        label: "Company Paid Leave",
+        header: (
+          <span>
+            Company <br />
+            Paid Leave
+          </span>
+        ),
+        width: "160px",
+        body: (rowData) => rowData.companyPaidLeave ?? "-",
+      },
+      {
+        key: "employee_paid_leave",
+        label: "Employee Paid Leave",
+        header: (
+          <span>
+            Employee <br />
+            Paid Leave
+          </span>
+        ),
+        width: "160px",
+        body: (rowData) => rowData.employeePaidLeave ?? "-",
+      },
+      {
+        key: "paid_days_paid_hours",
+        label: "Paid Days / Total Paid Hours",
+        header: (
+          <span>
+            Paid Days /<br /> Total Paid Hours
+          </span>
+        ),
+        width: "200px",
+        body: (rowData) =>
+          `${rowData.totalPaidDays ?? 0}/${rowData.totalPaidHours ?? "00:00:00"}`,
+      },
+      {
+        key: "salary",
+        label: "Salary",
+        header: "Salary",
+        width: "160px",
+        body: (rowData: IAttendanceHistory) => rowData.finalSalary ?? "0",
+      },
+    ],
+    [allDates],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("attendance_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: AttendanceColumnDef,
+    customer: IAttendanceHistory,
+  ): string => {
+    switch (col.key) {
+      case "username":
+        return customer.username ?? "-";
+      case "total_working_hours":
+        return (
+          formatMinutesToHHMMSS(
+            calculateTotalWorkingMinutes(customer, allDates),
+          ) || "00:00:00"
+        );
+      case "company_paid_leave":
+        return String(customer.companyPaidLeave ?? "-");
+      case "employee_paid_leave":
+        return String(customer.employeePaidLeave ?? "-");
+      case "paid_days_paid_hours":
+        return `${customer.totalPaidDays ?? 0}/${customer.totalPaidHours ?? "00:00:00"}`;
+      case "salary":
+        return String(customer.finalSalary ?? "0");
+      default:
+        return "-";
+    }
+  };
+
   const dataArray: IAttendanceHistory[] = useMemo(() => {
     return Array.isArray(attendanceReport) ? attendanceReport : [];
   }, [attendanceReport]);
@@ -501,20 +620,57 @@ const TeamAttendanceReportsView = ({
   };
 
   // ──────────────────────────────────────────────────────────────
-  //  EXPORT COLUMNS (for PDF & structure reference)
+  //  EXPORT COLUMNS (derived from visibleColumns; date columns are
+  //  not part of the toggle system so they're always included at
+  //  their original position, right after the Team Member column)
   // ──────────────────────────────────────────────────────────────
-  const exportColumns = [
-    { title: "Team Member", dataKey: "username" },
+  const buildExportColumns = () => [
+    ...visibleColumns
+      .filter((c) => c.key === "username")
+      .map((col) => ({ title: col.label, dataKey: col.key })),
     ...allDates.map((date) => ({
       title: formatDateDisplay(date),
       dataKey: formatDate(date),
     })),
-    { title: "Actual Working Hours", dataKey: "total_working_hours" },
-    { title: "Company Paid Leave", dataKey: "company_paid_leave" },
-    { title: "Employee Paid Leave", dataKey: "employee_paid_leave" },
-    { title: "Paid Days / Total Paid Hours", dataKey: "paid_days_paid_hours" },
-    { title: "Salary", dataKey: "salary" },
+    ...visibleColumns
+      .filter((c) => c.key !== "username")
+      .map((col) => ({ title: col.label, dataKey: col.key })),
   ];
+
+  const buildExportRow = (customer: IAttendanceHistory) => {
+    const row: Record<string, any> = {};
+
+    visibleColumns.forEach((col) => {
+      row[col.key] = getExportCellValue(col, customer);
+    });
+
+    // All date columns
+    allDates.forEach((date) => {
+      const formattedDate = formatDate(date);
+      const attendance = customer.attendanceData?.find(
+        (a) => a.date === formattedDate,
+      );
+      let cellValue = "-";
+      if (attendance) {
+        const status =
+          attendance.status === "L" && attendance.leave_type
+            ? `${attendance.status} (${attendance.leave_type})`
+            : attendance.status;
+        const times =
+          attendance.messages
+            ?.filter((m) => m.attendanceDate === formattedDate)
+            .map((m) => m.attendanceTime) || [];
+
+        cellValue = status; // show status first
+        if (times.length > 0) {
+          cellValue += ` (${times.join(", ")})`; // optional: include times
+        }
+      }
+      row[formattedDate] = cellValue;
+    });
+
+    return row;
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a2" });
@@ -528,48 +684,10 @@ const TeamAttendanceReportsView = ({
       return;
     }
 
-    const tableData = dataToExport.map((customer) => {
-      const row: Record<string, any> = { username: customer.username ?? "-" };
-
-      // All date columns
-      allDates.forEach((date) => {
-        const formattedDate = formatDate(date);
-        const attendance = customer.attendanceData?.find(
-          (a) => a.date === formattedDate,
-        );
-        let cellValue = "-";
-        if (attendance) {
-          const status =
-            attendance.status === "L" && attendance.leave_type
-              ? `${attendance.status} (${attendance.leave_type})`
-              : attendance.status;
-          const times =
-            attendance.messages
-              ?.filter((m) => m.attendanceDate === formattedDate)
-              .map((m) => m.attendanceTime) || [];
-
-          cellValue = status; // show status first
-          if (times.length > 0) {
-            cellValue += ` (${times.join(", ")})`; // optional: include times
-          }
-        }
-        row[formattedDate] = cellValue;
-      });
-
-      // Fixed new columns
-      row.total_working_hours = formatMinutesToHHMMSS(
-        calculateTotalWorkingMinutes(customer, allDates),
-      );
-      row.company_paid_leave = customer.companyPaidLeave ?? "-";
-      row.employee_paid_leave = customer.employeePaidLeave ?? "-";
-      row.paid_days_paid_hours = `${customer.totalPaidDays ?? 0}/${customer.totalPaidHours ?? "00:00:00"}`;
-      row.salary = customer.finalSalary ?? "0";
-
-      return row;
-    });
+    const tableData = dataToExport.map((customer) => buildExportRow(customer));
 
     autoTable(doc, {
-      columns: exportColumns,
+      columns: buildExportColumns(),
       body: tableData,
       theme: "grid",
       styles: { fontSize: 8, cellPadding: 1 },
@@ -646,20 +764,30 @@ const TeamAttendanceReportsView = ({
         (a, b) => a.getTime() - b.getTime(),
       );
 
+      const EXCEL_COL_WIDTH: Record<string, number> = {
+        username: 180,
+        total_working_hours: 160,
+        company_paid_leave: 140,
+        employee_paid_leave: 140,
+        paid_days_paid_hours: 160,
+        salary: 120,
+      };
+
+      const leadingColumns = visibleColumns.filter((c) => c.key === "username");
+      const trailingColumns = visibleColumns.filter(
+        (c) => c.key !== "username",
+      );
+
       const headers = [
-        "Team Member",
+        ...leadingColumns.map((col) => col.label),
         ...sortedDates.map(formatDateDisplay),
-        "Actual Working Hours",
-        "Company Paid Leave",
-        "Employee Paid Leave",
-        "Paid Days / Total Paid Hours",
-        "Salary",
+        ...trailingColumns.map((col) => col.label),
       ];
 
       const rows = (
         selectedCustomers.length > 0 ? selectedCustomers : allAttendance
       ).map((customer) => {
-        const row: any[] = [customer.username || "-"];
+        const row: any[] = leadingColumns.map(() => customer.username || "-");
 
         sortedDates.forEach((date) => {
           const formattedDate = formatDate(date);
@@ -691,17 +819,9 @@ const TeamAttendanceReportsView = ({
           row.push(cellValue);
         });
 
-        row.push(
-          formatMinutesToHHMMSS(
-            calculateTotalWorkingMinutes(customer, sortedDates),
-          ) || "00:00:00",
-        );
-        row.push(customer.companyPaidLeave ?? "-");
-        row.push(customer.employeePaidLeave ?? "-");
-        row.push(
-          `${customer.totalPaidDays ?? 0}/${customer.totalPaidHours ?? "00:00:00"}`,
-        );
-        row.push(customer.finalSalary ?? "0");
+        trailingColumns.forEach((col) => {
+          row.push(getExportCellValue(col, customer));
+        });
 
         return row;
       });
@@ -709,13 +829,11 @@ const TeamAttendanceReportsView = ({
       const worksheet = xlsx.utils.aoa_to_sheet([headers, ...rows]);
 
       worksheet["!cols"] = [
-        { wpx: 180 },
+        ...leadingColumns.map(() => ({ wpx: EXCEL_COL_WIDTH.username })),
         ...sortedDates.map(() => ({ wpx: 110 })),
-        { wpx: 160 },
-        { wpx: 140 },
-        { wpx: 140 },
-        { wpx: 160 },
-        { wpx: 120 },
+        ...trailingColumns.map((col) => ({
+          wpx: EXCEL_COL_WIDTH[col.key] ?? 140,
+        })),
       ];
 
       const workbook = xlsx.utils.book_new();
@@ -753,18 +871,19 @@ const TeamAttendanceReportsView = ({
       return;
     }
 
+    const leadingColumns = visibleColumns.filter((c) => c.key === "username");
+    const trailingColumns = visibleColumns.filter(
+      (c) => c.key !== "username",
+    );
+
     const dateHeaders = allDates
       .map((d) => `<th>${formatDateDisplay(d)}</th>`)
       .join("");
 
     const headers = `
-    <th>Team Member</th>
+    ${leadingColumns.map((col) => `<th>${col.label}</th>`).join("")}
     ${dateHeaders}
-    <th>Actual Working Hours</th>
-    <th>Company Paid Leave</th>
-    <th>Employee Paid Leave</th>
-    <th>Paid Days / Total Paid Hours</th>
-    <th>Salary</th>
+    ${trailingColumns.map((col) => `<th>${col.label}</th>`).join("")}
   `;
 
     const rows = dataToPrint
@@ -795,15 +914,18 @@ const TeamAttendanceReportsView = ({
           })
           .join("");
 
+        const leadingCells = leadingColumns
+          .map(() => `<td>${customer.username ?? "-"}</td>`)
+          .join("");
+        const trailingCells = trailingColumns
+          .map((col) => `<td>${getExportCellValue(col, customer)}</td>`)
+          .join("");
+
         return `
       <tr>
-        <td>${customer.username ?? "-"}</td>
+        ${leadingCells}
         ${dateCells}
-        <td>${formatMinutesToHHMMSS(calculateTotalWorkingMinutes(customer, allDates))}</td>
-        <td>${customer.companyPaidLeave ?? "-"}</td>
-        <td>${customer.employeePaidLeave ?? "-"}</td>
-        <td>${customer.totalPaidDays ?? 0}/${customer.totalPaidHours ?? "00:00:00"}</td>
-        <td>${customer.finalSalary ?? "0"}</td>
+        ${trailingCells}
       </tr>
     `;
       })
@@ -1040,6 +1162,14 @@ const TeamAttendanceReportsView = ({
               </li>
             </ul>
           </div>
+
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1099,21 +1229,22 @@ const TeamAttendanceReportsView = ({
             />
           )}
 
-          <Column
-            field="username"
-            header={
-              <span>
-                Team <br /> Member
-              </span>
-            }
-            sortable
-            filter
-            filterField="username"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "150px" }}
-            body={(rowData) => rowData.username || "-"}
-          />
+          {visibleColumns
+            .filter((col) => col.key === "username")
+            .map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable
+                filter
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerStyle={{ width: col.width || "150px" }}
+                body={col.body}
+              />
+            ))}
 
           {allDates.map((date) => {
             const formattedDate = formatDate(date);
@@ -1192,91 +1323,25 @@ const TeamAttendanceReportsView = ({
             );
           })}
 
-          <Column
-            field="total_working_hours"
-            header={
-              <span>
-                Actual <br />
-                Working Hours
-              </span>
-            }
-            sortable
-            filter
-            filterField="total_working_hours"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "180px" }}
-            body={(rowData) =>
-              formatMinutesToHHMMSS(
-                calculateTotalWorkingMinutes(rowData, allDates),
-              ) || "00:00:00"
-            }
-          />
-
-          <Column
-            field="company_paid_leave"
-            header={
-              <span>
-                Company <br />
-                Paid Leave
-              </span>
-            }
-            sortable
-            filter
-            filterField="company_paid_leave"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            body={(rowData) => rowData.companyPaidLeave ?? "-"}
-          />
-
-          <Column
-            field="employee_paid_leave"
-            header={
-              <span>
-                Employee <br />
-                Paid Leave
-              </span>
-            }
-            sortable
-            filter
-            filterField="employee_paid_leave"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            body={(rowData) => rowData.employeePaidLeave ?? "-"}
-          />
-
-          <Column
-            field="paid_days_paid_hours"
-            header={
-              <span>
-                Paid Days /<br /> Total Paid Hours
-              </span>
-            }
-            sortable
-            filter
-            filterField="paid_days_paid_hours"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "200px" }}
-            body={(rowData) =>
-              `${rowData.totalPaidDays ?? 0}/${rowData.totalPaidHours ?? "00:00:00"}`
-            }
-          />
-
-          <Column
-            field="salary"
-            header="Salary"
-            sortable
-            filter
-            filterField="salary"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            body={(rowData: IAttendanceHistory) => rowData.finalSalary ?? "0"}
-            bodyStyle={{ textAlign: "right" }}
-          />
+          {visibleColumns
+            .filter((col) => col.key !== "username")
+            .map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable
+                filter
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerStyle={{ width: col.width || "150px" }}
+                bodyStyle={{
+                  textAlign: col.key === "salary" ? "right" : undefined,
+                }}
+                body={col.body}
+              />
+            ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

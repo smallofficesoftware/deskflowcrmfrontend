@@ -14,13 +14,15 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -190,6 +192,71 @@ const StatusWiseReport = ({
     PAGE_ID.STATUS_REPORT,
     PERMISSION_TYPE.PRINT,
   );
+
+  type StatusColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    body?: (rowData: { name: string; support_ticket: number; task: number }) => React.ReactNode;
+  };
+
+  const baseColumnDefs: StatusColumnDef[] = useMemo(
+    () => [
+      {
+        key: "name",
+        label: "Status Name",
+        header: "Status Name",
+        sortableCol: true,
+        filterCol: false,
+      },
+      {
+        key: "support_ticket",
+        label: "Support Ticket Count",
+        header: "Support Ticket Count",
+        sortableCol: true,
+        filterCol: false,
+      },
+      {
+        key: "task",
+        label: "Task Count",
+        header: "Task Count",
+        sortableCol: true,
+        filterCol: false,
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("status_wise_report", baseColumnDefs);
+
+  const EXTRA_EXPORT_COLUMNS: { key: string; label: string }[] = [
+    { key: "group", label: "Group" },
+  ];
+
+  const getExportCellValue = (
+    col: StatusColumnDef,
+    row: { group: string; name: string; support_ticket: number; task: number },
+  ): string | number => {
+    switch (col.key) {
+      case "name":
+        return row.name;
+      case "support_ticket":
+        return row.support_ticket;
+      case "task":
+        return row.task;
+      default:
+        return (row as any)[col.key] ?? "-";
+    }
+  };
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
@@ -415,10 +482,8 @@ const StatusWiseReport = ({
     });
 
   const exportColumns = [
-    { title: "Group", dataKey: "group" },
-    { title: "Status Name", dataKey: "name" },
-    { title: "Support Ticket", dataKey: "support_ticket" },
-    { title: "Task", dataKey: "task" },
+    ...visibleColumns.map((col) => ({ title: col.label, dataKey: col.key })),
+    ...EXTRA_EXPORT_COLUMNS.map((col) => ({ title: col.label, dataKey: col.key })),
   ];
 
   const exportPdf = () => {
@@ -480,20 +545,21 @@ const StatusWiseReport = ({
         return;
       }
 
-      const exportData = allContacts.map((item: any) => ({
-        Group: item.group || "-",
-        "Status Name": item.name || "-",
-        "Support Ticket": item.support_ticket ?? 0,
-        Task: item.task ?? 0,
-      }));
+      const exportData = allContacts.map((item: any) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item);
+        });
+        EXTRA_EXPORT_COLUMNS.forEach((col) => {
+          row[col.label] = item[col.key] ?? "-";
+        });
+        return row;
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = [
-        { wpx: 180 },
-        { wpx: 200 },
-        { wpx: 120 },
-        { wpx: 100 },
-      ];
+      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
+        wpx: 150,
+      }));
 
       const workbook = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(
@@ -540,17 +606,23 @@ const StatusWiseReport = ({
           <h1>Status Wise Task Or Supp. Ticket Report</h1>
           <table>
             <thead>
-              <tr><th>Group</th><th>Status Name</th><th>Support Ticket</th><th>Task</th></tr>
+              <tr>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
+                ${EXTRA_EXPORT_COLUMNS.map((col) => `<th>${col.label}</th>`).join("")}
+              </tr>
             </thead>
             <tbody>
               ${tableData
                 .map(
                   (r) => `
-                <tr><td>${r.group}
-                </td><td>${r.name}
-                </td><td>${r.support_ticket}
-                </td><td>${r.task}
-                </td></tr>`,
+                <tr>
+                  ${visibleColumns
+                    .map((col) => `<td>${getExportCellValue(col, r)}</td>`)
+                    .join("")}
+                  ${EXTRA_EXPORT_COLUMNS.map(
+                    (col) => `<td>${(r as any)[col.key] ?? "-"}</td>`,
+                  ).join("")}
+                </tr>`,
                 )
                 .join("")}
             </tbody>
@@ -743,6 +815,13 @@ const StatusWiseReport = ({
                 </li>
               </ul>
             </div>
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
       </div>
@@ -796,27 +875,28 @@ const StatusWiseReport = ({
                 size="small"
                 tableStyle={{ minWidth: "400px" }}
               >
-                <Column
-                  field="name"
-                  header="Status Name"
-                  sortable
-                  bodyStyle={{ fontSize: "14px" }}
-                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
-                />
-                <Column
-                  field="support_ticket"
-                  header="Support Ticket Count"
-                  sortable
-                  bodyStyle={{ fontSize: "14px" }}
-                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
-                />
-                <Column
-                  field="task"
-                  header="Task Count"
-                  sortable
-                  bodyStyle={{ fontSize: "14px" }}
-                  headerStyle={{ fontSize: "14px", background: "#f8f9fa" }}
-                />
+                {visibleColumns.map((col) => (
+                  <Column
+                    key={col.key}
+                    field={col.key}
+                    header={col.header}
+                    sortable={col.sortableCol !== false}
+                    filter={col.filterCol !== false}
+                    filterField={col.key}
+                    filterPlaceholder="Search"
+                    filterMatchMode={col.filterMatchMode || "contains"}
+                    headerStyle={{
+                      width: col.width || "150px",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                      background: "#f8f9fa",
+                      fontSize: "14px",
+                    }}
+                    bodyStyle={{ fontSize: "14px" }}
+                    body={col.body}
+                  />
+                ))}
               </DataTable>
             </div>
           );

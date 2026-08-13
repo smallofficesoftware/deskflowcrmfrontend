@@ -18,9 +18,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -489,33 +491,34 @@ const AccountOutstandingReports = ({
 
   const grandTotal = payableTotal + receivableTotal;
 
-  const exportColumns = [
-    { title: "Contact Name", dataKey: "contact_name" },
-    { title: "Total Outstanding Amount", dataKey: "total_outstanding_amount" },
-    { title: "Outstanding Type", dataKey: "outstanding_type" },
-  ];
-
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => ({
-      contact_name: customer.contact_name || "-",
-      total_outstanding_amount: customer.total_outstanding_amount ?? "-",
-      outstanding_type: customer.outstanding_type || "-",
+    const dataToExport =
+      selectedCustomers.length > 0 ? selectedCustomers : filteredData;
+
+    const tableData = dataToExport.map((customer) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, customer);
+      });
+      return row;
+    });
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
     }));
 
-    const exportPayableTotal = tableData.reduce((sum, customer) => {
-      console.log("nan", sum);
-      if (customer.outstanding_type.toLowerCase() === "payable") {
+    const exportPayableTotal = dataToExport.reduce((sum, customer) => {
+      if ((customer.outstanding_type || "").toLowerCase() === "payable") {
         return sum + Number(customer.total_outstanding_amount || 0);
       }
       return sum;
     }, 0);
 
-    const exportReceivableTotal = tableData.reduce((sum, customer) => {
-      if (customer.outstanding_type.toLowerCase() === "receivable") {
+    const exportReceivableTotal = dataToExport.reduce((sum, customer) => {
+      if ((customer.outstanding_type || "").toLowerCase() === "receivable") {
         return sum + Number(customer.total_outstanding_amount || 0);
       }
       return sum;
@@ -655,50 +658,61 @@ const AccountOutstandingReports = ({
     try {
       setLoading(false);
 
-      const exportData =
+      const rawExportData =
         await exportAllAccountOutstadingData<IAccountOutstanding>(
           fetchAccountOutstandingForExport,
           500,
         );
 
-      if (!exportData.length) {
+      if (!rawExportData.length) {
         toast.warn("No data to export");
         return;
       }
 
-      const data = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((row) => ({
-        "Contact Name": row.contact_name || "-",
-        "Total Outstanding": row.total_outstanding_amount ?? "-",
-        Type: row.outstanding_type || "-",
-      }));
+      const dataToExport =
+        selectedCustomers.length > 0 ? selectedCustomers : rawExportData;
+
+      const data = dataToExport.map((row) => {
+        const rowObj: any = {};
+        visibleColumns.forEach((col) => {
+          rowObj[col.label] = getExportCellValue(col, row);
+        });
+        return rowObj;
+      });
 
       const parseAmount = (str: string): number => {
         return parseFloat(str?.replace(/[^0-9.-]+/g, "") || "0") || 0;
       };
 
-      const payable = exportData
+      const payable = rawExportData
         .filter((r) => r.outstanding_type?.toLowerCase() === "payable")
         .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
 
-      const receivable = exportData
+      const receivable = rawExportData
         .filter((r) => r.outstanding_type?.toLowerCase() === "receivable")
         .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
 
       const grand = payable + receivable;
 
+      const buildFooterRow = (overrides: Record<string, any>) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = overrides[col.key] ?? "";
+        });
+        return row;
+      };
+
       const footer = [
-        {
-          "Contact Name": "Payable",
-          "Total Outstanding": payable,
-          Type: "Receivable / Grand Total",
-        },
-        {
-          "Contact Name": "",
-          "Total Outstanding": receivable,
-          Type: grand,
-        },
+        buildFooterRow({
+          contact_name: "Payable",
+          total_outstanding_amount: payable,
+          outstanding_type: "Receivable / Grand Total",
+        }),
+        buildFooterRow({
+          contact_name: "",
+          total_outstanding_amount: receivable,
+          outstanding_type: grand,
+        }),
       ];
 
       const ws = xlsx.utils.json_to_sheet([...data, ...footer]);
@@ -749,6 +763,12 @@ const AccountOutstandingReports = ({
 
     const exportGrandTotal = exportPayableTotal + exportReceivableTotal;
 
+    const footerOverrides: Record<string, string> = {
+      contact_name: `Payable:  ${exportPayableTotal}`,
+      total_outstanding_amount: `Receivable:  ${exportReceivableTotal}`,
+      outstanding_type: `Grand Total: ${exportGrandTotal}`,
+    };
+
     const printContent = `
       <html>
         <head>
@@ -767,7 +787,7 @@ const AccountOutstandingReports = ({
           <table>
             <thead>
               <tr>
-                ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -775,20 +795,23 @@ const AccountOutstandingReports = ({
               .map(
                 (customer) => `
                   <tr>
-                    <td>${customer.contact_name || "-"}</td>
-                    <td>${customer.total_outstanding_amount ?? "-"}</td>
-                    <td>${customer.outstanding_type || "-"}</td>
+                    ${visibleColumns
+                      .map(
+                        (col) =>
+                          `<td>${getExportCellValue(col, customer)}</td>`,
+                      )
+                      .join("")}
                   </tr>
                 `,
               )
               .join("")}
             </tbody>
             <tfoot>
-              <tr class="spacer-row"><td colspan="3"></td></tr>
+              <tr class="spacer-row"><td colspan="${visibleColumns.length}"></td></tr>
               <tr>
-                <td>Payable:  ${exportPayableTotal}</td>
-                <td>Receivable:  ${exportReceivableTotal}</td>
-                <td>Grand Total: ${exportGrandTotal}</td>
+                ${visibleColumns
+                  .map((col) => `<td>${footerOverrides[col.key] ?? ""}</td>`)
+                  .join("")}
               </tr>
             </tfoot>
           </table>
@@ -856,6 +879,59 @@ const AccountOutstandingReports = ({
         })}
       </div>
     );
+  };
+
+  type OutstandingColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body?: (rowData: IAccountOutstanding) => React.ReactNode;
+    footer?: () => React.ReactNode;
+  };
+
+  const baseColumnDefs: OutstandingColumnDef[] = useMemo(
+    () => [
+      {
+        key: "contact_name",
+        label: "Contact Name",
+        header: "Contact Name",
+        width: "250px",
+        footer: PamountFooterTemplate,
+      },
+      {
+        key: "total_outstanding_amount",
+        label: "Total Outstanding Amount",
+        header: "Total Outstanding Amount",
+        width: "250px",
+        body: amountBodyTemplate,
+        footer: RamountFooterTemplate,
+      },
+      {
+        key: "outstanding_type",
+        label: "Outstanding Type",
+        header: "Outstanding Type",
+        width: "250px",
+        footer: amountFooterTemplate,
+      },
+    ],
+    [payableTotal, receivableTotal, grandTotal, currencySymbol],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("account_outstanding_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: OutstandingColumnDef,
+    customer: IAccountOutstanding,
+  ): string => {
+    const value = (customer as any)[col.key];
+    return value ?? "-";
   };
 
   const getLastIndex = (
@@ -1058,6 +1134,14 @@ const AccountOutstandingReports = ({
                 </li>
               </ul>
             </div>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1134,72 +1218,39 @@ const AccountOutstandingReports = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="contact_name"
-            header="Contact Name"
-            sortable
-            filter
-            filterField="contact_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            footer={PamountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
-          <Column
-            field="total_outstanding_amount"
-            header="Total Outstanding Amount"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={amountBodyTemplate}
-            footer={RamountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
-          <Column
-            field="outstanding_type"
-            header="Outstanding Type"
-            sortable
-            filter
-            filterField="outstanding_type"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            footer={amountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+              footer={col.footer}
+              footerStyle={
+                col.footer
+                  ? {
+                      position: "sticky",
+                      bottom: 0,
+                      zIndex: 1,
+                      background: "#f8f9fa",
+                    }
+                  : undefined
+              }
+            />
+          ))}
         </DataTable>{" "}
       </div>
       {isModalFilterVisible && (

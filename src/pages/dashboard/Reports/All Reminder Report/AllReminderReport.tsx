@@ -8,10 +8,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ReminderModal from "../../../../components/model/ReminderModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -285,34 +290,144 @@ const AllReminderReport = ({
     setSelectedReminders(e.value);
   };
 
-  // ─── Export columns ────────────────────────────────────────
-  const exportColumns = [
-    { title: "ID", dataKey: "id" },
-    { title: "Contact Name", dataKey: "contact_name" },
-    { title: "Reminder Date & Time", dataKey: "reminder_data_time" },
-    { title: "Status", dataKey: "status_display" },
-    { title: "Completed On", dataKey: "completed_date_time" },
-    { title: "Assigned To", dataKey: "assigned_to_name" },
-    { title: "Created By", dataKey: "created_by_username" },
-    { title: "Remark", dataKey: "remark" },
-  ];
+  type ReminderColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    filterMatchMode?: string;
+    body: (rowData: IReminderItem) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ReminderColumnDef[] = useMemo(() => {
+    const defs: ReminderColumnDef[] = [
+      {
+        key: "id",
+        label: "ID",
+        header: "ID",
+        width: "80px",
+        body: (rowData) => rowData.id,
+      },
+      {
+        key: "contact_name",
+        label: "Contact Name",
+        header: (
+          <span>
+            Contact <br /> Name
+          </span>
+        ),
+        width: "180px",
+        body: (rowData) => rowData.contact_name,
+      },
+      {
+        key: "reminder_data_time",
+        label: "Reminder Date & Time",
+        header: (
+          <span>
+            Reminder <br /> Date & Time
+          </span>
+        ),
+        width: "180px",
+        body: (row) => formatDateTime(row.reminder_data_time),
+      },
+      {
+        key: "status_display",
+        label: "Status",
+        header: "Status",
+        width: "120px",
+        body: (row) => (
+          <span
+            style={{
+              backgroundColor:
+                row.status_display === "Completed" ? "#28a745" : "#dc3545",
+              color: "white",
+              padding: "4px 10px",
+              borderRadius: "12px",
+              fontSize: "13px",
+            }}
+          >
+            {row.status_display || "-"}
+          </span>
+        ),
+      },
+      {
+        key: "completed_date_time",
+        label: "Completed On",
+        header: (
+          <span>
+            Completed <br /> On
+          </span>
+        ),
+        width: "180px",
+        body: (row) => formatDateTime(row.completed_date_time),
+      },
+      {
+        key: "assigned_to_name",
+        label: "Assigned To",
+        header: "Assigned To",
+        width: "160px",
+        body: (rowData) => rowData.assigned_to_name,
+      },
+      {
+        key: "created_by_username",
+        label: "Created By",
+        header: "Created By",
+        width: "160px",
+        body: (rowData) => rowData.created_by_username,
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        width: "220px",
+        body: (row) =>
+          row.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
+          "-",
+      },
+    ];
+
+    return defs;
+  }, []);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_reminder_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: ReminderColumnDef,
+    item: IReminderItem,
+    format: "plain" | "html" = "plain",
+  ): string => {
+    switch (col.key) {
+      case "reminder_data_time":
+        return formatDateTime(item.reminder_data_time);
+      case "completed_date_time":
+        return formatDateTime(item.completed_date_time);
+      case "remark":
+        if (format === "html") return item.remark || "-";
+        return (
+          item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
+          "-"
+        );
+      default:
+        return (item as any)[col.key] ?? "-";
+    }
+  };
 
   const exportPdf = () => {
     const dataToExport =
       selectedReminders.length > 0 ? selectedReminders : displayReminders;
 
-    const tableData = dataToExport.map((item) => ({
-      id: item.id || "-",
-      contact_name: item.contact_name || "-",
-      reminder_data_time: formatDateTime(item.reminder_data_time),
-      status_display: item.status_display || "-",
-      completed_date_time: formatDateTime(item.completed_date_time),
-      assigned_to_name: item.assigned_to_name || "-",
-      created_by_username: item.created_by_username || "-",
-      remark:
-        item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
-        "-",
-    }));
+    const tableData = dataToExport.map((item) => {
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "plain");
+      });
+      return rowData;
+    });
 
     if (tableData.length === 0) {
       const doc = new jsPDF();
@@ -320,6 +435,11 @@ const AllReminderReport = ({
       doc.save(`${title}_report_${Date.now()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     autoTable(doc, {
@@ -367,18 +487,13 @@ const AllReminderReport = ({
 
       const exportData = (
         selectedReminders.length > 0 ? selectedReminders : allReminders
-      ).map((item) => ({
-        ID: item.id || "-",
-        "Contact Name": item.contact_name || "-",
-        "Reminder Date & Time": formatDateTime(item.reminder_data_time),
-        Status: item.status_display || "-",
-        "Completed On": formatDateTime(item.completed_date_time),
-        "Assigned To": item.assigned_to_name || "-",
-        "Created By": item.created_by_username || "-",
-        Remark:
-          item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
-          "-",
-      }));
+      ).map((item) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "plain");
+        });
+        return row;
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       const workbook = {
@@ -418,21 +533,19 @@ const AllReminderReport = ({
           <h1>${title} Report</h1>
           <table>
             <thead>
-              <tr>${exportColumns.map((c) => `<th>${c.title}</th>`).join("")}</tr>
+              <tr>${visibleColumns.map((c) => `<th>${c.label}</th>`).join("")}</tr>
             </thead>
             <tbody>
               ${dataToExport
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.id || "-"}</td>
-                  <td>${item.contact_name || "-"}</td>
-                  <td>${formatDateTime(item.reminder_data_time)}</td>
-                  <td>${item.status_display || "-"}</td>
-                  <td>${formatDateTime(item.completed_date_time)}</td>
-                  <td>${item.assigned_to_name || "-"}</td>
-                  <td>${item.created_by_username || "-"}</td>
-                  <td>${item.remark || "-"}</td>
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, item, "html")}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
                 )
@@ -679,6 +792,14 @@ const AllReminderReport = ({
                 </li>
               </ul>
             </div>
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -726,107 +847,38 @@ const AllReminderReport = ({
             />
           )}
 
-          <Column
-            field="id"
-            header="ID"
-            sortable
-            headerStyle={{ width: "80px" }}
-          />
-          <Column
-            field="contact_name"
-            header={
-              <span>
-                Contact <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search contact..."
-            headerStyle={{ width: "180px" }}
-          />
-          <Column
-            field="reminder_data_time"
-            header={
-              <span>
-                Reminder <br /> Date & Time
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "180px" }}
-            body={(row) => formatDateTime(row.reminder_data_time)}
-          />
-          <Column
-            field="status_display"
-            header="Status"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "120px" }}
-            body={(row) => (
-              <span
-                style={{
-                  backgroundColor:
-                    row.status_display === "Completed" ? "#28a745" : "#dc3545",
-                  color: "white",
-                  padding: "4px 10px",
-                  borderRadius: "12px",
-                  fontSize: "13px",
-                }}
-              >
-                {row.status_display || "-"}
-              </span>
-            )}
-          />
-          <Column
-            field="completed_date_time"
-            header={
-              <span>
-                Completed <br /> On
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "180px" }}
-            body={(row) => formatDateTime(row.completed_date_time)}
-          />
-          <Column
-            field="assigned_to_name"
-            header="Assigned To"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "160px" }}
-          />
-          <Column
-            field="created_by_username"
-            header="Created By"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "160px" }}
-          />
-          <Column
-            field="remark"
-            header="Remark"
-            sortable
-            filter
-            filterPlaceholder="Search remark..."
-            headerStyle={{ width: "220px" }}
-            bodyStyle={{
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-              maxWidth: "220px",
-            }}
-            body={(row) =>
-              row.remark
-                .replace(/<br\s*\/?>/gi, "\n")
-                .replace(/<[^>]+>/g, "") || "-"
-            }
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                ...(col.key === "remark"
+                  ? {
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                      maxWidth: "220px",
+                    }
+                  : {}),
+              }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       {isSetReminderConfirmation && (
