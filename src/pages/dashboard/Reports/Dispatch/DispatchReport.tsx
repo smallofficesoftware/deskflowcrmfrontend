@@ -792,7 +792,15 @@ const TeamDispatchDataReportsView = ({
         filterMatchMode: field.dataType === 1 ? "equals" : "contains",
         body: (row: any) => {
           const val = row[field.fieldName];
-          return val !== null && val !== undefined && val !== "" ? val : "-";
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
         },
       });
     });

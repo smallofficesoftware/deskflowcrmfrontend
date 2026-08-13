@@ -1,4 +1,4 @@
-import { saveAs } from "file-saver";
+﻿import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -826,10 +826,19 @@ const ProformaInvoiceView = ({
         key: field.fieldName,
         label: field.fieldLabel,
         header: field.fieldLabel.replace(/ /g, "\n"),
+        width: field.dataType === 3 ? "250px" : "150px",
         filterMatchMode: field.dataType === 1 ? "equals" : "contains",
         body: (row: any) => {
           const val = row[field.fieldName];
-          return val !== null && val !== undefined && val !== "" ? val : "-";
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
         },
       });
     });

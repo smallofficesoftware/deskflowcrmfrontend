@@ -848,13 +848,25 @@ const AllInqueryReport = ({
         key: field.fieldName,
         label: field.fieldLabel,
         header: field.fieldLabel,
-        width: "150px",
+        width: field.dataType === 3 ? "220px" : "150px",
         filterMatchMode:
           field.dataType === 1 || field.dataType === 7 ? "equals" : "contains",
-        body: (rowData: any) =>
-          rowData[field.fieldName]
-            ?.replace(/<br\s*\/?>/gi, "\n")
-            .replace(/<[^>]+>/g, "") || "-",
+        body: (rowData: any) => {
+          const val = rowData[field.fieldName];
+          if (val === null || val === undefined || val === "") return "-";
+          const text =
+            typeof val === "string"
+              ? val.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")
+              : val;
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {text}
+              </div>
+            );
+          }
+          return text || "-";
+        },
       });
     });
 

@@ -577,7 +577,7 @@ const AllTaskReportsView = ({
           key: `customForm_${item.id}`,
           label: item.title,
           header: item.title,
-          width: "150px",
+          width: item.data_type === 3 ? "220px" : "150px",
           isAttachment: item.data_type === 13,
           body: (rowData) => {
             const fieldData = rowData?.customForm?.find(
@@ -608,6 +608,19 @@ const AllTaskReportsView = ({
                     tooltip="Download"
                     onClick={() => handleAttachmentDownload(fileUrl)}
                   />
+                </div>
+              );
+            }
+
+            if (fieldData?.data_type === 3) {
+              return (
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {value}
                 </div>
               );
             }

@@ -1,4 +1,4 @@
-import { saveAs } from "file-saver";
+﻿import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -842,7 +842,18 @@ const PendingOrderView = ({
         header: field.fieldLabel.replace(/ /g, "\n"),
         width: "250px",
         filterMatchMode: field.dataType === 1 ? "equals" : "contains",
-        body: (rowData: any) => rowData[field.fieldName] || "-",
+        body: (rowData: any) => {
+          const val = rowData[field.fieldName];
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
+        },
       });
     });
 

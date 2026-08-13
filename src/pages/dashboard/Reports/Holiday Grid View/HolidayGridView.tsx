@@ -7,9 +7,11 @@ import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import AddHolidayView from "../../../left-side/header/Setting/holiday master/AddHolidayView";
 import { deleteHoliday, fetchHolidayApi, IHolidayView } from "../../../left-side/header/Setting/holiday master/HolidayMasterController";
@@ -232,6 +234,48 @@ const HolidayGridView = ({
         );
     };
 
+    type HolidayColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: IHolidayView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: HolidayColumnDef[] = useMemo(
+        () => [
+            {
+                key: "holiday_date",
+                label: "Holiday Date",
+                header: <span>Holiday Date</span>,
+                width: "250px",
+                body: (rowData: IHolidayView) => (
+                    <span>{rowData.holiday_date || "-"}</span>
+                ),
+            },
+            {
+                key: "holiday_remark",
+                label: "Holiday Remark",
+                header: <span>Holiday Remark</span>,
+                width: "250px",
+                body: (rowData: IHolidayView) => (
+                    <span className="mx-1 text-muted" title="Apply Date">
+                        {rowData.holiday_remark || "-"}
+                    </span>
+                ),
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("holiday_grid_view", baseColumnDefs);
+
     return (
         <PrimeReactProvider>
             <div>
@@ -256,6 +300,13 @@ const HolidayGridView = ({
                                     fontSize: "14px",
                                 },
                             }}
+                        />
+                        <ColumnsButton
+                            columns={orderedColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onReorder={reorderColumns}
+                            onReset={resetColumns}
                         />
                     </div>
                 </div>
@@ -302,59 +353,28 @@ const HolidayGridView = ({
                             }}
                             body={actionBodyTemplate}
                         />
-                        <Column
-                            field="holiday_date"
-                            header={
-                                <span>
-                                    Holiday Date
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IHolidayView) => {
-                                return (
-                                    <span>
-                                        {rowData.holiday_date || "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="holiday_remark"
-                            header={
-                                <span>
-                                    Holiday Remark
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IHolidayView) => {
-                                return (
-                                    <span
-                                        className="mx-1 text-muted"
-                                        title="Apply Date"
-                                    >
-                                        {rowData.holiday_remark || "-"}
-                                    </span>
-                                );
-                            }}
-                        />
+                        {visibleColumns.map((col) => (
+                            <Column
+                                key={col.key}
+                                field={col.key}
+                                header={col.header}
+                                sortable
+                                filter
+                                filterField={col.key}
+                                filterPlaceholder="Search"
+                                filterMatchMode={col.filterMatchMode || "contains"}
+                                headerStyle={{
+                                    width: col.width || "150px",
+                                    position: "sticky",
+                                    top: 0,
+                                    zIndex: 1,
+                                    background: "#f8f9fa",
+                                    fontSize: "14px",
+                                }}
+                                bodyStyle={{ fontSize: "14px" }}
+                                body={col.body}
+                            />
+                        ))}
                     </DataTable>
                     <OverlayPanel ref={op} className="action-overlay">
                         <ul className="list-unstyled m-0 p-0" id="dropLeft">

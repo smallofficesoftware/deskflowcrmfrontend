@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
 import { useTheme } from "../../../../components/ThemeContext";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import { deleteJobCardApi, fetchJobCardList } from "../../../left-side/header/Setting/job-card/JobCardController";
@@ -254,6 +256,76 @@ const JobCardGridView = ({ onHide }: IProps) => {
     );
   };
 
+  type JobCardColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IJobCardListItem) => React.ReactNode;
+  };
+
+  const baseColumnDefs: JobCardColumnDef[] = useMemo(
+    () => [
+      {
+        key: "id",
+        label: "Id",
+        header: <span>Id</span>,
+        width: "70px",
+        body: (rowData: IJobCardListItem) => `#${rowData.id}`,
+      },
+      {
+        key: "item_name",
+        label: "Item Name",
+        header: <span>Item Name</span>,
+        width: "180px",
+        body: (rowData: IJobCardListItem) => rowData.item_name,
+      },
+      {
+        key: "order_no",
+        label: "Order No",
+        header: <span>Order No</span>,
+        width: "140px",
+        body: (rowData: IJobCardListItem) => rowData.order_no,
+      },
+      {
+        key: "customer_name",
+        label: "Customer",
+        header: <span>Customer</span>,
+        width: "160px",
+        body: (rowData: IJobCardListItem) => rowData.customer_name,
+      },
+      {
+        key: "product_qty",
+        label: "Qty",
+        header: <span>Qty</span>,
+        width: "110px",
+        body: (rowData: IJobCardListItem) =>
+          rowData.product_qty != null
+            ? `${rowData.product_qty} ${rowData.unit ?? ""}`
+            : "",
+      },
+      {
+        key: "last_modified_date",
+        label: "Last Modified",
+        header: <span>Last Modified</span>,
+        width: "170px",
+        body: (rowData: IJobCardListItem) =>
+          rowData.last_modified_date
+            ? formatDateTime(rowData.last_modified_date)
+            : "",
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("job_card_grid_view", baseColumnDefs);
+
   return (
     <PrimeReactProvider>
       <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -276,6 +348,13 @@ const JobCardGridView = ({ onHide }: IProps) => {
                 : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
             }
 
+          />
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
           />
         </div>
       </div>
@@ -309,104 +388,28 @@ const JobCardGridView = ({ onHide }: IProps) => {
             headerStyle={{ width: "50px", position: "sticky", top: 0 }}
             body={actionBodyTemplate}
           />
-          <Column
-            field="id"
-            header={<span>Id</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "70px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px"}}
-            body={(rowData: IJobCardListItem) => `#${rowData.id}`}
-          />
-          <Column
-            field="item_name"
-            header={<span>Item Name</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "180px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IJobCardListItem) => rowData.item_name}
-          />
-          <Column
-            field="order_no"
-            header={<span>Order No</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "140px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IJobCardListItem) => rowData.order_no}
-          />
-          <Column
-            field="customer_name"
-            header={<span>Customer</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "160px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IJobCardListItem) => rowData.customer_name}
-          />
-          <Column
-            field="product_qty"
-            header={<span>Qty</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "110px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IJobCardListItem) =>
-              rowData.product_qty != null
-                ? `${rowData.product_qty} ${rowData.unit ?? ""}`
-                : ""
-            }
-          />
-          <Column
-            field="last_modified_date"
-            header={<span>Last Modified</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "170px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IJobCardListItem) =>
-              rowData.last_modified_date
-                ? formatDateTime(rowData.last_modified_date)
-                : ""
-            }
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
         <OverlayPanel ref={op} className="action-overlay">
           <ul className="list-unstyled m-0 p-0" id="dropLeft">

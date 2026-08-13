@@ -843,11 +843,19 @@ const TeamQuotationDataReportsView = ({
         key: field.fieldName,
         label: field.fieldLabel,
         header: field.fieldLabel.replace(/ /g, "\n"),
-        width: "150px",
+        width: field.dataType === 3 ? "250px" : "150px",
         filterMatchMode: field.dataType === 1 ? "equals" : "contains",
         body: (row) => {
           const val = row[field.fieldName];
-          return val !== null && val !== undefined && val !== "" ? val : "-";
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
         },
       });
     });

@@ -919,7 +919,15 @@ const TeamSalesOrderDataReportsView = ({
         filterCol: false,
         body: (row: any) => {
           const val = row[field.fieldName];
-          return val !== null && val !== undefined && val !== "" ? val : "-";
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
         },
       });
     });
