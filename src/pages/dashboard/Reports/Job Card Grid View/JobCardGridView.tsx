@@ -7,6 +7,8 @@ import ColumnsButton from "../../../../components/ColumnsButton";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { IFilterData, IFilterPayload } from "../../../../helpers/AppInterface";
+import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import { deleteJobCardApi, fetchJobCardList } from "../../../left-side/header/Setting/job-card/JobCardController";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -40,12 +42,33 @@ const formatDateTime = (dateString: string) => {
 
 const PAGE_SIZE = 30;
 
+interface FilterParams {
+  filterData: IFilterData | null;
+  checkedOptions: any[];
+  checkedOptionsStageStatus: any[];
+  assignedByMultiTeamMember?: any[];
+  createdByMultiTeamMember?: any[];
+  labelwiseContactShowAndOrNot: number;
+}
+
 const JobCardGridView = ({ onHide }: IProps) => {
   const [jobCardList, setJobCardList] = useState<IJobCardListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [hasData, setHasData] = useState<boolean>(false);
+  const [isModalFilterVisible, setIsModalFilterVisible] = useState<boolean>(false);
+  const [filterParams, setFilterParams] = useState<FilterParams>({
+    filterData: null,
+    checkedOptions: [],
+    checkedOptionsStageStatus: [],
+    assignedByMultiTeamMember: [],
+    createdByMultiTeamMember: [],
+    labelwiseContactShowAndOrNot: 0,
+  });
 
   // Modal visibility
   const [showJobCard, setShowJobCard] = useState(false);
@@ -154,17 +177,35 @@ const JobCardGridView = ({ onHide }: IProps) => {
     return () => document.removeEventListener("keydown", handleEscKey);
   }, []);
 
-  // Load on open
+  // Load on open & when filters change
   useEffect(() => {
     if (!canView) return;
     setOffset(0);
     setHasMore(true);
     setJobCardList([]);
     setLoading(true);
-    fetchJobCardList(setJobCardList, setLoading, PAGE_SIZE, 0, false).then(
-      setHasMore,
-    );
-  }, [canView]);
+    fetchJobCardList(
+      setJobCardList,
+      setLoading,
+      searchTerm,
+      PAGE_SIZE,
+      0,
+      false,
+      filterParams.checkedOptions,
+      filterParams.checkedOptionsStageStatus,
+      filterParams.assignedByMultiTeamMember,
+      filterParams.createdByMultiTeamMember,
+      filterParams.labelwiseContactShowAndOrNot,
+    ).then(setHasMore);
+  }, [
+    canView,
+    searchTerm,
+    filterParams.checkedOptions,
+    filterParams.checkedOptionsStageStatus,
+    filterParams.assignedByMultiTeamMember,
+    filterParams.createdByMultiTeamMember,
+    filterParams.labelwiseContactShowAndOrNot,
+  ]);
 
   // Infinite scroll
   useEffect(() => {
@@ -183,9 +224,15 @@ const JobCardGridView = ({ onHide }: IProps) => {
         fetchJobCardList(
           setJobCardList,
           setLoading,
+          searchTerm,
           PAGE_SIZE,
           nextOffset,
           true,
+          filterParams.checkedOptions,
+          filterParams.checkedOptionsStageStatus,
+          filterParams.assignedByMultiTeamMember,
+          filterParams.createdByMultiTeamMember,
+          filterParams.labelwiseContactShowAndOrNot,
         ).then((more) => {
           setOffset(nextOffset);
           setHasMore(more);
@@ -195,7 +242,41 @@ const JobCardGridView = ({ onHide }: IProps) => {
     };
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [offset, hasMore, isFetchingMore]);
+  }, [offset, hasMore, isFetchingMore, searchTerm, filterParams]);
+
+  const handleGlobalSearch = () => {
+    const value = searchInputRef.current?.value || "";
+    setSearchTerm(value);
+  };
+
+  const handleConfirmFilter = async (filterPayload: IFilterPayload) => {
+    const {
+      filterData,
+      checkedOptionsLabel: checkedOptions,
+      checkedOptionsStageStatus,
+      assignedByMultiTeamMember,
+      createdByMultiTeamMember,
+      labelAndOr: labelwiseContactShowAndOrNot,
+    } = filterPayload;
+
+    setFilterParams({
+      filterData,
+      checkedOptions: checkedOptions ?? [],
+      checkedOptionsStageStatus: checkedOptionsStageStatus ?? [],
+      assignedByMultiTeamMember,
+      createdByMultiTeamMember,
+      labelwiseContactShowAndOrNot: labelwiseContactShowAndOrNot ?? 0,
+    });
+
+    const isFilterApplied =
+      (checkedOptions?.length ?? 0) > 0 ||
+      (checkedOptionsStageStatus?.length ?? 0) > 0 ||
+      (assignedByMultiTeamMember?.length ?? 0) > 0 ||
+      (createdByMultiTeamMember?.length ?? 0) > 0;
+
+    setHasData(isFilterApplied);
+    setIsModalFilterVisible(false);
+  };
 
   const confirmDeleteJobCard = async () => {
     if (!deleteJobCardId) return;
@@ -224,9 +305,15 @@ const JobCardGridView = ({ onHide }: IProps) => {
     const more = await fetchJobCardList(
       setJobCardList,
       setLoading,
+      searchTerm,
       PAGE_SIZE,
       0,
       false,
+      filterParams.checkedOptions,
+      filterParams.checkedOptionsStageStatus,
+      filterParams.assignedByMultiTeamMember,
+      filterParams.createdByMultiTeamMember,
+      filterParams.labelwiseContactShowAndOrNot,
     );
     setHasMore(more);
   };
@@ -336,26 +423,119 @@ const JobCardGridView = ({ onHide }: IProps) => {
           Job Card
         </h3>
         <div className="d-flex gap-2 align-items-center">
-
-          <Button
-            icon="pi pi-plus"
-            className="report_button"
-            style={{ backgroundColor: "rgb(245, 134, 52)" }}
-            rounded
-            onClick={() =>
-              canAdd
-                ? setShowJobCard(true)
-                : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-            }
-
-          />
-          <ColumnsButton
-            columns={orderedColumns}
-            hiddenKeys={hiddenKeys}
-            onToggle={toggleColumn}
-            onReorder={reorderColumns}
-            onReset={resetColumns}
-          />
+          <div
+            className="d-flex gap-2 align-items-center"
+            style={{
+              width: "355px",
+              zIndex: "999",
+              position: "relative",
+            }}
+          >
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="form-control"
+              placeholder="Search Anything in This Report"
+              style={{
+                width: "300px",
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleGlobalSearch();
+                }
+              }}
+            />
+            {searchTerm && (
+              <span
+                className="clear-icon"
+                onClick={() => {
+                  setSearchTerm("");
+                  if (searchInputRef.current) {
+                    searchInputRef.current.value = "";
+                  }
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="24px"
+                  viewBox="0 -960 960 960"
+                  width="24px"
+                  fill="#5f6368"
+                >
+                  <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                </svg>
+              </span>
+            )}
+            <Button
+              icon="pi pi-search"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleGlobalSearch}
+              tooltip="Search"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+          </div>
+          <div className="d-flex gap-2 align-items-center">
+            <Button
+              icon={hasData ? "pi pi-filter-slash" : "pi pi-filter"}
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={() => setIsModalFilterVisible(true)}
+              tooltip="Filter Report"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <Button
+              icon="pi pi-plus"
+              className="report_button"
+              style={{ backgroundColor: "rgb(245, 134, 52)" }}
+              rounded
+              onClick={() =>
+                canAdd
+                  ? setShowJobCard(true)
+                  : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
+              }
+              tooltip="New Job Card"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
+          </div>
         </div>
       </div>
 
@@ -579,6 +759,33 @@ const JobCardGridView = ({ onHide }: IProps) => {
           onHide={() => setShowAddStockModalFromJobCard(false)}
           flag={1}
           where_action={1}
+        />
+      )}
+
+      {isModalFilterVisible && (
+        <CheckBoxFilterModal
+          show={isModalFilterVisible}
+          onHide={() => setIsModalFilterVisible(false)}
+          handleSubmit={handleConfirmFilter}
+          title="Filter your Contact"
+          message="Please select the Labels, Status and Team Members for the Job Card."
+          btn1="Clear"
+          btn2="Apply"
+          filtersToShow={[2, 4, 9]}
+          pageId={1}
+          initialFilterData={filterParams.filterData}
+          initialCheckedOptions={filterParams.checkedOptions}
+          initialCheckedOptionsStageStatus={
+            filterParams.checkedOptionsStageStatus
+          }
+          stageandStatusOrderType={13}
+          initialCheckedAssignedByMultiTeamMember={
+            filterParams.assignedByMultiTeamMember
+          }
+          initialCheckedCreatedByMultiTeamMember={
+            filterParams.createdByMultiTeamMember
+          }
+          labelFilderApplyAndOr={filterParams.labelwiseContactShowAndOrNot}
         />
       )}
     </PrimeReactProvider>

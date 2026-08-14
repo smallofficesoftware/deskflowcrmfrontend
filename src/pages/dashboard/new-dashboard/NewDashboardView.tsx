@@ -29,7 +29,7 @@ const NewDashboardView = ({
       style={{
         width: "98%",
         height: "100vh",
-        background: "rgb(255, 255, 255)",
+        background: "transparent",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
