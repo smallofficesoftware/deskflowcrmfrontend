@@ -4,6 +4,8 @@ import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
+import { PrimeReactProvider } from "primereact/api";
+import { OverlayPanel } from "primereact/overlaypanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
@@ -11,7 +13,12 @@ import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ReminderModal from "../../../../components/model/ReminderModal";
-import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import {
+  DEFAULT_MESSAGE_ERROR_PERMISSION,
+  DEFAULT_STATUS_CODE_SUCCESS,
+  MESSAGE_UNKNOWN_ERROR_OCCURRED,
+} from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import {
   ColumnDef,
@@ -22,12 +29,16 @@ import { useCommonFilterStore } from "../../../../store/report/useCommonFilterSt
 import {
   createReminderForMy,
   IReminderList,
+  updateContactFormReminder,
+  updateOrderFormReminder,
+  updateInquiryFormReminder,
 } from "../../../left-side/header/list-reminder/ListReminderController";
+import { axiosInstance } from "../../../../services/axiosInstance";
 import {
   exportTaskAndSupportTicketData,
   fetchTaskReport,
   IReminderItem,
-} from "./AllReminderController"; // ← update import name if needed
+} from "./AllReminderController";
 // import { axiosInstance } from "../../../../services/axiosInstance";
 
 interface IReminderReportProps {
@@ -81,6 +92,10 @@ const AllReminderReport = ({
   const [selectedReminders, setSelectedReminders] = useState<IReminderItem[]>(
     [],
   );
+  const [selectedRow, setSelectedRow] = useState<IReminderItem | null>(null);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<IReminderItem | null>(null);
+  const [isReminderConfirmationStatus, setIsReminderConfirmationStatus] = useState(false);
+  const op = useRef<OverlayPanel>(null);
   const [hasMore, setHasMore] = useState(true);
 
   const [isSetReminderConfirmation, setIsSetReminderConfirmation] =
@@ -204,6 +219,10 @@ const AllReminderReport = ({
     PAGE_ID.REMINDER_REPORT,
     PERMISSION_TYPE.ADD,
   );
+  const canApprove = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.APPROVE,
+  );
 
   // Reset & reload when filters change
   useEffect(() => {
@@ -274,6 +293,15 @@ const AllReminderReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    setReminders([]);
+    setDisplayReminders([]);
+    currentOffset.current = 0;
+    isInitialLoad.current = true;
+    setHasMore(true);
+    loadReminders(0, 50, true);
+  };
+
   const onVirtualScroller = (event: any) => {
     if (event.last === reminders.length && hasMore && !isLoadingMore.current) {
       loadReminders(currentOffset.current, 50);
@@ -288,6 +316,73 @@ const AllReminderReport = ({
 
   const onSelectionChange = (e: { value: IReminderItem[] }) => {
     setSelectedReminders(e.value);
+  };
+
+  const handleChangeReminderComplete = (reminderData: IReminderItem) => {
+    if (canApprove) {
+      setSelectedReminderItem(reminderData);
+      setIsReminderConfirmationStatus(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleChangeStatusOfReminder = async () => {
+    if (!selectedReminderItem) return;
+
+    const date = new Date();
+    const formattedDateTime = `${date.getFullYear()}-${String(
+      date.getMonth() + 1,
+    ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(
+      date.getHours(),
+    ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(
+      date.getSeconds(),
+    ).padStart(2, "0")}`;
+
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":"${selectedReminderItem.id}"}`,
+      data: `{"status":"1", "completed_date_time":"${formattedDateTime}"}`,
+    };
+
+    try {
+      const { data } = await axiosInstance.post("commonUpdate", requestData);
+      if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        if ((selectedReminderItem as any).reference_table) {
+          switch ((selectedReminderItem as any).reference_table) {
+            case "contact_message_histories":
+              await updateContactFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            case "cart_quotation":
+            case "cart_order":
+            case "cart_invoice":
+            case "cart_purchase_order":
+              await updateOrderFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            case "inquiries":
+              await updateInquiryFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            default:
+              break;
+          }
+        }
+        setIsReminderConfirmationStatus(false);
+        toast.success("Reminder completed successfully");
+        currentOffset.current = 0;
+        setHasMore(true);
+        loadReminders(0, 50, true);
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
   };
 
   type ReminderColumnDef = ColumnDef & {
@@ -337,14 +432,31 @@ const AllReminderReport = ({
           <span
             style={{
               backgroundColor:
-                row.status_display === "Completed" ? "#28a745" : "#dc3545",
+                row.status_display === "Completed" || row.status === 1
+                  ? "#28a745"
+                  : "#dc3545",
               color: "white",
               padding: "4px 10px",
               borderRadius: "12px",
               fontSize: "13px",
+              cursor:
+                row.status_display === "Completed" || row.status === 1
+                  ? "default"
+                  : "pointer",
+              display: "inline-block",
             }}
+            onClick={() => {
+              if (row.status_display !== "Completed" && row.status !== 1) {
+                handleChangeReminderComplete(row);
+              }
+            }}
+            title={
+              row.status_display !== "Completed" && row.status !== 1
+                ? "Click to Mark as Completed"
+                : undefined
+            }
           >
-            {row.status_display || "-"}
+            {row.status_display || (row.status === 1 ? "Completed" : "Due")}
           </span>
         ),
       },
@@ -582,10 +694,11 @@ const AllReminderReport = ({
   // };
 
   return (
-    <div>
-      <div
-        className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
-      >
+    <PrimeReactProvider value={{ hideOverlaysOnDocumentScrolling: true }}>
+      <div>
+        <div
+          className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
+        >
         <h3
           style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "" }}
           className="dash-board-text-count"
@@ -793,6 +906,21 @@ const AllReminderReport = ({
               </ul>
             </div>
 
+            <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+
             <ColumnsButton
               columns={orderedColumns}
               hiddenKeys={hiddenKeys}
@@ -847,6 +975,27 @@ const AllReminderReport = ({
             />
           )}
 
+          <Column
+            header=""
+            headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
+            bodyStyle={{ textAlign: "center" }}
+            body={(rowData: IReminderItem) => (
+              <Button
+                icon="pi pi-cog"
+                className="p-button-text p-0"
+                style={{ color: "green", width: "24px", height: "24px" }}
+                onClick={(e) => {
+                  setSelectedRow(rowData);
+                  op.current?.toggle(e);
+                  requestAnimationFrame(() => {
+                    const panel = op.current?.getElement();
+                    if (panel) panel.style.transform = "translate(40px, -25px)";
+                  });
+                }}
+              />
+            )}
+          />
+
           {visibleColumns.map((col) => (
             <Column
               key={col.key}
@@ -881,6 +1030,42 @@ const AllReminderReport = ({
           ))}
         </DataTable>
       </div>
+
+      {/* Actions OverlayPanel */}
+      <OverlayPanel ref={op} className="action-overlay">
+        {selectedRow && (
+          <ul className="list-unstyled m-0 p-0" id="dropLeft">
+            {selectedRow.status_display !== "Completed" && selectedRow.status !== 1 && (
+              <li
+                className="listItem text-start"
+                style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px" }}
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  op.current?.hide();
+                  handleChangeReminderComplete(selectedRow);
+                }}
+              >
+                Complete Reminder
+              </li>
+            )}
+          </ul>
+        )}
+      </OverlayPanel>
+
+      {/* Complete Reminder Confirmation Modal */}
+      {isReminderConfirmationStatus && (
+        <ConfirmationModal
+          show={isReminderConfirmationStatus}
+          onHide={() => setIsReminderConfirmationStatus(false)}
+          handleSubmit={handleChangeStatusOfReminder}
+          title="Change Status"
+          message="Are you sure you want to complete this reminder?"
+          btn1="CANCEL"
+          btn2="COMPLETE"
+        />
+      )}
+
       {isSetReminderConfirmation && (
         <ReminderModal
           show={isSetReminderConfirmation}
@@ -967,7 +1152,8 @@ const AllReminderReport = ({
           isApplyReport={1}
         />
       )}
-    </div>
+      </div>
+    </PrimeReactProvider>
   );
 };
 

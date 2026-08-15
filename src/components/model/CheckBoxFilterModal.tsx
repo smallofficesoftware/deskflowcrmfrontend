@@ -1061,7 +1061,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCountriesList(response.data.data);
+      setCountriesList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCountriesList([]);
     }
@@ -1083,7 +1083,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         setOptionJoinCompany([]);
       }
-      setOptionJoinCompany(data.data.data.item);
+      setOptionJoinCompany(Array.isArray(data?.data?.data?.item) ? data.data.data.item : []);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1099,7 +1099,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setStateList(response.data.data);
+      setStateList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setStateList([]);
     }
@@ -1114,7 +1114,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     };
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCategoryList(response.data.data);
+      setCategoryList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCategoryList([]);
     }
@@ -1129,7 +1129,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     };
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setProductList(response.data.data);
+      setProductList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setProductList([]);
     }
@@ -1145,7 +1145,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCityList(response.data.data);
+      setCityList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCityList([]);
     }
@@ -1161,7 +1161,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setAreaList(response.data.data);
+      setAreaList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setAreaList([]);
     }
@@ -1192,8 +1192,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank label ko sabse upar add karo
-      setLabelList([blankLabel, ...data.data.data]);
+      setLabelList([blankLabel, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1204,7 +1203,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
   const blankPayment: IPaymentTypeView = {
     id: BLANK_PAYMENT_ID,
-    payment_type_name: "Blank Label",
+    payment_type_name: "Blank Payment Type",
     payment_color: "#000000",
     transaction_type: BLANK_TYPE_ID,
   };
@@ -1226,8 +1225,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank ko sabse upar add karo
-      setPaymentByList([blankPayment, ...data.data.data]);
+      setPaymentByList([blankPayment, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1343,8 +1341,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank source sabse upar
-      setSourceOfTypesLists([blankSourceType, ...(data.data.data.item || [])]);
+      setSourceOfTypesLists([blankSourceType, ...(Array.isArray(data?.data?.data?.item) ? data.data.data.item : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1381,7 +1378,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      setExpenseOfTypesLists([blankExpenseType, ...(data.data.data || [])]);
+      setExpenseOfTypesLists([blankExpenseType, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1389,7 +1386,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
   useEffect(() => {
     if (selectedCategoryId) {
-      const filteredProducts = productList
+      const filteredProducts = (productList || [])
         .filter(
           (product: any) => product.category_id === selectedCategoryId.value,
         )
@@ -1487,20 +1484,19 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setStartSearchDate(
       initialStartSearchDate
         ? convertToDateObject(initialStartSearchDate)
-        : // : new DateObject().subtract(7, "days")
-          null,
+        : null,
     );
     setEndSearchDate(
       initialEndSearchDate ? convertToDateObject(initialEndSearchDate) : null,
     );
   }, [initialStartSearchDate, initialEndSearchDate]);
 
-  const countryOptions = countriesList.map((country: any) => ({
+  const countryOptions = (countriesList || []).map((country: any) => ({
     value: country.id,
     label: country.country_name,
   }));
 
-  const categoryOptions = categoryList.map((category: any) => ({
+  const categoryOptions = (categoryList || []).map((category: any) => ({
     value: category.id,
     label: category.category_name,
   }));
@@ -1511,32 +1507,32 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     );
   };
 
-  const productOptions = productList.map((product: any) => ({
+  const productOptions = (productList || []).map((product: any) => ({
     value: product.id,
     label: product.product_name,
   }));
 
-  const stateOptions = stateList.map((state: any) => ({
+  const stateOptions = (stateList || []).map((state: any) => ({
     value: state.id,
     label: state.state_name,
   }));
 
-  const cityOptions = cityList.map((city: any) => ({
+  const cityOptions = (cityList || []).map((city: any) => ({
     value: city.id,
     label: city.city_name,
   }));
 
-  const areaOptions = areaList.map((area: any) => ({
+  const areaOptions = (areaList || []).map((area: any) => ({
     value: area.id,
     label: area.area_name,
   }));
 
-  const activeOptions = activeData.map((option: any) => ({
+  const activeOptions = (activeData || []).map((option: any) => ({
     value: option.id,
     label: option.value,
   }));
 
-  const orderListOptions = orderTypesList.map((option: any) => ({
+  const orderListOptions = (orderTypesList || []).map((option: any) => ({
     value: option.id,
     label: option.type,
   }));

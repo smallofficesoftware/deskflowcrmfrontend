@@ -51,6 +51,10 @@ export interface ReportsFilter {
   year?: number | string;
   leadAgingBucket?: string | null;
   leadAgingActivityTypes?: string[] | null;
+  checkedOptionsTaskType?: any[];
+  checkedOptionsTaskassignOrNot?: any[];
+  checkedOptionsShowTemplateTask?: any[];
+  labelwiseContactShowAndOrNot?: number;
 }
 
 export const initialState: ReportsFilter = {
@@ -86,6 +90,10 @@ export const initialState: ReportsFilter = {
   year: "",
   leadAgingBucket: null,
   leadAgingActivityTypes: [],
+  checkedOptionsTaskType: [],
+  checkedOptionsTaskassignOrNot: [],
+  checkedOptionsShowTemplateTask: [],
+  labelwiseContactShowAndOrNot: 0,
 };
 
 interface ReportsFilterState {

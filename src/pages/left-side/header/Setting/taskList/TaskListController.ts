@@ -23,9 +23,17 @@ export interface ITaskView {
   task_selected_date?: string;
   selected_task_days?: string | undefined;
   created_by_name?: string;
-  assigned_team_member_names?: string;
+  assigned_team_member_names?: any;
+  selected_days_names?: any;
   status?: number;
+  status_name?: string;
+  status_colour?: string;
   external_status?: number;
+  external_status_name?: string;
+  external_status_color?: string;
+  external_status_colour?: string;
+  priority_name?: string;
+  type_name?: string;
   contact_masters_id?: number;
   company_masters_id?: number;
   reference_id?: number;
@@ -33,7 +41,7 @@ export interface ITaskView {
   stage_status_name?: string;
   stage_status_color?: string;
   reference_table?: any;
-  category_name?: String;
+  category_name?: string;
   contact_person_name?: string;
   contact_person_number?: string;
   contact_company_name?: string;
@@ -48,8 +56,7 @@ export interface ITaskView {
   label_name: string;
   label_color: string;
   label_id: any;
-  external_status_name?: string;
-  external_status_color?: string;
+  customForm?: any[];
   column_number_1: number | string;
   column_number_2: number | string;
   column_number_3: number | string;
