@@ -3142,6 +3142,23 @@ const ListOrderView = ({
                           ) : (
                             <span></span>
                           )}
+                          {item.type === 1 && item.cart_number ? (
+                            <li
+                              style={{ height: "auto" }}
+                              className="listItem"
+                              role="button"
+                              onClick={() =>
+                                handleModalConvertIntoProforma(
+                                  item.id,
+                                  item.cart_number,
+                                )
+                              }
+                            >
+                              Convert to {dynamicProformaInvoice}
+                            </li>
+                          ) : (
+                            <span></span>
+                          )}
                           {item.type === 2 && item.cart_number ? (
                             <li
                               style={{ height: "auto" }}
