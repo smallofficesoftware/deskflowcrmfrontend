@@ -103,6 +103,19 @@ const PaymentWiseAccountReport = ({
     );
   }, [filters.selectedDateArray]);
 
+  const handleRefresh = async () => {
+    const dateArrayToUse =
+      filters.selectedDateArray && filters.selectedDateArray.length === 2
+        ? filters.selectedDateArray
+        : getCurrentMonthDateRange();
+
+    fetchPaymentTypeAccountList(
+      setPaymentTypeAccountList,
+      setLoading,
+      dateArrayToUse,
+    );
+  };
+
   // const handleClickOutside = (event: MouseEvent) => {
   //     const target = event.target as HTMLElement;
 
@@ -261,6 +274,20 @@ const PaymentWiseAccountReport = ({
               rounded
               onClick={() => setIsModalFilterVisible(true)}
               tooltip="Filter Report"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
               tooltipOptions={{
                 position: "top",
                 style: {

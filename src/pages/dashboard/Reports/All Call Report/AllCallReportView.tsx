@@ -534,6 +534,13 @@ const AllCallReportsView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCallData([]);
+    loadTasks(0, 50, true);
+  };
+
   //   const loadTasks = async (event: DataTablePageEvent) => {
   //   const currentPage = event.page ?? 0;
   //   const offset = currentPage * 50;     // starting point (ul)
@@ -1311,6 +1318,21 @@ const AllCallReportsView = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

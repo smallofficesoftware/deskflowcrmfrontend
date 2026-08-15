@@ -400,6 +400,14 @@ const ChainWiseContactReportView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    setSelectedCustomers([]);
+    loadTasks(0, 50, true);
+  };
+
   const dataArray: IChainContact[] = useMemo(() => {
     return customers.map((item) => ({
       person_name: item.person_name || "-",
@@ -1095,6 +1103,21 @@ const ChainWiseContactReportView = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

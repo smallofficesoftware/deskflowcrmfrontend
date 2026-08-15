@@ -231,6 +231,22 @@ const StatusWiseContactAndInquiryCountReport = ({
         filters.checkedOptionsStageStatus,
     ]);
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+        await fetchStatusWise(
+            setStatusWiseReport,
+            filters.selectedDateArray,
+            MobileToken,
+            getID,
+            MobileFlag,
+            filters.checkedOptionsStageStatus,
+            0,
+            50,
+        );
+        setLoading(false);
+    };
+
     const dataArray: IStatusWiseContactCountReport[] = statusWiseReport
         ? statusWiseReport.map((item) => ({
             status_name: item.status_name || "-",
@@ -737,6 +753,20 @@ const StatusWiseContactAndInquiryCountReport = ({
                                 </li>
                             </ul>
                         </div>
+                        <Button
+                            icon="pi pi-refresh"
+                            className="report_button"
+                            style={{ backgroundColor: "#4C4C4C" }}
+                            rounded
+                            onClick={handleRefresh}
+                            tooltip="Refresh"
+                            tooltipOptions={{
+                                position: "top",
+                                style: {
+                                    fontSize: "14px",
+                                },
+                            }}
+                        />
                         <ColumnsButton
                             columns={orderedColumns}
                             hiddenKeys={hiddenKeys}

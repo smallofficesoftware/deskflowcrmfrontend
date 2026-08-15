@@ -266,6 +266,24 @@ const AlllableReport = ({
     debouncedSearchText,
   ]);
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    await fetchLable(
+      setLableReport,
+      filters.selectedDateArray,
+      MobileToken,
+      getID,
+      MobileFlag,
+      filters.checkedOptions,
+      filters.checkedOptionsUser,
+      0,
+      50,
+      debouncedSearchText,
+    );
+    setLoading(false);
+  };
+
   const dataArray: ILableReport[] = lableReport
     ? lableReport.map((item) => ({
         lable_name: item.lable_name || "-",
@@ -856,6 +874,20 @@ const AlllableReport = ({
               </ul>
             </div>
           </div>
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
           <ColumnsButton
             columns={orderedColumns}
             hiddenKeys={hiddenKeys}

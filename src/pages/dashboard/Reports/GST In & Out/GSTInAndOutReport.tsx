@@ -1,4 +1,5 @@
 import "primeicons/primeicons.css";
+import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import {
     DataTable,
@@ -44,6 +45,14 @@ const GSTInAndOutReport = ({
             reportType
         );
     }, [reportType]);
+
+    const handleRefresh = async () => {
+        fetchGSTInOutApi(
+            setGstLists,
+            setLoading,
+            reportType
+        );
+    };
 
     useEscapeKey(() => {
     if (onHide) {
@@ -114,13 +123,29 @@ const GSTInAndOutReport = ({
                 >
                     {reportType === "IN" ? "GST In" : "GST Out"}
                 </h3>
-                <ColumnsButton
-                    columns={orderedColumns}
-                    hiddenKeys={hiddenKeys}
-                    onToggle={toggleColumn}
-                    onReorder={reorderColumns}
-                    onReset={resetColumns}
-                />
+                <div className="d-flex align-items-center gap-2">
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefresh}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                    />
+                </div>
             </div>
 
             <div

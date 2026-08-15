@@ -81,6 +81,19 @@ const WhatsappTemplateReport = ({ onHide }: IWhatsappTemplateReport) => {
         fetchCompanyTitleFields(companyData, setIsOrderShowNum, setDynamicName, setContextParamsKey, setWhatsappTemplateShowModal, setCompanyTitleFields);
     }, []);
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        await fetchCompanyApi(
+            setCompanyLists,
+            "",
+            setNoDataFound,
+            setCompanyJoinOrCreate,
+            setLoading,
+        );
+        fetchCompanyTitleFields(companyData, setIsOrderShowNum, setDynamicName, setContextParamsKey, setWhatsappTemplateShowModal, setCompanyTitleFields);
+        setLoading(false);
+    };
+
     const handleSendTemplate = async (
         template: any,
         variables: any,
@@ -184,6 +197,20 @@ const WhatsappTemplateReport = ({ onHide }: IWhatsappTemplateReport) => {
                 >
                     All Templates
                 </h3>
+                <Button
+                    icon="pi pi-refresh"
+                    className="report_button"
+                    style={{ backgroundColor: "#4C4C4C" }}
+                    rounded
+                    onClick={handleRefresh}
+                    tooltip="Refresh"
+                    tooltipOptions={{
+                        position: "top",
+                        style: {
+                            fontSize: "14px",
+                        },
+                    }}
+                />
             </div>
 
             <div

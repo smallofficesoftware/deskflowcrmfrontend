@@ -104,6 +104,22 @@ const HolidayGridView = ({
         }
     }, [canView]);
 
+    const handleRefresh = async () => {
+        if (!canView) return;
+        setOffset(0);
+        setHasMore(true);
+        setHolidayList([]);
+        setLoading(true);
+        const more = await fetchHolidayApi(
+            setHolidayList,
+            setLoading,
+            PAGE_SIZE,
+            0,
+            false,
+        );
+        setHasMore(more);
+    };
+
     const onVirtualLoad = (event: VirtualScrollerLazyEvent) => {
 
         // Safely get the last visible index
@@ -296,6 +312,20 @@ const HolidayGridView = ({
                             tooltip={`Add Holiday`}
                             tooltipOptions={{
                                 position: "left",
+                                style: {
+                                    fontSize: "14px",
+                                },
+                            }}
+                        />
+                        <Button
+                            icon="pi pi-refresh"
+                            className="report_button"
+                            style={{ backgroundColor: "#4C4C4C" }}
+                            rounded
+                            onClick={handleRefresh}
+                            tooltip="Refresh"
+                            tooltipOptions={{
+                                position: "top",
                                 style: {
                                     fontSize: "14px",
                                 },

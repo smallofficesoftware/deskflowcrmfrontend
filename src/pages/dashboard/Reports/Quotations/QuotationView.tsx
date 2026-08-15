@@ -519,6 +519,14 @@ const TeamQuotationDataReportsView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    onVirtualScroll(0, PAGE_SIZE, true);
+  };
+
   const onSelectionChange = (e: { value: any[] }) => {
     setSelectedCustomers(e.value);
     setSelectAll(e.value.length === filteredData.length);
@@ -1523,6 +1531,21 @@ const TeamQuotationDataReportsView = ({
                   )}
                 </ul>
               </div>
+
+              <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
 
               <ColumnsButton
                 columns={orderedColumns}

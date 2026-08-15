@@ -243,6 +243,24 @@ const AllSourceReport = ({
     debouncedSearchText,
   ]);
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    setApiParams({ ul: 0, ll: 50 });
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    fetchSource(
+      setSourceReport,
+      filters.selectedDateArray,
+      MobileToken,
+      getID,
+      MobileFlag,
+      filters.checkedSourceTypes,
+      filters.checkedOptionsUser,
+      0,
+      50,
+      debouncedSearchText,
+    );
+  };
+
   const dataArray: ISourceReport[] = sourceReport
     ? sourceReport.map((item) => ({
         source_name: item.source_name || "-",
@@ -834,6 +852,21 @@ const AllSourceReport = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

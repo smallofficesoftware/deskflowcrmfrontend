@@ -167,6 +167,11 @@ const WorkFlowAutomationReport = () => {
         },
     ]
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        setTimeout(() => setLoading(false), 300);
+    };
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -176,6 +181,20 @@ const WorkFlowAutomationReport = () => {
                 >
                     All Templates
                 </h3>
+                <Button
+                    icon="pi pi-refresh"
+                    className="report_button"
+                    style={{ backgroundColor: "#4C4C4C" }}
+                    rounded
+                    onClick={handleRefresh}
+                    tooltip="Refresh"
+                    tooltipOptions={{
+                        position: "top",
+                        style: {
+                            fontSize: "14px",
+                        },
+                    }}
+                />
             </div>
 
             <div

@@ -450,6 +450,13 @@ const ProductPendingView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    loadTasks(0, 50, true);
+  };
+
   const isFilterApplied = () => {
     return Object.values(lazyState.filters).some(
       (filter) =>
@@ -1357,6 +1364,21 @@ const ProductPendingView = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

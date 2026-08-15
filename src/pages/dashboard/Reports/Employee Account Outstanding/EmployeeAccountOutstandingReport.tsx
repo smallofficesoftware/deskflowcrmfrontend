@@ -319,6 +319,15 @@ const EmployeeAccountOutstandingReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setEmployees([]);
+    setHasMore(true);
+    setSelectedEmployees([]);
+    loadAccountData(true);
+  };
+
   const onLazyLoad = (event: VirtualScrollerLazyEvent) => {
     const first =
       typeof event.first === "number" ? event.first : (event.first?.first ?? 0);
@@ -1101,6 +1110,20 @@ const EmployeeAccountOutstandingReport = ({
                 </li>
               </ul>
             </div>
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
             <ColumnsButton
               columns={orderedColumns}
               hiddenKeys={hiddenKeys}

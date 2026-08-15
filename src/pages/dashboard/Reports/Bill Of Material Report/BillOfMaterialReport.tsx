@@ -302,13 +302,29 @@ const BillOfMaterialReport = ({
                 >
                     Bill Of Material
                 </h3>
-                <ColumnsButton
-                    columns={orderedColumns}
-                    hiddenKeys={hiddenKeys}
-                    onToggle={toggleColumn}
-                    onReorder={reorderColumns}
-                    onReset={resetColumns}
-                />
+                <div className="d-flex align-items-center gap-2">
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshCategory}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                    />
+                </div>
             </div>
 
             <div

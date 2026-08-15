@@ -292,6 +292,14 @@ const EmployeeTransactionReports = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setTransactions([]);
+    setSelectedTransactions([]);
+    loadAccountData(0, 50, true);
+  };
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -1011,6 +1019,21 @@ const EmployeeTransactionReports = ({
                 Print
               </li>
             </ul>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

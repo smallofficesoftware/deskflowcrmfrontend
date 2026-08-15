@@ -226,7 +226,20 @@ const VisitTypeReport = ({ onHide }: IVisitTypeReport) => {
                     Visit Type
                 </h3>
                 <div className="d-flex gap-2 align-items-center">
-
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshVisitType}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
                     <Button
                         icon="pi pi-plus"
                         className="report_button"

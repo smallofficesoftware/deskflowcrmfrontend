@@ -481,6 +481,13 @@ const AllTeamExpense = ({
     }
   };
 
+  const handleRefresh = async () => {
+    offsetRef.current = 0;
+    setHasMore(true);
+    setSourceReport([]);
+    loadMoreData(true);
+  };
+
   // const loadLazyData = () => {
   //   setLoading(true);
   //   if (networkTimeout.current) clearTimeout(networkTimeout.current);
@@ -1084,6 +1091,20 @@ const AllTeamExpense = ({
               </li>
             </ul>
           </div>
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
           <ColumnsButton
             columns={orderedColumns}
             hiddenKeys={hiddenKeys}

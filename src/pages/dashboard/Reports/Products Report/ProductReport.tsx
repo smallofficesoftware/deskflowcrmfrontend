@@ -625,6 +625,21 @@ const ProductReport = ({ onHide }: IProductReport) => {
               />
 
               <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handelRefreshProduct}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+
+              <Button
                 icon="pi pi-plus"
                 className="report_button"
                 style={{ backgroundColor: "rgb(245, 134, 52)" }}

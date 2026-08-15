@@ -438,6 +438,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
               placeholder="Search Anything in This Report"
               style={{
                 width: "300px",
+                margin: "5px 0px"
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

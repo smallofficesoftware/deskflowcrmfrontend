@@ -85,6 +85,21 @@ const TaxMasterGridView = ({
         fetchTax();
     }, []);
 
+    const handleRefresh = async () => {
+        setOffset(0);
+        setHasMore(true);
+        setTaxList([]);
+        setLoading(true);
+        const more = await fetchTaxApi(
+            setTaxList,
+            setLoading,
+            PAGE_SIZE,
+            0,
+            false,
+        );
+        setHasMore(more);
+    };
+
     const onVirtualLoad = (event: VirtualScrollerLazyEvent) => {
 
         // Safely get the last visible index
@@ -254,6 +269,20 @@ const TaxMasterGridView = ({
                             tooltip={`Add Holiday`}
                             tooltipOptions={{
                                 position: "left",
+                                style: {
+                                    fontSize: "14px",
+                                },
+                            }}
+                        />
+                        <Button
+                            icon="pi pi-refresh"
+                            className="report_button"
+                            style={{ backgroundColor: "#4C4C4C" }}
+                            rounded
+                            onClick={handleRefresh}
+                            tooltip="Refresh"
+                            tooltipOptions={{
+                                position: "top",
                                 style: {
                                     fontSize: "14px",
                                 },

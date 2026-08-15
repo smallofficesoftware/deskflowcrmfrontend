@@ -309,6 +309,13 @@ const ProductInventoryReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    hasMoreRef.current = true;
+    setCustomers([]);
+    setOffset(0);
+    loadMoreData(0);
+  };
+
   // Compute filtered & sorted data from customers
   const filteredData = useMemo(() => {
     let data = [...customers];
@@ -1010,6 +1017,20 @@ const ProductInventoryReport = ({
                 </li>
               </ul>
             </div>
+            <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
             <ColumnsButton
               columns={orderedColumns}
               hiddenKeys={hiddenKeys}
