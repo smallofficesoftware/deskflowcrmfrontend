@@ -319,6 +319,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     isConvertIntoInvoiceConfirmation,
     setIsConvertIntoInvoiceConfirmation,
   ] = useState(false);
+  const [isConvertIntoProformaConfirmation, setIsConvertIntoProformaConfirmation] =
+    useState(false);
 
   const [
     isConvertIntoDisPatchConfirmation,

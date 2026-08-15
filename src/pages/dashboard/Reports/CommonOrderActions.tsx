@@ -119,6 +119,8 @@ const CommonOrderActions = ({
         isConvertIntoInvoiceConfirmation,
         setIsConvertIntoInvoiceConfirmation,
     ] = useState(false);
+    const [isConvertIntoProformaConfirmation, setIsConvertIntoProformaConfirmation] =
+        useState(false);
     const [
         isConvertIntoDisPatchConfirmation,
         setIsConvertIntoDisPatchConfirmation,
