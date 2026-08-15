@@ -49,6 +49,7 @@ import {
   handleChangeStatusOfReminderCompleted,
   handleConvertIntoDispath,
   handleConvertIntoInvoice,
+  handleConvertIntoProforma,
   handleConvertIntoInward,
   handleConvertIntoOrder,
   handleConvertIntoPurchaseInvoice,
@@ -237,6 +238,10 @@ const ListOrderView = ({
   );
   const canAddInv = useCheckUserPermission(
     PAGE_ID.INVOICE,
+    PERMISSION_TYPE.ADD,
+  );
+  const canAddProforma = useCheckUserPermission(
+    PAGE_ID.PROFOMA_INVOICE,
     PERMISSION_TYPE.ADD,
   );
   const canAddPurchase = useCheckUserPermission(
@@ -1163,11 +1168,26 @@ const ListOrderView = ({
       setOrderDropdownOpen(null);
     } else {
       setIsConvertIntoInvoiceConfirmation(false);
+    setIsConvertIntoProformaConfirmation(false);
 
       setOrderDropdownOpen(null);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
+  const handleModalConvertIntoProforma = (id: number, number: string) => {
+    if (canAddProforma) {
+      setConverCartId(id);
+      setConvertCartNumber(number);
+      setConversionType("proforma");
+      setIsConvertIntoProformaConfirmation(true);
+      setOrderDropdownOpen(null);
+    } else {
+      setIsConvertIntoProformaConfirmation(false);
+      setOrderDropdownOpen(null);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
   const handleModalConvertDispatchIntoInvoice = (
     id: number,
     number: string,
@@ -3833,6 +3853,26 @@ const ListOrderView = ({
           btn2="Complete Reminder Now"
           message1={`Reminder Date : ${reminderData && formatDateAndTime(reminderData.reminder_data_time)
             }`}
+        />
+      )}
+      {isConvertIntoProformaConfirmation && (
+        <ConfirmationModal
+          show={isConvertIntoProformaConfirmation}
+          onHide={handleConversionModalHide}
+          handleSubmit={() =>
+            handleConvertIntoProforma(
+              converCartId,
+              convertCartNumber,
+              setIsConvertIntoProformaConfirmation,
+              setRefreshCarts,
+              setIsConversionSuccess,
+              setNewlyCreatedCartId,
+            )
+          }
+          title={`Convert to ${dynamicProformaInvoice}`}
+          message={`Are you sure you want to Convert this ${dynamicQuotation} Into ${dynamicProformaInvoice}?`}
+          btn1="CANCEL"
+          btn2="Apply"
         />
       )}
       {isConvetIntoOrderConfirmation && (

@@ -51,6 +51,7 @@ import {
 import {
   handleConvertIntoDispath,
   handleConvertIntoInvoice,
+  handleConvertIntoProforma,
   handleConvertIntoInward,
   handleConvertIntoOrder,
   handleConvertIntoPurchaseInvoice,
@@ -5652,6 +5653,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
+  const handleModalConvertIntoProforma = (id: number, number: string) => {
+    if (canApproveProfomaInvoice || canEditProfomaInvoice) {
+      setConverCartId(id);
+      setConvertCartNumber(number);
+      setIsConvertIntoProformaConfirmation(true);
+      setConversionType("proforma");
+    } else {
+      setIsConvertIntoProformaConfirmation(false);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
   const handleModalConvertIntoDisPatch = (id: number, number: string) => {
     if (canEditDispatch) {
       setConverCartId(id);
@@ -11281,6 +11294,26 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         />
       )}
 
+      {isConvertIntoProformaConfirmation && (
+        <ConfirmationModal
+          show={isConvertIntoProformaConfirmation}
+          onHide={() => setIsConvertIntoProformaConfirmation(false)}
+          handleSubmit={() => {
+            handleConvertIntoProforma(
+              converCartId,
+              convertCartNumber,
+              setIsConvertIntoProformaConfirmation,
+              setRefreshCarts,
+              setIsConversionSuccess,
+              setConverCartId,
+            );
+          }}
+          title={`Convert to ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}`}
+          message={`Are you sure you want to Convert this ${dynamicTitle} Into ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}?`}
+          btn1="CANCEL"
+          btn2="Apply"
+        />
+      )}
       {isConvetIntoOrderConfirmation && (
         <ConfirmationModal
           show={isConvetIntoOrderConfirmation}
