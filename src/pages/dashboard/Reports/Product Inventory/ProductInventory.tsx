@@ -509,7 +509,29 @@ const ProductInventoryReport = ({
   //     "Closing Stock": customer.closingStock ?? "-",
   //   }));
 
-  //   const worksheet = xlsx.utils.json_to_sheet(exportData);
+  //         const exportTotal = (selectedCustomers.length > 0 ? selectedCustomers : allItems).reduce((sum, row) => {
+        const val = parseFloat(String(row.total_closing_stock_value).replace(/[^0-9.-]+/g, ""));
+        return sum + (isNaN(val) ? 0 : val);
+      }, 0);
+      exportData.push({
+        "Product Name": "Total",
+        "Product Category": "",
+        Unit: "",
+        "Opening Stock": "",
+        [inwardTitle as string]: "",
+        [purchaseTitle as string]: "",
+        [returnPurchaseTitle as string]: "",
+        [dispatchTitle as string]: "",
+        [invoiceTitle as string]: "",
+        [returnSalesTitle as string]: "",
+        [stockAdjustmentInwardTitle as string]: "",
+        [stockAdjustmentOutwardTitle as string]: "",
+        "Closing Stock": "",
+        "Closing Stock Balance (With GST)": exportTotal.toFixed(2),
+        "Closing Stock Rate": "",
+      });
+
+      const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   worksheet["!cols"] = [
   //     { wpx: 150 },
   //     { wpx: 150 },

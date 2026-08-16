@@ -906,6 +906,20 @@ const TeamDispatchDataReportsView = ({
         )
         .join("")}
           </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #f2f2f2;">
+              ${showProductDetails ? `<td></td>` : ""}
+              <td>Total: ${dataToExport.length}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              ${uniqueCustomFields.map(() => `<td></td>`).join("")}
+            </tr>
+          </tfoot>
         </table>
       </body>
     </html>

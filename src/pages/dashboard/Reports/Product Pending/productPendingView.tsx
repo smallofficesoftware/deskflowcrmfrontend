@@ -787,6 +787,24 @@ const ProductPendingView = ({
         "Pending Purchase": item.pending_purchase || "-",
       }));
 
+      // ✅ Totals row
+      exportData.push({
+        "Product Name": "Total",
+        "Product Category": "",
+        Quotation: calculateColumnTotals(exportData, "Quotation"),
+        Order: calculateColumnTotals(exportData, "Order"),
+        Invoice: calculateColumnTotals(exportData, "Invoice"),
+        "Purchase Order": calculateColumnTotals(exportData, "Purchase Order"),
+        "Purchase Invoice": calculateColumnTotals(
+          exportData,
+          "Purchase Invoice",
+        ),
+        "Pending Purchase": calculateColumnTotals(
+          exportData,
+          "Pending Purchase",
+        ),
+      });
+
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
 

@@ -656,7 +656,20 @@ const AllTaskReportsView = ({
   //     Remark: item.task_remark || "-",
   //   }));
 
-  //   const worksheet = xlsx.utils.json_to_sheet(exportData);
+  //         exportData.push({
+        "Task Title": `Total Tasks: ${exportData.length}`,
+        "Assigned User": "",
+        "Created By": "",
+        "Customer Name": "",
+        "Customer Mobile": "",
+        "Task Priority": "",
+        "Task Status": "",
+        "Start Date Time": "",
+        "End Date Time": "",
+        Remark: "",
+      });
+
+      const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
   //   const excelBuffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" });
   //   const data = new Blob([excelBuffer], {

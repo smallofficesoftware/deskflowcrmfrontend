@@ -494,6 +494,19 @@ const EmployeeTransactionReports = ({
       // "Is Active": txn.isActive === 1 ? "Yes" : "No",
     }));
 
+        tableData.push({
+      ID: "Closing Balance",
+      "Employee Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No data available", 10, 10);
@@ -512,6 +525,11 @@ const EmployeeTransactionReports = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Employee Account Transactions Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`employee_account_transactions_${Date.now()}.pdf`);
@@ -580,6 +598,19 @@ const EmployeeTransactionReports = ({
           txn.remark.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ??
           "-",
       }));
+
+            exportData.push({
+        ID: "Closing Balance",
+        "Employee Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
@@ -655,6 +686,14 @@ const EmployeeTransactionReports = ({
                 )
                 .join("")}
             </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td>Closing Balance</td>
+                <td colspan="8" style="text-align: right; color: ${finalBalance >= 0 ? "green" : "red"};">
+                  ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </body>
       </html>

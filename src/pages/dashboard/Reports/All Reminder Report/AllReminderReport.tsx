@@ -380,6 +380,17 @@ const AllReminderReport = ({
           "-",
       }));
 
+            exportData.push({
+        ID: `Total Reminders: ${exportData.length}`,
+        "Contact Name": "",
+        "Reminder Date-Time": "",
+        Status: "",
+        "Created By": "",
+        "Task Title": "",
+        "Inquiry ID": "",
+        Remark: "",
+      });
+
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       const workbook = {
         Sheets: { Reminders: worksheet },
@@ -431,13 +442,18 @@ const AllReminderReport = ({
                   <td>${item.status_display || "-"}</td>
                   <td>${formatDateTime(item.completed_date_time)}</td>
                   <td>${item.assigned_to_name || "-"}</td>
-                  <td>${item.created_by_username || "-"}</td>
+                                    <td>${item.created_by_username || "-"}</td>
                   <td>${item.remark || "-"}</td>
                 </tr>
               `,
                 )
                 .join("")}
             </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td colspan="8">Total Reminders: ${dataToExport.length}</td>
+              </tr>
+            </tfoot>
           </table>
         </body>
       </html>

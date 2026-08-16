@@ -654,6 +654,24 @@ const PendingOrderView = ({
       return rowData;
     });
 
+        const totalsRow = {
+      ...(showProductDetails && { product_details: "" }),
+      cart_number: "Total",
+      to_customer_name: "",
+      to_customer_phone: "",
+      
+      username: "",
+      cart_status: "",
+      created_date_time: "",
+      update_Date_time: "",
+      taxable_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      gst_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      tcs_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      round_off: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      grand_total: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+    };
+    tableData.push(totalsRow as any);
+
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
@@ -669,6 +687,11 @@ const PendingOrderView = ({
       margin: { top: 20 },
       didDrawPage: (data: any) => {
         doc.text(`${title} Report`, data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
 
@@ -756,6 +779,27 @@ const PendingOrderView = ({
 
         return row;
       });
+
+            const exportSource = selectedCustomers.length > 0 ? selectedCustomers : exportData;
+      const totalRow: any = {
+        ...(showProductDetails && { "Product Details": "" }),
+        "Order Number": "Total",
+        "Approval Status": "",
+        "Company Name": "",
+        "Customer Name": "",
+        "Customer Phone": "",
+        
+        "Created By": "",
+        Status: "",
+        "Created Date Time": "",
+        "Approve Date Time": "",
+        [`Taxable_Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Grand Total (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      };
+      excelRows.push(totalRow);
 
       const ws = xlsx.utils.json_to_sheet(excelRows);
       const wb = xlsx.utils.book_new();
@@ -890,6 +934,25 @@ const PendingOrderView = ({
         )
         .join("")}
           </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #f2f2f2;">
+              ${showProductDetails ? `<td></td>` : ""}
+              <td>Total</td>
+              <td></td>
+              <td></td>
+              ${''}
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              ${uniqueCustomFields.map(() => `<td></td>`).join("")}
+            </tr>
+          </tfoot>
         </table>
       </body>
     </html>

@@ -717,6 +717,33 @@ const TeamPerformanceReports = ({
       return;
     }
 
+    const totalsRow = {
+      Name: "Total",
+      "Contact Total": dataToExport.reduce((sum, c) => sum + parseValue(c.contactCount), 0),
+      Inquiry: dataToExport.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0),
+      [`${quotationTitle} Total`]: dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0),
+      [`${quotationTitle} Amount`]: dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0),
+      [`${orderTitle} Total`]: dataToExport.reduce((sum, c) => sum + parseValue(c.order?.count), 0),
+      [`${orderTitle} Amount`]: dataToExport.reduce((sum, c) => sum + parseValue(c.order?.amount), 0),
+      [`${invoiceTitle} Total`]: dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0),
+      [`${invoiceTitle} Amount`]: dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0),
+      [`${purchaseOrderTitle} Total`]: dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0),
+      [`${purchaseOrderTitle} Amount`]: dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0),
+      [`${purchaseTitle} Total`]: dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0),
+      [`${purchaseTitle} Amount`]: dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0),
+      Visits: dataToExport.reduce((sum, c) => sum + parseValue(c.visitCount), 0),
+      "Expense Requested": dataToExport.reduce((sum, c) => sum + parseValue(c.expense?.RequestedAmount), 0),
+      "Expense Passed": dataToExport.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0),
+      "Pending Reminder Total": dataToExport.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0),
+      "Total Due Task": dataToExport.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0),
+      "Total Due Support Ticket": dataToExport.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0),
+      "Credit Total": dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0),
+      "Credit Amount": dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0),
+      "Debit Total": dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0),
+      "Debit Amount": dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0),
+    };
+    tableData.push(totalsRow as any);
+
     const exportColumns = [
       { title: "Team Member", dataKey: "Name" },
       { title: "New Contacts", dataKey: "Contact Total" },
@@ -777,6 +804,14 @@ const TeamPerformanceReports = ({
       didDrawPage: (data) => {
         doc.setFontSize(12);
         doc.text("Team Performance Reports", data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (
+          data.row.index === tableData.length - 1 &&
+          data.row.section === "body"
+        ) {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
       columnStyles: {
         Name: { cellWidth: 30 },
@@ -931,6 +966,33 @@ const TeamPerformanceReports = ({
         "Debit Amount": customer.account?.debit?.amount ?? "-",
       }));
 
+      const exportRowsSource =
+        selectedCustomers.length > 0 ? selectedCustomers : allContacts;
+      excelRows.push({
+        "Team Member": "Total",
+        "New Contacts": exportRowsSource.reduce((sum, c) => sum + parseValue(c.contactCount), 0),
+        Inquiry: exportRowsSource.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0),
+        [`${quotationTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0),
+        [`${quotationTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0),
+        [`${orderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.count), 0),
+        [`${orderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.amount), 0),
+        [`${invoiceTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0),
+        [`${invoiceTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0),
+        [`${purchaseOrderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0),
+        [`${purchaseOrderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0),
+        [`${purchaseTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0),
+        [`${purchaseTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0),
+        Visits: exportRowsSource.reduce((sum, c) => sum + parseValue(c.visitCount), 0),
+        "Expense Passed": exportRowsSource.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0),
+        "Pending Reminder Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0),
+        "Total Due Task": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0),
+        "Total Due Support Ticket": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0),
+        "Credit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0),
+        "Credit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0),
+        "Debit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0),
+        "Debit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0),
+      });
+
       const worksheet = xlsx.utils.json_to_sheet(excelRows);
       worksheet["!cols"] = Object.keys(excelRows[0]).map(() => ({
         wch: 25,
@@ -1043,6 +1105,25 @@ const TeamPerformanceReports = ({
             )
             .join("")}
         </tbody>
+        <tfoot>
+          <tr style="font-weight: bold; background-color: #f2f2f2;">
+            <td>Total</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.contactCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.visitCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0)})</td>
+          </tr>
+        </tfoot>
       </table>
     </body>
   </html>

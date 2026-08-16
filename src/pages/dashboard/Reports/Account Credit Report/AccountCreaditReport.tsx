@@ -555,6 +555,19 @@ const AccountCreaditReport = ({
       // "Is Active": txn.isActive === 1 ? "Yes" : "No",
     }));
 
+        tableData.push({
+      ID: "Total Credit Balance",
+      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No credit transactions available", 10, 10);
@@ -573,6 +586,11 @@ const AccountCreaditReport = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Credit Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`credit_report_${Date.now()}.pdf`);
@@ -646,6 +664,19 @@ const AccountCreaditReport = ({
         // Approve_Date: formatDate(txn.approve_date_time),
         // Created_Date_Time: formatDate(txn.created_date_time),
       }));
+
+            exportData.push({
+        ID: "Total Credit Balance",
+        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
