@@ -384,7 +384,7 @@ const EmployeeTransactionReports = ({
       const match = txn.amountwithcurrency?.match(
         /^([^\d\s]*[\s]*)?([\d,]+\.?\d*)/,
       );
-      const symbol = match?.[1]?.trim() || "₹"; // fallback to ₹
+      const symbol = match?.[1]?.trim() || ""; // fallback to 
       const numericValue = parseFloat(match?.[2]?.replace(/,/g, "") || "0");
 
       if (txn.typeItem?.toLowerCase() === "credit") {
@@ -496,7 +496,7 @@ const EmployeeTransactionReports = ({
 
         tableData.push({
       ID: "Closing Balance",
-      "Employee Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      "Employee Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       "Contact Phone": "",
       "Payment Type": "",
       "Payment Mode": "",
@@ -601,7 +601,7 @@ const EmployeeTransactionReports = ({
 
             exportData.push({
         ID: "Closing Balance",
-        "Employee Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        "Employee Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         "Contact Phone": "",
         "Payment Type": "",
         "Payment Mode": "",
@@ -690,7 +690,7 @@ const EmployeeTransactionReports = ({
               <tr style="font-weight: bold; background-color: #f2f2f2;">
                 <td>Closing Balance</td>
                 <td colspan="8" style="text-align: right; color: ${finalBalance >= 0 ? "green" : "red"};">
-                  ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             </tfoot>
@@ -1140,7 +1140,7 @@ const EmployeeTransactionReports = ({
             sortable
             body={(rowData: IEmployeeAccountTransaction) =>
               rowData.amountwithcurrency ||
-              `₹${rowData.amount?.toLocaleString() || "0.00"}`
+              `${rowData.amount?.toLocaleString() || "0.00"}`
             }
             style={{ textAlign: "right", width: "150px" }}
           />

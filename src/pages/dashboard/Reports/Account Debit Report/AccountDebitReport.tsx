@@ -445,7 +445,7 @@ const AccountDebitReport = ({
       const match = txn.amountwithcurrency?.match(
         /^([^\d\s]*[\s]*)?([\d,]+\.?\d*)/,
       );
-      const symbol = match?.[1]?.trim() || "₹";
+      const symbol = match?.[1]?.trim() || "";
       const numericValue = parseFloat(match?.[2]?.replace(/,/g, "") || "0");
 
       if (!acc.symbol && symbol && !/^\d+$/.test(symbol)) {
@@ -454,7 +454,7 @@ const AccountDebitReport = ({
 
       return { total: acc.total + numericValue, symbol: acc.symbol || symbol };
     },
-    { total: 0, symbol: "₹" },
+    { total: 0, symbol: "" },
   );
 
   const { total: finalBalance, symbol: balanceSymbol } = totalDebitAmount;
@@ -552,7 +552,7 @@ const AccountDebitReport = ({
 
         tableData.push({
       ID: "Total Debit Balance",
-      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
+      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
       "Contact Phone": "",
       "Payment Type": "",
       "Payment Mode": "",
@@ -634,7 +634,6 @@ const AccountDebitReport = ({
   //      // Is_Active: txn.isActive === 1 ? "Yes" : "No",
   //    }));
 
-  const worksheet = xlsx.utils.json_to_sheet(exportData);
   //    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
 
   //    const excelBuffer = xlsx.write(workbook, {
@@ -765,7 +764,7 @@ const AccountDebitReport = ({
             </tbody>
           </table>
           <div style="margin-top: 30px; text-align: right; font-weight: bold;">
-            Total Debit: ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)
+            Total Debit: ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)
           </div>
         </body>
       </html>
@@ -1169,7 +1168,7 @@ const AccountDebitReport = ({
             sortable
             body={(rowData) =>
               rowData.amountwithcurrency ||
-              `₹${rowData.amount?.toLocaleString() || "0.00"}`
+              `${rowData.amount?.toLocaleString() || "0.00"}`
             }
             style={{ textAlign: "right", width: "150px" }}
           />

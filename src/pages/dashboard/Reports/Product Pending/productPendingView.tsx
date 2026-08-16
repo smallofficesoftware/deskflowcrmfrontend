@@ -1295,7 +1295,7 @@ const ProductPendingView = ({
             }}
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "salesorder",
               )
             }
@@ -1331,7 +1331,7 @@ const ProductPendingView = ({
             body={(rowData: IProductSalesData) => rowData.salesinvoice ?? "-"}
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "salesinvoice",
               )
             }
@@ -1371,7 +1371,7 @@ const ProductPendingView = ({
             body={(rowData: IProductSalesData) => rowData.pending_sales ?? "-"}
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "pending_sales",
               )
             }
@@ -1408,7 +1408,7 @@ const ProductPendingView = ({
             body={(rowData: IProductSalesData) => rowData.purchaseorder ?? "-"}
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "purchaseorder",
               )
             }
@@ -1446,7 +1446,7 @@ const ProductPendingView = ({
             }
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "purchaseinvoice",
               )
             }
@@ -1487,7 +1487,7 @@ const ProductPendingView = ({
             }
             footer={() =>
               calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
+                customers,
                 "pending_purchase",
               )
             }

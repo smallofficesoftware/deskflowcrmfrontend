@@ -453,7 +453,7 @@ const AccountCreaditReport = ({
       const match = txn.amountwithcurrency?.match(
         /^([^\d\s]*[\s]*)?([\d,]+\.?\d*)/,
       );
-      const symbol = match?.[1]?.trim() || "₹";
+      const symbol = match?.[1]?.trim() || "";
       const numericValue = parseFloat(match?.[2]?.replace(/,/g, "") || "0");
 
       if (!acc.symbol && symbol && !/^\d+$/.test(symbol)) {
@@ -462,7 +462,7 @@ const AccountCreaditReport = ({
 
       return { total: acc.total + numericValue, symbol: acc.symbol || symbol };
     },
-    { total: 0, symbol: "₹" },
+    { total: 0, symbol: "" },
   );
 
   const { total: finalBalance, symbol: balanceSymbol } = totalCreditAmount;
@@ -557,7 +557,7 @@ const AccountCreaditReport = ({
 
         tableData.push({
       ID: "Total Credit Balance",
-      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
       "Contact Phone": "",
       "Payment Type": "",
       "Payment Mode": "",
@@ -667,7 +667,7 @@ const AccountCreaditReport = ({
 
             exportData.push({
         ID: "Total Credit Balance",
-        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+        "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
         "Contact Phone": "",
         "Payment Type": "",
         "Payment Mode": "",
@@ -750,7 +750,7 @@ const AccountCreaditReport = ({
             </tbody>
           </table>
           <div style="margin-top: 30px; text-align: right; font-weight: bold;">
-            Total Credit: ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)
+            Total Credit: ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)
           </div>
         </body>
       </html>
@@ -1161,7 +1161,7 @@ const AccountCreaditReport = ({
             sortable
             body={(rowData) =>
               rowData.amountwithcurrency ||
-              `₹${rowData.amount?.toLocaleString() || "0.00"}`
+              `${rowData.amount?.toLocaleString() || "0.00"}`
             }
             style={{ textAlign: "right", width: "150px" }}
           />

@@ -204,31 +204,7 @@ const TeamPerformanceReports = ({
     }
   }, []);
 
-  const [columnTotals, setColumnTotals] = useState({
-    contactCount: 0,
-    inquiryCount: 0,
-    dueTaskCount: 0,
-    dueSupportTicketCount: 0,
-    quotationCount: 0,
-    quotationAmount: 0,
-    orderCount: 0,
-    orderAmount: 0,
-    sellInvoiceCount: 0,
-    sellInvoiceAmount: 0,
-    purchaseOrderCount: 0,
-    purchaseOrderAmount: 0,
-    purchaseInvoiceCount: 0,
-    purchaseInvoiceAmount: 0,
-    visitCount: 0,
-    expenseRequested: 0,
-    expensePassed: 0,
-    pendingReminder: 0,
-    creditCount: 0,
-    creditAmount: 0,
-    debitCount: 0,
-    debitAmount: 0,
-    currencySymbol: "",
-  });
+  
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
@@ -369,7 +345,7 @@ const TeamPerformanceReports = ({
     return match ? match[0] + " " : "";
   };
 
-  useEffect(() => {
+  const columnTotals = useMemo(() => {
     // Get currency symbol from first item (assuming all amounts use same currency)
     const currencySymbol =
       customers.length > 0
@@ -441,7 +417,7 @@ const TeamPerformanceReports = ({
         currencySymbol: "",
       },
     );
-    setColumnTotals(totals);
+    return totals;
   }, [customers]);
 
   useEffect(() => {

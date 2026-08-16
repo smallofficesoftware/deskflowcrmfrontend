@@ -656,7 +656,6 @@ const AllTaskReportsView = ({
   //     Remark: item.task_remark || "-",
   //   }));
 
-  const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
   //   const excelBuffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" });
   //   const data = new Blob([excelBuffer], {

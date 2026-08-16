@@ -530,6 +530,24 @@ const ExpenseDetailedReport = ({
       return row;
     });
 
+        const totalAmount = tableData.reduce((sum, exp) => {
+      const val = parseFloat(String(exp.amount).replace(/[^0-9.-]+/g, ""));
+      return sum + (isNaN(val) ? 0 : val);
+    }, 0);
+    const totalPassAmount = tableData.reduce((sum, exp) => {
+      const val = parseFloat(String(exp.pass_amount).replace(/[^0-9.-]+/g, ""));
+      return sum + (isNaN(val) ? 0 : val);
+    }, 0);
+    tableData.push({
+      type: "Total",
+      amount: totalAmount.toFixed(2),
+      pass_amount: totalPassAmount.toFixed(2),
+      remark: "",
+      date: "",
+      employee: "",
+      status: "",
+    });
+
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
@@ -580,6 +598,18 @@ const ExpenseDetailedReport = ({
         Status: status,
       };
       return row;
+    });
+
+        const totalAmount = exportData.reduce((sum: number, row: any) => sum + (Number(row.Amount) || 0), 0);
+    const totalPassAmount = exportData.reduce((sum: number, row: any) => sum + (Number(row["Pass Amount"]) || 0), 0);
+    exportData.push({
+      "Expense Type": "Total",
+      Amount: totalAmount.toFixed(2),
+      "Pass Amount": totalPassAmount.toFixed(2),
+      Remark: "",
+      Date: "",
+      "Employee Name": "",
+      Status: "",
     });
 
     const worksheet = xlsx.utils.json_to_sheet(exportData);

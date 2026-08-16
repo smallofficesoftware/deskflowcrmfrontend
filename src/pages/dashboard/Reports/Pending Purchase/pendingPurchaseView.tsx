@@ -790,7 +790,7 @@ const PendingPurchaseReportsView = ({
         Status: "",
         "Created Date Time": "",
         "Approve Date Time": "",
-        [`Taxable_Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Taxable Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
         [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
         [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
         [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
@@ -1333,7 +1333,7 @@ const PendingPurchaseReportsView = ({
                         .find((row) => row.grand_total)
                         ?.grand_total.match(/[^\d.,-]+/)?.[0] || "₹";
 
-                    const total = filteredData.reduce((sum, row) => {
+                    const total = customers.reduce((sum, row) => {
                       const numericValue = parseFloat(
                         String(row.grand_total).replace(/[^0-9.-]+/g, ""),
                       );

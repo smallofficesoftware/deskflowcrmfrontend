@@ -314,6 +314,17 @@ const AllReminderReport = ({
         "-",
     }));
 
+        tableData.push({
+      id: `Total Reminders: ${dataToExport.length}`,
+      contact_name: "",
+      reminder_data_time: "",
+      status_display: "",
+      completed_date_time: "",
+      assigned_to_name: "",
+      created_by_username: "",
+      remark: "",
+    } as any);
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No reminders to export", 10, 10);
@@ -327,6 +338,11 @@ const AllReminderReport = ({
       body: tableData,
       theme: "grid",
       styles: { fontSize: 10 },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
       headStyles: { fillColor: [41, 128, 185] },
       margin: { top: 20 },
       didDrawPage: () => {
@@ -383,11 +399,11 @@ const AllReminderReport = ({
             exportData.push({
         ID: `Total Reminders: ${exportData.length}`,
         "Contact Name": "",
-        "Reminder Date-Time": "",
+        "Reminder Date & Time": "",
         Status: "",
+        "Completed On": "",
+        "Assigned To": "",
         "Created By": "",
-        "Task Title": "",
-        "Inquiry ID": "",
         Remark: "",
       });
 

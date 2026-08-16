@@ -831,7 +831,6 @@ const AllVisitReportsView = ({
   //     });
   //     return rowData;
   //   });
-  const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   worksheet["!cols"] = [
   //     { wpx: 100 },
   //     { wpx: 150 },
