@@ -88,16 +88,21 @@ const TeamRightsView = ({
   show,
   onHide,
   companyTeamInfo,
+  companyTeamList,
 }: {
   show: boolean;
   onHide: () => void;
   companyTeamInfo: ICompanyTeam | undefined;
+  companyTeamList?: ICompanyTeam[];
 }) => {
   const [teamRightList, setTeamRightList] = useState<ITeamRights[]>([]);
   const [updatedPermissions, setUpdatedPermissions] = useState<{
     [key: number]: any;
   }>({});
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<ICompanyTeam[]>([]);
+  const [selectedSourceUserId, setSelectedSourceUserId] = useState<number | string>("");
+  const [isCopying, setIsCopying] = useState<boolean>(false);
 
   const fetchApiTeamRight = async () => {
     const getUUID = await localStorage.getItem("UUID");
@@ -124,9 +129,86 @@ const TeamRightsView = ({
     setSearchTerm(e.target.value);
   };
 
+  const fetchTeamMembers = async () => {
+    if (companyTeamList && companyTeamList.length > 0) {
+      setTeamMembers(companyTeamList);
+      return;
+    }
+    const token = await localStorage.getItem("token");
+    const GetID = await localStorage.getItem("UUID");
+    const companyId = localStorage.getItem("COMPANY_ID");
+    const targetCompanyId = companyId ? Number(companyId) : companyTeamInfo?.employee_id;
+    try {
+      const data = await axiosInstance.post(
+        "my-team",
+        { company_masters_id: targetCompanyId, searchTerm: "" },
+        {
+          headers: {
+            Authorization: `${token}`,
+            "x-tenant-id": `${GetID}`,
+            ...(companyId ? { "x-company-id": companyId } : {}),
+          },
+        }
+      );
+      if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setTeamMembers(data.data.data.item || []);
+      }
+    } catch {
+      // Non-critical fallback
+    }
+  };
+
+  const handleCopyFromUser = async (sourceUserId: number) => {
+    if (!sourceUserId) {
+      setSelectedSourceUserId("");
+      return;
+    }
+    setSelectedSourceUserId(sourceUserId);
+    setIsCopying(true);
+    const token = await localStorage.getItem("token");
+    try {
+      const response = await axiosInstance.post(
+        "getTeamRights",
+        { a_application_login_id: sourceUserId },
+        { headers: { Authorization: `${token}` } }
+      );
+      if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        const sourceRights: ITeamRights[] = response.data.data.item || [];
+        const newPermissionsMap: { [key: number]: any } = {};
+
+        teamRightList.forEach((targetItem) => {
+          const targetPageId = targetItem.page_id || targetItem.id;
+          const matchingSource = sourceRights.find(
+            (s) =>
+              (s.page_id && s.page_id === targetPageId) ||
+              s.id === targetItem.id ||
+              s.modual_name === targetItem.modual_name
+          );
+          if (matchingSource && matchingSource.a_page_id_rights_jason) {
+            newPermissionsMap[targetItem.id] = parseRights(matchingSource.a_page_id_rights_jason);
+          }
+        });
+
+        setUpdatedPermissions(newPermissionsMap);
+        const sourceUser = teamMembers.find((m) => m.id === sourceUserId);
+        toast.success(`Rights loaded from ${sourceUser?.username || "selected employee"}. Review and click Save.`);
+      } else {
+        toast.error(response.data.ack_msg || "Failed to fetch rights");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsCopying(false);
+    }
+  };
 
   useEffect(() => {
-    fetchApiTeamRight();
+    if (show) {
+      setSelectedSourceUserId("");
+      setUpdatedPermissions({});
+      fetchApiTeamRight();
+      fetchTeamMembers();
+    }
   }, [show]);
 
   const handleToggle = (
@@ -373,6 +455,7 @@ const TeamRightsView = ({
   const handleClose = () => {
     onHide();
     setUpdatedPermissions({});
+    setSelectedSourceUserId("");
   };
 
   const filteredTeamRightList = teamRightList.filter((item) =>
@@ -423,6 +506,58 @@ const TeamRightsView = ({
                   &times;
                 </span>
               </div>
+            </div>
+            <div className="d-flex align-items-center justify-content-between my-2 p-2 bg-light rounded border">
+              <div className="d-flex align-items-center gap-2">
+                <label
+                  htmlFor="copyRightsSelect"
+                  className="form-label mb-0 fw-semibold"
+                  style={{ fontSize: "13px", color: "#333" }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    fill="currentColor"
+                    className="bi bi-copy me-1"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"
+                    />
+                  </svg>
+                  Copy Rights From:
+                </label>
+                <select
+                  id="copyRightsSelect"
+                  className="form-select form-select-sm"
+                  style={{ minWidth: "220px", maxWidth: "320px" }}
+                  value={selectedSourceUserId}
+                  onChange={(e) => handleCopyFromUser(Number(e.target.value))}
+                  disabled={isCopying}
+                >
+                  <option value="">-- Select Employee --</option>
+                  {teamMembers
+                    .filter((member) => member.id !== companyTeamInfo?.id)
+                    .map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.username || `User #${member.id}`}
+                      </option>
+                    ))}
+                </select>
+                {isCopying && (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </span>
+                )}
+              </div>
+              {selectedSourceUserId && (
+                <div className="text-muted" style={{ fontSize: "12px" }}>
+                  <span className="badge bg-info text-dark me-1">Copied</span>
+                  Permissions loaded. Make any changes if needed and click <strong>Save</strong>.
+                </div>
+              )}
             </div>
             <div className="m-title-2 col-12">
               <div className="head">
