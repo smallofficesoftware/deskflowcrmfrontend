@@ -831,18 +831,7 @@ const AllVisitReportsView = ({
   //     });
   //     return rowData;
   //   });
-  //         exportData.push({
-        "Visit ID": `Total Visits: ${exportData.length}`,
-        "Customer Name": "",
-        "Customer Mobile": "",
-        "Created By": "",
-        "Created Date Time": "",
-        "Check-In Date Time": "",
-        "Check-Out Date Time": "",
-        "Total Time": "",
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
+  const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   worksheet["!cols"] = [
   //     { wpx: 100 },
   //     { wpx: 150 },

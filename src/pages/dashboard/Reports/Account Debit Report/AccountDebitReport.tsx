@@ -634,20 +634,7 @@ const AccountDebitReport = ({
   //      // Is_Active: txn.isActive === 1 ? "Yes" : "No",
   //    }));
 
-  //          exportData.push({
-        ID: "Total Debit Balance",
-        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
-        "Contact Phone": "",
-        "Payment Type": "",
-        "Payment Mode": "",
-        [`Amount (${currencyName})`]: "",
-        "Payment Date & Time": "",
-        "Approved By": "",
-        "Created By": "",
-        Remark: "",
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
+  const worksheet = xlsx.utils.json_to_sheet(exportData);
   //    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
 
   //    const excelBuffer = xlsx.write(workbook, {
