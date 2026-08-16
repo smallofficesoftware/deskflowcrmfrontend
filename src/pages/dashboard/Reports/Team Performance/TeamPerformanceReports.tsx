@@ -354,22 +354,22 @@ const TeamPerformanceReports = ({
     debouncedSearchText,
   ]);
 
+  const parseValue = (value: any): number => {
+    if (!value) return 0;
+    // Remove currency symbols, spaces, and commas, then convert to number
+    const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const extractCurrencySymbol = (value: any): string => {
+    if (!value) return "";
+    const str = String(value);
+    const match = str.match(/[₹$€£¥]/);
+    return match ? match[0] + " " : "";
+  };
+
   useEffect(() => {
-    const parseValue = (value: any): number => {
-      if (!value) return 0;
-      // Remove currency symbols, spaces, and commas, then convert to number
-      const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
-      const parsed = parseFloat(cleaned);
-      return isNaN(parsed) ? 0 : parsed;
-    };
-
-    const extractCurrencySymbol = (value: any): string => {
-      if (!value) return "";
-      const str = String(value);
-      const match = str.match(/[₹$€£¥]/);
-      return match ? match[0] + " " : "";
-    };
-
     // Get currency symbol from first item (assuming all amounts use same currency)
     const currencySymbol =
       customers.length > 0
