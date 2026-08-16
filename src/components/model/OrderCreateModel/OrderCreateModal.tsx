@@ -474,7 +474,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (isConversionSuccess && isOrderShowNum == 1) {
-      setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+      if (conversionType === "proforma") {
+        setnewOrderShowNumAfterConversion(12); // 1 = quotation => 12 = proforma invoice
+      } else {
+        setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+      }
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
@@ -5637,6 +5641,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (canEditOrder) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("order");
       setIsConvetIntoOrderConfirmation(true);
     } else {
       setIsConvetIntoOrderConfirmation(false);

@@ -1029,6 +1029,7 @@ const CommonOrderActions = ({
         if (canAddOrder) {
             setConverCartId(id);
             setConvertCartNumber(number);
+            setConversionType("order");
             setIsConvetIntoOrderConfirmation(true);
             setOrderDropdownOpen(null);
         } else {
@@ -1181,7 +1182,11 @@ const CommonOrderActions = ({
 
     useEffect(() => {
         if (isConversionSuccess && isOrderShowNum === 1) {
-            setnewOrderShowNumAfterConversion(2);
+            if (conversionType === "proforma") {
+                setnewOrderShowNumAfterConversion(12);
+            } else {
+                setnewOrderShowNumAfterConversion(2);
+            }
         } else if (
             isConversionSuccess &&
             isOrderShowNum === 2 &&
