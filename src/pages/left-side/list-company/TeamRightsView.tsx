@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { openInNewTab } from "../../../common/SharedFunction";
+import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import "../../../components/model/ConfirmationModal.css";
 import {
   DEFAULT_STATUS_CODE_SUCCESS,
@@ -461,6 +462,17 @@ const TeamRightsView = ({
   const filteredTeamRightList = teamRightList.filter((item) =>
     item.modual_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const memberOptions = (teamMembers || [])
+    .filter((member) => member.id !== companyTeamInfo?.id)
+    .map((member) => ({
+      value: member.id,
+      label: member.username || `User #${member.id}`,
+    }));
+
+  const selectedMemberOption =
+    memberOptions.find((opt) => opt.value === selectedSourceUserId) || null;
+
   return (
     <React.Fragment>
       {show && (
@@ -507,19 +519,24 @@ const TeamRightsView = ({
                 </span>
               </div>
             </div>
-            <div className="d-flex align-items-center justify-content-between my-2 p-2 bg-light rounded border">
-              <div className="d-flex align-items-center gap-2">
+            <div
+              className="d-flex align-items-center justify-content-between my-2 p-2 rounded"
+              style={{
+                background: "var(--secondary, #f0f2f5)",
+                border: "1px solid var(--border-not, rgba(134, 150, 160, 0.2))",
+              }}
+            >
+              <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: "650px" }}>
                 <label
-                  htmlFor="copyRightsSelect"
-                  className="form-label mb-0 fw-semibold"
-                  style={{ fontSize: "13px", color: "#333" }}
+                  className="form-label mb-0 fw-semibold d-flex align-items-center gap-1 text-nowrap"
+                  style={{ fontSize: "13px", color: "var(--h4, #111b21)" }}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="15"
                     height="15"
-                    fill="currentColor"
-                    className="bi bi-copy me-1"
+                    fill="var(--modal-btn2, #f58634)"
+                    className="bi bi-copy"
                     viewBox="0 0 16 16"
                   >
                     <path
@@ -529,33 +546,87 @@ const TeamRightsView = ({
                   </svg>
                   Copy Rights From:
                 </label>
-                <select
-                  id="copyRightsSelect"
-                  className="form-select form-select-sm"
-                  style={{ minWidth: "220px", maxWidth: "320px" }}
-                  value={selectedSourceUserId}
-                  onChange={(e) => handleCopyFromUser(Number(e.target.value))}
-                  disabled={isCopying}
-                >
-                  <option value="">-- Select Employee --</option>
-                  {teamMembers
-                    .filter((member) => member.id !== companyTeamInfo?.id)
-                    .map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.username || `User #${member.id}`}
-                      </option>
-                    ))}
-                </select>
+                <div style={{ width: "300px" }}>
+                  <CustomSearchDropdown
+                    options={memberOptions}
+                    value={selectedMemberOption}
+                    onChange={(selected: any) => {
+                      if (selected?.value) {
+                        handleCopyFromUser(Number(selected.value));
+                      } else {
+                        setSelectedSourceUserId("");
+                      }
+                    }}
+                    placeholder="Search & select employee..."
+                    isDisabled={isCopying}
+                    styles={{
+                      control: (provided: any) => ({
+                        ...provided,
+                        minHeight: "34px",
+                        height: "34px",
+                        fontSize: "13px",
+                        borderRadius: "6px",
+                        border: "1px solid #ced4da",
+                        boxShadow: "none",
+                      }),
+                      valueContainer: (provided: any) => ({
+                        ...provided,
+                        padding: "0 8px",
+                      }),
+                      input: (provided: any) => ({
+                        ...provided,
+                        margin: "0px",
+                        fontSize: "13px",
+                      }),
+                      placeholder: (provided: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                        color: "#6c757d",
+                      }),
+                      singleValue: (provided: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                      }),
+                      option: (provided: any, state: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                        backgroundColor: state.isSelected
+                          ? "var(--modal-btn2, #f58634)"
+                          : state.isFocused
+                          ? "rgba(245, 134, 52, 0.12)"
+                          : "transparent",
+                        color: state.isSelected ? "#fff" : "#212529",
+                        cursor: "pointer",
+                      }),
+                    }}
+                  />
+                </div>
                 {isCopying && (
-                  <span className="spinner-border spinner-border-sm text-primary" role="status">
+                  <span className="spinner-border spinner-border-sm text-warning" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </span>
                 )}
               </div>
-              {selectedSourceUserId && (
-                <div className="text-muted" style={{ fontSize: "12px" }}>
-                  <span className="badge bg-info text-dark me-1">Copied</span>
-                  Permissions loaded. Make any changes if needed and click <strong>Save</strong>.
+              {selectedSourceUserId ? (
+                <div className="d-flex align-items-center gap-1" style={{ fontSize: "12px", color: "var(--primary, #54656f)" }}>
+                  <span
+                    className="badge"
+                    style={{
+                      backgroundColor: "rgba(245, 134, 52, 0.15)",
+                      color: "var(--modal-btn2, #f58634)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    Rights Loaded
+                  </span>
+                  <span>Review or adjust permissions, then click <strong>Save</strong>.</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: "12px", color: "var(--primary, #54656f)" }}>
+                  <span>Select an employee above to copy all rights at once.</span>
                 </div>
               )}
             </div>
