@@ -50,13 +50,6 @@ export const monthOptions = [
   { value: 12, label: "December" },
 ];
 
-const LEAD_AGING_BUCKET_OPTIONS = [
-  { value: "7", label: "7 Days" },
-  { value: "15", label: "15 Days" },
-  { value: "30", label: "30 Days" },
-  { value: "never", label: "Never Contacted" },
-];
-
 const LEAD_AGING_ACTIVITY_OPTIONS = [
   { value: "call", label: "Call" },
   { value: "whatsapp", label: "WhatsApp" },
@@ -4397,29 +4390,25 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                       </div>
                       <hr />
                       <div className="p-2">
-                        <div className="d-flex flex-wrap gap-2">
-                          {LEAD_AGING_BUCKET_OPTIONS.map((bucket) => {
-                            const active = leadAgingBucket === bucket.value;
-
-                            return (
-                              <span
-                                key={bucket.value}
-                                role="button"
-                                className={`fw-bold badge ${active ? "bg-danger" : "bg-light text-dark"}`}
-                                style={{
-                                  padding: "8px 12px",
-                                  cursor: isLoading ? "default" : "pointer",
-                                }}
-                                onClick={() =>
-                                  !isLoading &&
-                                  setLeadAgingBucket(active ? null : bucket.value)
-                                }
-                              >
-                                {bucket.label}
-                              </span>
-                            );
-                          })}
-                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          className="form-control"
+                          placeholder="Enter days (0 = never contacted)"
+                          value={leadAgingBucket ?? ""}
+                          disabled={isLoading}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setLeadAgingBucket(null);
+                              return;
+                            }
+                            const days = Number(raw);
+                            if (!Number.isInteger(days) || days < 0) return;
+                            setLeadAgingBucket(String(days));
+                          }}
+                        />
 
                         {leadAgingBucket && (
                           <div className="mt-3">
