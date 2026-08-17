@@ -6,7 +6,7 @@ import { TReactSetState } from "../../../helpers/AppType";
 import { axiosInstance } from "../../../services/axiosInstance";
 import { ITaskView } from "../../left-side/header/Setting/taskList/TaskListController";
 
-export { ITaskView };
+export type { ITaskView };
 
 export interface IStageStatus {
     id: number;
