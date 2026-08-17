@@ -22,9 +22,11 @@ export interface ITaskView {
     created_by_name?: string;
     assigned_team_member_names?: string;
     status?: number;
-    contact_masters_id: number;
+    external_status?: number;
+    contact_masters_id?: number;
     company_masters_id?: number;
     reference_id?: number;
+    is_unread?: number;
     stage_status_name?: string;
     stage_status_color?: string;
     reference_table?: any;
