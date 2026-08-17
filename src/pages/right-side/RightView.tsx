@@ -91,6 +91,7 @@ import {
 import { IUserInfo } from "../public/otp-verification/OTPVerificationController";
 import PricingTable from "../public/payment-gateway/PricingTable";
 import useSpeechRecognition from "../voice/Voice";
+import { ModuleType } from "../../store/sales/salesDependencyGuard";
 import ContactTaskListView from "./contact-task-list/ContactTaskListView";
 import TaskChatRightSide from "./task-chat/TaskChatRightSide";
 import CreateTaskView from "./create-task/CreateTaskView";
@@ -324,7 +325,7 @@ const RightView = ({
   const [checkedAttachment, setCheckedAttachment] = useState(false);
   const [selectDate, setSelectDate] = useState<Date[]>([]);
   const [startDateForUl, setStartDateForUl] = useState<string>("2024-12-02");
-  const [isOrderShowNum, setIsOrderShowNum] = useState(0);
+  const [isOrderShowNum, setIsOrderShowNum] = useState<ModuleType>(1);
   const [getCompanyId, setGetCompanyId] = useState(0);
   const [imageViewData, setImageViewData] = useState<TMessage>();
   const [isWhatsAppAuto, setIsWhatsAppAuto] = useState(false);
