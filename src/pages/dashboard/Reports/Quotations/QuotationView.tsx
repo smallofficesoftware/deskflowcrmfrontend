@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -157,6 +158,7 @@ const TeamQuotationDataReportsView = ({
   const [converCartId, setConverCartId] = useState(0);
   const [convertCartNumber, setConvertCartNumber] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSyncConfirmationOpen, setIsSyncConfirmationOpen] = useState(false);
 
   // const handleClickOutside = (event: MouseEvent) => {
   //   const target = event.target as HTMLElement;
@@ -1165,7 +1167,7 @@ const TeamQuotationDataReportsView = ({
                     }
 
                     if (value === "sync") {
-                      handleSyncWithMiracle();
+                      setIsSyncConfirmationOpen(true);
                     }
 
                     if (value === "multiPrint") {
@@ -2035,6 +2037,24 @@ const TeamQuotationDataReportsView = ({
             cartType={1}
             title={title}
           />
+          {isSyncConfirmationOpen && (
+            <ConfirmationModal
+              show={isSyncConfirmationOpen}
+              onHide={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+              }}
+              handleSubmit={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+                handleSyncWithMiracle();
+              }}
+              title="Sync with Miracle Confirmation"
+              message="Are you sure you want to sync selected records with Miracle?"
+              btn1="CANCEL"
+              btn2="SYNC"
+            />
+          )}
         </div>
       </>
     </PrimeReactProvider>
