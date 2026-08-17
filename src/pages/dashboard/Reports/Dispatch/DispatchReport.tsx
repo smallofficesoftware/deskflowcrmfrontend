@@ -27,8 +27,10 @@ import OrderCreateModal from "../../../../components/model/OrderCreateModel/Orde
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import useMiracleFlagStore from "../../../../store/miracle/useMiracleFlagStore";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
+import { syncMiracleInvoice } from "../../../right-side/list-order/ListOrderController";
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
@@ -256,6 +258,10 @@ const TeamDispatchDataReportsView = ({
   const handleHide = () => {
     console.log("handleHide called");
   };
+
+  const isFeatureEnabled = useMiracleFlagStore(
+    (state) => state.isFeatureEnabled,
+  );
 
   const canShare = useCheckUserPermission(
     PAGE_ID.QUOTATION_REPORT,
@@ -952,6 +958,12 @@ const TeamDispatchDataReportsView = ({
     if (selectedIds.length === 0) return;
     openPrint(selectedIds.join(","), viewFormate);
   };
+
+  const handleSyncWithMiracle = () => {
+    if (selectedIds.length === 0) return;
+    syncMiracleInvoice(selectedIds.join(","));
+  };
+
   return (
     <PrimeReactProvider>
       <>
@@ -980,7 +992,9 @@ const TeamDispatchDataReportsView = ({
                 paddingLeft: MobileFlag ? "10px" : "",
               }}
             >
-              {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && (
+              {(!MobileFlag ||
+                MobileFlag === undefined ||
+                MobileFlag === null) && (
                 <select
                   value={actionType}
                   onChange={(e) => {
@@ -992,6 +1006,9 @@ const TeamDispatchDataReportsView = ({
                       return;
                     }
 
+                    if (value === "sync") {
+                      handleSyncWithMiracle();
+                    }
 
                     if (value === "multiPrint") {
                       handleMultiPrint();
@@ -1000,13 +1017,20 @@ const TeamDispatchDataReportsView = ({
                   style={{ padding: "6px", borderRadius: "5px" }}
                 >
                   <option value="">Select Action</option>
+                  {isFeatureEnabled && (
+                    <option value="sync" disabled={selectedIds.length === 0}>
+                      Sync with Miracle
+                    </option>
+                  )}
 
-
-                  <option value="multiPrint" disabled={selectedIds.length === 0}>
+                  <option
+                    value="multiPrint"
+                    disabled={selectedIds.length === 0}
+                  >
                     Generate Multi Print
                   </option>
                 </select>
-              )} */}
+              )}
               <div
                 className="d-flex gap-2 align-items-center"
                 style={{

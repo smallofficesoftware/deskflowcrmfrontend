@@ -23,9 +23,10 @@ import OrderCreateModal from "../../../../components/model/OrderCreateModel/Orde
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import useMiracleFlagStore from "../../../../store/miracle/useMiracleFlagStore";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
-import { fetchOrderByIdApi } from "../../../right-side/list-order/ListOrderController";
+import { fetchOrderByIdApi, syncMiracleInvoice } from "../../../right-side/list-order/ListOrderController";
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
@@ -260,6 +261,10 @@ const TeamQuotationDataReportsView = ({
       ...item,
     }));
   };
+
+  const isFeatureEnabled = useMiracleFlagStore(
+    (state) => state.isFeatureEnabled,
+  );
 
   const canAddOrder = useCheckUserPermission(
     PAGE_ID.ORDER,
@@ -1089,6 +1094,11 @@ const TeamQuotationDataReportsView = ({
     openPrint(selectedIds.join(","), viewFormate);
   };
 
+  const handleSyncWithMiracle = () => {
+    if (selectedIds.length === 0) return;
+    syncMiracleInvoice(selectedIds.join(","));
+  };
+
   const handelChangeEdit = (id: number, cartNumber: string, type: number) => {
     setEditOrView(
       (cartNumber && (type === 1 || type === 2 || type === 5 || type === 3)) ||
@@ -1140,6 +1150,45 @@ const TeamQuotationDataReportsView = ({
                 paddingLeft: MobileFlag ? "10px" : "",
               }}
             >
+              {(!MobileFlag ||
+                MobileFlag === undefined ||
+                MobileFlag === null) && (
+                <select
+                  value={actionType}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setActionType(value);
+
+                    if (selectedIds.length === 0) {
+                      toast.error("Please select at least one record");
+                      return;
+                    }
+
+                    if (value === "sync") {
+                      handleSyncWithMiracle();
+                    }
+
+                    if (value === "multiPrint") {
+                      handleMultiPrint();
+                    }
+                  }}
+                  style={{ padding: "6px", borderRadius: "5px" }}
+                >
+                  <option value="">Select Action</option>
+                  {isFeatureEnabled && (
+                    <option value="sync" disabled={selectedIds.length === 0}>
+                      Sync with Miracle
+                    </option>
+                  )}
+
+                  <option
+                    value="multiPrint"
+                    disabled={selectedIds.length === 0}
+                  >
+                    Generate Multi Print
+                  </option>
+                </select>
+              )}
               <div
                 className="d-flex gap-2 align-items-center"
                 style={{
