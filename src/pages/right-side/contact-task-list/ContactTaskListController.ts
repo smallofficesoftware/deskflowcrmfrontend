@@ -4,48 +4,9 @@ import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../
 import { TFilterDate } from "../../../helpers/AppInterface";
 import { TReactSetState } from "../../../helpers/AppType";
 import { axiosInstance } from "../../../services/axiosInstance";
+import { ITaskView } from "../../left-side/header/Setting/taskList/TaskListController";
 
-export interface ITaskView {
-    id: number;
-    assigned_team_member: number | string;
-    task_enddate: string;
-    task_fromdate: string;
-    created_date_time?: string;
-    task_type?: number;
-    task_title?: string;
-    task_remark?: string;
-    task_category_id?: number;
-    task_template?: number | string | undefined;
-    task_priority?: number;
-    task_selected_date?: string;
-    selected_task_days?: string | undefined;
-    created_by_name?: string;
-    assigned_team_member_names?: string;
-    status?: number;
-    external_status?: number;
-    contact_masters_id?: number;
-    company_masters_id?: number;
-    reference_id?: number;
-    is_unread?: number;
-    stage_status_name?: string;
-    stage_status_color?: string;
-    reference_table?: any;
-    category_name?: String;
-    contact_person_name?: string;
-    contact_person_number?: string;
-    contact_company_name?: string;
-    is_archive?: string | number;
-    category_color_code?: string | number;
-    task_attechment?: string;
-    is_notification_sand_email?: number;
-    is_notification_sand_wp?: number;
-    reference_contact?: number | string;
-    team_task_assignement_type?: string | number;
-    is_auto_create?: string | number;
-    label_name: string;
-    label_color: string;
-    label_id: any;
-}
+export { ITaskView };
 
 export interface IStageStatus {
     id: number;
