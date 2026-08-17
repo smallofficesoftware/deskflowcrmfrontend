@@ -1308,6 +1308,8 @@ const ListOrderView = ({
     if (isConversionSuccess && isOrderShowNum === 1) {
       if (conversionType === "proforma") {
         setnewOrderShowNumAfterConversion(12);
+      } else if (conversionType === "invoice") {
+        setnewOrderShowNumAfterConversion(3);
       } else {
         setnewOrderShowNumAfterConversion(2);
       }
@@ -3160,6 +3162,23 @@ const ListOrderView = ({
                               }
                             >
                               Convert to {dynamicProformaInvoice}
+                            </li>
+                          ) : (
+                            <span></span>
+                          )}
+                          {item.type === 1 && item.cart_number ? (
+                            <li
+                              style={{ height: "auto" }}
+                              className="listItem"
+                              role="button"
+                              onClick={() =>
+                                handleModalConvertIntoInvoice(
+                                  item.id,
+                                  item.cart_number,
+                                )
+                              }
+                            >
+                              Convert to {dynamicInvoice}
                             </li>
                           ) : (
                             <span></span>

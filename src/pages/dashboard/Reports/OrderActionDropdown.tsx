@@ -559,6 +559,23 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
                 ) : (
                     <span></span>
                 )}
+                {item.type === 1 && item.cart_number ? (
+                    <li
+                        style={{ height: "auto" }}
+                        className="listItem-report"
+                        role="button"
+                        onClick={() =>
+                            handleModalConvertIntoInvoice?.(
+                                item.id,
+                                item.cart_number,
+                            )
+                        }
+                    >
+                        Convert to {dynamicInvoice}
+                    </li>
+                ) : (
+                    <span></span>
+                )}
                 {item.type === 2 && item.cart_number ? (
                     <li
                         style={{ height: "auto" }}

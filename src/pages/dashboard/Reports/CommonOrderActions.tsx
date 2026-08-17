@@ -1184,6 +1184,8 @@ const CommonOrderActions = ({
         if (isConversionSuccess && isOrderShowNum === 1) {
             if (conversionType === "proforma") {
                 setnewOrderShowNumAfterConversion(12);
+            } else if (conversionType === "invoice") {
+                setnewOrderShowNumAfterConversion(3);
             } else {
                 setnewOrderShowNumAfterConversion(2);
             }
