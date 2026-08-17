@@ -6555,7 +6555,6 @@ const RightView = ({
               setTargetVsIncentiveList={setTargetVsIncentiveList}
               setLoading={setLoading}
               headerName="Create Task"
-              setRefreshProduct={setRefreshProduct}
               productToEdit={undefined}
               messageId={taskData.messageId}
               messageDescription={taskData.messageDescription}
