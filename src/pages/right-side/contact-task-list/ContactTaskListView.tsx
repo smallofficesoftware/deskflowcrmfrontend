@@ -29,6 +29,8 @@ interface IPropsTaskManagementView {
     supportTicketFlag: number;
     contactId?: number;
     contactName?: string;
+    onSelectTask?: (task: ITaskView) => void;
+    selectedTaskId?: number;
 }
 
 export interface FilterParams {
@@ -49,9 +51,11 @@ const ContactTaskListView = ({
     closeTaskManagementView,
     supportTicketFlag,
     contactId,
-    contactName
+    contactName,
+    onSelectTask,
+    selectedTaskId
 }: IPropsTaskManagementView) => {
-    const { isTaskRightSideopen, setIsTaskRightSideOpen, setShowRightSide } =
+    const { setShowRightSide } =
         useContext(AppContext)!;
     const [taskList, setTaskList] = useState<
         ITaskView[]
@@ -479,7 +483,6 @@ const ContactTaskListView = ({
         setIsAllSelected(false);
         setSelectedIds([]);
         setIsModalAssignLabelVisible(false);
-        setIsTaskRightSideOpen(false);
         setOpenTaskChatModel(false);
     };
 
@@ -574,7 +577,6 @@ const ContactTaskListView = ({
         });
 
         setIsModalAssignStatusVisible(false);
-        setIsTaskRightSideOpen(false);
         setOpenTaskChatModel(false);
         setIsAllSelected(false);
         setSelectedIds([]);
@@ -1114,7 +1116,6 @@ const ContactTaskListView = ({
         }
         setIsDeleteConfirmation(false);
         setIsTaskComplatedConfirmation(false);
-        setIsTaskRightSideOpen(false);
         setOpenTaskChatModel(false);
         setIsCreateModel(false);
         setIsOpenEditModel(false);
@@ -1161,7 +1162,6 @@ const ContactTaskListView = ({
         }
         setIsDeleteConfirmation(false);
         setIsTaskComplatedConfirmation(false);
-        setIsTaskRightSideOpen(false);
         setOpenTaskChatModel(false);
         setIsOpenEditModel(false);
         closeTaskManagementView();
@@ -1176,7 +1176,6 @@ const ContactTaskListView = ({
             if (id) {
                 setTaskId(id);
                 setIsDeleteConfirmation(true);
-                setIsTaskRightSideOpen(false);
                 setOpenTaskChatModel(false);
             }
             setIsDeleteConfirmation(true);
@@ -1191,7 +1190,6 @@ const ContactTaskListView = ({
             if (id) {
                 setTaskId(id);
                 setIsTaskComplatedConfirmation(true);
-                setIsTaskRightSideOpen(false);
                 setOpenTaskChatModel(false);
             }
             setIsTaskComplatedConfirmation(true);
@@ -1206,7 +1204,6 @@ const ContactTaskListView = ({
         if (id) {
             setTaskId(id);
             setIsArchiveTaskConfirmation(true);
-            setIsTaskRightSideOpen(false);
             setOpenTaskChatModel(false);
         }
         setIsArchiveTaskConfirmation(true);
@@ -1221,7 +1218,6 @@ const ContactTaskListView = ({
         if (id) {
             setTaskId(id);
             setIsUnArchiveTaskConfirmation(true);
-            setIsTaskRightSideOpen(false);
             setOpenTaskChatModel(false);
         }
         setIsUnArchiveTaskConfirmation(true);
@@ -1236,7 +1232,6 @@ const ContactTaskListView = ({
         if (id) {
             setTaskId(id);
             setIsConvertSupportTikcetToTask(true);
-            setIsTaskRightSideOpen(false);
             setOpenTaskChatModel(false);
         }
         setIsConvertSupportTikcetToTask(true);
@@ -1540,12 +1535,11 @@ const ContactTaskListView = ({
         if (CanViewTaskChat) {
             setGetSingleTaskData(signleDataTask);
             setOpenTaskChatModel(true);
+            if (onSelectTask) {
+                onSelectTask(signleDataTask);
+            }
         }
     };
-
-    useEffect(() => {
-        setIsTaskRightSideOpen(isOpenTaskChatModel);
-    }, [isOpenTaskChatModel]);
 
     const handleEdit = (item: ITaskView) => {
         if (canEdit) {
@@ -1775,7 +1769,6 @@ const ContactTaskListView = ({
         setIsAllSelected(false);
         setSelectedIds([]);
         setIsModalAssignUserVisible(false);
-        setIsTaskRightSideOpen(false);
         setOpenTaskChatModel(false);
     };
     /* add team member code End */
@@ -2732,11 +2725,10 @@ const ContactTaskListView = ({
                                                     className={`block w-100 chat-list ${activeIndex === index ? "active" : ""
                                                         }`}
                                                     style={{ padding: "6" }}
-                                                    // onClick={(e) => {
-                                                    //     setActiveIndex(index);
-                                                    //     OpenTaskchatRightSide(item);
-                                                    //     setIsTaskRightSideOpen(true);
-                                                    // }}
+                                                    onClick={(e) => {
+                                                        setActiveIndex(index);
+                                                        OpenTaskchatRightSide(item);
+                                                    }}
                                                     onMouseEnter={(e) => {
                                                         if (selectedIds.length === 0 && !isAllSelected) {
                                                             const checkbox: any =
@@ -3340,18 +3332,6 @@ const ContactTaskListView = ({
                 </div>
             ) : null}
 
-            {/* {isOpenTaskChatModel && isTaskRightSideopen && (
-                <TaskChatRightSide
-                    showTaskChat={() => setOpenTaskChatModel(true)}
-                    onHideTaskChat={() => setOpenTaskChatModel(false)}
-                    TaskData={taskList} // Pass data, not setter
-                    signleDataTask={GetSingleTaskData}
-                    setRefreshTask={() => setRefreshTaskBothSide(true)}
-                    closeDashboard={() => setshowDashBoard(false)}
-                    // openTaskRight={OpenTaskchatRightSide}
-                    supportTicketFlag={0}
-                />
-            )} */}
             {isModalAssignLabelVisible && (
                 <CheckBoxModal
                     show={isModalAssignLabelVisible}
