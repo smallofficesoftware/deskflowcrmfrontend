@@ -25,6 +25,15 @@ const reconcileOrder = (
   const validSaved = savedOrder.filter((key) => defaultKeys.includes(key));
   const missing = defaultKeys.filter((key) => !validSaved.includes(key));
 
+  if (
+    missing.length > 0 &&
+    validSaved.includes("last_modified_date") &&
+    defaultKeys[defaultKeys.length - 1] === "last_modified_date"
+  ) {
+    const withoutLastMod = validSaved.filter((k) => k !== "last_modified_date");
+    return [...withoutLastMod, ...missing, "last_modified_date"];
+  }
+
   return [...validSaved, ...missing];
 };
 
