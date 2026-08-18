@@ -1115,30 +1115,40 @@ const OrderPrintViewV5 = () => {
                           : ""}
                       </td>
                     </tr> */}
-                    <tr>
-                      <td
-                        className="text-left font-13 without_price_check"
-                        style={{ borderLeft: "0" }}
-                      >
-                        <strong>Discount</strong>
-                      </td>
-                      <td
-                        className="text-right now-rap-white-space font-13 without_price_check"
-                        style={{ borderRight: "0px", borderLeft: "0" }}
-                      >
-                        {orderPrintById?.cart
-                          ? `${currency.find(
+                    {Number(orderPrintById?.cart.cash_discount || 0) > 0 && (
+                      <tr>
+                        <td
+                          className="text-left font-13 without_price_check"
+                          style={{ borderLeft: "0" }}
+                        >
+                          <strong>
+                            {orderPrintById?.cart.cash_discount_type == 1
+                              ? `Cash Discount (${orderPrintById?.cart.cash_discount}%)`
+                              : "Cash Discount"}
+                          </strong>
+                        </td>
+                        <td
+                          className="text-right now-rap-white-space font-13 without_price_check"
+                          style={{ borderRight: "0px", borderLeft: "0" }}
+                        >
+                          {`${currency.find(
                             (curr) =>
                               curr.id === orderPrintById?.cart.currency_id,
                           )?.symbol || "₹"
-                          } ` + formatNumber(0, 2)
-                          : `${currency.find(
-                            (curr) =>
-                              curr.id === orderPrintById?.cart.currency_id,
-                          )?.symbol || "₹"
-                          } ` + "0"}
-                      </td>
-                    </tr>
+                          } ` +
+                            formatNumber(
+                              orderPrintById?.cart.cash_discount_type == 1
+                                ? ((Number(orderPrintById?.cart.total_amt || 0) +
+                                    Number(orderPrintById?.cart.packing_forwarding_charge || 0) +
+                                    Number(orderPrintById?.cart.transport_charge || 0)) *
+                                    Number(orderPrintById?.cart.cash_discount)) /
+                                    100
+                                : Number(orderPrintById?.cart.cash_discount),
+                              2,
+                            )}
+                        </td>
+                      </tr>
+                    )}
                     <tr>
                       <td
                         className="text-left font-13 without_price_check"
@@ -1976,32 +1986,40 @@ const OrderPrintViewV5 = () => {
                           : ""}
                       </td>
                     </tr> */}
-                          <tr>
-                            <td
-                              className="text-left font-13 without_price_check"
-                              style={{ borderLeft: "0" }}
-                            >
-                              <strong>Discount</strong>
-                            </td>
-                            <td
-                              className="text-right now-rap-white-space font-13 without_price_check"
-                              style={{ borderRight: "0px", borderLeft: "0" }}
-                            >
-                              {orderPrintById?.cart
-                                ? `${currency.find(
+                          {Number(orderPrintById?.cart.cash_discount || 0) > 0 && (
+                            <tr>
+                              <td
+                                className="text-left font-13 without_price_check"
+                                style={{ borderLeft: "0" }}
+                              >
+                                <strong>
+                                  {orderPrintById?.cart.cash_discount_type == 1
+                                    ? `Cash Discount (${orderPrintById?.cart.cash_discount}%)`
+                                    : "Cash Discount"}
+                                </strong>
+                              </td>
+                              <td
+                                className="text-right now-rap-white-space font-13 without_price_check"
+                                style={{ borderRight: "0px", borderLeft: "0" }}
+                              >
+                                {`${currency.find(
                                   (curr) =>
-                                    curr.id ===
-                                    orderPrintById?.cart.currency_id,
+                                    curr.id === orderPrintById?.cart.currency_id,
                                 )?.symbol || "₹"
-                                } ` + formatNumber(0, 2)
-                                : `${currency.find(
-                                  (curr) =>
-                                    curr.id ===
-                                    orderPrintById?.cart.currency_id,
-                                )?.symbol || "₹"
-                                } ` + "0"}
-                            </td>
-                          </tr>
+                                } ` +
+                                  formatNumber(
+                                    orderPrintById?.cart.cash_discount_type == 1
+                                      ? ((Number(orderPrintById?.cart.total_amt || 0) +
+                                          Number(orderPrintById?.cart.packing_forwarding_charge || 0) +
+                                          Number(orderPrintById?.cart.transport_charge || 0)) *
+                                          Number(orderPrintById?.cart.cash_discount)) /
+                                          100
+                                      : Number(orderPrintById?.cart.cash_discount),
+                                    2,
+                                  )}
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td
                               className="text-left font-13 without_price_check"
