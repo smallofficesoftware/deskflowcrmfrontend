@@ -1204,7 +1204,7 @@ const SideView = ({ profileDetail }: IProp) => {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#eaedf1",
+          background: "rgb(240 242 245)",
           padding: "2px",
           height: "100vh",
         }}

@@ -1017,7 +1017,7 @@ const HRMDashboardView = ({
                           <Col md={4} key={idx}>
                             <Card
                               className="text-end h-100"
-                              style={{ borderRadius: 0, cursor: "pointer", minHeight: "160px" }}
+                              style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer", minHeight: "160px" }}
                               onClick={item.onClick}
                             >
                               <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
@@ -1055,6 +1055,9 @@ const HRMDashboardView = ({
                       style={{
                         display: "flex",
                         flexDirection: "column",
+                        borderRadius: "10px",
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)",
                       }}
                     >
                       <Card.Body
@@ -1200,7 +1203,7 @@ const HRMDashboardView = ({
                   <Col md={6}>
                     <Card
                       className="text-center"
-                      style={{ height: "100%", borderRadius: "0px" }}
+                      style={{ height: "100%", borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)" }}
                     >
                       <Card.Body>
                         <div
@@ -1269,7 +1272,7 @@ const HRMDashboardView = ({
                   <Col md={6}>
                     <Card
                       className="text-center"
-                      style={{ height: "100%", borderRadius: "0px" }}
+                      style={{ height: "100%", borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)" }}
                     >
                       <Card.Body>
                         <div
