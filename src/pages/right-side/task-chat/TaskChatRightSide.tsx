@@ -75,6 +75,7 @@ interface IPropRightView {
   setRefreshTask?: (value: boolean | number) => void;
   setNoDataFound1?: TReactSetState<boolean>;
   supportTicketFlag?: number;
+  isInsideRightView?: boolean;
 }
 
 const TaskChatRightSide = ({
@@ -88,6 +89,7 @@ const TaskChatRightSide = ({
   setNoDataFound1,
   openTaskRight,
   supportTicketFlag,
+  isInsideRightView,
 }: IPropRightView) => {
   const { isTaskRightSideopen, setIsTaskRightSideOpen, setShowRightSide } =
     useContext(AppContext)!;
@@ -1026,7 +1028,10 @@ const TaskChatRightSide = ({
 
   return (
     <>
-      <div className="Right-Container" style={{ flex: "70%", display: "flex" }}>
+      <div
+        className={isInsideRightView ? "" : "Right-Container"}
+        style={isInsideRightView ? { display: "contents" } : { flex: "70%", display: "flex" }}
+      >
         <>
           <div className="rightSide" style={{ display: "flex" }} id="rightSide">
             <div className="header">

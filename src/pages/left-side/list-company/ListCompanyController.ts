@@ -78,7 +78,10 @@ export const planTypesList = [
 ];
 
 export interface ICompanyTeam {
-  reporting_member: number;
+  reporting_member?: number | "" | null;
+  department?: number | "" | null;
+  daily_in_time?: string;
+  daily_out_time?: string;
   id: number;
   username: string;
   recovery_email: string;
@@ -86,10 +89,10 @@ export interface ICompanyTeam {
   created_date_time: string;
   company_flag: number;
   profile_pic: string;
-  quotation_title: string;
+  quotation_title?: string;
   isActive: number;
-  attendance_status: number;
-  employee_id: number;
+  attendance_status?: number;
+  employee_id?: number | string;
 }
 
 export interface IAttendanceHistory {
@@ -148,13 +151,27 @@ export const fetchCompanyApi = async (
       },
     });
     const items = data.data.data.item || [];
-    items.sort((a: ICompany, b: ICompany) => {
-      const aIsMain = a.parent_company_id === null || a.parent_company_id === undefined;
-      const bIsMain = b.parent_company_id === null || b.parent_company_id === undefined;
-      if (aIsMain && !bIsMain) return -1;
-      if (!aIsMain && bIsMain) return 1;
-      return 0;
-    });
+    const activeCompanyId = localStorage.getItem("COMPANY_ID");
+    if (activeCompanyId) {
+      const activeNum = Number(activeCompanyId);
+      items.sort((a: ICompany, b: ICompany) => {
+        if (a.id === activeNum) return -1;
+        if (b.id === activeNum) return 1;
+        const aIsMain = a.parent_company_id === null || a.parent_company_id === undefined;
+        const bIsMain = b.parent_company_id === null || b.parent_company_id === undefined;
+        if (aIsMain && !bIsMain) return -1;
+        if (!aIsMain && bIsMain) return 1;
+        return 0;
+      });
+    } else {
+      items.sort((a: ICompany, b: ICompany) => {
+        const aIsMain = a.parent_company_id === null || a.parent_company_id === undefined;
+        const bIsMain = b.parent_company_id === null || b.parent_company_id === undefined;
+        if (aIsMain && !bIsMain) return -1;
+        if (!aIsMain && bIsMain) return 1;
+        return 0;
+      });
+    }
     setCompanyLists(items);
     setNoDataFound(items.length === 0);
     setCompanyJoinOrCreate(items.length === 0);

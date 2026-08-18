@@ -896,6 +896,14 @@ const AllDeletedcontactReport = ({
       return rowData;
     });
 
+        if (showCartColumns.grand_total) {
+      const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
+      tableData.push({
+        Person_Name: "Total",
+        Grand_Total: grandTotalSum.toFixed(2),
+      } as any);
+    }
+
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
@@ -921,6 +929,11 @@ const AllDeletedcontactReport = ({
       didDrawPage: (data) => {
         doc.setFontSize(14);
         doc.text("All Contact Report", data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body" && showCartColumns.grand_total) {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
 
@@ -962,6 +975,14 @@ const AllDeletedcontactReport = ({
         });
         return row;
       });
+
+            if (showCartColumns.grand_total) {
+        const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : allContacts).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
+        exportData.push({
+          Person_Name: "Total",
+          Grand_Total: grandTotalSum.toFixed(2),
+        });
+      }
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));

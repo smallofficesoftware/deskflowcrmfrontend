@@ -489,7 +489,6 @@ const ProductInventoryReport = ({
   //     "Closing Stock": customer.closingStock ?? "-",
   //   }));
 
-  //   const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   worksheet["!cols"] = [
   //     { wpx: 150 },
   //     { wpx: 150 },

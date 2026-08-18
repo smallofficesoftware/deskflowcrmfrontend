@@ -975,6 +975,7 @@ const MyCompanyList = ({
             show={isTeamRightsOpen}
             onHide={() => setIsTeamRightsOpen(false)}
             companyTeamInfo={companyTeamInfo}
+            companyTeamList={companyTeamLists}
           />
         </>
       ) : null}

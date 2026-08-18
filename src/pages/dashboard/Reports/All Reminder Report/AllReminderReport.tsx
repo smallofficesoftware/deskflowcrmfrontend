@@ -541,6 +541,17 @@ const AllReminderReport = ({
       return rowData;
     });
 
+        tableData.push({
+      id: `Total Reminders: ${dataToExport.length}`,
+      contact_name: "",
+      reminder_data_time: "",
+      status_display: "",
+      completed_date_time: "",
+      assigned_to_name: "",
+      created_by_username: "",
+      remark: "",
+    } as any);
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No reminders to export", 10, 10);
@@ -559,6 +570,11 @@ const AllReminderReport = ({
       body: tableData,
       theme: "grid",
       styles: { fontSize: 10 },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
       headStyles: { fillColor: [41, 128, 185] },
       margin: { top: 20 },
       didDrawPage: () => {
@@ -605,6 +621,17 @@ const AllReminderReport = ({
           row[col.label] = getExportCellValue(col, item, "plain");
         });
         return row;
+      });
+
+            exportData.push({
+        ID: `Total Reminders: ${exportData.length}`,
+        "Contact Name": "",
+        "Reminder Date & Time": "",
+        Status: "",
+        "Completed On": "",
+        "Assigned To": "",
+        "Created By": "",
+        Remark: "",
       });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
@@ -663,6 +690,11 @@ const AllReminderReport = ({
                 )
                 .join("")}
             </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td colspan="8">Total Reminders: ${dataToExport.length}</td>
+              </tr>
+            </tfoot>
           </table>
         </body>
       </html>

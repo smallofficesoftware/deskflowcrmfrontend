@@ -743,6 +743,19 @@ const AllAccountReports = ({
       return row;
     });
 
+        tableData.push({
+      ID: "Closing Balance",
+      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No data available", 10, 10);
@@ -766,6 +779,11 @@ const AllAccountReports = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Transactions Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`account_transactions_${Date.now()}.pdf`);
@@ -831,6 +849,19 @@ const AllAccountReports = ({
           row[col.label] = getExportCellValue(col, txn);
         });
         return row;
+      });
+
+            exportData.push({
+        ID: "Closing Balance",
+        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
       });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);

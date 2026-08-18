@@ -885,6 +885,13 @@ ${fields
     autoTable(doc, {
       head: [visibleColumns.map((col) => col.label)],
       body,
+      foot: [
+        [
+          `Total Invoices: ${dataToExport.length}`,
+          `Total Amount:  ${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.cart_details?.grand_total || item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}`,
+          "",
+        ],
+      ],
       styles: {
         fontSize: 8,
         cellPadding: 3,
@@ -1029,6 +1036,13 @@ ${fields
           })
           .join("")}
       </tbody>
+      <tfoot>
+        <tr style="font-weight: bold; background-color: #f2f2f2;">
+          <td>Total Invoices: ${dataToExport.length}</td>
+          <td>Total Amount:  ${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.cart_details?.grand_total || item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+          <td></td>
+        </tr>
+      </tfoot>
     </table>
   </body>
   </html>`;
@@ -1381,7 +1395,7 @@ ${fields
                                         const symbol =
                                             filteredData
                                                 .find((row) => row.grand_total)
-                                                ?.grand_total.match(/[^\d.,-]+/)?.[0] || "₹";
+                                                ?.grand_total.match(/[^\d.,-]+/)?.[0] || "";
 
                                         const total = filteredData.reduce((sum, row) => {
                                             const numericValue = parseFloat(

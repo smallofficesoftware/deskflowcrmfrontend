@@ -91,7 +91,9 @@ import {
 import { IUserInfo } from "../public/otp-verification/OTPVerificationController";
 import PricingTable from "../public/payment-gateway/PricingTable";
 import useSpeechRecognition from "../voice/Voice";
+import { ModuleType } from "../../store/sales/salesDependencyGuard";
 import ContactTaskListView from "./contact-task-list/ContactTaskListView";
+import TaskChatRightSide from "./task-chat/TaskChatRightSide";
 import CreateTaskView from "./create-task/CreateTaskView";
 import EmailSendView from "./EmailSend/EmailSendView";
 import ListAccountTransactionView from "./list-account-transaction/ListAccountTransactionView";
@@ -268,6 +270,7 @@ const RightView = ({
   const [showVisits, setShowVisits] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
   const [showTickets, setShowTickets] = useState(false);
+  const [selectedContactTask, setSelectedContactTask] = useState<any>(null);
   const [isReminderConfirmationStatus1, setIsReminderConfirmationStatus1] =
     useState<TMessage | null>(null);
   const [isReminderConfirmation, setIsReminderConfirmation] = useState(false);
@@ -322,7 +325,7 @@ const RightView = ({
   const [checkedAttachment, setCheckedAttachment] = useState(false);
   const [selectDate, setSelectDate] = useState<Date[]>([]);
   const [startDateForUl, setStartDateForUl] = useState<string>("2024-12-02");
-  const [isOrderShowNum, setIsOrderShowNum] = useState(0);
+  const [isOrderShowNum, setIsOrderShowNum] = useState<ModuleType>(1);
   const [getCompanyId, setGetCompanyId] = useState(0);
   const [imageViewData, setImageViewData] = useState<TMessage>();
   const [isWhatsAppAuto, setIsWhatsAppAuto] = useState(false);
@@ -1797,6 +1800,7 @@ const RightView = ({
     setShowListOrder(false);
     setShowListInquiry(false);
     setShowListAccountTransaction(false);
+    setSelectedContactTask(null);
   }, [resetTrigger]);
 
   const getUUID = localStorage.getItem("UUID");
@@ -1805,6 +1809,7 @@ const RightView = ({
     fetchReminderCount(setReminderCount, getData?.id);
     fetchTaskCount(setTaskCount);
     fetchSupportTicketCount(setSupportTicketCount);
+    setSelectedContactTask(null);
   }, [getData?.id]);
   const canViewInq = useCheckUserPermission(
     PAGE_ID.INQUIRY,
@@ -3676,18 +3681,31 @@ const RightView = ({
                 />
               ) : isCreateContact1 && showRightSide ? (
                 <>
-                  <div
-                    className="rightSide"
-                    style={{ display: "flex" }}
-                    id="rightSide"
-                  >
-                    <div className="header">
+                  {selectedContactTask ? (
+                    <TaskChatRightSide
+                      showTaskChat={() => {}}
+                      onHideTaskChat={() => setSelectedContactTask(null)}
+                      signleDataTask={selectedContactTask}
+                      setRefreshTask={() => setRefreshProduct(true)}
+                      closeDashboard={() => setSelectedContactTask(null)}
+                      openTaskRight={(task) => setSelectedContactTask(task)}
+                      supportTicketFlag={showTickets ? 1 : 0}
+                      isInsideRightView={true}
+                    />
+                  ) : (
+                    <>
                       <div
-                        className="imgText"
-                        role="button"
-                        onClick={openChatAbout}
+                        className="rightSide"
+                        style={{ display: "flex" }}
+                        id="rightSide"
                       >
-                        {/* <div
+                        <div className="header">
+                          <div
+                            className="imgText"
+                            role="button"
+                            onClick={openChatAbout}
+                          >
+                            {/* <div
                         className="imgBox"
                         style={{ backgroundColor: "#CFCFCF" }}
                       >
@@ -3701,463 +3719,463 @@ const RightView = ({
                         </div>
                       </div> */}
 
-                        <h4
-                          style={{
-                            wordBreak: "break-word",
-                            maxWidth: "230px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            paddingLeft: "10px",
-                            margin: "0px",
-                          }}
-                          title={
-                            getData?.person_name
-                              ? `${getData?.company_name} ${getData?.company_name && "-"
-                              } ${getData?.person_name}`
-                              : `${getData?.person_name}`
-                          }
-                          aria-label={
-                            getData?.person_name
-                              ? `${getData?.company_name} ${getData?.company_name && "-"
-                              } ${getData?.person_name}`
-                              : `${getData?.person_name}`
-                          }
-                        >
-                          {getData?.company_name} {getData?.company_name && "-"}{" "}
-                          {getData?.person_name}
-                          <br />
-                          <span className="thanks">
-                            {getData?.mobile_number}
-                            {getData?.city_name ? "," : ""}
-                            {getData?.city_name}
-                            {getData?.area_name ? "," : ""}
-                            {getData?.area_name}
-                          </span>
-                        </h4>
-                      </div>
+                            <h4
+                              style={{
+                                wordBreak: "break-word",
+                                maxWidth: "230px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                paddingLeft: "10px",
+                                margin: "0px",
+                              }}
+                              title={
+                                getData?.person_name
+                                  ? `${getData?.company_name} ${getData?.company_name && "-"
+                                  } ${getData?.person_name}`
+                                  : `${getData?.person_name}`
+                              }
+                              aria-label={
+                                getData?.person_name
+                                  ? `${getData?.company_name} ${getData?.company_name && "-"
+                                  } ${getData?.person_name}`
+                                  : `${getData?.person_name}`
+                              }
+                            >
+                              {getData?.company_name} {getData?.company_name && "-"}{" "}
+                              {getData?.person_name}
+                              <br />
+                              <span className="thanks">
+                                {getData?.mobile_number}
+                                {getData?.city_name ? "," : ""}
+                                {getData?.city_name}
+                                {getData?.area_name ? "," : ""}
+                                {getData?.area_name}
+                              </span>
+                            </h4>
+                          </div>
 
-                      <div className="d-flex">
-                        {getData?.latitude != "" &&
-                          getData?.latitude != undefined &&
-                          getData?.latitude != null &&
-                          getData?.longitude != "" &&
-                          getData?.longitude != undefined &&
-                          getData?.longitude != null && (
-                            <>
-                              {" "}
-                              <a
-                                href={`https://www.google.com/maps/dir//${getData?.latitude},${getData?.longitude}/`}
-                                target="_blank"
-                              >
-                                <button
-                                  className="icons mx-1"
+                          <div className="d-flex">
+                            {getData?.latitude != "" &&
+                              getData?.latitude != undefined &&
+                              getData?.latitude != null &&
+                              getData?.longitude != "" &&
+                              getData?.longitude != undefined &&
+                              getData?.longitude != null && (
+                                <>
+                                  {" "}
+                                  <a
+                                    href={`https://www.google.com/maps/dir//${getData?.latitude},${getData?.longitude}/`}
+                                    target="_blank"
+                                  >
+                                    <button
+                                      className="icons mx-1"
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <span
+                                        title="Map"
+                                        style={{ fontSize: "20px" }}
+                                      >
+                                        <svg
+                                          height="26px"
+                                          viewBox="0 -960 960 960"
+                                          width="26px"
+                                          fill="currentColor"
+                                        >
+                                          <path
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 294q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Zm0-480Z"
+                                          />
+                                        </svg>
+                                      </span>
+                                    </button>
+                                  </a>
+                                </>
+                              )}
+
+                            <button
+                              className="icons mx-2"
+                              onClick={openCallHistoryLog}
+                            >
+                              <span title="Open Contact Log">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M640-120q-33 0-56.5-23.5T560-200v-160q0-33 23.5-56.5T640-440h160q33 0 56.5 23.5T880-360v160q0 33-23.5 56.5T800-120H640Zm0-80h160v-160H640v160ZM80-240v-80h360v80H80Zm560-280q-33 0-56.5-23.5T560-600v-160q0-33 23.5-56.5T640-840h160q33 0 56.5 23.5T880-760v160q0 33-23.5 56.5T800-520H640Zm0-80h160v-160H640v160ZM80-640v-80h360v80H80Zm640 360Zm0-400Z" />
+                                </svg>
+                              </span>
+                            </button>
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=91${getData?.mobile_number}`}
+                              target="_blank"
+                            >
+                              <button className="icons mx-1">
+                                <span title="Whatsapp">
+                                  <i
+                                    className="bi bi-whatsapp"
+                                    style={{ fontSize: "20px" }}
+                                  ></i>
+                                </span>
+                              </button>
+                            </a>
+                            <button className="icons mx-1" onClick={openTask}>
+                              <span title="Tasks">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="currentColor"
+                                >
+                                  <path d="m438-240 226-226-58-58-169 169-84-84-57 57 142 142ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z" />
+                                </svg>
+                              </span>
+                            </button>
+                            <button
+                              className="icons mx-1"
+                              onClick={openSupportTicket}
+                            >
+                              <span title="Support Ticket">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M440-120v-80h320v-284q0-117-81.5-198.5T480-764q-117 0-198.5 81.5T200-484v244h-40q-33 0-56.5-23.5T80-320v-80q0-21 10.5-39.5T120-469l3-53q8-68 39.5-126t79-101q47.5-43 109-67T480-840q68 0 129 24t109 66.5Q766-707 797-649t40 126l3 52q19 9 29.5 27t10.5 38v92q0 20-10.5 38T840-249v49q0 33-23.5 56.5T760-120H440Zm-80-280q-17 0-28.5-11.5T320-440q0-17 11.5-28.5T360-480q17 0 28.5 11.5T400-440q0 17-11.5 28.5T360-400Zm240 0q-17 0-28.5-11.5T560-440q0-17 11.5-28.5T600-480q17 0 28.5 11.5T640-440q0 17-11.5 28.5T600-400Zm-359-62q-7-106 64-182t177-76q89 0 156.5 56.5T720-519q-91-1-167.5-49T435-698q-16 80-67.5 142.5T241-462Z" />
+                                </svg>
+                              </span>
+                            </button>
+                            <button className="icons mx-1" onClick={openvisit}>
+                              <span title="Visits">
+                                <svg
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    d="M520-40v-240l-84-80-40 176-276-56 16-80 192 40 64-324-72 28v136h-80v-188l158-68q35-15 51.5-19.5T480-720q21 0 39 11t29 29l40 64q26 42 70.5 69T760-520v80q-66 0-123.5-27.5T540-540l-24 120 84 80v300h-80Zm20-700q-33 0-56.5-23.5T460-820q0-33 23.5-56.5T540-900q33 0 56.5 23.5T620-820q0 33-23.5 56.5T540-740Z"
+                                  />
+                                </svg>
+                              </span>
+                            </button>
+
+                            <button
+                              className="icons "
+                              onClick={toggleDropdownCreate}
+                              ref={dropdownCreateOrderRef}
+                            >
+                              <span title="Order List">
+                                <svg
+                                  viewBox="0 0 1024 1024"
+                                  version="1.1"
+                                  width="24px"
+                                  height="24px"
+                                  fill="currentColor"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path d="M619.085 285.768H400.596c-22.056 0-40-17.944-40-40v-81.995c0-22.056 17.944-40 40-40h218.488c22.056 0 40 17.944 40 40v81.995c0.001 22.056-17.944 40-39.999 40z m-198.489-60h178.488v-41.995H420.596v41.995z" />
+                                  <path d="M773.485 900.228h-522.97c-38.599 0-70-31.401-70-70V257.267c0-38.598 31.401-70 70-70h41.486c16.568 0 30 13.431 30 30 0 16.568-13.432 30-30 30h-41.486c-5.514 0-10 4.486-10 10v572.961c0 5.514 4.486 10 10 10h522.97c5.514 0 10-4.486 10-10V257.267c0-5.514-4.486-10-10-10h-45.806c-16.568 0-30-13.432-30-30 0-16.569 13.432-30 30-30h45.806c38.598 0 70 31.402 70 70v572.961c0 38.598-31.402 70-70 70z" />
+                                  <path d="M660.515 442.511h-297.03c-16.568 0-30-13.432-30-30s13.432-30 30-30h297.03c16.568 0 30 13.432 30 30s-13.431 30-30 30zM563.485 592.031h-200c-16.568 0-30-13.432-30-30s13.432-30 30-30h200c16.568 0 30 13.432 30 30s-13.432 30-30 30zM563.485 741.552h-200c-16.568 0-30-13.432-30-30s13.432-30 30-30h200c16.568 0 30 13.432 30 30s-13.432 30-30 30z" />
+                                </svg>
+                              </span>
+                              <div className="dropdown-icon">
+                                <ul
+                                  className={`drop-order ${dropdownOpenCreateOrder
+                                    ? "isVisible"
+                                    : "isHidden"
+                                    }`}
                                   style={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    alignItems: "center",
+                                    maxWidth: "250px",
+                                    minWidth: "200px",
                                   }}
                                 >
-                                  <span
-                                    title="Map"
-                                    style={{ fontSize: "20px" }}
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={handelChangeShowModelQuotation}
                                   >
-                                    <svg
-                                      height="26px"
-                                      viewBox="0 -960 960 960"
-                                      width="26px"
-                                      fill="currentColor"
-                                    >
-                                      <path
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 294q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Zm0-480Z"
-                                      />
-                                    </svg>
-                                  </span>
-                                </button>
-                              </a>
-                            </>
-                          )}
-
-                        <button
-                          className="icons mx-2"
-                          onClick={openCallHistoryLog}
-                        >
-                          <span title="Open Contact Log">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="currentColor"
-                            >
-                              <path d="M640-120q-33 0-56.5-23.5T560-200v-160q0-33 23.5-56.5T640-440h160q33 0 56.5 23.5T880-360v160q0 33-23.5 56.5T800-120H640Zm0-80h160v-160H640v160ZM80-240v-80h360v80H80Zm560-280q-33 0-56.5-23.5T560-600v-160q0-33 23.5-56.5T640-840h160q33 0 56.5 23.5T880-760v160q0 33-23.5 56.5T800-520H640Zm0-80h160v-160H640v160ZM80-640v-80h360v80H80Zm640 360Zm0-400Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <a
-                          href={`https://api.whatsapp.com/send?phone=91${getData?.mobile_number}`}
-                          target="_blank"
-                        >
-                          <button className="icons mx-1">
-                            <span title="Whatsapp">
-                              <i
-                                className="bi bi-whatsapp"
-                                style={{ fontSize: "20px" }}
-                              ></i>
-                            </span>
-                          </button>
-                        </a>
-                        <button className="icons mx-1" onClick={openTask}>
-                          <span title="Tasks">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="currentColor"
-                            >
-                              <path d="m438-240 226-226-58-58-169 169-84-84-57 57 142 142ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <button
-                          className="icons mx-1"
-                          onClick={openSupportTicket}
-                        >
-                          <span title="Support Ticket">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="currentColor"
-                            >
-                              <path d="M440-120v-80h320v-284q0-117-81.5-198.5T480-764q-117 0-198.5 81.5T200-484v244h-40q-33 0-56.5-23.5T80-320v-80q0-21 10.5-39.5T120-469l3-53q8-68 39.5-126t79-101q47.5-43 109-67T480-840q68 0 129 24t109 66.5Q766-707 797-649t40 126l3 52q19 9 29.5 27t10.5 38v92q0 20-10.5 38T840-249v49q0 33-23.5 56.5T760-120H440Zm-80-280q-17 0-28.5-11.5T320-440q0-17 11.5-28.5T360-480q17 0 28.5 11.5T400-440q0 17-11.5 28.5T360-400Zm240 0q-17 0-28.5-11.5T560-440q0-17 11.5-28.5T600-480q17 0 28.5 11.5T640-440q0 17-11.5 28.5T600-400Zm-359-62q-7-106 64-182t177-76q89 0 156.5 56.5T720-519q-91-1-167.5-49T435-698q-16 80-67.5 142.5T241-462Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <button className="icons mx-1" onClick={openvisit}>
-                          <span title="Visits">
-                            <svg
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="currentColor"
-                            >
-                              <path
-                                xmlns="http://www.w3.org/2000/svg"
-                                d="M520-40v-240l-84-80-40 176-276-56 16-80 192 40 64-324-72 28v136h-80v-188l158-68q35-15 51.5-19.5T480-720q21 0 39 11t29 29l40 64q26 42 70.5 69T760-520v80q-66 0-123.5-27.5T540-540l-24 120 84 80v300h-80Zm20-700q-33 0-56.5-23.5T460-820q0-33 23.5-56.5T540-900q33 0 56.5 23.5T620-820q0 33-23.5 56.5T540-740Z"
-                              />
-                            </svg>
-                          </span>
-                        </button>
-
-                        <button
-                          className="icons "
-                          onClick={toggleDropdownCreate}
-                          ref={dropdownCreateOrderRef}
-                        >
-                          <span title="Order List">
-                            <svg
-                              viewBox="0 0 1024 1024"
-                              version="1.1"
-                              width="24px"
-                              height="24px"
-                              fill="currentColor"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M619.085 285.768H400.596c-22.056 0-40-17.944-40-40v-81.995c0-22.056 17.944-40 40-40h218.488c22.056 0 40 17.944 40 40v81.995c0.001 22.056-17.944 40-39.999 40z m-198.489-60h178.488v-41.995H420.596v41.995z" />
-                              <path d="M773.485 900.228h-522.97c-38.599 0-70-31.401-70-70V257.267c0-38.598 31.401-70 70-70h41.486c16.568 0 30 13.431 30 30 0 16.568-13.432 30-30 30h-41.486c-5.514 0-10 4.486-10 10v572.961c0 5.514 4.486 10 10 10h522.97c5.514 0 10-4.486 10-10V257.267c0-5.514-4.486-10-10-10h-45.806c-16.568 0-30-13.432-30-30 0-16.569 13.432-30 30-30h45.806c38.598 0 70 31.402 70 70v572.961c0 38.598-31.402 70-70 70z" />
-                              <path d="M660.515 442.511h-297.03c-16.568 0-30-13.432-30-30s13.432-30 30-30h297.03c16.568 0 30 13.432 30 30s-13.431 30-30 30zM563.485 592.031h-200c-16.568 0-30-13.432-30-30s13.432-30 30-30h200c16.568 0 30 13.432 30 30s-13.432 30-30 30zM563.485 741.552h-200c-16.568 0-30-13.432-30-30s13.432-30 30-30h200c16.568 0 30 13.432 30 30s-13.432 30-30 30z" />
-                            </svg>
-                          </span>
-                          <div className="dropdown-icon">
-                            <ul
-                              className={`drop-order ${dropdownOpenCreateOrder
-                                ? "isVisible"
-                                : "isHidden"
-                                }`}
-                              style={{
-                                maxWidth: "250px",
-                                minWidth: "200px",
-                              }}
-                            >
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={handelChangeShowModelQuotation}
-                              >
-                                {companyLists[0]?.quotation_title
-                                  ? companyLists[0]?.quotation_title
-                                  : "Quotation"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={handelChangeShowModelProformaINV}
-                              >
-                                {companyLists[0]?.proforma_invoice_title
-                                  ? companyLists[0]?.proforma_invoice_title
-                                  : "Proforma Invoice"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={handelChangeShowModelOrder}
-                              >
-                                {companyLists[0]?.order_title
-                                  ? companyLists[0]?.order_title
-                                  : "Sales Order"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={handelChangeShowModelDispatch}
-                              >
-                                {companyLists[0]?.dispatch_title
-                                  ? companyLists[0]?.dispatch_title
-                                  : "Dispatch"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelInvoice}
-                              >
-                                {companyLists[0]?.invoice_title
-                                  ? companyLists[0]?.invoice_title
-                                  : "Sales Invoice"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelInvoiceReturn}
-                              >
-                                {companyLists[0]?.return_sales_invoice_title
-                                  ? companyLists[0]?.return_sales_invoice_title
-                                  : "Sales Return Invoice"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelPurchaseOrder}
-                              >
-                                {companyLists[0]?.purchase_order_title
-                                  ? companyLists[0]?.purchase_order_title
-                                  : "Purchase Order"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelInward}
-                              >
-                                {companyLists[0]?.inward_title
-                                  ? companyLists[0]?.inward_title
-                                  : "Goods Received Note"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelPurchase}
-                              >
-                                {companyLists[0]?.purchase_title
-                                  ? companyLists[0]?.purchase_title
-                                  : "Purchase Invoice"}
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                data-bs-toggle="modal"
-                                data-bs-target="#clear-modal"
-                                onClick={handelChangeShowModelReturnPurchase}
-                              >
-                                {companyLists[0]?.return_purchase_invoice_title
-                                  ? companyLists[0]
-                                    ?.return_purchase_invoice_title
-                                  : "Return Purchase Invoice"}
-                              </li>
-                            </ul>
-                          </div>
-                        </button>
-                        <button className="icons mx-2" onClick={openMailMode}>
-                          <span title="Send Mail">
-                            <svg
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="currentColor"
-                            >
-                              <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280L160-640v400h640v-400L480-440Zm0-80 320-200H160l320 200ZM160-640v-80 480-400Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <button
-                          className="icons"
-                          onClick={() =>
-                            canViewInq
-                              ? rightSideViewProvider("inquiryList")
-                              : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-                          }
-                        >
-                          <span title="Your Inquiry List">
-                            <svg
-                              height="26px"
-                              viewBox="0 -960 960 960"
-                              width="26px"
-                              fill="currentColor"
-                            >
-                              <path d="M640-400q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM400-160v-76q0-21 10-40t28-30q45-27 95.5-40.5T640-360q56 0 106.5 13.5T842-306q18 11 28 30t10 40v76H400Zm86-80h308q-35-20-74-30t-80-10q-41 0-80 10t-74 30Zm154-240q17 0 28.5-11.5T680-520q0-17-11.5-28.5T640-560q-17 0-28.5 11.5T600-520q0 17 11.5 28.5T640-480Zm0-40Zm0 280ZM120-400v-80h320v80H120Zm0-320v-80h480v80H120Zm324 160H120v-80h360q-14 17-22.5 37T444-560Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <button
-                          className="icons"
-                          onClick={() =>
-                            canViewAccHis
-                              ? rightSideViewProvider("accountTransaction")
-                              : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-                          }
-                        >
-                          <span title="Your Account Transaction List">
-                            <svg
-                              height="22px"
-                              viewBox="0 -960 960 960"
-                              width="22px"
-                              fill="currentColor"
-                            >
-                              <path d="M200-280v-280h80v280h-80Zm240 0v-280h80v280h-80ZM80-120v-80h800v80H80Zm600-160v-280h80v280h-80ZM80-640v-80l400-200 400 200v80H80Zm178-80h444-444Zm0 0h444L480-830 258-720Z" />
-                            </svg>
-                          </span>
-                        </button>
-                        <button
-                          className="icons pP"
-                          onClick={handelRefreshMessages}
-                          title="Refresh"
-                        >
-                          <svg width="28" height="28" viewBox="0 0 50 50">
-                            <path
-                              fill="currentColor"
-                              d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"
-                            />
-                            <path
-                              fill="currentColor"
-                              d="M34.7 33.7l-1.5-1.3c1.8-2 2.8-4.6 2.8-7.3 0-6.1-4.9-11-11-11-1.6 0-3.1.3-4.6 1l-.8-1.8c1.7-.8 3.5-1.2 5.4-1.2 7.2 0 13 5.8 13 13 0 3.1-1.2 6.2-3.3 8.6z"
-                            />
-                            <path
-                              fill="currentColor"
-                              d="M18 24h-2v-6h-6v-2h8z"
-                            />
-                            <path fill="currentColor" d="M40 34h-8v-8h2v6h6z" />
-                          </svg>
-                        </button>
-                        <div className="chat-side">
-                          <button
-                            className="icons pP"
-                            onClick={openSearch}
-                            title="Search"
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="24"
-                              height="24"
-                              className=""
-                            >
-                              <path
-                                fill="currentColor"
-                                d="M15.9 14.3H15l-.3-.3c1-1.1 1.6-2.7 1.6-4.3 0-3.7-3-6.7-6.7-6.7S3 6 3 9.7s3 6.7 6.7 6.7c1.6 0 3.2-.6 4.3-1.6l.3.3v.8l5.1 5.1 1.5-1.5-5-5.2zm-6.2 0c-2.6 0-4.6-2.1-4.6-4.6s2.1-4.6 4.6-4.6 4.6 2.1 4.6 4.6-2 4.6-4.6 4.6z"
-                              ></path>
-                            </svg>
-                          </button>
-
-                          <div className="dropdown-icon">
+                                    {companyLists[0]?.quotation_title
+                                      ? companyLists[0]?.quotation_title
+                                      : "Quotation"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={handelChangeShowModelProformaINV}
+                                  >
+                                    {companyLists[0]?.proforma_invoice_title
+                                      ? companyLists[0]?.proforma_invoice_title
+                                      : "Proforma Invoice"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={handelChangeShowModelOrder}
+                                  >
+                                    {companyLists[0]?.order_title
+                                      ? companyLists[0]?.order_title
+                                      : "Sales Order"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={handelChangeShowModelDispatch}
+                                  >
+                                    {companyLists[0]?.dispatch_title
+                                      ? companyLists[0]?.dispatch_title
+                                      : "Dispatch"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelInvoice}
+                                  >
+                                    {companyLists[0]?.invoice_title
+                                      ? companyLists[0]?.invoice_title
+                                      : "Sales Invoice"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelInvoiceReturn}
+                                  >
+                                    {companyLists[0]?.return_sales_invoice_title
+                                      ? companyLists[0]?.return_sales_invoice_title
+                                      : "Sales Return Invoice"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelPurchaseOrder}
+                                  >
+                                    {companyLists[0]?.purchase_order_title
+                                      ? companyLists[0]?.purchase_order_title
+                                      : "Purchase Order"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelInward}
+                                  >
+                                    {companyLists[0]?.inward_title
+                                      ? companyLists[0]?.inward_title
+                                      : "Goods Received Note"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelPurchase}
+                                  >
+                                    {companyLists[0]?.purchase_title
+                                      ? companyLists[0]?.purchase_title
+                                      : "Purchase Invoice"}
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#clear-modal"
+                                    onClick={handelChangeShowModelReturnPurchase}
+                                  >
+                                    {companyLists[0]?.return_purchase_invoice_title
+                                      ? companyLists[0]
+                                        ?.return_purchase_invoice_title
+                                      : "Return Purchase Invoice"}
+                                  </li>
+                                </ul>
+                              </div>
+                            </button>
+                            <button className="icons mx-2" onClick={openMailMode}>
+                              <span title="Send Mail">
+                                <svg
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280L160-640v400h640v-400L480-440Zm0-80 320-200H160l320 200ZM160-640v-80 480-400Z" />
+                                </svg>
+                              </span>
+                            </button>
                             <button
-                              className="pressed icons pP"
-                              id="dropDown"
-                              onClick={toggleDropdown}
-                              ref={dropdownRef}
+                              className="icons"
+                              onClick={() =>
+                                canViewInq
+                                  ? rightSideViewProvider("inquiryList")
+                                  : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
+                              }
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="24"
-                                height="24"
-                                className=""
-                              >
+                              <span title="Your Inquiry List">
+                                <svg
+                                  height="26px"
+                                  viewBox="0 -960 960 960"
+                                  width="26px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M640-400q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM400-160v-76q0-21 10-40t28-30q45-27 95.5-40.5T640-360q56 0 106.5 13.5T842-306q18 11 28 30t10 40v76H400Zm86-80h308q-35-20-74-30t-80-10q-41 0-80 10t-74 30Zm154-240q17 0 28.5-11.5T680-520q0-17-11.5-28.5T640-560q-17 0-28.5 11.5T600-520q0 17 11.5 28.5T640-480Zm0-40Zm0 280ZM120-400v-80h320v80H120Zm0-320v-80h480v80H120Zm324 160H120v-80h360q-14 17-22.5 37T444-560Z" />
+                                </svg>
+                              </span>
+                            </button>
+                            <button
+                              className="icons"
+                              onClick={() =>
+                                canViewAccHis
+                                  ? rightSideViewProvider("accountTransaction")
+                                  : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
+                              }
+                            >
+                              <span title="Your Account Transaction List">
+                                <svg
+                                  height="22px"
+                                  viewBox="0 -960 960 960"
+                                  width="22px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M200-280v-280h80v280h-80Zm240 0v-280h80v280h-80ZM80-120v-80h800v80H80Zm600-160v-280h80v280h-80ZM80-640v-80l400-200 400 200v80H80Zm178-80h444-444Zm0 0h444L480-830 258-720Z" />
+                                </svg>
+                              </span>
+                            </button>
+                            <button
+                              className="icons pP"
+                              onClick={handelRefreshMessages}
+                              title="Refresh"
+                            >
+                              <svg width="28" height="28" viewBox="0 0 50 50">
                                 <path
                                   fill="currentColor"
-                                  d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"
-                                ></path>
+                                  d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"
+                                />
+                                <path
+                                  fill="currentColor"
+                                  d="M34.7 33.7l-1.5-1.3c1.8-2 2.8-4.6 2.8-7.3 0-6.1-4.9-11-11-11-1.6 0-3.1.3-4.6 1l-.8-1.8c1.7-.8 3.5-1.2 5.4-1.2 7.2 0 13 5.8 13 13 0 3.1-1.2 6.2-3.3 8.6z"
+                                />
+                                <path
+                                  fill="currentColor"
+                                  d="M18 24h-2v-6h-6v-2h8z"
+                                />
+                                <path fill="currentColor" d="M40 34h-8v-8h2v6h6z" />
                               </svg>
                             </button>
-                            <ul
-                              className={`drop ${dropdownOpen ? "isVisible" : "isHidden"
-                                }`}
-                              id="drop"
-                            >
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={openChatAbout}
+                            <div className="chat-side">
+                              <button
+                                className="icons pP"
+                                onClick={openSearch}
+                                title="Search"
                               >
-                                Contact info
-                              </li>
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="24"
+                                  height="24"
+                                  className=""
+                                >
+                                  <path
+                                    fill="currentColor"
+                                    d="M15.9 14.3H15l-.3-.3c1-1.1 1.6-2.7 1.6-4.3 0-3.7-3-6.7-6.7-6.7S3 6 3 9.7s3 6.7 6.7 6.7c1.6 0 3.2-.6 4.3-1.6l.3.3v.8l5.1 5.1 1.5-1.5-5-5.2zm-6.2 0c-2.6 0-4.6-2.1-4.6-4.6s2.1-4.6 4.6-4.6 4.6 2.1 4.6 4.6-2 4.6-4.6 4.6z"
+                                  ></path>
+                                </svg>
+                              </button>
 
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={contact_statistics}
-                                id="closeChat"
-                              >
-                                Statistics
-                              </li>
+                              <div className="dropdown-icon">
+                                <button
+                                  className="pressed icons pP"
+                                  id="dropDown"
+                                  onClick={toggleDropdown}
+                                  ref={dropdownRef}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    width="24"
+                                    height="24"
+                                    className=""
+                                  >
+                                    <path
+                                      fill="currentColor"
+                                      d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"
+                                    ></path>
+                                  </svg>
+                                </button>
+                                <ul
+                                  className={`drop ${dropdownOpen ? "isVisible" : "isHidden"
+                                    }`}
+                                  id="drop"
+                                >
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={openChatAbout}
+                                  >
+                                    Contact info
+                                  </li>
 
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={() => handleModalOpen(getData?.id)}
-                              >
-                                Assign Label
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={() =>
-                                  handleModalOpenStatusAssign(
-                                    getData?.id,
-                                    getData?.contact_status,
-                                  )
-                                }
-                              >
-                                Assign Status
-                              </li>
-                              <li
-                                className="listItem"
-                                role="button"
-                                onClick={() =>
-                                  handleModalOpenUserAssign(getData?.id)
-                                }
-                              >
-                                Assign Team Member
-                              </li>
-                              <li
-                                className="listItem"
-                                style={{ color: "red", fontWeight: "bold" }}
-                                role="button"
-                                onClick={() => closeChat()}
-                                id="closeChat"
-                              >
-                                Close chat
-                              </li>
-                              {/* {getCompanyId === Number(getUUID) ? (
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={contact_statistics}
+                                    id="closeChat"
+                                  >
+                                    Statistics
+                                  </li>
+
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={() => handleModalOpen(getData?.id)}
+                                  >
+                                    Assign Label
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={() =>
+                                      handleModalOpenStatusAssign(
+                                        getData?.id,
+                                        getData?.contact_status,
+                                      )
+                                    }
+                                  >
+                                    Assign Status
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={() =>
+                                      handleModalOpenUserAssign(getData?.id)
+                                    }
+                                  >
+                                    Assign Team Member
+                                  </li>
+                                  <li
+                                    className="listItem"
+                                    style={{ color: "red", fontWeight: "bold" }}
+                                    role="button"
+                                    onClick={() => closeChat()}
+                                    id="closeChat"
+                                  >
+                                    Close chat
+                                  </li>
+                                  {/* {getCompanyId === Number(getUUID) ? (
                               <li
                                 className="listItem"
                                 role="button"
@@ -4170,355 +4188,711 @@ const RightView = ({
                             ) : (
                               <span></span>
                             )} */}
-                            </ul>
+                                </ul>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                    <div
-                      className="contact-details"
-                      style={{
-                        display: "flex",
-                        gap: "6px",
-                        flexWrap: "wrap",
-                        paddingLeft: "10px",
-                        marginTop: "4px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <span>
                         <div
-                          className="text-inner"
+                          className="contact-details"
                           style={{
-                            borderRadius: "999px",
-                            backgroundColor: "#FFFFFF",
-                            padding: "4px 8px",
                             display: "flex",
-                            alignItems: "center",
+                            gap: "6px",
+                            flexWrap: "wrap",
+                            paddingLeft: "10px",
+                            marginTop: "4px",
+                            fontSize: "14px",
                           }}
                         >
-                          <span style={{ marginRight: "5px" }}>Source</span>
-                          <div
-                            style={{
-                              backgroundColor:
-                                getData?.source_name_color || "#eeeeee",
-                              padding: "5px 10px",
-                              borderRadius: "12px",
-                              margin: "2px",
-                              display: "inline-block",
-                            }}
-                            className="badge rounded-pill"
-                          >
-                            {getData?.source_name}
-                          </div>
-                        </div>
-                      </span>
-
-                      <span>
-                        <div
-                          className="text-inner"
-                          style={{
-                            borderRadius: "999px",
-                            backgroundColor: "#FFFFFF",
-                            padding: "4px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span style={{ marginRight: "5px" }}>Label</span>
-                          {labelNames.map((name, index) => (
+                          <span>
                             <div
-                              key={index}
+                              className="text-inner"
                               style={{
-                                backgroundColor: labelColor[index] || "#eeeeee",
-                                padding: "5px 10px",
-                                borderRadius: "12px",
-                                margin: "2px",
-                                display: "inline-block",
+                                borderRadius: "999px",
+                                backgroundColor: "#FFFFFF",
+                                padding: "4px 8px",
+                                display: "flex",
+                                alignItems: "center",
                               }}
-                              className="badge rounded-pill"
                             >
-                              {name}
+                              <span style={{ marginRight: "5px" }}>Source</span>
+                              <div
+                                style={{
+                                  backgroundColor:
+                                    getData?.source_name_color || "#eeeeee",
+                                  padding: "5px 10px",
+                                  borderRadius: "12px",
+                                  margin: "2px",
+                                  display: "inline-block",
+                                }}
+                                className="badge rounded-pill"
+                              >
+                                {getData?.source_name}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </span>
+                          </span>
 
-                      <span>
-                        <div
-                          className="text-inner"
-                          style={{
-                            borderRadius: "999px",
-                            backgroundColor: "#FFFFFF",
-                            padding: "4px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span style={{ marginRight: "5px" }}>Status</span>
-                          {statusName.map((name, index) => (
+                          <span>
                             <div
-                              key={index}
+                              className="text-inner"
                               style={{
-                                backgroundColor:
-                                  statusColor[index] || "#eeeeee",
-                                padding: "5px 10px",
-                                borderRadius: "12px",
-                                margin: "2px",
-                                display: "inline-block",
+                                borderRadius: "999px",
+                                backgroundColor: "#FFFFFF",
+                                padding: "4px 8px",
+                                display: "flex",
+                                alignItems: "center",
                               }}
-                              className="badge rounded-pill"
                             >
-                              {name}
-                            </div>
-                          ))}
-                        </div>
-                      </span>
-                    </div>
-                    {searchOpen && (
-                      <div className="header-search" style={{ zIndex: "1" }}>
-                        <div className="search-bar" style={{ width: "40%" }}>
-                          <div className=" d-flex justify-content-between">
-                            <button className="search">
-                              <span className="">
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  width="24"
-                                  height="24"
-                                  className=""
+                              <span style={{ marginRight: "5px" }}>Label</span>
+                              {labelNames.map((name, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    backgroundColor: labelColor[index] || "#eeeeee",
+                                    padding: "5px 10px",
+                                    borderRadius: "12px",
+                                    margin: "2px",
+                                    display: "inline-block",
+                                  }}
+                                  className="badge rounded-pill"
                                 >
-                                  <path
-                                    fill="currentColor"
-                                    d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.605 3.605 0 1 1 0-7.21 3.605 3.605 0 0 1 0 7.21z"
-                                  ></path>
-                                </svg>
-                              </span>
-                            </button>
+                                  {name}
+                                </div>
+                              ))}
+                            </div>
+                          </span>
 
-                            <span className="go-back">
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="24"
-                                height="24"
-                                className=""
-                              >
-                                <path
-                                  fill="currentColor"
-                                  d="m12 4 1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"
-                                ></path>
-                              </svg>
-                            </span>
-
-                            <input
-                              type="text"
-                              title="Search or start new chat"
-                              aria-label="Search or start new chat"
-                              placeholder="Search message"
-                              maxLength={BIG_TEXT_LENGTH}
-                              value={searchTerm}
-                              onChange={handleSearchChange}
-                              className="search-message-input"
-                            />
-                          </div>
-                        </div>
-                        <div
-                          className="d-flex align-items-center justify-content-between "
-                          style={{ width: "55%" }}
-                        >
-                          <div className="">
-                            <input
-                              className="custom-checkbox"
-                              type="checkbox"
-                              checked={checkedReminder}
-                              onChange={(e) =>
-                                setCheckedReminder(e.target.checked)
-                              }
-                            />
-
-                            <label className="p-2  header-search-front">
-                              Reminders
-                            </label>
-                          </div>
-                          <div>
-                            <input
-                              className="custom-checkbox"
-                              type="checkbox"
-                              onChange={(e) =>
-                                setCheckedAttachment(e.target.checked)
-                              }
-                            />
-                            <label className="p-2 header-search-front">
-                              Attachment
-                            </label>
-                          </div>
-                          <div>
-                            <DateTimeRangePicker
-                              value={selectDate}
-                              onChange={handelSearchDateChange}
-                              showTime={false}
-                              numberOfMonthsShow={1}
-                            />
-                            <span className="p-1">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="22px"
-                                viewBox="0 -960 960 960"
-                                width="22px"
-                                fill="#5f6368"
-                              >
-                                <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />
-                              </svg>
-                            </span>
-                          </div>
-
-                          <span
-                            role="button"
-                            className="p-1"
-                            onClick={handleSearchClear}
-                          >
-                            <svg
-                              height="24px"
-                              viewBox="0 -960 960 960"
-                              width="24px"
-                              fill="#5f6368"
+                          <span>
+                            <div
+                              className="text-inner"
+                              style={{
+                                borderRadius: "999px",
+                                backgroundColor: "#FFFFFF",
+                                padding: "4px 8px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
                             >
-                              <path d="M280-80q-83 0-141.5-58.5T80-280q0-83 58.5-141.5T280-480q83 0 141.5 58.5T480-280q0 83-58.5 141.5T280-80Zm544-40L568-376q-12-13-25.5-26.5T516-428q38-24 61-64t23-88q0-75-52.5-127.5T420-760q-75 0-127.5 52.5T240-580q0 6 .5 11.5T242-557q-18 2-39.5 8T164-535q-2-11-3-22t-1-23q0-109 75.5-184.5T420-840q109 0 184.5 75.5T680-580q0 43-13.5 81.5T629-428l251 252-56 56Zm-615-61 71-71 70 71 29-28-71-71 71-71-28-28-71 71-71-71-28 28 71 71-71 71 28 28Z" />
-                            </svg>
+                              <span style={{ marginRight: "5px" }}>Status</span>
+                              {statusName.map((name, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    backgroundColor:
+                                      statusColor[index] || "#eeeeee",
+                                    padding: "5px 10px",
+                                    borderRadius: "12px",
+                                    margin: "2px",
+                                    display: "inline-block",
+                                  }}
+                                  className="badge rounded-pill"
+                                >
+                                  {name}
+                                </div>
+                              ))}
+                            </div>
                           </span>
                         </div>
-                      </div>
-                    )}
-                    {pinnedMessageContent && (
-                      <PinnedMessageShow
-                        htmlContent={whatsappToHtml(pinnedMessageContent)}
-                      />
-                    )}
-
-                    <div
-                      className="chatBox"
-                      ref={containerRef}
-                      onScroll={handleScroll}
-                    >
-                      {loading ? (
-                        <div className="d-flex justify-content-center h-50">
-                          <div
-                            className="spinner-border text-secondary "
-                            role="status"
-                          ></div>
-                        </div>
-                      ) : (
-                        <>
-                          {searchTerm && noDataFound && (
-                            <div className="d-flex justify-content-center h-75 ">
-                              <p className="no_found">No data found</p>
-                            </div>
-                          )}
-                          {messageList &&
-                            [...messageList].reverse().map((group, index) => (
-                              <div>
-                                <div className="chat__date-wrapper" key={index}>
-                                  <span className="chat__date">
-                                    {group.date
-                                      ? new Date(group.date)
-                                        .toLocaleDateString("en-GB", {
-                                          weekday: "long",
-                                          year: "numeric",
-                                          month: "2-digit",
-                                          day: "2-digit",
-                                        })
-                                        .replace(/\//g, "-")
-                                      : ""}
+                        {searchOpen && (
+                          <div className="header-search" style={{ zIndex: "1" }}>
+                            <div className="search-bar" style={{ width: "40%" }}>
+                              <div className=" d-flex justify-content-between">
+                                <button className="search">
+                                  <span className="">
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      width="24"
+                                      height="24"
+                                      className=""
+                                    >
+                                      <path
+                                        fill="currentColor"
+                                        d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.605 3.605 0 1 1 0-7.21 3.605 3.605 0 0 1 0 7.21z"
+                                      ></path>
+                                    </svg>
                                   </span>
+                                </button>
+
+                                <span className="go-back">
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    width="24"
+                                    height="24"
+                                    className=""
+                                  >
+                                    <path
+                                      fill="currentColor"
+                                      d="m12 4 1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"
+                                    ></path>
+                                  </svg>
+                                </span>
+
+                                <input
+                                  type="text"
+                                  title="Search or start new chat"
+                                  aria-label="Search or start new chat"
+                                  placeholder="Search message"
+                                  maxLength={BIG_TEXT_LENGTH}
+                                  value={searchTerm}
+                                  onChange={handleSearchChange}
+                                  className="search-message-input"
+                                />
+                              </div>
+                            </div>
+                            <div
+                              className="d-flex align-items-center justify-content-between "
+                              style={{ width: "55%" }}
+                            >
+                              <div className="">
+                                <input
+                                  className="custom-checkbox"
+                                  type="checkbox"
+                                  checked={checkedReminder}
+                                  onChange={(e) =>
+                                    setCheckedReminder(e.target.checked)
+                                  }
+                                />
+
+                                <label className="p-2  header-search-front">
+                                  Reminders
+                                </label>
+                              </div>
+                              <div>
+                                <input
+                                  className="custom-checkbox"
+                                  type="checkbox"
+                                  onChange={(e) =>
+                                    setCheckedAttachment(e.target.checked)
+                                  }
+                                />
+                                <label className="p-2 header-search-front">
+                                  Attachment
+                                </label>
+                              </div>
+                              <div>
+                                <DateTimeRangePicker
+                                  value={selectDate}
+                                  onChange={handelSearchDateChange}
+                                  showTime={false}
+                                  numberOfMonthsShow={1}
+                                />
+                                <span className="p-1">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    height="22px"
+                                    viewBox="0 -960 960 960"
+                                    width="22px"
+                                    fill="#5f6368"
+                                  >
+                                    <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />
+                                  </svg>
+                                </span>
+                              </div>
+
+                              <span
+                                role="button"
+                                className="p-1"
+                                onClick={handleSearchClear}
+                              >
+                                <svg
+                                  height="24px"
+                                  viewBox="0 -960 960 960"
+                                  width="24px"
+                                  fill="#5f6368"
+                                >
+                                  <path d="M280-80q-83 0-141.5-58.5T80-280q0-83 58.5-141.5T280-480q83 0 141.5 58.5T480-280q0 83-58.5 141.5T280-80Zm544-40L568-376q-12-13-25.5-26.5T516-428q38-24 61-64t23-88q0-75-52.5-127.5T420-760q-75 0-127.5 52.5T240-580q0 6 .5 11.5T242-557q-18 2-39.5 8T164-535q-2-11-3-22t-1-23q0-109 75.5-184.5T420-840q109 0 184.5 75.5T680-580q0 43-13.5 81.5T629-428l251 252-56 56Zm-615-61 71-71 70 71 29-28-71-71 71-71-28-28-71 71-71-71-28 28 71 71-71 71 28 28Z" />
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {pinnedMessageContent && (
+                          <PinnedMessageShow
+                            htmlContent={whatsappToHtml(pinnedMessageContent)}
+                          />
+                        )}
+
+                        <div
+                          className="chatBox"
+                          ref={containerRef}
+                          onScroll={handleScroll}
+                        >
+                          {loading ? (
+                            <div className="d-flex justify-content-center h-50">
+                              <div
+                                className="spinner-border text-secondary "
+                                role="status"
+                              ></div>
+                            </div>
+                          ) : (
+                            <>
+                              {searchTerm && noDataFound && (
+                                <div className="d-flex justify-content-center h-75 ">
+                                  <p className="no_found">No data found</p>
                                 </div>
-                                {group &&
-                                  group.messages.map((message, index1) => {
-                                    const extension = getFileExtension(
-                                      message.media_name,
-                                    );
-                                    const icon = getIconForExtension(extension);
-                                    return (
-                                      <div key={index1}>
-                                        <>
-                                          {message.message_side === 2 && (
+                              )}
+                              {messageList &&
+                                [...messageList].reverse().map((group, index) => (
+                                  <div>
+                                    <div className="chat__date-wrapper" key={index}>
+                                      <span className="chat__date">
+                                        {group.date
+                                          ? new Date(group.date)
+                                            .toLocaleDateString("en-GB", {
+                                              weekday: "long",
+                                              year: "numeric",
+                                              month: "2-digit",
+                                              day: "2-digit",
+                                            })
+                                            .replace(/\//g, "-")
+                                          : ""}
+                                      </span>
+                                    </div>
+                                    {group &&
+                                      group.messages.map((message, index1) => {
+                                        const extension = getFileExtension(
+                                          message.media_name,
+                                        );
+                                        const icon = getIconForExtension(extension);
+                                        return (
+                                          <div key={index1}>
                                             <>
-                                              {message.isDelete === 1 ? (
-                                                <p className="chatMessageDelete my-chat-delete tooltip-wrapper2">
-                                                  Deleted By --
-                                                  {message.deleted_by}
-                                                  {companyLists?.some(
-                                                    (item) =>
-                                                      item.company_flag === 1,
-                                                  ) && (
-                                                      <span className="tooltip-content">
-                                                        <SafeHtml
-                                                          htmlContent={whatsappToHtml(
-                                                            message.description,
-                                                          )}
-                                                        />
-                                                      </span>
-                                                    )}
-                                                </p>
-                                              ) : (
+                                              {message.message_side === 2 && (
                                                 <>
-                                                  <div
-                                                    className="chatMessage frnd-chat"
-                                                    style={{
-                                                      maxWidth: "80%",
-                                                      flexDirection: "column",
-                                                      wordWrap: "break-word",
-                                                      overflowWrap: "anywhere",
-                                                      // whiteSpace: "pre-wrap",
-                                                    }}
-                                                  >
-                                                    <div
-                                                      style={{
-                                                        display: "flex",
-                                                        justifyContent: "end",
-                                                        paddingRight: "10px",
-                                                      }}
-                                                    >
-                                                      <span className="chat__msg-filler2">
-                                                        {message.is_reminder ? (
-                                                          <span
+                                                  {message.isDelete === 1 ? (
+                                                    <p className="chatMessageDelete my-chat-delete tooltip-wrapper2">
+                                                      Deleted By --
+                                                      {message.deleted_by}
+                                                      {companyLists?.some(
+                                                        (item) =>
+                                                          item.company_flag === 1,
+                                                      ) && (
+                                                          <span className="tooltip-content">
+                                                            <SafeHtml
+                                                              htmlContent={whatsappToHtml(
+                                                                message.description,
+                                                              )}
+                                                            />
+                                                          </span>
+                                                        )}
+                                                    </p>
+                                                  ) : (
+                                                    <>
+                                                      <div
+                                                        className="chatMessage frnd-chat"
+                                                        style={{
+                                                          maxWidth: "80%",
+                                                          flexDirection: "column",
+                                                          wordWrap: "break-word",
+                                                          overflowWrap: "anywhere",
+                                                          // whiteSpace: "pre-wrap",
+                                                        }}
+                                                      >
+                                                        <div
+                                                          style={{
+                                                            display: "flex",
+                                                            justifyContent: "end",
+                                                            paddingRight: "10px",
+                                                          }}
+                                                        >
+                                                          <span className="chat__msg-filler2">
+                                                            {message.is_reminder ? (
+                                                              <span
+                                                                role="button"
+                                                                onClick={() =>
+                                                                  handleChangeStatusOfReminderLeft(
+                                                                    message,
+                                                                  )
+                                                                }
+                                                              >
+                                                                <svg
+                                                                  height="16px"
+                                                                  viewBox="0 -960 960 960"
+                                                                  width="16 px"
+                                                                  className=""
+                                                                  fill="currentColor"
+                                                                >
+                                                                  <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Zm0-360Zm112 168 56-56-128-128v-184h-80v216l152 152ZM224-866l56 56-170 170-56-56 170-170Zm512 0 170 170-56 56-170-170 56-56ZM480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160Z" />
+                                                                </svg>
+                                                              </span>
+                                                            ) : (
+                                                              "  "
+                                                            )}
+                                                          </span>
+                                                          <span className="chat__msg-filler2">
+                                                            {message.entry_flag ===
+                                                              1 && (
+                                                                <span role="button">
+                                                                  <img
+                                                                    src={whatsappIcon}
+                                                                    width={20}
+                                                                    alt=""
+                                                                  />
+                                                                </span>
+                                                              )}
+                                                          </span>
+                                                        </div>
+                                                        <div
+                                                          style={{
+                                                            width: "20rem",
+                                                          }}
+                                                        >
+                                                          <span>
+                                                            <SafeHtml
+                                                              htmlContent={whatsappToHtml(
+                                                                message.description,
+                                                              )}
+                                                            />
+                                                          </span>
+                                                          {extension === "png" ||
+                                                            extension === "jpg" ||
+                                                            extension === "jpeg" ? (
+                                                            <span
+                                                              onClick={() =>
+                                                                handleChangeImgViewer(
+                                                                  message,
+                                                                )
+                                                              }
+                                                              style={{
+                                                                cursor: "pointer",
+                                                              }}
+                                                            >
+                                                              <span
+                                                                className="d-flex justify-content-center"
+                                                                style={{
+                                                                  maxHeight: "30vh",
+                                                                }}
+                                                              >
+                                                                <img
+                                                                  src={`${message.media_url}`}
+                                                                  alt="Avatar"
+                                                                  className="align-text-top w-100"
+                                                                />
+                                                              </span>
+                                                            </span>
+                                                          ) : extension === "ogg" ||
+                                                            extension === "wav" ||
+                                                            extension === "mp3" ? (
+                                                            <audio
+                                                              controls
+                                                              src={`${message.media_url}`}
+                                                            ></audio>
+                                                          ) : (
+                                                            <span
+                                                              onClick={() =>
+                                                                message
+                                                              }
+                                                              style={{
+                                                                cursor: "pointer",
+                                                                paddingRight: "6px",
+                                                              }}
+                                                            >
+                                                              {icon && (
+                                                                <img
+                                                                  src={icon}
+                                                                  alt={`${extension} icon`}
+                                                                  style={{
+                                                                    width: 30,
+                                                                    verticalAlign:
+                                                                      "text-top",
+                                                                  }}
+                                                                />
+                                                              )}
+                                                              <span>
+                                                                {message.media_name}
+                                                              </span>
+                                                              {extension && (
+                                                                <span className="px-3">
+                                                                  <svg
+                                                                    viewBox="0 -960 960 960"
+                                                                    width="20px"
+                                                                    fill="#5f6368"
+                                                                  >
+                                                                    <path d="M280-280h400v-80H280v80Zm200-120 160-160-56-56-64 62v-166h-80v166l-64-62-56 56 160 160Zm0 320q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z" />
+                                                                  </svg>
+                                                                </span>
+                                                              )}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                        <span className="chat__msg-filler"></span>
+                                                        <span className="status1">
+                                                          <span>
+                                                            {message.created_date_time
+                                                              ? formatTimeToAmPm(
+                                                                message.created_date_time,
+                                                              )
+                                                              : ""}
+                                                          </span>
+                                                        </span>
+
+                                                        <span className="status1 ">
+                                                          <span>
+                                                            <i>
+                                                              {message.entry_flag ===
+                                                                1 ? (
+                                                                <>
+                                                                  {
+                                                                    message.application_login_name
+                                                                  }
+                                                                </>
+                                                              ) : (
+                                                                <>
+                                                                  {
+                                                                    message.application_login_name
+                                                                  }
+                                                                </>
+                                                              )}
+                                                            </i>
+                                                          </span>
+                                                        </span>
+                                                        <div>
+                                                          <ul
+                                                            className={`${filteredItemIds.includes(
+                                                              message.id,
+                                                            )
+                                                              ? "drop_msg1"
+                                                              : "drop_msg_left"
+                                                              } 
+                                                          ${dropdownOpenMsgLeft ===
+                                                                message.id
+                                                                ? "isVisible"
+                                                                : "isHidden"
+                                                              }`}
+                                                            ref={(el) =>
+                                                            (dropdownRefLeftMsg.current[
+                                                              message.id
+                                                            ] = el)
+                                                            }
+                                                          >
+                                                            {/* {message.message_type_id ===
+                                                          0 ? (
+                                                          <li
+                                                            className="drop_listItem"
                                                             role="button"
                                                             onClick={() =>
-                                                              handleChangeStatusOfReminderLeft(
-                                                                message,
+                                                              handleChangeEdit(
+                                                                message
                                                               )
                                                             }
                                                           >
-                                                            <svg
-                                                              height="16px"
-                                                              viewBox="0 -960 960 960"
-                                                              width="16 px"
-                                                              className=""
-                                                              fill="currentColor"
-                                                            >
-                                                              <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Zm0-360Zm112 168 56-56-128-128v-184h-80v216l152 152ZM224-866l56 56-170 170-56-56 170-170Zm512 0 170 170-56 56-170-170 56-56ZM480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160Z" />
-                                                            </svg>
-                                                          </span>
+                                                            Edit
+                                                          </li>
                                                         ) : (
-                                                          "  "
+                                                          <span></span>
+                                                        )} */}
+                                                            <li
+                                                              style={{
+                                                                color: "red",
+                                                                fontWeight: "bold",
+                                                              }}
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                handelChangeDeleteRight(
+                                                                  message.id,
+                                                                )
+                                                              }
+                                                            >
+                                                              Delete
+                                                            </li>
+
+                                                            {!message.is_reminder &&
+                                                              (message.message_type_id ===
+                                                                0 ||
+                                                                message.message_type_id ===
+                                                                2 ||
+                                                                message.message_type_id ===
+                                                                1) ? (
+                                                              <li
+                                                                className="drop_listItem"
+                                                                role="button"
+                                                                onClick={() =>
+                                                                  toggleReminder(
+                                                                    message.id,
+                                                                  )
+                                                                }
+                                                              >
+                                                                Reminders
+                                                              </li>
+                                                            ) : (
+                                                              <span></span>
+                                                            )}
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                showTaskFromDashbord()
+                                                              }
+                                                            >
+                                                              Add Task
+                                                            </li>
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                toggleMoveToMe(
+                                                                  message.id,
+                                                                )
+                                                              }
+                                                            >
+                                                              Move to Me
+                                                            </li>
+                                                            {message.id ==
+                                                              getData?.pinned_message ? (
+                                                              <li
+                                                                className="drop_listItem"
+                                                                role="button"
+                                                                onClick={() =>
+                                                                  openUnPinModal(
+                                                                    message.id,
+                                                                    message.contact_masters_id,
+                                                                  )
+                                                                }
+                                                              >
+                                                                UnPin
+                                                              </li>
+                                                            ) : (
+                                                              <li
+                                                                className="drop_listItem"
+                                                                role="button"
+                                                                onClick={() =>
+                                                                  openPinModal(
+                                                                    message.id,
+                                                                    message.contact_masters_id,
+                                                                    message.description,
+                                                                  )
+                                                                }
+                                                              >
+                                                                Pin
+                                                              </li>
+                                                            )}
+                                                          </ul>
+                                                        </div>
+                                                        <button
+                                                          aria-label="Message options"
+                                                          className="chat__msg-options"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleDropdownMsgLeft(
+                                                              message.id,
+                                                            );
+                                                          }}
+                                                        >
+                                                          <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 19 20"
+                                                            width="19"
+                                                            height="20"
+                                                            className="chat__msg-options-icon"
+                                                          >
+                                                            <path
+                                                              fill="currentColor"
+                                                              d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
+                                                            ></path>
+                                                          </svg>
+                                                        </button>
+                                                      </div>
+                                                    </>
+                                                  )}
+                                                </>
+                                              )}
+                                              {message.message_side === 1 && (
+                                                <>
+                                                  {message.isDelete === 1 ? (
+                                                    <p className="chatMessageDelete my-chat-delete tooltip-wrapper">
+                                                      Deleted By --
+                                                      {message.deleted_by}
+                                                      {companyLists?.some(
+                                                        (item) =>
+                                                          item.company_flag === 1,
+                                                      ) && (
+                                                          <span className="tooltip-content">
+                                                            <SafeHtml
+                                                              htmlContent={whatsappToHtml(
+                                                                message.description,
+                                                              )}
+                                                            />
+                                                          </span>
                                                         )}
-                                                      </span>
-                                                      <span className="chat__msg-filler2">
-                                                        {message.entry_flag ===
-                                                          1 && (
-                                                            <span role="button">
-                                                              <img
-                                                                src={whatsappIcon}
-                                                                width={20}
-                                                                alt=""
-                                                              />
-                                                            </span>
-                                                          )}
-                                                      </span>
-                                                    </div>
+                                                    </p>
+                                                  ) : (
                                                     <div
+                                                      className="chatMessage my-chat"
                                                       style={{
-                                                        width: "20rem",
+                                                        maxWidth: "80%",
+                                                        width: "300px",
+                                                        flexDirection: "column",
+                                                        paddingRight: "30px",
+                                                        wordBreak: "break-word",
+                                                        overflowWrap: "anywhere",
                                                       }}
                                                     >
+                                                      <div
+                                                        style={{
+                                                          display: "flex",
+                                                          justifyContent: "end",
+                                                          paddingRight: "10px",
+                                                        }}
+                                                      >
+                                                        <span className="chat__msg-filler2">
+                                                          {message.is_reminder ? (
+                                                            <span
+                                                              role="button"
+                                                              onClick={() =>
+                                                                handleChangeStatusOfReminder1(
+                                                                  message,
+                                                                )
+                                                              }
+                                                            >
+                                                              <svg
+                                                                height="16px"
+                                                                viewBox="0 -960 960 960"
+                                                                width="16 px"
+                                                                className=""
+                                                                fill="currentColor"
+                                                              >
+                                                                <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Zm0-360Zm112 168 56-56-128-128v-184h-80v216l152 152ZM224-866l56 56-170 170-56-56 170-170Zm512 0 170 170-56 56-170-170 56-56ZM480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160Z" />
+                                                              </svg>
+                                                            </span>
+                                                          ) : (
+                                                            "  "
+                                                          )}
+                                                          {message.entry_flag ===
+                                                            1 && (
+                                                              <span role="button">
+                                                                <img
+                                                                  src={whatsappIcon}
+                                                                  width={20}
+                                                                  alt=""
+                                                                />
+                                                              </span>
+                                                            )}
+                                                          {message.entry_flag ===
+                                                            2 && (
+                                                              <span role="button">
+                                                                <svg
+                                                                  xmlns="http://www.w3.org/2000/svg"
+                                                                  height="20px"
+                                                                  viewBox="0 -960 960 960"
+                                                                  width="20px"
+                                                                  fill="#5f6368"
+                                                                >
+                                                                  <path d="M480-440 160-640v400h360v80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440Zm0-80 320-200H160l320 200ZM760-40l-56-56 63-64H600v-80h167l-64-64 57-56 160 160L760-40ZM160-640v440-240 3-283 80Z" />
+                                                                </svg>
+                                                              </span>
+                                                            )}
+                                                        </span>
+                                                      </div>
+                                                      <span>
+                                                        {message.message_type_id ===
+                                                          1 ? (
+                                                          <></>
+                                                        ) : (
+                                                          ""
+                                                        )}
+                                                      </span>
+
                                                       <span>
                                                         <SafeHtml
                                                           htmlContent={whatsappToHtml(
@@ -4526,6 +4900,7 @@ const RightView = ({
                                                           )}
                                                         />
                                                       </span>
+
                                                       {extension === "png" ||
                                                         extension === "jpg" ||
                                                         extension === "jpeg" ? (
@@ -4537,6 +4912,7 @@ const RightView = ({
                                                           }
                                                           style={{
                                                             cursor: "pointer",
+                                                            // paddingRight: "6px",
                                                           }}
                                                         >
                                                           <span
@@ -4562,7 +4938,7 @@ const RightView = ({
                                                       ) : (
                                                         <span
                                                           onClick={() =>
-                                                            message
+                                                            handleDownload(message)
                                                           }
                                                           style={{
                                                             cursor: "pointer",
@@ -4596,655 +4972,338 @@ const RightView = ({
                                                           )}
                                                         </span>
                                                       )}
-                                                    </div>
-                                                    <span className="chat__msg-filler"></span>
-                                                    <span className="status1">
-                                                      <span>
-                                                        {message.created_date_time
-                                                          ? formatTimeToAmPm(
-                                                            message.created_date_time,
+                                                      {/* <span>{messag}</span> */}
+                                                      <span className="chat__msg-filler"></span>
+
+                                                      <span className="status1">
+                                                        <span>
+                                                          {message.created_date_time
+                                                            ? formatTimeToAmPm(
+                                                              message.created_date_time,
+                                                            )
+                                                            : ""}
+                                                        </span>
+                                                      </span>
+                                                      <span className="status1">
+                                                        <span className="">
+                                                          <i>
+                                                            {
+                                                              message.application_login_name
+                                                            }
+                                                          </i>
+                                                        </span>
+                                                      </span>
+                                                      <div>
+                                                        <ul
+                                                          className={`${filteredItemIds.includes(
+                                                            message.id,
                                                           )
-                                                          : ""}
-                                                      </span>
-                                                    </span>
-
-                                                    <span className="status1 ">
-                                                      <span>
-                                                        <i>
-                                                          {message.entry_flag ===
-                                                            1 ? (
-                                                            <>
-                                                              {
-                                                                message.application_login_name
-                                                              }
-                                                            </>
-                                                          ) : (
-                                                            <>
-                                                              {
-                                                                message.application_login_name
-                                                              }
-                                                            </>
-                                                          )}
-                                                        </i>
-                                                      </span>
-                                                    </span>
-                                                    <div>
-                                                      <ul
-                                                        className={`${filteredItemIds.includes(
-                                                          message.id,
-                                                        )
-                                                          ? "drop_msg1"
-                                                          : "drop_msg_left"
-                                                          } 
-                                                          ${dropdownOpenMsgLeft ===
+                                                            ? "drop_msg1"
+                                                            : "drop_msg"
+                                                            } 
+                                                      ${dropdownOpenMsg ===
+                                                              message.id
+                                                              ? "isVisible"
+                                                              : "isHidden"
+                                                            }`}
+                                                          ref={(el) =>
+                                                          (dropdownRefRightMsg.current[
                                                             message.id
-                                                            ? "isVisible"
-                                                            : "isHidden"
-                                                          }`}
-                                                        ref={(el) =>
-                                                        (dropdownRefLeftMsg.current[
-                                                          message.id
-                                                        ] = el)
-                                                        }
-                                                      >
-                                                        {/* {message.message_type_id ===
-                                                          0 ? (
+                                                          ] = el)
+                                                          }
+                                                        >
+                                                          {message.message_type_id ===
+                                                            0 ? (
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                handleChangeEdit(
+                                                                  message,
+                                                                )
+                                                              }
+                                                            >
+                                                              Edit
+                                                            </li>
+                                                          ) : (
+                                                            <span></span>
+                                                          )}
                                                           <li
+                                                            style={{
+                                                              color: "red",
+                                                              fontWeight: "bold",
+                                                            }}
                                                             className="drop_listItem"
                                                             role="button"
                                                             onClick={() =>
-                                                              handleChangeEdit(
-                                                                message
+                                                              handelChangeDeleteRight(
+                                                                message.id,
                                                               )
                                                             }
                                                           >
-                                                            Edit
+                                                            Delete
                                                           </li>
-                                                        ) : (
-                                                          <span></span>
-                                                        )} */}
-                                                        <li
-                                                          style={{
-                                                            color: "red",
-                                                            fontWeight: "bold",
-                                                          }}
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            handelChangeDeleteRight(
-                                                              message.id,
-                                                            )
-                                                          }
-                                                        >
-                                                          Delete
-                                                        </li>
 
-                                                        {!message.is_reminder &&
-                                                          (message.message_type_id ===
-                                                            0 ||
-                                                            message.message_type_id ===
-                                                            2 ||
-                                                            message.message_type_id ===
-                                                            1) ? (
+                                                          {!message.is_reminder &&
+                                                            (message.message_type_id ===
+                                                              0 ||
+                                                              message.message_type_id ===
+                                                              2 ||
+                                                              message.message_type_id ===
+                                                              1) ? (
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                toggleReminder(
+                                                                  message.id,
+                                                                )
+                                                              }
+                                                            >
+                                                              Reminders
+                                                            </li>
+                                                          ) : (
+                                                            <span></span>
+                                                          )}
                                                           <li
                                                             className="drop_listItem"
                                                             role="button"
                                                             onClick={() =>
-                                                              toggleReminder(
-                                                                message.id,
-                                                              )
+                                                              showTask(message)
                                                             }
                                                           >
-                                                            Reminders
+                                                            Add Task
                                                           </li>
-                                                        ) : (
-                                                          <span></span>
-                                                        )}
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            showTaskFromDashbord()
-                                                          }
-                                                        >
-                                                          Add Task
-                                                        </li>
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            toggleMoveToMe(
-                                                              message.id,
-                                                            )
-                                                          }
-                                                        >
-                                                          Move to Me
-                                                        </li>
-                                                        {message.id ==
-                                                          getData?.pinned_message ? (
                                                           <li
                                                             className="drop_listItem"
                                                             role="button"
                                                             onClick={() =>
-                                                              openUnPinModal(
+                                                              toggleMoveToClient(
                                                                 message.id,
-                                                                message.contact_masters_id,
                                                               )
                                                             }
                                                           >
-                                                            UnPin
+                                                            Move to Client
                                                           </li>
-                                                        ) : (
-                                                          <li
-                                                            className="drop_listItem"
-                                                            role="button"
-                                                            onClick={() =>
-                                                              openPinModal(
-                                                                message.id,
-                                                                message.contact_masters_id,
-                                                                message.description,
-                                                              )
-                                                            }
-                                                          >
-                                                            Pin
-                                                          </li>
-                                                        )}
-                                                      </ul>
-                                                    </div>
-                                                    <button
-                                                      aria-label="Message options"
-                                                      className="chat__msg-options"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleDropdownMsgLeft(
-                                                          message.id,
-                                                        );
-                                                      }}
-                                                    >
-                                                      <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 0 19 20"
-                                                        width="19"
-                                                        height="20"
-                                                        className="chat__msg-options-icon"
+
+                                                          {message.id ==
+                                                            getData?.pinned_message ? (
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                openUnPinModal(
+                                                                  message.id,
+                                                                  message.contact_masters_id,
+                                                                )
+                                                              }
+                                                            >
+                                                              UnPin
+                                                            </li>
+                                                          ) : (
+                                                            <li
+                                                              className="drop_listItem"
+                                                              role="button"
+                                                              onClick={() =>
+                                                                openPinModal(
+                                                                  message.id,
+                                                                  message.contact_masters_id,
+                                                                  message.description,
+                                                                )
+                                                              }
+                                                            >
+                                                              Pin
+                                                            </li>
+                                                          )}
+                                                        </ul>
+                                                      </div>
+                                                      <button
+                                                        id="dropDown2"
+                                                        className="chat__msg-options"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation(); // 👈 Prevents outside click handler
+                                                          toggleDropdownMsg(
+                                                            message.id,
+                                                          );
+                                                        }}
                                                       >
-                                                        <path
-                                                          fill="currentColor"
-                                                          d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
-                                                        ></path>
-                                                      </svg>
-                                                    </button>
-                                                  </div>
+                                                        <svg
+                                                          xmlns="http://www.w3.org/2000/svg"
+                                                          viewBox="0 0 19 20"
+                                                          width="19"
+                                                          height="20"
+                                                          className="chat__msg-options-icon"
+                                                        >
+                                                          <path
+                                                            fill="currentColor"
+                                                            d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
+                                                          ></path>
+                                                        </svg>
+                                                      </button>
+                                                    </div>
+                                                  )}
                                                 </>
                                               )}
                                             </>
-                                          )}
-                                          {message.message_side === 1 && (
-                                            <>
-                                              {message.isDelete === 1 ? (
-                                                <p className="chatMessageDelete my-chat-delete tooltip-wrapper">
-                                                  Deleted By --
-                                                  {message.deleted_by}
-                                                  {companyLists?.some(
-                                                    (item) =>
-                                                      item.company_flag === 1,
-                                                  ) && (
-                                                      <span className="tooltip-content">
-                                                        <SafeHtml
-                                                          htmlContent={whatsappToHtml(
-                                                            message.description,
-                                                          )}
-                                                        />
-                                                      </span>
-                                                    )}
-                                                </p>
-                                              ) : (
-                                                <div
-                                                  className="chatMessage my-chat"
-                                                  style={{
-                                                    maxWidth: "80%",
-                                                    width: "300px",
-                                                    flexDirection: "column",
-                                                    paddingRight: "30px",
-                                                    wordBreak: "break-word",
-                                                    overflowWrap: "anywhere",
-                                                  }}
-                                                >
-                                                  <div
-                                                    style={{
-                                                      display: "flex",
-                                                      justifyContent: "end",
-                                                      paddingRight: "10px",
-                                                    }}
-                                                  >
-                                                    <span className="chat__msg-filler2">
-                                                      {message.is_reminder ? (
-                                                        <span
-                                                          role="button"
-                                                          onClick={() =>
-                                                            handleChangeStatusOfReminder1(
-                                                              message,
-                                                            )
-                                                          }
-                                                        >
-                                                          <svg
-                                                            height="16px"
-                                                            viewBox="0 -960 960 960"
-                                                            width="16 px"
-                                                            className=""
-                                                            fill="currentColor"
-                                                          >
-                                                            <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Zm0-360Zm112 168 56-56-128-128v-184h-80v216l152 152ZM224-866l56 56-170 170-56-56 170-170Zm512 0 170 170-56 56-170-170 56-56ZM480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160Z" />
-                                                          </svg>
-                                                        </span>
-                                                      ) : (
-                                                        "  "
-                                                      )}
-                                                      {message.entry_flag ===
-                                                        1 && (
-                                                          <span role="button">
-                                                            <img
-                                                              src={whatsappIcon}
-                                                              width={20}
-                                                              alt=""
-                                                            />
-                                                          </span>
-                                                        )}
-                                                      {message.entry_flag ===
-                                                        2 && (
-                                                          <span role="button">
-                                                            <svg
-                                                              xmlns="http://www.w3.org/2000/svg"
-                                                              height="20px"
-                                                              viewBox="0 -960 960 960"
-                                                              width="20px"
-                                                              fill="#5f6368"
-                                                            >
-                                                              <path d="M480-440 160-640v400h360v80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440Zm0-80 320-200H160l320 200ZM760-40l-56-56 63-64H600v-80h167l-64-64 57-56 160 160L760-40ZM160-640v440-240 3-283 80Z" />
-                                                            </svg>
-                                                          </span>
-                                                        )}
-                                                    </span>
-                                                  </div>
-                                                  <span>
-                                                    {message.message_type_id ===
-                                                      1 ? (
-                                                      <></>
-                                                    ) : (
-                                                      ""
-                                                    )}
-                                                  </span>
-
-                                                  <span>
-                                                    <SafeHtml
-                                                      htmlContent={whatsappToHtml(
-                                                        message.description,
-                                                      )}
-                                                    />
-                                                  </span>
-
-                                                  {extension === "png" ||
-                                                    extension === "jpg" ||
-                                                    extension === "jpeg" ? (
-                                                    <span
-                                                      onClick={() =>
-                                                        handleChangeImgViewer(
-                                                          message,
-                                                        )
-                                                      }
-                                                      style={{
-                                                        cursor: "pointer",
-                                                        // paddingRight: "6px",
-                                                      }}
-                                                    >
-                                                      <span
-                                                        className="d-flex justify-content-center"
-                                                        style={{
-                                                          maxHeight: "30vh",
-                                                        }}
-                                                      >
-                                                        <img
-                                                          src={`${message.media_url}`}
-                                                          alt="Avatar"
-                                                          className="align-text-top w-100"
-                                                        />
-                                                      </span>
-                                                    </span>
-                                                  ) : extension === "ogg" ||
-                                                    extension === "wav" ||
-                                                    extension === "mp3" ? (
-                                                    <audio
-                                                      controls
-                                                      src={`${message.media_url}`}
-                                                    ></audio>
-                                                  ) : (
-                                                    <span
-                                                      onClick={() =>
-                                                        handleDownload(message)
-                                                      }
-                                                      style={{
-                                                        cursor: "pointer",
-                                                        paddingRight: "6px",
-                                                      }}
-                                                    >
-                                                      {icon && (
-                                                        <img
-                                                          src={icon}
-                                                          alt={`${extension} icon`}
-                                                          style={{
-                                                            width: 30,
-                                                            verticalAlign:
-                                                              "text-top",
-                                                          }}
-                                                        />
-                                                      )}
-                                                      <span>
-                                                        {message.media_name}
-                                                      </span>
-                                                      {extension && (
-                                                        <span className="px-3">
-                                                          <svg
-                                                            viewBox="0 -960 960 960"
-                                                            width="20px"
-                                                            fill="#5f6368"
-                                                          >
-                                                            <path d="M280-280h400v-80H280v80Zm200-120 160-160-56-56-64 62v-166h-80v166l-64-62-56 56 160 160Zm0 320q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z" />
-                                                          </svg>
-                                                        </span>
-                                                      )}
-                                                    </span>
-                                                  )}
-                                                  {/* <span>{messag}</span> */}
-                                                  <span className="chat__msg-filler"></span>
-
-                                                  <span className="status1">
-                                                    <span>
-                                                      {message.created_date_time
-                                                        ? formatTimeToAmPm(
-                                                          message.created_date_time,
-                                                        )
-                                                        : ""}
-                                                    </span>
-                                                  </span>
-                                                  <span className="status1">
-                                                    <span className="">
-                                                      <i>
-                                                        {
-                                                          message.application_login_name
-                                                        }
-                                                      </i>
-                                                    </span>
-                                                  </span>
-                                                  <div>
-                                                    <ul
-                                                      className={`${filteredItemIds.includes(
-                                                        message.id,
-                                                      )
-                                                        ? "drop_msg1"
-                                                        : "drop_msg"
-                                                        } 
-                                                      ${dropdownOpenMsg ===
-                                                          message.id
-                                                          ? "isVisible"
-                                                          : "isHidden"
-                                                        }`}
-                                                      ref={(el) =>
-                                                      (dropdownRefRightMsg.current[
-                                                        message.id
-                                                      ] = el)
-                                                      }
-                                                    >
-                                                      {message.message_type_id ===
-                                                        0 ? (
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            handleChangeEdit(
-                                                              message,
-                                                            )
-                                                          }
-                                                        >
-                                                          Edit
-                                                        </li>
-                                                      ) : (
-                                                        <span></span>
-                                                      )}
-                                                      <li
-                                                        style={{
-                                                          color: "red",
-                                                          fontWeight: "bold",
-                                                        }}
-                                                        className="drop_listItem"
-                                                        role="button"
-                                                        onClick={() =>
-                                                          handelChangeDeleteRight(
-                                                            message.id,
-                                                          )
-                                                        }
-                                                      >
-                                                        Delete
-                                                      </li>
-
-                                                      {!message.is_reminder &&
-                                                        (message.message_type_id ===
-                                                          0 ||
-                                                          message.message_type_id ===
-                                                          2 ||
-                                                          message.message_type_id ===
-                                                          1) ? (
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            toggleReminder(
-                                                              message.id,
-                                                            )
-                                                          }
-                                                        >
-                                                          Reminders
-                                                        </li>
-                                                      ) : (
-                                                        <span></span>
-                                                      )}
-                                                      <li
-                                                        className="drop_listItem"
-                                                        role="button"
-                                                        onClick={() =>
-                                                          showTask(message)
-                                                        }
-                                                      >
-                                                        Add Task
-                                                      </li>
-                                                      <li
-                                                        className="drop_listItem"
-                                                        role="button"
-                                                        onClick={() =>
-                                                          toggleMoveToClient(
-                                                            message.id,
-                                                          )
-                                                        }
-                                                      >
-                                                        Move to Client
-                                                      </li>
-
-                                                      {message.id ==
-                                                        getData?.pinned_message ? (
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            openUnPinModal(
-                                                              message.id,
-                                                              message.contact_masters_id,
-                                                            )
-                                                          }
-                                                        >
-                                                          UnPin
-                                                        </li>
-                                                      ) : (
-                                                        <li
-                                                          className="drop_listItem"
-                                                          role="button"
-                                                          onClick={() =>
-                                                            openPinModal(
-                                                              message.id,
-                                                              message.contact_masters_id,
-                                                              message.description,
-                                                            )
-                                                          }
-                                                        >
-                                                          Pin
-                                                        </li>
-                                                      )}
-                                                    </ul>
-                                                  </div>
-                                                  <button
-                                                    id="dropDown2"
-                                                    className="chat__msg-options"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation(); // 👈 Prevents outside click handler
-                                                      toggleDropdownMsg(
-                                                        message.id,
-                                                      );
-                                                    }}
-                                                  >
-                                                    <svg
-                                                      xmlns="http://www.w3.org/2000/svg"
-                                                      viewBox="0 0 19 20"
-                                                      width="19"
-                                                      height="20"
-                                                      className="chat__msg-options-icon"
-                                                    >
-                                                      <path
-                                                        fill="currentColor"
-                                                        d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
-                                                      ></path>
-                                                    </svg>
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </>
-                                          )}
-                                        </>
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            ))}
-                          {/* )
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                ))}
+                              {/* )
                         )} */}
 
-                          <div className="text-center">
-                            {hasMore ? (
-                              <p
-                                className="no_found"
-                                style={{ marginTop: "0px" }}
+                              <div className="text-center">
+                                {hasMore ? (
+                                  <p
+                                    className="no_found"
+                                    style={{ marginTop: "0px" }}
+                                  >
+                                    No data found
+                                  </p>
+                                ) : (
+                                  <button
+                                    onClick={handleLoadMore}
+                                    className="btn  text-light   rounded-5   fw_500"
+                                    style={{ backgroundColor: "#f58634" }}
+                                  >
+                                    Load More
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          )}
+
+                          <div ref={messagesEndRef}> </div>
+                        </div>
+
+                        <div className="chat-footer">
+                          <div className="chat-input-wrapper">
+                            <button
+                              aria-label="Close emojis"
+                              className="icons hidden"
+                              id="emoji-remove-icon"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                height="24"
+                                className="chat__input-icon"
                               >
-                                No data found
-                              </p>
+                                <path
+                                  fill="currentColor"
+                                  d="M19.1 17.2l-5.3-5.3 5.3-5.3-1.8-1.8-5.3 5.4-5.3-5.3-1.8 1.7 5.3 5.3-5.3 5.3L6.7 19l5.3-5.3 5.3 5.3 1.8-1.8z"
+                                ></path>
+                              </svg>
+                            </button>
+                            <button
+                              aria-label="Choose GIF"
+                              className={`icons ${isActive ? "" : "hidden"}`}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                height="24"
+                                className="chat__input-icon"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M13.177 12.013l-.001-.125v-.541-.512c0-.464 0-.827-.002-1.178a.723.723 0 0 0-.557-.7.715.715 0 0 0-.826.4c-.05.115-.072.253-.073.403-.003 1.065-.003 1.917-.002 3.834v.653c0 .074.003.136.009.195a.72.72 0 0 0 .57.619c.477.091.878-.242.881-.734.002-.454.003-.817.002-1.633l-.001-.681zm-3.21-.536a35.751 35.751 0 0 0-1.651-.003c-.263.005-.498.215-.565.48a.622.622 0 0 0 .276.7.833.833 0 0 0 .372.104c.179.007.32.008.649.005l.137-.001v.102c-.001.28-.001.396.003.546.001.044-.006.055-.047.081-.242.15-.518.235-.857.275-.767.091-1.466-.311-1.745-1.006a2.083 2.083 0 0 1-.117-1.08 1.64 1.64 0 0 1 1.847-1.41c.319.044.616.169.917.376.196.135.401.184.615.131a.692.692 0 0 0 .541-.562c.063-.315-.057-.579-.331-.766-.789-.542-1.701-.694-2.684-.482-2.009.433-2.978 2.537-2.173 4.378.483 1.105 1.389 1.685 2.658 1.771.803.054 1.561-.143 2.279-.579.318-.193.498-.461.508-.803.014-.52.015-1.046.001-1.578-.009-.362-.29-.669-.633-.679zM18 4.25H6A4.75 4.75 0 0 0 1.25 9v6A4.75 4.75 0 0 0 6 19.75h12A4.75 4.75 0 0 0 22.75 15V9A4.75 4.75 0 0 0 18 4.25zM21.25 15A3.25 3.25 0 0 1 18 18.25H6A3.25 3.25 0 0 1 2.75 15V9A3.25 3.25 0 0 1 6 5.75h12A3.25 3.25 0 0 1 21.25 9v6zm-2.869-6.018H15.3c-.544 0-.837.294-.837.839V14.309c0 .293.124.525.368.669.496.292 1.076-.059 1.086-.651.005-.285.006-.532.004-1.013v-.045l-.001-.46v-.052h1.096l1.053-.001a.667.667 0 0 0 .655-.478c.09-.298-.012-.607-.271-.757a.985.985 0 0 0-.468-.122 82.064 82.064 0 0 0-1.436-.006h-.05l-.523.001h-.047v-1.051h1.267l1.22-.001c.458-.001.768-.353.702-.799-.053-.338-.35-.56-.737-.561z"
+                                ></path>
+                              </svg>
+                            </button>
+
+                            <button
+                              aria-label="Choose sticker"
+                              className={`icons ${isActive ? "" : "hidden"}`}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                height="24"
+                                className="chat__input-icon"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M21.799 10.183c-.002-.184-.003-.373-.008-.548-.02-.768-.065-1.348-.173-1.939a6.6 6.6 0 0 0-.624-1.87 6.24 6.24 0 0 0-1.171-1.594 6.301 6.301 0 0 0-1.614-1.159 6.722 6.722 0 0 0-1.887-.615c-.59-.106-1.174-.15-1.961-.171-.318-.008-3.607-.012-4.631 0-.798.02-1.383.064-1.975.17a6.783 6.783 0 0 0-1.888.616 6.326 6.326 0 0 0-2.785 2.753 6.658 6.658 0 0 0-.623 1.868c-.107.591-.152 1.186-.173 1.941-.008.277-.016 2.882-.016 2.882 0 .52.008 1.647.016 1.925.02.755.066 1.349.172 1.938.126.687.33 1.3.624 1.871.303.59.698 1.126 1.173 1.595a6.318 6.318 0 0 0 1.614 1.159 6.786 6.786 0 0 0 2.146.656c.479.068.833.087 1.633.108.035.001 2.118-.024 2.578-.035a6.873 6.873 0 0 0 4.487-1.811 210.877 210.877 0 0 0 2.928-2.737 6.857 6.857 0 0 0 2.097-4.528l.066-1.052.001-.668c.001-.023-.005-.738-.006-.755zm-3.195 5.92c-.79.757-1.784 1.684-2.906 2.716a5.356 5.356 0 0 1-2.044 1.154c.051-.143.116-.276.145-.433.042-.234.06-.461.067-.74.003-.105.009-.789.009-.789.013-.483.042-.865.107-1.22.069-.379.179-.709.336-1.016.16-.311.369-.595.621-.844.254-.252.542-.458.859-.617.314-.158.65-.268 1.037-.337a8.127 8.127 0 0 1 1.253-.106s.383.001.701-.003a4.91 4.91 0 0 0 .755-.066c.186-.034.348-.105.515-.169a5.35 5.35 0 0 1-1.455 2.47zm1.663-4.757a1.128 1.128 0 0 1-.615.859 1.304 1.304 0 0 1-.371.119 3.502 3.502 0 0 1-.52.043c-.309.004-.687.004-.687.004-.613.016-1.053.049-1.502.129a5.21 5.21 0 0 0-1.447.473 4.86 4.86 0 0 0-2.141 2.115 5.088 5.088 0 0 0-.479 1.434 9.376 9.376 0 0 0-.131 1.461s-.006.684-.008.777c-.006.208-.018.37-.043.511a1.154 1.154 0 0 1-.626.86c-.072.036-.168.063-.37.098-.027.005-.25.027-.448.031-.021 0-1.157.01-1.192.009-.742-.019-1.263-.046-1.668-.126a5.27 5.27 0 0 1-1.477-.479 4.823 4.823 0 0 1-2.127-2.1 5.141 5.141 0 0 1-.482-1.453c-.09-.495-.13-1.025-.149-1.71a36.545 36.545 0 0 1-.012-.847c-.003-.292.005-3.614.012-3.879.02-.685.061-1.214.151-1.712a5.12 5.12 0 0 1 .481-1.45c.231-.449.53-.856.892-1.213.363-.36.777-.657 1.233-.886a5.26 5.26 0 0 1 1.477-.479c.503-.09 1.022-.129 1.74-.149a342.03 342.03 0 0 1 4.561 0c.717.019 1.236.058 1.737.148a5.263 5.263 0 0 1 1.476.478 4.835 4.835 0 0 1 2.126 2.098c.228.441.385.913.482 1.453.091.499.131 1.013.15 1.712.008.271.014 1.098.014 1.235a2.935 2.935 0 0 1-.037.436z"
+                                ></path>
+                              </svg>
+                            </button>
+
+                            {canAdd ? (
+                              <CustomEditor
+                                fieldName="myField"
+                                text={editorContent}
+                                onChange={handleEditorChange}
+                                onSend={handleSend}
+                                isToggledButton={isToggledButton}
+                                handleChangeToggleButton={handleChangeToggleButton}
+                                contactData={getData}
+                                setIsLoadedMessage={setIsLoadedMessage}
+                                editMsg={editorContentToEdit}
+                                isWhatsAppAuto={isWhatsAppAuto} // Pass state
+                                handleWhatsAppToggle={handleWhatsAppToggle} // Pass function
+                                setIsWhatsAppAuto={setIsWhatsAppAuto}
+                              />
                             ) : (
-                              <button
-                                onClick={handleLoadMore}
-                                className="btn  text-light   rounded-5   fw_500"
-                                style={{ backgroundColor: "#f58634" }}
-                              >
-                                Load More
-                              </button>
+                              <span></span>
                             )}
                           </div>
-                        </>
-                      )}
-
-                      <div ref={messagesEndRef}> </div>
-                    </div>
-
-                    <div className="chat-footer">
-                      <div className="chat-input-wrapper">
-                        <button
-                          aria-label="Close emojis"
-                          className="icons hidden"
-                          id="emoji-remove-icon"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            width="24"
-                            height="24"
-                            className="chat__input-icon"
-                          >
-                            <path
-                              fill="currentColor"
-                              d="M19.1 17.2l-5.3-5.3 5.3-5.3-1.8-1.8-5.3 5.4-5.3-5.3-1.8 1.7 5.3 5.3-5.3 5.3L6.7 19l5.3-5.3 5.3 5.3 1.8-1.8z"
-                            ></path>
-                          </svg>
-                        </button>
-                        <button
-                          aria-label="Choose GIF"
-                          className={`icons ${isActive ? "" : "hidden"}`}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            width="24"
-                            height="24"
-                            className="chat__input-icon"
-                          >
-                            <path
-                              fill="currentColor"
-                              d="M13.177 12.013l-.001-.125v-.541-.512c0-.464 0-.827-.002-1.178a.723.723 0 0 0-.557-.7.715.715 0 0 0-.826.4c-.05.115-.072.253-.073.403-.003 1.065-.003 1.917-.002 3.834v.653c0 .074.003.136.009.195a.72.72 0 0 0 .57.619c.477.091.878-.242.881-.734.002-.454.003-.817.002-1.633l-.001-.681zm-3.21-.536a35.751 35.751 0 0 0-1.651-.003c-.263.005-.498.215-.565.48a.622.622 0 0 0 .276.7.833.833 0 0 0 .372.104c.179.007.32.008.649.005l.137-.001v.102c-.001.28-.001.396.003.546.001.044-.006.055-.047.081-.242.15-.518.235-.857.275-.767.091-1.466-.311-1.745-1.006a2.083 2.083 0 0 1-.117-1.08 1.64 1.64 0 0 1 1.847-1.41c.319.044.616.169.917.376.196.135.401.184.615.131a.692.692 0 0 0 .541-.562c.063-.315-.057-.579-.331-.766-.789-.542-1.701-.694-2.684-.482-2.009.433-2.978 2.537-2.173 4.378.483 1.105 1.389 1.685 2.658 1.771.803.054 1.561-.143 2.279-.579.318-.193.498-.461.508-.803.014-.52.015-1.046.001-1.578-.009-.362-.29-.669-.633-.679zM18 4.25H6A4.75 4.75 0 0 0 1.25 9v6A4.75 4.75 0 0 0 6 19.75h12A4.75 4.75 0 0 0 22.75 15V9A4.75 4.75 0 0 0 18 4.25zM21.25 15A3.25 3.25 0 0 1 18 18.25H6A3.25 3.25 0 0 1 2.75 15V9A3.25 3.25 0 0 1 6 5.75h12A3.25 3.25 0 0 1 21.25 9v6zm-2.869-6.018H15.3c-.544 0-.837.294-.837.839V14.309c0 .293.124.525.368.669.496.292 1.076-.059 1.086-.651.005-.285.006-.532.004-1.013v-.045l-.001-.46v-.052h1.096l1.053-.001a.667.667 0 0 0 .655-.478c.09-.298-.012-.607-.271-.757a.985.985 0 0 0-.468-.122 82.064 82.064 0 0 0-1.436-.006h-.05l-.523.001h-.047v-1.051h1.267l1.22-.001c.458-.001.768-.353.702-.799-.053-.338-.35-.56-.737-.561z"
-                            ></path>
-                          </svg>
-                        </button>
-
-                        <button
-                          aria-label="Choose sticker"
-                          className={`icons ${isActive ? "" : "hidden"}`}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            width="24"
-                            height="24"
-                            className="chat__input-icon"
-                          >
-                            <path
-                              fill="currentColor"
-                              d="M21.799 10.183c-.002-.184-.003-.373-.008-.548-.02-.768-.065-1.348-.173-1.939a6.6 6.6 0 0 0-.624-1.87 6.24 6.24 0 0 0-1.171-1.594 6.301 6.301 0 0 0-1.614-1.159 6.722 6.722 0 0 0-1.887-.615c-.59-.106-1.174-.15-1.961-.171-.318-.008-3.607-.012-4.631 0-.798.02-1.383.064-1.975.17a6.783 6.783 0 0 0-1.888.616 6.326 6.326 0 0 0-2.785 2.753 6.658 6.658 0 0 0-.623 1.868c-.107.591-.152 1.186-.173 1.941-.008.277-.016 2.882-.016 2.882 0 .52.008 1.647.016 1.925.02.755.066 1.349.172 1.938.126.687.33 1.3.624 1.871.303.59.698 1.126 1.173 1.595a6.318 6.318 0 0 0 1.614 1.159 6.786 6.786 0 0 0 2.146.656c.479.068.833.087 1.633.108.035.001 2.118-.024 2.578-.035a6.873 6.873 0 0 0 4.487-1.811 210.877 210.877 0 0 0 2.928-2.737 6.857 6.857 0 0 0 2.097-4.528l.066-1.052.001-.668c.001-.023-.005-.738-.006-.755zm-3.195 5.92c-.79.757-1.784 1.684-2.906 2.716a5.356 5.356 0 0 1-2.044 1.154c.051-.143.116-.276.145-.433.042-.234.06-.461.067-.74.003-.105.009-.789.009-.789.013-.483.042-.865.107-1.22.069-.379.179-.709.336-1.016.16-.311.369-.595.621-.844.254-.252.542-.458.859-.617.314-.158.65-.268 1.037-.337a8.127 8.127 0 0 1 1.253-.106s.383.001.701-.003a4.91 4.91 0 0 0 .755-.066c.186-.034.348-.105.515-.169a5.35 5.35 0 0 1-1.455 2.47zm1.663-4.757a1.128 1.128 0 0 1-.615.859 1.304 1.304 0 0 1-.371.119 3.502 3.502 0 0 1-.52.043c-.309.004-.687.004-.687.004-.613.016-1.053.049-1.502.129a5.21 5.21 0 0 0-1.447.473 4.86 4.86 0 0 0-2.141 2.115 5.088 5.088 0 0 0-.479 1.434 9.376 9.376 0 0 0-.131 1.461s-.006.684-.008.777c-.006.208-.018.37-.043.511a1.154 1.154 0 0 1-.626.86c-.072.036-.168.063-.37.098-.027.005-.25.027-.448.031-.021 0-1.157.01-1.192.009-.742-.019-1.263-.046-1.668-.126a5.27 5.27 0 0 1-1.477-.479 4.823 4.823 0 0 1-2.127-2.1 5.141 5.141 0 0 1-.482-1.453c-.09-.495-.13-1.025-.149-1.71a36.545 36.545 0 0 1-.012-.847c-.003-.292.005-3.614.012-3.879.02-.685.061-1.214.151-1.712a5.12 5.12 0 0 1 .481-1.45c.231-.449.53-.856.892-1.213.363-.36.777-.657 1.233-.886a5.26 5.26 0 0 1 1.477-.479c.503-.09 1.022-.129 1.74-.149a342.03 342.03 0 0 1 4.561 0c.717.019 1.236.058 1.737.148a5.263 5.263 0 0 1 1.476.478 4.835 4.835 0 0 1 2.126 2.098c.228.441.385.913.482 1.453.091.499.131 1.013.15 1.712.008.271.014 1.098.014 1.235a2.935 2.935 0 0 1-.037.436z"
-                            ></path>
-                          </svg>
-                        </button>
-
-                        {canAdd ? (
-                          <CustomEditor
-                            fieldName="myField"
-                            text={editorContent}
-                            onChange={handleEditorChange}
-                            onSend={handleSend}
-                            isToggledButton={isToggledButton}
-                            handleChangeToggleButton={handleChangeToggleButton}
-                            contactData={getData}
-                            setIsLoadedMessage={setIsLoadedMessage}
-                            editMsg={editorContentToEdit}
-                            isWhatsAppAuto={isWhatsAppAuto} // Pass state
-                            handleWhatsAppToggle={handleWhatsAppToggle} // Pass function
-                            setIsWhatsAppAuto={setIsWhatsAppAuto}
-                          />
-                        ) : (
-                          <span></span>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <RightSideProfile
-                    isProfile={showProfile}
-                    closeChatAbout={() => setShowProfile(false)}
-                    getInfo={getData}
-                    deleteContact={() => setIsCloseConfirmation(true)}
-                    setIsCreateContact1={setIsCreateContact1}
-                  // handelRefreshMessages={handelRefreshMessages}
-                  />
+                      <RightSideProfile
+                        isProfile={showProfile}
+                        closeChatAbout={() => setShowProfile(false)}
+                        getInfo={getData}
+                        deleteContact={() => setIsCloseConfirmation(true)}
+                        setIsCreateContact1={setIsCreateContact1}
+                      // handelRefreshMessages={handelRefreshMessages}
+                      />
+                    </>
+                  )}
+                  {showVisits && (
+                    <Visitsview
+                      isVisitView={showVisits}
+                      closeVisitView={() => {
+                        setShowVisits(false);
+                      }}
+                      contactId={getData?.id}
+                      contactName={getData?.person_name}
+                      setRefreshVisit={() => setRefreshVisit(true)}
+                    />
+                  )}
+                  {showTasks && (
+                    <ContactTaskListView
+                      isTaskManagementView={showTasks}
+                      closeTaskManagementView={() => {
+                        setShowTasks(false);
+                        setSelectedContactTask(null);
+                      }}
+                      supportTicketFlag={0}
+                      contactId={getData?.id}
+                      contactName={getData?.person_name}
+                      onSelectTask={(task) => setSelectedContactTask(task)}
+                      selectedTaskId={selectedContactTask?.id}
+                    />
+                  )}
+                  {showTickets && (
+                    <ContactTaskListView
+                      isTaskManagementView={showTickets}
+                      closeTaskManagementView={() => {
+                        setShowTickets(false);
+                        setSelectedContactTask(null);
+                      }}
+                      supportTicketFlag={1}
+                      contactId={getData?.id}
+                      contactName={getData?.person_name}
+                      onSelectTask={(task) => setSelectedContactTask(task)}
+                      selectedTaskId={selectedContactTask?.id}
+                    />
+                  )}
                 </>
               ) : (
                 <div className="Intro-Left" id="Intro-Left">
@@ -6457,7 +6516,6 @@ const RightView = ({
               setTargetVsIncentiveList={setTargetVsIncentiveList}
               setLoading={setLoading}
               headerName="Create Task"
-              setRefreshProduct={setRefreshProduct}
               productToEdit={undefined}
               messageId={taskData.messageId}
               messageDescription={taskData.messageDescription}
@@ -6732,36 +6790,6 @@ const RightView = ({
                 getInfo={getData}
               />
             </>
-          )}
-          {showVisits && (
-            <Visitsview
-              isVisitView={showVisits}
-              closeVisitView={() => {
-                setShowVisits(false);
-                // setshowSetting(true);
-              }}
-              contactId={getData?.id}
-              contactName={getData?.person_name}
-              setRefreshVisit={() => setRefreshVisit(true)}
-            />
-          )}
-          {showTasks && (
-            <ContactTaskListView
-              isTaskManagementView={showTasks}
-              closeTaskManagementView={() => setShowTasks(false)}
-              supportTicketFlag={0}
-              contactId={getData?.id}
-              contactName={getData?.person_name}
-            />
-          )}
-          {showTickets && (
-            <ContactTaskListView
-              isTaskManagementView={showTickets}
-              closeTaskManagementView={() => setShowTickets(false)}
-              supportTicketFlag={1}
-              contactId={getData?.id}
-              contactName={getData?.person_name}
-            />
           )}
 
           {isModalVisible && (
