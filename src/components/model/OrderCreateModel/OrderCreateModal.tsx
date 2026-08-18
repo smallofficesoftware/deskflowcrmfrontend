@@ -3883,12 +3883,41 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     const transport_charge_gst =
       Number(transportCharge) * (TRANSPORT_CHARGE__GST / 100);
 
+    const baseGst =
+      totalGst + packing_forwarding_charge_gst + transport_charge_gst;
+
+    const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+    const transportChargeValue = parseFloat(transportCharge as string) || 0;
+    const grossTaxableAmount =
+      totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+    let discountRatio = 0;
+    if ((Number(cashDiscount) || 0) > 0 && grossTaxableAmount > 0) {
+      if (cashDiscountType === "percentage") {
+        discountRatio = Math.min((Number(cashDiscount) || 0) / 100, 1);
+      } else {
+        discountRatio = Math.min(
+          (Number(cashDiscount) || 0) / grossTaxableAmount,
+          1,
+        );
+      }
+    }
+
     const gstFinal = isGstActive
-      ? totalGst + packing_forwarding_charge_gst + transport_charge_gst
+      ? Math.max(0, baseGst * (1 - discountRatio))
       : 0;
 
     setGstAmount(gstFinal);
-  }, [isGstActive, totalGst, packingForwardingCharge, transportCharge]);
+  }, [
+    isGstActive,
+    totalGst,
+    packingForwardingCharge,
+    transportCharge,
+    totalAmount,
+    showDiscount,
+    cashDiscount,
+    cashDiscountType,
+  ]);
 
   useEffect(() => {
     const total = taxAbleAmount + gstAmount + tcsAmount;
@@ -6470,8 +6499,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
 
     if (cashDiscountType === "flat") {
-      if (discountValue > taxAbleAmount) {
-        toast.error("Cash Discount cannot be greater than Taxable Amount");
+      const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+      const transportChargeValue = parseFloat(transportCharge as string) || 0;
+      const grossTaxableAmount =
+        totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+      if (discountValue > grossTaxableAmount) {
+        toast.error("Cash Discount cannot be greater than Gross Taxable Amount");
         return;
       }
     }
