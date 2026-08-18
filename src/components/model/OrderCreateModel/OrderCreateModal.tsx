@@ -50,6 +50,7 @@ import {
 import {
   handleConvertIntoDispath,
   handleConvertIntoInvoice,
+  handleConvertIntoProforma,
   handleConvertIntoInward,
   handleConvertIntoOrder,
   handleConvertIntoPurchaseInvoice,
@@ -332,6 +333,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     isConvertIntoInvoiceConfirmation,
     setIsConvertIntoInvoiceConfirmation,
   ] = useState(false);
+  const [isConvertIntoProformaConfirmation, setIsConvertIntoProformaConfirmation] =
+    useState(false);
 
   const [
     isConvertIntoDisPatchConfirmation,
@@ -485,7 +488,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (isConversionSuccess && isOrderShowNum == 1) {
-      setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+      if (conversionType === "proforma") {
+        setnewOrderShowNumAfterConversion(12); // 1 = quotation => 12 = proforma invoice
+      } else if (conversionType === "invoice") {
+        setnewOrderShowNumAfterConversion(3); // 1 = quotation => 3 = sales invoice
+      } else {
+        setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+      }
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
@@ -3888,12 +3897,41 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     const transport_charge_gst =
       Number(transportCharge) * (TRANSPORT_CHARGE__GST / 100);
 
+    const baseGst =
+      totalGst + packing_forwarding_charge_gst + transport_charge_gst;
+
+    const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+    const transportChargeValue = parseFloat(transportCharge as string) || 0;
+    const grossTaxableAmount =
+      totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+    let discountRatio = 0;
+    if ((Number(cashDiscount) || 0) > 0 && grossTaxableAmount > 0) {
+      if (cashDiscountType === "percentage") {
+        discountRatio = Math.min((Number(cashDiscount) || 0) / 100, 1);
+      } else {
+        discountRatio = Math.min(
+          (Number(cashDiscount) || 0) / grossTaxableAmount,
+          1,
+        );
+      }
+    }
+
     const gstFinal = isGstActive
-      ? totalGst + packing_forwarding_charge_gst + transport_charge_gst
+      ? Math.max(0, baseGst * (1 - discountRatio))
       : 0;
 
     setGstAmount(gstFinal);
-  }, [isGstActive, totalGst, packingForwardingCharge, transportCharge]);
+  }, [
+    isGstActive,
+    totalGst,
+    packingForwardingCharge,
+    transportCharge,
+    totalAmount,
+    showDiscount,
+    cashDiscount,
+    cashDiscountType,
+  ]);
 
   useEffect(() => {
     const total = taxAbleAmount + gstAmount + tcsAmount;
@@ -5751,6 +5789,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (canEditOrder) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("order");
       setIsConvetIntoOrderConfirmation(true);
     } else {
       setIsConvetIntoOrderConfirmation(false);
@@ -5769,6 +5808,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
+  const handleModalConvertIntoProforma = (id: number, number: string) => {
+    if (canApproveProfomaInvoice || canEditProfomaInvoice) {
+      setConverCartId(id);
+      setConvertCartNumber(number);
+      setIsConvertIntoProformaConfirmation(true);
+      setConversionType("proforma");
+    } else {
+      setIsConvertIntoProformaConfirmation(false);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
   const handleModalConvertIntoDisPatch = (id: number, number: string) => {
     if (canEditDispatch) {
       setConverCartId(id);
@@ -6565,8 +6616,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
 
     if (cashDiscountType === "flat") {
-      if (discountValue > taxAbleAmount) {
-        toast.error("Cash Discount cannot be greater than Taxable Amount");
+      const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+      const transportChargeValue = parseFloat(transportCharge as string) || 0;
+      const grossTaxableAmount =
+        totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+      if (discountValue > grossTaxableAmount) {
+        toast.error("Cash Discount cannot be greater than Gross Taxable Amount");
         return;
       }
     }
@@ -7056,6 +7112,64 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 onMouseEnter={(e) =>
                                   showTooltip(
                                     `Convert to ${dynamicSalesOrderTitle}`,
+                                    e,
+                                  )
+                                }
+                                onMouseLeave={hideTooltip}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="30px"
+                                  viewBox="0 -960 960 960"
+                                  width="30px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M400-280h160v-80H400v80Zm0-160h280v-80H400v80ZM280-600h400v-80H280v80Zm200 120ZM80-80v-80h102q-48-23-77.5-68T75-330q0-79 55.5-134.5T265-520v80q-45 0-77.5 32T155-330q0 39 24 69t61 38v-97h80v240H80Zm320-40v-80h360v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H400Z" />
+                                </svg>
+                              </span>
+                            )}
+                          {orderTypesNameFind == "Quotation" &&
+                            cartnumber != "" && (
+                              <span
+                                className="close px-2"
+                                onClick={() =>
+                                  handleModalConvertIntoProforma(
+                                    cartId,
+                                    cartnumber,
+                                  )
+                                }
+                                onMouseEnter={(e) =>
+                                  showTooltip(
+                                    `Convert to ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}`,
+                                    e,
+                                  )
+                                }
+                                onMouseLeave={hideTooltip}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="30px"
+                                  viewBox="0 -960 960 960"
+                                  width="30px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M400-280h160v-80H400v80Zm0-160h280v-80H400v80ZM280-600h400v-80H280v80Zm200 120ZM80-80v-80h102q-48-23-77.5-68T75-330q0-79 55.5-134.5T265-520v80q-45 0-77.5 32T155-330q0 39 24 69t61 38v-97h80v240H80Zm320-40v-80h360v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H400Z" />
+                                </svg>
+                              </span>
+                            )}
+                          {orderTypesNameFind == "Quotation" &&
+                            cartnumber != "" && (
+                              <span
+                                className="close px-2"
+                                onClick={() =>
+                                  handleModalConvertIntoInvoice(
+                                    cartId,
+                                    cartnumber,
+                                  )
+                                }
+                                onMouseEnter={(e) =>
+                                  showTooltip(
+                                    `Convert to ${dynamicSalesInvoiceTitle}`,
                                     e,
                                   )
                                 }
@@ -9152,7 +9266,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     </td>
                                   </tr>
                                   <tr>
-                                    {/* <td
+                                    <td
                                       colSpan={footerBaseColSpan}
                                       className="order-text"
                                     >
@@ -9220,7 +9334,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         value={cashDiscount}
                                         onChange={handleCashDiscount}
                                       />
-                                    </td> */}
+                                    </td>
                                     {customFormListProduct.map((field) => (
                                       <th
                                         key={field.reference_column_name}
@@ -11376,6 +11490,26 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         />
       )}
 
+      {isConvertIntoProformaConfirmation && (
+        <ConfirmationModal
+          show={isConvertIntoProformaConfirmation}
+          onHide={() => setIsConvertIntoProformaConfirmation(false)}
+          handleSubmit={() => {
+            handleConvertIntoProforma(
+              converCartId,
+              convertCartNumber,
+              setIsConvertIntoProformaConfirmation,
+              setRefreshCarts,
+              setIsConversionSuccess,
+              setConverCartId,
+            );
+          }}
+          title={`Convert to ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}`}
+          message={`Are you sure you want to Convert this ${dynamicTitle} Into ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}?`}
+          btn1="CANCEL"
+          btn2="Apply"
+        />
+      )}
       {isConvetIntoOrderConfirmation && (
         <ConfirmationModal
           show={isConvetIntoOrderConfirmation}

@@ -863,7 +863,7 @@ const ProductionDashboardView = ({
                             <Col md={4} key={idx}>
                               <Card
                                 className="text-end h-100"
-                                style={{ borderRadius: 0, cursor: "pointer" }}
+                                style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer" }}
                                 // onClick={item.onClick}
                               >
                                 <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
@@ -899,6 +899,9 @@ const ProductionDashboardView = ({
                         style={{
                           display: "flex",
                           flexDirection: "column",
+                          borderRadius: "10px",
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)",
                         }}
                       >
                         <Card.Body
@@ -1016,7 +1019,7 @@ const ProductionDashboardView = ({
                     <Col md={6}>
                       <Card
                         className="text-center"
-                        style={{ height: "100%", borderRadius: "0px" }}
+                        style={{ height: "100%", borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)" }}
                       >
                         <Card.Body>
                           <div
@@ -1077,7 +1080,7 @@ const ProductionDashboardView = ({
                     <Col md={6}>
                       <Card
                         className="text-center"
-                        style={{ height: "100%", borderRadius: "0px" }}
+                        style={{ height: "100%", borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)" }}
                       >
                         <Card.Body>
                           <div

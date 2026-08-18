@@ -455,7 +455,7 @@ const AccountCreaditReport = ({
       const match = txn.amountwithcurrency?.match(
         /^([^\d\s]*[\s]*)?([\d,]+\.?\d*)/,
       );
-      const symbol = match?.[1]?.trim() || "₹";
+      const symbol = match?.[1]?.trim() || "";
       const numericValue = parseFloat(match?.[2]?.replace(/,/g, "") || "0");
 
       if (!acc.symbol && symbol && !/^\d+$/.test(symbol)) {
@@ -464,7 +464,7 @@ const AccountCreaditReport = ({
 
       return { total: acc.total + numericValue, symbol: acc.symbol || symbol };
     },
-    { total: 0, symbol: "₹" },
+    { total: 0, symbol: "" },
   );
 
   const { total: finalBalance, symbol: balanceSymbol } = totalCreditAmount;
@@ -690,6 +690,19 @@ const AccountCreaditReport = ({
       return row;
     });
 
+        tableData.push({
+      ID: "Total Credit Balance",
+      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No credit transactions available", 10, 10);
@@ -713,6 +726,11 @@ const AccountCreaditReport = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Credit Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`credit_report_${Date.now()}.pdf`);
@@ -777,6 +795,19 @@ const AccountCreaditReport = ({
         return row;
       });
 
+            exportData.push({
+        ID: "Total Credit Balance",
+        "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
+      });
+
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
 
@@ -839,7 +870,7 @@ const AccountCreaditReport = ({
             </tbody>
           </table>
           <div style="margin-top: 30px; text-align: right; font-weight: bold;">
-            Total Credit: ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)
+            Total Credit: ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)
           </div>
         </body>
       </html>

@@ -2575,6 +2575,23 @@ ${printSetting?.setting_details.productImageinColumn &&
                                       orderPrintById?.cart.transport_charge > 0,
                                   },
                                   {
+                                    key: "cash_discount",
+                                    label:
+                                      orderPrintById?.cart.cash_discount_type == 1
+                                        ? `Cash Discount (${orderPrintById?.cart.cash_discount}%)`
+                                        : "Cash Discount",
+                                    value: (() => {
+                                      if (orderPrintById?.cart.cash_discount_type == 1) {
+                                        const packing = Number(orderPrintById?.cart.packing_forwarding_charge) || 0;
+                                        const transport = Number(orderPrintById?.cart.transport_charge) || 0;
+                                        const total = Number(orderPrintById?.cart.total_amt) || 0;
+                                        return ((total + packing + transport) * Number(orderPrintById?.cart.cash_discount)) / 100;
+                                      }
+                                      return orderPrintById?.cart.cash_discount;
+                                    })(),
+                                    condition: Number(orderPrintById?.cart.cash_discount || 0) > 0,
+                                  },
+                                  {
                                     key: "taxable",
                                     label: "Total Taxable Amount",
                                     value:

@@ -261,9 +261,7 @@ const UpperView = ({ profileDetail }: IProp) => {
             <div
                 style={{
                     height: "8vh",
-                    background: "#4C4C4C",
-                    borderBottom: "1px solid #3d3d3d",
-                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+                    background: "#ffffff",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -281,71 +279,69 @@ const UpperView = ({ profileDetail }: IProp) => {
                     }}
                 >
                     <button
-                        className="btn ms-1 rounded-pill fw_500 d-flex align-items-center"
-                        style={{ background: "rgba(255, 255, 255, 0.1)", border: "1px solid rgba(255, 255, 255, 0.18)", color: "#ffffff", fontSize: "13px", padding: "6px 14px", transition: "0.2s" }}
+                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
                         onClick={() => addReminder()}
                     >
-                        <span className="d-flex align-items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
-                            <span>
+                            <span className="contact-btn-search-text">
+
                                 Add Reminder
                             </span>
                         </span>
 
                     </button>
                     <button
-                        className="btn ms-1 rounded-pill fw_500 d-flex align-items-center"
-                        style={{ background: "rgba(255, 255, 255, 0.1)", border: "1px solid rgba(255, 255, 255, 0.18)", color: "#ffffff", fontSize: "13px", padding: "6px 14px", transition: "0.2s" }}
+                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
                         onClick={() => handleChangeAddContact()}
                     >
-                        <span className="d-flex align-items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
-                            <span>
+                            <span className="contact-btn-search-text">
+
                                 Add Contact
                             </span>
                         </span>
                     </button>
                     <button
-                        className="btn ms-1 rounded-pill fw_500 d-flex align-items-center"
-                        style={{ background: "rgba(255, 255, 255, 0.1)", border: "1px solid rgba(255, 255, 255, 0.18)", color: "#ffffff", fontSize: "13px", padding: "6px 14px", transition: "0.2s" }}
+                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
                         onClick={() => openCreateTask(0)}
                     >
-                        <span className="d-flex align-items-center gap-1">
+                        <span>
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                height="18px"
+                                height="20px"
                                 viewBox="0 -960 960 960"
-                                width="18px"
-                                fill="#f58634"
+                                width="20px"
+                                fill="#6f6f6f"
                             >
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
 
-                            <span>Add Task</span>
+                            <span className="contact-btn-search-text">Add Task</span>
                         </span>
                     </button>
 
                     <button
-                        className="btn ms-1 rounded-pill fw_500 d-flex align-items-center"
-                        style={{ background: "rgba(255, 255, 255, 0.1)", border: "1px solid rgba(255, 255, 255, 0.18)", color: "#ffffff", fontSize: "13px", padding: "6px 14px", transition: "0.2s" }}
+                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
                         onClick={() => openCreateTask(1)}
                     >
-                        <span className="d-flex align-items-center gap-1">
+                        <span>
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                height="18px"
+                                height="20px"
                                 viewBox="0 -960 960 960"
-                                width="18px"
-                                fill="#f58634"
+                                width="20px"
+                                fill="#6f6f6f"
                             >
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
 
-                            <span>Add Support Ticket</span>
+                            <span className="contact-btn-search-text">Add Support Ticket</span>
                         </span>
                     </button>
                 </div>
@@ -466,13 +462,13 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 flexDirection: "column",
                                 justifyContent: "center",
                             }}>
-                                <p style={{ marginBottom: "0", fontSize: "14px", color: "#ffffff", fontWeight: 500 }}>{profileDetail?.username}</p>
+                                <p style={{ marginBottom: "0", fontSize: "14px" }}>{profileDetail?.username}</p>
                             </div>
                             <div className="message">
                                 {profileDetail?.registration_flag != "1" ? (
-                                    <p style={{ fontSize: "14px", color: "#d1d5db", marginBottom: 0 }}>{profileDetail?.recovery_mobile}</p>
+                                    <p style={{ fontSize: "14px" }}>{profileDetail?.recovery_mobile}</p>
                                 ) : (
-                                    <p style={{ fontSize: "14px", color: "#d1d5db", marginBottom: 0 }}>{profileDetail?.recovery_email}</p>
+                                    <p style={{ fontSize: "14px" }}>{profileDetail?.recovery_email}</p>
                                 )}
                             </div>
                         </div>

@@ -50,6 +50,7 @@ import {
   handleChangeStatusOfReminderCompleted,
   handleConvertIntoDispath,
   handleConvertIntoInvoice,
+  handleConvertIntoProforma,
   handleConvertIntoInward,
   handleConvertIntoOrder,
   handleConvertIntoPurchaseInvoice,
@@ -148,6 +149,8 @@ const ListOrderView = ({
     isConvertIntoInvoiceConfirmation,
     setIsConvertIntoInvoiceConfirmation,
   ] = useState(false);
+  const [isConvertIntoProformaConfirmation, setIsConvertIntoProformaConfirmation] =
+    useState(false);
   const [
     isConvertIntoDisPatchConfirmation,
     setIsConvertIntoDisPatchConfirmation,
@@ -251,6 +254,10 @@ const ListOrderView = ({
   );
   const canAddInv = useCheckUserPermission(
     PAGE_ID.INVOICE,
+    PERMISSION_TYPE.ADD,
+  );
+  const canAddProforma = useCheckUserPermission(
+    PAGE_ID.PROFOMA_INVOICE,
     PERMISSION_TYPE.ADD,
   );
   const canAddPurchase = useCheckUserPermission(
@@ -1181,6 +1188,7 @@ const ListOrderView = ({
     if (canAddOrder) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("order");
       setIsConvetIntoOrderConfirmation(true);
       setOrderDropdownOpen(null);
     } else {
@@ -1198,11 +1206,26 @@ const ListOrderView = ({
       setOrderDropdownOpen(null);
     } else {
       setIsConvertIntoInvoiceConfirmation(false);
+    setIsConvertIntoProformaConfirmation(false);
 
       setOrderDropdownOpen(null);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
+  const handleModalConvertIntoProforma = (id: number, number: string) => {
+    if (canAddProforma) {
+      setConverCartId(id);
+      setConvertCartNumber(number);
+      setConversionType("proforma");
+      setIsConvertIntoProformaConfirmation(true);
+      setOrderDropdownOpen(null);
+    } else {
+      setIsConvertIntoProformaConfirmation(false);
+      setOrderDropdownOpen(null);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
   const handleModalConvertDispatchIntoInvoice = (
     id: number,
     number: string,
@@ -1318,7 +1341,13 @@ const ListOrderView = ({
 
   useEffect(() => {
     if (isConversionSuccess && isOrderShowNum === 1) {
-      setnewOrderShowNumAfterConversion(2);
+      if (conversionType === "proforma") {
+        setnewOrderShowNumAfterConversion(12);
+      } else if (conversionType === "invoice") {
+        setnewOrderShowNumAfterConversion(3);
+      } else {
+        setnewOrderShowNumAfterConversion(2);
+      }
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 2 &&
@@ -2776,6 +2805,40 @@ const ListOrderView = ({
                           ) : (
                             <span></span>
                           )}
+                          {item.type === 1 && item.cart_number ? (
+                            <li
+                              style={{ height: "auto" }}
+                              className="listItem"
+                              role="button"
+                              onClick={() =>
+                                handleModalConvertIntoProforma(
+                                  item.id,
+                                  item.cart_number,
+                                )
+                              }
+                            >
+                              Convert to {dynamicProformaInvoice}
+                            </li>
+                          ) : (
+                            <span></span>
+                          )}
+                          {item.type === 1 && item.cart_number ? (
+                            <li
+                              style={{ height: "auto" }}
+                              className="listItem"
+                              role="button"
+                              onClick={() =>
+                                handleModalConvertIntoInvoice(
+                                  item.id,
+                                  item.cart_number,
+                                )
+                              }
+                            >
+                              Convert to {dynamicInvoice}
+                            </li>
+                          ) : (
+                            <span></span>
+                          )}
                           {item.type === 2 && item.cart_number ? (
                             <li
                               style={{ height: "auto" }}
@@ -3489,6 +3552,26 @@ const ListOrderView = ({
           btn2="Complete Reminder Now"
           message1={`Reminder Date : ${reminderData && formatDateAndTime(reminderData.reminder_data_time)
             }`}
+        />
+      )}
+      {isConvertIntoProformaConfirmation && (
+        <ConfirmationModal
+          show={isConvertIntoProformaConfirmation}
+          onHide={handleConversionModalHide}
+          handleSubmit={() =>
+            handleConvertIntoProforma(
+              converCartId,
+              convertCartNumber,
+              setIsConvertIntoProformaConfirmation,
+              setRefreshCarts,
+              setIsConversionSuccess,
+              setNewlyCreatedCartId,
+            )
+          }
+          title={`Convert to ${dynamicProformaInvoice}`}
+          message={`Are you sure you want to Convert this ${dynamicQuotation} Into ${dynamicProformaInvoice}?`}
+          btn1="CANCEL"
+          btn2="Apply"
         />
       )}
       {isConvetIntoOrderConfirmation && (

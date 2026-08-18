@@ -209,31 +209,7 @@ const TeamPerformanceReports = ({
     }
   }, []);
 
-  const [columnTotals, setColumnTotals] = useState({
-    contactCount: 0,
-    inquiryCount: 0,
-    dueTaskCount: 0,
-    dueSupportTicketCount: 0,
-    quotationCount: 0,
-    quotationAmount: 0,
-    orderCount: 0,
-    orderAmount: 0,
-    sellInvoiceCount: 0,
-    sellInvoiceAmount: 0,
-    purchaseOrderCount: 0,
-    purchaseOrderAmount: 0,
-    purchaseInvoiceCount: 0,
-    purchaseInvoiceAmount: 0,
-    visitCount: 0,
-    expenseRequested: 0,
-    expensePassed: 0,
-    pendingReminder: 0,
-    creditCount: 0,
-    creditAmount: 0,
-    debitCount: 0,
-    debitAmount: 0,
-    currencySymbol: "",
-  });
+  
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
@@ -359,22 +335,22 @@ const TeamPerformanceReports = ({
     debouncedSearchText,
   ]);
 
-  useEffect(() => {
-    const parseValue = (value: any): number => {
-      if (!value) return 0;
-      // Remove currency symbols, spaces, and commas, then convert to number
-      const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
-      const parsed = parseFloat(cleaned);
-      return isNaN(parsed) ? 0 : parsed;
-    };
+  const parseValue = (value: any): number => {
+    if (!value) return 0;
+    // Remove currency symbols, spaces, and commas, then convert to number
+    const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
-    const extractCurrencySymbol = (value: any): string => {
-      if (!value) return "";
-      const str = String(value);
-      const match = str.match(/[₹$€£¥]/);
-      return match ? match[0] + " " : "";
-    };
+  const extractCurrencySymbol = (value: any): string => {
+    if (!value) return "";
+    const str = String(value);
+    const match = str.match(/[₹$€£¥]/);
+    return match ? match[0] + " " : "";
+  };
 
+  const columnTotals = useMemo(() => {
     // Get currency symbol from first item (assuming all amounts use same currency)
     const currencySymbol =
       customers.length > 0
@@ -446,7 +422,7 @@ const TeamPerformanceReports = ({
         currencySymbol: "",
       },
     );
-    setColumnTotals(totals);
+    return totals;
   }, [customers]);
 
   useEffect(() => {
@@ -1121,6 +1097,33 @@ const TeamPerformanceReports = ({
         return row;
       });
 
+      const exportRowsSource =
+        selectedCustomers.length > 0 ? selectedCustomers : allContacts;
+      excelRows.push({
+        "Team Member": "Total",
+        "New Contacts": exportRowsSource.reduce((sum, c) => sum + parseValue(c.contactCount), 0),
+        Inquiry: exportRowsSource.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0),
+        [`${quotationTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0),
+        [`${quotationTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0),
+        [`${orderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.count), 0),
+        [`${orderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.amount), 0),
+        [`${invoiceTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0),
+        [`${invoiceTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0),
+        [`${purchaseOrderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0),
+        [`${purchaseOrderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0),
+        [`${purchaseTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0),
+        [`${purchaseTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0),
+        Visits: exportRowsSource.reduce((sum, c) => sum + parseValue(c.visitCount), 0),
+        "Expense Passed": exportRowsSource.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0),
+        "Pending Reminder Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0),
+        "Total Due Task": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0),
+        "Total Due Support Ticket": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0),
+        "Credit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0),
+        "Credit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0),
+        "Debit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0),
+        "Debit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0),
+      });
+
       const worksheet = xlsx.utils.json_to_sheet(excelRows);
       worksheet["!cols"] = Object.keys(excelRows[0]).map(() => ({
         wch: 25,
@@ -1210,6 +1213,25 @@ const TeamPerformanceReports = ({
             )
             .join("")}
         </tbody>
+        <tfoot>
+          <tr style="font-weight: bold; background-color: #f2f2f2;">
+            <td>Total</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.contactCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.visitCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0)})</td>
+          </tr>
+        </tfoot>
       </table>
     </body>
   </html>

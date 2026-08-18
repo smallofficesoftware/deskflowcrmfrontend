@@ -1475,6 +1475,7 @@ const AllTaskReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
+
   const exportExcel = async () => {
     try {
       setLoading(true);

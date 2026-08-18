@@ -21,6 +21,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
@@ -106,6 +107,7 @@ const AllAccountReports = ({
   const [hasMore, setHasMore] = useState(true);
   const currentOffset = useRef(0);
   const [actionType, setActionType] = useState<string>("");
+  const [isModalExcelVisible, setIsModalExcelVisible] = useState<boolean>(false);
 
   const [lazyState, setLazyState] = useState<LazyState>({
     first: 0,
@@ -251,6 +253,18 @@ const AllAccountReports = ({
     PAGE_ID.ACCOUNT_HISTORY,
     PERMISSION_TYPE.PRINT,
   );
+
+  const canImportReport = useCheckUserPermission(
+    PAGE_ID.ALLACCOUNTTRANSCTION_REPORT,
+    PERMISSION_TYPE.IMPORT,
+  );
+
+  const canImportAccount = useCheckUserPermission(
+    PAGE_ID.ACCOUNT_HISTORY,
+    PERMISSION_TYPE.IMPORT,
+  );
+
+  const canImport = canImportReport || canImportAccount;
 
   const dt = useRef<DataTable<IAccountTransaction[]>>(null);
 
@@ -743,6 +757,19 @@ const AllAccountReports = ({
       return row;
     });
 
+        tableData.push({
+      ID: "Closing Balance",
+      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No data available", 10, 10);
@@ -766,6 +793,11 @@ const AllAccountReports = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Transactions Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`account_transactions_${Date.now()}.pdf`);
@@ -831,6 +863,19 @@ const AllAccountReports = ({
           row[col.label] = getExportCellValue(col, txn);
         });
         return row;
+      });
+
+            exportData.push({
+        ID: "Closing Balance",
+        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
       });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
@@ -1121,6 +1166,21 @@ const AllAccountReports = ({
                     <i className="pi pi-print" style={{ marginRight: "4px" }} />
                     Print
                   </li>
+                  <li
+                    className="listItem text-start"
+                    role="button"
+                    onClick={() => {
+                      setIsExportDropdownOpen(false);
+                      if (canImport) {
+                        setIsModalExcelVisible(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                  >
+                    <i className="pi pi-file-import" style={{ marginRight: "4px" }} />
+                    Import Transaction
+                  </li>
                 </ul>
               </div>
 
@@ -1339,6 +1399,22 @@ const AllAccountReports = ({
           selectedWarehouseIds={filters.selectedWarehouseIds}
           initialReferenceWiseContact={filters.referenceWiseContact}
           isApplyReport={1}
+        />
+      )}
+      {isModalExcelVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelVisible}
+          onHide={() => setIsModalExcelVisible(false)}
+          handleSubmit={() => {
+            setIsModalExcelVisible(false);
+            loadAccountData(0, 50, true);
+          }}
+          title={"Import Excel For Account Transaction"}
+          message={"Please Import excel as per sample excel"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation="sampleAccountTransaction.xlsx"
+          potions={8}
         />
       )}
     </div>

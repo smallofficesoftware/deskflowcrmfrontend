@@ -447,7 +447,7 @@ const AccountDebitReport = ({
       const match = txn.amountwithcurrency?.match(
         /^([^\d\s]*[\s]*)?([\d,]+\.?\d*)/,
       );
-      const symbol = match?.[1]?.trim() || "₹";
+      const symbol = match?.[1]?.trim() || "";
       const numericValue = parseFloat(match?.[2]?.replace(/,/g, "") || "0");
 
       if (!acc.symbol && symbol && !/^\d+$/.test(symbol)) {
@@ -456,7 +456,7 @@ const AccountDebitReport = ({
 
       return { total: acc.total + numericValue, symbol: acc.symbol || symbol };
     },
-    { total: 0, symbol: "₹" },
+    { total: 0, symbol: "" },
   );
 
   const { total: finalBalance, symbol: balanceSymbol } = totalDebitAmount;
@@ -682,6 +682,19 @@ const AccountDebitReport = ({
       return row;
     });
 
+        tableData.push({
+      ID: "Total Debit Balance",
+      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
+
     if (tableData.length === 0) {
       const doc = new jsPDF();
       doc.text("No debit transactions available", 10, 10);
@@ -705,6 +718,11 @@ const AccountDebitReport = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Debit Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`debit_report_${Date.now()}.pdf`);
@@ -753,7 +771,6 @@ const AccountDebitReport = ({
   //      // Is_Active: txn.isActive === 1 ? "Yes" : "No",
   //    }));
 
-  //    const worksheet = xlsx.utils.json_to_sheet(exportData);
   //    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
 
   //    const excelBuffer = xlsx.write(workbook, {
@@ -864,7 +881,7 @@ const AccountDebitReport = ({
             </tbody>
           </table>
           <div style="margin-top: 30px; text-align: right; font-weight: bold;">
-            Total Debit: ${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)
+            Total Debit: ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)
           </div>
         </body>
       </html>

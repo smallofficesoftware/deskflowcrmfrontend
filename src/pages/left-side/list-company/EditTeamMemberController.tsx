@@ -21,6 +21,8 @@ export interface ITeamMember {
   pan_card_number?: string;
   date_of_joining?: string;
   employee_pf_no?: string;
+  daily_in_time?: string;
+  daily_out_time?: string;
 }
 
 export interface IAttendanceSalary {

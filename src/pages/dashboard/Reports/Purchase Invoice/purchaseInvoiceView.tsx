@@ -24,6 +24,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -32,8 +33,10 @@ import {
   useColumnPreferences,
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import useMiracleFlagStore from "../../../../store/miracle/useMiracleFlagStore";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
+import { syncMiracleInvoice } from "../../../right-side/list-order/ListOrderController";
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
@@ -156,6 +159,8 @@ const TeamPurchaseInvoiceDataReportsView = ({
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
 
+  const [isSyncConfirmationOpen, setIsSyncConfirmationOpen] = useState(false);
+
   const filters = getFilter("purchase_invoice");
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
@@ -259,6 +264,10 @@ const TeamPurchaseInvoiceDataReportsView = ({
   const handleHide = () => {
     console.log("handleHide called");
   };
+
+  const isFeatureEnabled = useMiracleFlagStore(
+    (state) => state.isFeatureEnabled,
+  );
 
   const flattenCartData = (cartData: any): IFlatCartItem[] => {
     if (!cartData || !Array.isArray(cartData.item)) return [];
@@ -674,6 +683,24 @@ const TeamPurchaseInvoiceDataReportsView = ({
       return rowData;
     });
 
+        const totalsRow = {
+      ...(showProductDetails && { product_details: "" }),
+      cart_number: "Total",
+      to_customer_name: "",
+      to_customer_phone: "",
+      
+      username: "",
+      cart_status: "",
+      created_date_time: "",
+      update_Date_time: "",
+      taxable_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      gst_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      tcs_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      round_off: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      grand_total: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+    };
+    tableData.push(totalsRow as any);
+
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
@@ -715,6 +742,11 @@ const TeamPurchaseInvoiceDataReportsView = ({
       margin: { top: 20 },
       didDrawPage: (data: any) => {
         doc.text(`${title} Report`, data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
 
@@ -812,6 +844,27 @@ const TeamPurchaseInvoiceDataReportsView = ({
 
         return row;
       });
+
+            const exportSource = selectedCustomers.length > 0 ? selectedCustomers : exportData;
+      const totalRow: any = {
+        ...(showProductDetails && { "Product Details": "" }),
+        "Purchase Invoice Number": "Total",
+        "Approval Status": "",
+        "Company Name": "",
+        "Customer Name": "",
+        "Customer Phone": "",
+        
+        "Created By": "",
+        Status: "",
+        "Created Date Time": "",
+        "Approve Date Time": "",
+        [`Taxable_Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Grand Total (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      };
+      excelRows.push(totalRow);
 
       const ws = xlsx.utils.json_to_sheet(excelRows);
       const wb = xlsx.utils.book_new();
@@ -915,6 +968,25 @@ const TeamPurchaseInvoiceDataReportsView = ({
         )
         .join("")}
           </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #f2f2f2;">
+              ${showProductDetails ? `<td></td>` : ""}
+              <td>Total</td>
+              <td></td>
+              <td></td>
+              ${''}
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              ${uniqueCustomFields.map(() => `<td></td>`).join("")}
+            </tr>
+          </tfoot>
         </table>
       </body>
     </html>
@@ -1386,6 +1458,12 @@ const TeamPurchaseInvoiceDataReportsView = ({
 
     openPrint(selectedIds.join(","), viewFormate);
   };
+
+  const handleSyncWithMiracle = () => {
+    if (selectedIds.length === 0) return;
+    syncMiracleInvoice(selectedIds.join(","));
+  };
+
   return (
     <PrimeReactProvider>
       <>
@@ -1412,7 +1490,9 @@ const TeamPurchaseInvoiceDataReportsView = ({
                 paddingLeft: MobileFlag ? "10px" : "",
               }}
             >
-              {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && (
+              {(!MobileFlag ||
+                MobileFlag === undefined ||
+                MobileFlag === null) && (
                 <select
                   value={actionType}
                   onChange={(e) => {
@@ -1424,6 +1504,9 @@ const TeamPurchaseInvoiceDataReportsView = ({
                       return;
                     }
 
+                    if (value === "sync") {
+                      setIsSyncConfirmationOpen(true);
+                    }
 
                     if (value === "multiPrint") {
                       handleMultiPrint();
@@ -1432,13 +1515,20 @@ const TeamPurchaseInvoiceDataReportsView = ({
                   style={{ padding: "6px", borderRadius: "5px" }}
                 >
                   <option value="">Select Action</option>
+                  {isFeatureEnabled && (
+                    <option value="sync" disabled={selectedIds.length === 0}>
+                      Sync with Miracle
+                    </option>
+                  )}
 
-
-                  <option value="multiPrint" disabled={selectedIds.length === 0}>
+                  <option
+                    value="multiPrint"
+                    disabled={selectedIds.length === 0}
+                  >
                     Generate Multi Print
                   </option>
                 </select>
-              )} */}
+              )}
               <div
                 className="d-flex gap-2 align-items-center"
                 style={{
@@ -2019,6 +2109,24 @@ const TeamPurchaseInvoiceDataReportsView = ({
             cartType={4}
             title={title}
           />
+          {isSyncConfirmationOpen && (
+            <ConfirmationModal
+              show={isSyncConfirmationOpen}
+              onHide={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+              }}
+              handleSubmit={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+                handleSyncWithMiracle();
+              }}
+              title="Sync with Miracle Confirmation"
+              message="Are you sure you want to sync selected records with Miracle?"
+              btn1="CANCEL"
+              btn2="SYNC"
+            />
+          )}
         </div>
       </>
     </PrimeReactProvider>

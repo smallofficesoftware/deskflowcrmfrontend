@@ -777,6 +777,7 @@ const MyTeamReport = ({
                         show={isTeamRightsOpen}
                         onHide={() => setIsTeamRightsOpen(false)}
                         companyTeamInfo={companyTeamInfo}
+                        companyTeamList={myTeamList}
                     />
                 )}
                 {isOpenTracking ? (
