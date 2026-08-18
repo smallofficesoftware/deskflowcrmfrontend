@@ -398,6 +398,52 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           setIsSubmitting(false);
         }
         break;
+      case 8:
+        try {
+          setErrorResponceMeg("");
+          const response = await axiosInstance.post(
+            "excel-sheet-account-transaction",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `${token}`,
+                "x-tenant-id": getUUID,
+              },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round(
+                    (progressEvent.loaded * 100) / progressEvent.total,
+                  );
+                  setUploadProgress(percentCompleted);
+                } else {
+                  console.log(
+                    `File upload progress: Unable to determine total file size`,
+                  );
+                }
+              },
+            },
+          );
+
+          if (response && response.data.ack === 1) {
+            handleSubmit();
+            setAttachment(null);
+            toast.success(response.data.ack_msg || DEFAULT_STATUS_CODE_SUCCESS);
+          } else {
+            toast.error(
+              response.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
+            );
+          }
+          const msg = response?.data?.data;
+          setErrorResponceMeg(typeof msg === "string" ? msg : "");
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setUploadProgress(0);
+          setIsSubmitting(false);
+        }
+        break;
       default:
         alert("default");
         break;
@@ -605,6 +651,35 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
 
           const { data } = await axiosInstance.post(
             "generate-compensation-adjustment-sample-sheet",
+            requestData,
+          );
+
+          if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const link: HTMLAnchorElement = document.createElement("a");
+            link.href = data.data.fileUrl;
+            link.download = data.data.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          }
+        } catch (error: any) {
+          toast.error(error?.message || error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setIsGenerateSampleExport(false);
+        }
+        break;
+      case 8:
+        try {
+          setIsGenerateSampleExport(true);
+          const getUUID = localStorage.getItem("UUID");
+          const requestData = {
+            a_application_login_id: getUUID,
+          };
+
+          const { data } = await axiosInstance.post(
+            "generate-account-transaction-sample-sheet",
             requestData,
           );
 

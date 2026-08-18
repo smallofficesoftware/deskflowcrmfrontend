@@ -12,6 +12,7 @@ export interface IReminderItem {
   completed_date_time: string | null;
   status: 0 | 1;
   status_display: "Due" | "Completed";
+  assigned_to?: number;
   assigned_to_name: string | null;
   remark: string | null;
   company_masters_id?: number;
@@ -42,7 +43,9 @@ export const fetchTaskReport = async (
   globalSearch?: string,
   is_support_ticket_flag?: number,
   selectedContactId?: string | null,
-  referenceWiseContact?: number
+  referenceWiseContact?: number,
+  typeFilter: string = "due",
+  setCounts?: (counts: { due: number; future: number; complete: number; all: number }) => void,
 ): Promise<IReminderItem[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const uuid = getID || localStorage.getItem("UUID");
@@ -69,7 +72,8 @@ export const fetchTaskReport = async (
     ul,
     ll,
     globalSearch,
-    referenceWiseContact: referenceWiseContact
+    referenceWiseContact: referenceWiseContact,
+    typeFilter,
   };
 
   try {
@@ -83,6 +87,9 @@ export const fetchTaskReport = async (
     }
 
     const items: IReminderItem[] = res.data?.data?.data || [];
+    if (res.data?.data?.counts && setCounts) {
+      setCounts(res.data.data.counts);
+    }
     setData?.(items);
     return items;
   } catch (err: any) {

@@ -89,12 +89,24 @@ const AllReminderReport = ({
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState<IReminderItem[]>([]);
   const [displayReminders, setDisplayReminders] = useState<IReminderItem[]>([]);
+  const [filterType, setFilterType] = useState<
+    "due" | "future" | "complete" | "all"
+  >("due");
+  const [counts, setCounts] = useState({
+    due: 0,
+    future: 0,
+    complete: 0,
+    all: 0,
+  });
   const [selectedReminders, setSelectedReminders] = useState<IReminderItem[]>(
     [],
   );
   const [selectedRow, setSelectedRow] = useState<IReminderItem | null>(null);
   const [selectedReminderItem, setSelectedReminderItem] = useState<IReminderItem | null>(null);
   const [isReminderConfirmationStatus, setIsReminderConfirmationStatus] = useState(false);
+  const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
+  const [isReminderConfirmation, setIsReminderConfirmation] = useState(false);
+  const [reminderRescheduleData, setReminderRescheduleData] = useState<IReminderItem | null>(null);
   const op = useRef<OverlayPanel>(null);
   const [hasMore, setHasMore] = useState(true);
 
@@ -223,6 +235,14 @@ const AllReminderReport = ({
     PAGE_ID.REMINDER,
     PERMISSION_TYPE.APPROVE,
   );
+  const canEdit = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.EDIT,
+  );
+  const canDelete = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.DELETE,
+  );
 
   // Reset & reload when filters change
   useEffect(() => {
@@ -241,6 +261,7 @@ const AllReminderReport = ({
     MobileFlag,
     filters.selectedContactId,
     filters.referenceWiseContact,
+    filterType,
   ]);
 
   const loadReminders = async (
@@ -270,6 +291,8 @@ const AllReminderReport = ({
         is_support_ticket_flag,
         filters.selectedContactId,
         filters.referenceWiseContact,
+        filterType,
+        setCounts,
       );
 
       if (newData.length < limit) {
@@ -385,6 +408,101 @@ const AllReminderReport = ({
     }
   };
 
+  const handleOpenReschedule = (row: IReminderItem) => {
+    if (canEdit) {
+      const cleanRemark = row.remark
+        ? row.remark
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<\/?[^>]+(>|$)/g, "")
+            .trim()
+        : "";
+      setReminderRescheduleData({
+        ...row,
+        remark: cleanRemark,
+      });
+      setIsReminderConfirmation(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleReminderReschedule = async (data: {
+    dateTime: string;
+    remark: string;
+    status: string;
+    selectedCategory?: { value: number; label: string } | null;
+  }) => {
+    if (!data.dateTime?.trim() || !data.remark?.trim()) {
+      toast.error("Please enter Date and Time and Remark");
+      return;
+    }
+    const formattedDateTime =
+      data.dateTime.length === 16 ? `${data.dateTime}:00` : data.dateTime;
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":${reminderRescheduleData?.id}}`,
+      data: JSON.stringify({
+        reminder_data_time: formattedDateTime,
+        remark: data.remark,
+        status: "0",
+        ...(data.selectedCategory?.value
+          ? {
+              assigned_to: data.selectedCategory.value,
+              assigned_to_name: data.selectedCategory.label,
+            }
+          : {}),
+      }),
+    };
+    try {
+      setLoading(true);
+      const res = await axiosInstance.post("commonUpdate", requestData);
+      if (res.data?.ack === DEFAULT_STATUS_CODE_SUCCESS || res.data?.code === 200) {
+        setIsReminderConfirmation(false);
+        toast.success("Reminder rescheduled successfully");
+        handleRefresh();
+      } else {
+        toast.error(res.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDelete = (row: IReminderItem) => {
+    if (canDelete) {
+      setSelectedRow(row);
+      setIsDeleteConfirmation(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleDeleteReminder = async () => {
+    if (!selectedRow?.id) return;
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":${selectedRow.id}}`,
+      data: `{"isDelete":"1"}`,
+    };
+    try {
+      setLoading(true);
+      const { data } = await axiosInstance.post("commonUpdate", requestData);
+      if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setIsDeleteConfirmation(false);
+        toast.success("Reminder deleted successfully");
+        handleRefresh();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   type ReminderColumnDef = ColumnDef & {
     header: React.ReactNode;
     width?: string;
@@ -428,37 +546,42 @@ const AllReminderReport = ({
         label: "Status",
         header: "Status",
         width: "120px",
-        body: (row) => (
-          <span
-            style={{
-              backgroundColor:
-                row.status_display === "Completed" || row.status === 1
-                  ? "#28a745"
-                  : "#dc3545",
-              color: "white",
-              padding: "4px 10px",
-              borderRadius: "12px",
-              fontSize: "13px",
-              cursor:
-                row.status_display === "Completed" || row.status === 1
-                  ? "default"
-                  : "pointer",
-              display: "inline-block",
-            }}
-            onClick={() => {
-              if (row.status_display !== "Completed" && row.status !== 1) {
-                handleChangeReminderComplete(row);
+        body: (row) => {
+          const isCompleted =
+            row.status_display === "Completed" || row.status === 1;
+          const isUpcoming = row.status_display === "Upcoming";
+          const bgColor = isCompleted
+            ? "#28a745"
+            : isUpcoming
+            ? "#0066ff"
+            : "#dc3545";
+          const text = row.status_display || (isCompleted ? "Completed" : "Due");
+          return (
+            <span
+              style={{
+                backgroundColor: bgColor,
+                color: "white",
+                padding: "4px 10px",
+                borderRadius: "12px",
+                fontSize: "13px",
+                cursor: isCompleted ? "default" : "pointer",
+                display: "inline-block",
+              }}
+              onClick={() => {
+                if (!isCompleted) {
+                  handleChangeReminderComplete(row);
+                }
+              }}
+              title={
+                !isCompleted
+                  ? "Click to Mark as Completed"
+                  : undefined
               }
-            }}
-            title={
-              row.status_display !== "Completed" && row.status !== 1
-                ? "Click to Mark as Completed"
-                : undefined
-            }
-          >
-            {row.status_display || (row.status === 1 ? "Completed" : "Due")}
-          </span>
-        ),
+            >
+              {text}
+            </span>
+          );
+        },
       },
       {
         key: "completed_date_time",
@@ -604,6 +727,8 @@ const AllReminderReport = ({
             debouncedSearchText,
             is_support_ticket_flag,
             filters.selectedContactId,
+            filters.referenceWiseContact,
+            filterType,
           ),
         500,
       );
@@ -731,12 +856,89 @@ const AllReminderReport = ({
         <div
           className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
         >
-        <h3
-          style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "" }}
-          className="dash-board-text-count"
-        >
-          {title}
-        </h3>
+        <div className="d-flex align-items-center gap-3">
+          <h3
+            style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "", margin: 0 }}
+            className="dash-board-text-count"
+          >
+            {title}
+          </h3>
+          <div className="d-flex align-items-center gap-1">
+            <button
+              className={`btn rounded-5 contact-btn-search fw_500 ${filterType === "due" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("due")}
+            >
+              <span className="contact-btn-search-text">Due</span>
+              <span
+                className="badge bg-danger ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.due}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "future" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("future")}
+            >
+              <span className="contact-btn-search-text">Upcoming</span>
+              <span
+                className="badge ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                  backgroundColor: "#0066ff",
+                }}
+              >
+                {counts.future}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "complete" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("complete")}
+            >
+              <span className="contact-btn-search-text">Completed</span>
+              <span
+                className="badge bg-success ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.complete}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "all" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("all")}
+            >
+              <span className="contact-btn-search-text">All</span>
+              <span
+                className="badge bg-secondary ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.all}
+              </span>
+            </button>
+          </div>
+        </div>
 
         {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && ( */}
         <div
@@ -1081,9 +1283,64 @@ const AllReminderReport = ({
                 Complete Reminder
               </li>
             )}
+            <li
+              className="listItem text-start"
+              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px" }}
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                op.current?.hide();
+                handleOpenReschedule(selectedRow);
+              }}
+            >
+              Reschedule
+            </li>
+            <li
+              className="listItem text-start"
+              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px", color: "red", fontWeight: "600" }}
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                op.current?.hide();
+                handleOpenDelete(selectedRow);
+              }}
+            >
+              Delete
+            </li>
           </ul>
         )}
       </OverlayPanel>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteConfirmation && (
+        <ConfirmationModal
+          show={isDeleteConfirmation}
+          onHide={() => setIsDeleteConfirmation(false)}
+          handleSubmit={handleDeleteReminder}
+          title="Delete this Reminder"
+          message="Are you sure you want to delete this Reminder?"
+          btn1="CANCEL"
+          btn2="DELETE"
+        />
+      )}
+
+      {/* Reschedule Reminder Modal */}
+      {isReminderConfirmation && (
+        <ReminderModal
+          show={isReminderConfirmation}
+          onHide={() => setIsReminderConfirmation(false)}
+          handleSubmit={handleReminderReschedule}
+          title={"Reminder Reschedule"}
+          message={"Are you sure you want to reschedule this reminder?"}
+          btn1="CANCEL"
+          btn2="Set Reminder"
+          remarkMsg={reminderRescheduleData?.remark}
+          selectedMember={reminderRescheduleData?.assigned_to_name || undefined}
+          selectedMemberId={reminderRescheduleData?.assigned_to}
+          request_flag="1"
+          dateTimeMsg={reminderRescheduleData?.reminder_data_time}
+        />
+      )}
 
       {/* Complete Reminder Confirmation Modal */}
       {isReminderConfirmationStatus && (
