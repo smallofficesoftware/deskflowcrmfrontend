@@ -799,7 +799,16 @@ export const fetchCompanyKeyApi = async (
       setCompanyLists(undefined);
     }
 
-    setCompanyLists(data.data.data.item[0]);
+    const items = data.data.data.item || [];
+    const activeCompanyId = localStorage.getItem("COMPANY_ID");
+    if (activeCompanyId && items.length > 0) {
+      const active = items.find((c: ICompany) => c.id === Number(activeCompanyId));
+      if (active) {
+        setCompanyLists(active);
+        return;
+      }
+    }
+    setCompanyLists(items[0]);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }

@@ -9137,7 +9137,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     </td>
                                   </tr>
                                   <tr>
-                                    {/* <td
+                                    <td
                                       colSpan={footerBaseColSpan}
                                       className="order-text"
                                     >
@@ -9205,7 +9205,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         value={cashDiscount}
                                         onChange={handleCashDiscount}
                                       />
-                                    </td> */}
+                                    </td>
                                     {customFormListProduct.map((field) => (
                                       <th
                                         key={field.reference_column_name}
