@@ -37,6 +37,7 @@ import EmployeeAccountPrintView1 from "../pages/employee-account-print-view/Empl
 import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAccountTransactionV1View";
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
+import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import OnlineStore from "../pages/online-store";
 import SupportTicket from "../pages/online-store/store-support-ticket/SupportTicketView";
 import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
@@ -240,6 +241,10 @@ const RoutesIndex = () => {
             <Route
               path="/StockAdjustmentPrintView/:StockId"
               element={<StockAdjustmentPrintView />}
+            />
+            <Route
+              path="/document-designer"
+              element={<DocumentDesignerView />}
             />
             <Route path="/logout" element={<LogoutComponent />} />
             <Route path="/OrderPdfViewV1/:id" element={<PdfView />} />

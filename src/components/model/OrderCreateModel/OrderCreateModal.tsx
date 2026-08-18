@@ -58,6 +58,7 @@ import {
   handleModalConvertIntoReturnSalesInvoices,
   syncMiracleInvoice,
 } from "../../../pages/right-side/list-order/ListOrderController";
+import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType } from "../../../pages/order-print-view/orderPrintController";
 import { axiosInstance } from "../../../services/axiosInstance";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
@@ -151,6 +152,20 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const [isError, setIsError] = useState(false);
   const [refreshDownload, setRefreshDownload] = useState(false);
+  // §7 template picker — same rule as ListOrderView.tsx/OrderPrintView*.tsx:
+  // check flag+template count before opening anything, skip below 2.
+  const [showDownloadPicker, setShowDownloadPicker] = useState(false);
+  const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [printLoading, setPrintLoading] = useState(false);
+  // Which action opened the template picker — "print" (flag 2, auto-print
+  // after generating) or "view" (flag 1, "Open Print View": just display
+  // the real PDF, no print dialog).
+  const [printMode, setPrintMode] = useState<"print" | "view">("print");
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
   const [refreshShare, setRrefreshShare] = useState(false);
   const listInnerRef = useRef<HTMLDivElement>(null);
   const [addDataSourceItemForPageText, setAddDataSourceItemForPageText] =
@@ -4895,13 +4910,79 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
   };
 
-  const handleDownload = async () => {
+  // For a pdfme-enabled Quotation/Sales Order, Print generates the real PDF
+  // and opens/prints it directly — same shape as Download and
+  // ListOrderView.tsx's openPrint(): check flag+template count first, open
+  // nothing until we know what to generate. Legacy (openInNewTabPrint
+  // above) is unchanged for every other type or when the flag is off.
+  const isPdfmeEnabledForType = async (cartTypeId: number): Promise<boolean> => {
+    if (!isPdfmeSupportedCartType(cartTypeId)) return false;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!companyMastersId) return false;
+    try {
+      const { data } = await axiosInstance.post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      });
+      return data?.ack === 1 && !!data.data.item.is_enabled;
+    } catch {
+      return false;
+    }
+  };
+
+  // autoPrint=true (Print action) opens the real PDF and triggers the
+  // browser print dialog on it. autoPrint=false ("Open Print View" —
+  // view-only) opens the same real PDF but just displays it — no print
+  // dialog. Previously "Open Print View" showed this component's own
+  // stale on-screen layout instead (printFlag suppresses all auto-print
+  // effects on that route), which never reflected the actual Designer
+  // template for a pdfme-enabled type.
+  const generatePdfWindow = async (documentTemplateId: number | undefined, autoPrint: boolean) => {
+    setPrintLoading(true);
+    try {
+      const resops = await axiosInstance.post("/order-pdf", {
+        cart_id: cartId,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (resops.data.ack !== 1) {
+        toast.error(resops.data.ack_msg);
+        return;
+      }
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow && autoPrint) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const generateAndPrintPdf = (documentTemplateId?: number) => generatePdfWindow(documentTemplateId, true);
+  const generateAndViewPdf = (documentTemplateId?: number) => generatePdfWindow(documentTemplateId, false);
+
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    if (printMode === "view") {
+      generateAndViewPdf(templateId);
+    } else {
+      generateAndPrintPdf(templateId);
+    }
+  };
+
+  const handleDownload = async (documentTemplateId?: number) => {
     try {
       setRefreshDownload(true);
       const token = localStorage.getItem("token");
       const getUUID = localStorage.getItem("UUID");
       const resops = await axiosInstance.post("/order-pdf", {
         cart_id: cartId,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
 
       if (resops.data.ack === 1) {
@@ -4970,10 +5051,23 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     };
     const orderNum = newOrderShowNumAfterConversion || isOrderShowNum;
     if (permissionMap[orderNum]) {
-      handleDownload();
+      downloadWithPicker();
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
+  };
+
+  // §7 picker — check flag+template count first, same rule as Download
+  // everywhere else in the app: skip below 2 templates.
+  const downloadWithPicker = async () => {
+    const cartTypeId = newOrderShowNumAfterConversion || isOrderShowNum;
+    const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
+    if (choices.length < 2) {
+      await handleDownload();
+      return;
+    }
+    setDownloadTemplateChoices(choices);
+    setShowDownloadPicker(true);
   };
 
   const openShare = () => {
@@ -5008,7 +5102,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
   };
 
-  const openPrint = (flag: number) => {
+  const openPrint = async (flag: number) => {
     const permissionMap: Record<number, boolean> = {
       1: canPrintQuo,
       2: canPrintOrder,
@@ -5021,7 +5115,31 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       9: canPrintDispatch,
       12: canPrintProfomaInovice,
     };
-    if (permissionMap[newOrderShowNumAfterConversion || isOrderShowNum]) {
+    const cartTypeId = newOrderShowNumAfterConversion || isOrderShowNum;
+    if (permissionMap[cartTypeId]) {
+      // Intercept BOTH flag=2 ("print now") and flag=1 ("Open Print
+      // View") for pdfme-supported+enabled types — flag=1 used to open
+      // this component's own stale on-screen layout (printFlag suppresses
+      // all auto-print effects on that route), never reflecting the real
+      // Designer template. Now both show the actual generated PDF; only
+      // flag=2 auto-triggers the print dialog on it. Short-circuits
+      // before the await for non-pdfme types, so window.open() in the
+      // legacy branches below still fires synchronously within this
+      // click's event-handler call stack.
+      if (isPdfmeSupportedCartType(cartTypeId) && (await isPdfmeEnabledForType(cartTypeId))) {
+        setPrintMode(flag == 2 ? "print" : "view");
+        setPrintLoading(true);
+        const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
+        setPrintLoading(false);
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+        } else if (flag == 2) {
+          generateAndPrintPdf();
+        } else {
+          generateAndViewPdf();
+        }
+        return;
+      }
       if (orderTypesNameFind == "Quotation") {
         const printID = printDate.map(
           (item, index) => item.quotation_view_formate,
@@ -11666,6 +11784,91 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           btn1="CANCEL"
           btn2="Approve"
         />
+      )}
+      {showDownloadPicker && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setShowDownloadPicker(false);
+                  setDownloadTemplateChoices([]);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {downloadTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => {
+                    handleDownload(t.id);
+                    setShowDownloadPicker(false);
+                    setDownloadTemplateChoices([]);
+                  }}
+                >
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {printTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => setPrintTemplateChoices([])}
+              >
+                &times;
+              </span>
+            </div>
+            {printTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithTemplate(t.id)}
+                >
+                  {printMode === "view" ? "View" : "Print"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {printLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(255,255,255,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
       )}
     </div>
   );
