@@ -337,6 +337,16 @@ const AccountOutstandingReports = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setCustomers([]);
+    setHasMore(true);
+    setTotalRecords(0);
+    setSelectedCustomers([]);
+    loadAccountData(true);
+  };
+
   const onLazyLoad = (event: VirtualScrollerLazyEvent) => {
     const first =
       typeof event.first === "number" ? event.first : (event.first?.first ?? 0);
@@ -1134,6 +1144,21 @@ const AccountOutstandingReports = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
 
             <ColumnsButton
               columns={orderedColumns}

@@ -6008,7 +6008,6 @@ const RightView = ({
                                     zIndex: "1",
                                     margin: "10px",
                                     position: "relative",
-                                    marginLeft: "0px",
                                   }}
                                 >
                                   <span>
