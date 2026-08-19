@@ -1154,6 +1154,7 @@ const CommonOrderActions = ({
         if (canAddReturnSalesInvoice) {
             setConverCartId(id);
             setConvertCartNumber(number);
+            setConversionType("returnSalesInvoice");
             setIsConvertIntoReturnSalesInvoiceConfirmation(true);
             setOrderDropdownOpen(null);
         } else {
@@ -1170,6 +1171,7 @@ const CommonOrderActions = ({
         if (canAddReturnPurchaseInvoice) {
             setConverCartId(id);
             setConvertCartNumber(number);
+            setConversionType("returnPurchaseInvoice");
             setIsConvertIntoReturnPurchaseInvoiceConfirmation(true);
             setOrderDropdownOpen(null);
         } else {
@@ -1195,9 +1197,17 @@ const CommonOrderActions = ({
             conversionType === "invoice"
         ) {
             setnewOrderShowNumAfterConversion(3);
-        } else if (isConversionSuccess && isOrderShowNum === 3) {
+        } else if (
+            isConversionSuccess &&
+            isOrderShowNum === 3 &&
+            conversionType === "returnSalesInvoice"
+        ) {
             setnewOrderShowNumAfterConversion(6);
-        } else if (isConversionSuccess && isOrderShowNum === 4) {
+        } else if (
+            isConversionSuccess &&
+            isOrderShowNum === 4 &&
+            conversionType === "returnPurchaseInvoice"
+        ) {
             setnewOrderShowNumAfterConversion(7);
         } else if (
             isConversionSuccess &&
@@ -1236,7 +1246,7 @@ const CommonOrderActions = ({
         ) {
             setnewOrderShowNumAfterConversion(3);
         }
-    }, [isConversionSuccess, isOrderShowNum]);
+    }, [isConversionSuccess]);
 
     useEffect(() => {
         if (

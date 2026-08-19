@@ -77,6 +77,10 @@ interface IPropsListOrder {
   dynamicTitle?: any;
   setRefreshChat?: (value: boolean | number) => void;
   onRefreshMessages?: () => void;
+  /** Called after a conversion succeeds with the target order type number.
+   *  Lets the parent switch its list view to the converted-to type.
+   *  e.g. Quotation(1) → Order(2): onConversionSuccess(2) */
+  onConversionSuccess?: (targetOrderType: number) => void;
 }
 interface ICurrency {
   id: number;
@@ -92,7 +96,8 @@ const ListOrderView = ({
   isOrderShowNum,
   dynamicTitle,
   setRefreshChat,
-  onRefreshMessages
+  onRefreshMessages,
+  onConversionSuccess,
 }: IPropsListOrder) => {
   const check = useSalesDependencyGuard((s) => s.check);
   const { platformType } = useWhatsappPlatformStore();
@@ -1278,6 +1283,7 @@ const ListOrderView = ({
     if (canAddReturnSalesInvoice) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnSalesInvoice");
       setIsConvertIntoReturnSalesInvoiceConfirmation(true);
       setOrderDropdownOpen(null);
     } else {
@@ -1294,6 +1300,7 @@ const ListOrderView = ({
     if (canAddReturnPurchaseInvoice) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnPurchaseInvoice");
       setIsConvertIntoReturnPurchaseInvoiceConfirmation(true);
       setOrderDropdownOpen(null);
     } else {
@@ -1308,10 +1315,13 @@ const ListOrderView = ({
     if (isConversionSuccess && isOrderShowNum === 1) {
       if (conversionType === "proforma") {
         setnewOrderShowNumAfterConversion(12);
+        onConversionSuccess?.(12);
       } else if (conversionType === "invoice") {
         setnewOrderShowNumAfterConversion(3);
+        onConversionSuccess?.(3);
       } else {
         setnewOrderShowNumAfterConversion(2);
+        onConversionSuccess?.(2);
       }
     } else if (
       isConversionSuccess &&
@@ -1319,48 +1329,65 @@ const ListOrderView = ({
       conversionType === "invoice"
     ) {
       setnewOrderShowNumAfterConversion(3);
-    } else if (isConversionSuccess && isOrderShowNum === 3) {
+      onConversionSuccess?.(3);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum === 3 &&
+      conversionType === "returnSalesInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(6);
-    } else if (isConversionSuccess && isOrderShowNum === 4) {
+      onConversionSuccess?.(6);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum === 4 &&
+      conversionType === "returnPurchaseInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(7);
+      onConversionSuccess?.(7);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 5 &&
       conversionType === "purchaseInvoice"
     ) {
       setnewOrderShowNumAfterConversion(4);
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 2 &&
       conversionType === "dispatch"
     ) {
       setnewOrderShowNumAfterConversion(9);
+      onConversionSuccess?.(9);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 5 &&
       conversionType === "Inward"
     ) {
       setnewOrderShowNumAfterConversion(8);
+      onConversionSuccess?.(8);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 9 &&
       conversionType === "invoice"
     ) {
       setnewOrderShowNumAfterConversion(3);
+      onConversionSuccess?.(3);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 8 &&
       conversionType === "purchaseInvoice"
     ) {
       setnewOrderShowNumAfterConversion(4);
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 12 &&
       conversionType === "invoice"
     ) {
       setnewOrderShowNumAfterConversion(3);
+      onConversionSuccess?.(3);
     }
-  }, [isConversionSuccess, isOrderShowNum]);
+  }, [isConversionSuccess]);
 
   useEffect(() => {
     if (
