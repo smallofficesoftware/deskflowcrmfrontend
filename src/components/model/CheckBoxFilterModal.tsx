@@ -63,6 +63,30 @@ const LEAD_AGING_ACTIVITY_OPTIONS = [
   { value: "purchase_order", label: "Purchase Order" },
 ];
 
+const getLeadAgingSummaryLabel = (
+  bucket: string | null,
+  activityTypes: string[],
+): string => {
+  if (!bucket) return "";
+
+  const sourceLabel =
+    activityTypes.length > 0
+      ? activityTypes
+          .map(
+            (v) =>
+              LEAD_AGING_ACTIVITY_OPTIONS.find((opt) => opt.value === v)
+                ?.label ?? v,
+          )
+          .join(" or ")
+      : "any source";
+
+  if (Number(bucket) === 0) {
+    return `Showing contacts never contacted via ${sourceLabel}`;
+  }
+
+  return `Showing contacts where ${sourceLabel} not done in last ${bucket} days`;
+};
+
 // Define interface for filterData
 
 interface CheckBoxModalProps {
@@ -4408,13 +4432,6 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
                         {leadAgingBucket && (
                           <div className="mt-3">
-                            <label
-                              className="pb-2 form_label"
-                              style={{ fontSize: "13px", fontWeight: "500" }}
-                            >
-                              Contacted Via (leave empty for all sources)
-                            </label>
-
                             <MultiSelect
                               options={LEAD_AGING_ACTIVITY_OPTIONS}
                               value={LEAD_AGING_ACTIVITY_OPTIONS.filter((opt) =>
@@ -4434,6 +4451,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                               menuPlacement="top"
                               placeholder="All sources"
                             />
+
+                            <div
+                              className="text-muted mt-2"
+                              style={{ fontSize: "12px" }}
+                            >
+                              {getLeadAgingSummaryLabel(
+                                leadAgingBucket,
+                                leadAgingActivityTypes,
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
