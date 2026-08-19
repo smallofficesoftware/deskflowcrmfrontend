@@ -2008,6 +2008,10 @@ const TeamReturnPurchaseDataReportsView = ({
               show={isOrderShow}
               onHide={() => setIsOrderShow(false)}
               handleSubmit={() => setIsOrderShow(true)}
+              onConversionSuccess={() => {
+                setIsOrderShow(false);
+                setRefreshReport(true);
+              }}
               title={"Create"}
               message={"Please Enter Your Order Details"}
               btn1={"CANCEL"}
