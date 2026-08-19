@@ -22,13 +22,21 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import useMiracleFlagStore from "../../../../store/miracle/useMiracleFlagStore";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
+import { syncMiracleInvoice } from "../../../right-side/list-order/ListOrderController";
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
@@ -151,6 +159,8 @@ const TeamPurchaseInvoiceDataReportsView = ({
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
 
+  const [isSyncConfirmationOpen, setIsSyncConfirmationOpen] = useState(false);
+
   const filters = getFilter("purchase_invoice");
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
@@ -255,6 +265,10 @@ const TeamPurchaseInvoiceDataReportsView = ({
     console.log("handleHide called");
   };
 
+  const isFeatureEnabled = useMiracleFlagStore(
+    (state) => state.isFeatureEnabled,
+  );
+
   const flattenCartData = (cartData: any): IFlatCartItem[] => {
     if (!cartData || !Array.isArray(cartData.item)) return [];
 
@@ -322,6 +336,7 @@ const TeamPurchaseInvoiceDataReportsView = ({
   useEffect(() => {
     offsetRef.current = 0;
     currentOffset.current = 0;
+    setHasMore(true);
     onVirtualScroll(0, 50, true);
   }, [
     filters.selectedDateArray,
@@ -519,6 +534,14 @@ const TeamPurchaseInvoiceDataReportsView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    onVirtualScroll(0, PAGE_SIZE, true);
+  };
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -617,29 +640,6 @@ const TeamPurchaseInvoiceDataReportsView = ({
     }
   };
 
-  const exportColumns = [
-    ...(showProductDetails
-      ? [{ title: "Product Details", dataKey: "product_details" }]
-      : []),
-    { title: `${title} Number`, dataKey: "cart_number" },
-    { title: "Customer Name", dataKey: "to_customer_name" },
-    { title: "Customer Phone", dataKey: "to_customer_phone" },
-    { title: "Created By", dataKey: "username" },
-    { title: "Status", dataKey: "cart_status" },
-    // { title: "Type", dataKey: "type" },
-    { title: "Created Date-Time", dataKey: "created_date_time" },
-    { title: "Approve Date-Time", dataKey: "update_Date_time" },
-    { title: `Taxable Amount (${currencyName})`, dataKey: "taxable_amt" },
-    { title: `Tax Amount (${currencyName})`, dataKey: "gst_amt" },
-    { title: `TCS Amount (${currencyName})`, dataKey: "tcs_amt" },
-    { title: `Round Off (${currencyName})`, dataKey: "round_off" },
-    { title: `Grand Total (${currencyName})`, dataKey: "grand_total" },
-    ...uniqueCustomFields.map((field: any) => ({
-      title: field.fieldLabel,
-      dataKey: field.fieldName,
-    })),
-  ];
-
   const handelChangeShowModelQuotation = (item: IUserList) => {
     if (canEdiPurchaseInovice) {
       setContactInfoOrder(item);
@@ -673,52 +673,61 @@ const TeamPurchaseInvoiceDataReportsView = ({
           : filteredData;
 
     const tableData = dataToExport.map((item) => {
-      const rowData: any = {
-        ...(showProductDetails && {
-          product_details:
-            item.items
-              ?.map((i: any) => {
-                const name = i.item_product_name || "";
-                const code = i.item_product_code || "";
-                const product = code ? `${name} (${code})` : name;
-
-                return `${product} | ${i.item_qty} | ${i.item_rate}`;
-              })
-              .join("\n") || "-",
-        }),
-        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
-        to_customer_name:
-          `${item.to_customer_company_name}(${item.to_customer_name})` || "-",
-        to_customer_phone: item.to_customer_phone || "-",
-        username: item.username || "-",
-        cart_status: item.cart_status !== undefined ? item.cart_status : "-",
-        // type: item.type || "-",
-        created_date_time: formatDateTime(item.created_date_time),
-        update_Date_time: formatDateTime(item.update_Date_time),
-        taxable_amt:
-          item.taxable_amt_wo_c !== undefined
-            ? `${item.taxable_amt_wo_c}`
-            : "-",
-        gst_amt: item.gst_amt_wo_c !== undefined ? `${item.gst_amt_wo_c}` : "-",
-        tcs_amt: item.tcs_amt_wo_c !== undefined ? `${item.tcs_amt_wo_c}` : "-",
-        round_off:
-          item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-",
-        grand_total:
-          item.grand_total_wo_c !== undefined
-            ? `${item.grand_total_wo_c}`
-            : "-",
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = item[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "pdf");
+      });
+      EXTRA_EXPORT_COLUMNS_PDF_PRINT.forEach((extra) => {
+        rowData[extra.key] = getExtraExportValue(extra.key, item);
       });
       return rowData;
     });
+
+        const totalsRow = {
+      ...(showProductDetails && { product_details: "" }),
+      cart_number: "Total",
+      to_customer_name: "",
+      to_customer_phone: "",
+      
+      username: "",
+      cart_status: "",
+      created_date_time: "",
+      update_Date_time: "",
+      taxable_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      gst_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      tcs_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      round_off: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      grand_total: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+    };
+    tableData.push(totalsRow as any);
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = [
+      ...visibleColumns.map((col) => ({
+        title:
+          col.key === "taxable_amt"
+            ? `Taxable Amount (${currencyName})`
+            : col.key === "gst_amt"
+              ? `Tax Amount (${currencyName})`
+              : col.key === "tcs_amt"
+                ? `TCS Amount (${currencyName})`
+                : col.key === "round_off"
+                  ? `Round Off (${currencyName})`
+                  : col.key === "grand_total"
+                    ? `Grand Total (${currencyName})`
+                    : col.label,
+        dataKey: col.key,
+      })),
+      ...EXTRA_EXPORT_COLUMNS_PDF_PRINT.map((extra) => ({
+        title: extra.label,
+        dataKey: extra.key,
+      })),
+    ];
 
     autoTable(doc, {
       columns: exportColumns,
@@ -733,6 +742,11 @@ const TeamPurchaseInvoiceDataReportsView = ({
       margin: { top: 20 },
       didDrawPage: (data: any) => {
         doc.text(`${title} Report`, data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
 
@@ -786,40 +800,42 @@ const TeamPurchaseInvoiceDataReportsView = ({
           });
       });
 
-      const customFields = Object.keys(customFieldMap);
+      const customFieldKeys = Object.keys(customFieldMap);
+      const customFieldColumnKeys = new Set(
+        uniqueCustomFields.map((field: any) => field.fieldName),
+      );
 
       const excelRows = (
         selectedCustomers.length > 0 ? selectedCustomers : exportData
       ).map((item) => {
-        const row: any = {
-          ...(showProductDetails && {
-            "Product Details":
-              item.items
-                ?.map((i: any) => {
-                  const name = i.item_product_name || "";
-                  const code = i.item_product_code || "";
-                  return `${code ? `${name} (${code})` : name} | Qty: ${i.item_qty} | Rate: ${i.item_rate}  `;
-                })
-                .join("\n") || "-",
-          }),
-          "Purchase Invoice Number": item.cart_number || "XXXXXXX",
-          "Approval Status": item.is_approve?.name || "-",
-          "Company Name": item.to_customer_company_name || "",
-          "Customer Name": item.to_customer_name || "-",
-          "Customer Phone": item.to_customer_phone || "-",
-          "Created By": item.username || "-",
-          // type: title || "Purchase Invoice",
-          Status: item.cart_status || "-",
-          "Created Date-Time": formatDateTime(item.created_date_time),
-          "Approve Date-Time": formatDateTime(item.update_Date_time),
-          [`Taxable Amount (${currencyName})`]: item.taxable_amt_wo_c || "-",
-          [`Tax Amount (${currencyName})`]: item.gst_amt_wo_c || "-",
-          [`TCS Amount (${currencyName})`]: item.tcs_amt_wo_c || "-",
-          [`Round Off (${currencyName})`]: item.round_off_wo_c || "-",
-          [`Grand Total (${currencyName})`]: item.grand_total_wo_c || "-",
-        };
+        const row: any = {};
 
-        customFields.forEach((fieldName: string) => {
+        visibleColumns.forEach((col) => {
+          if (customFieldColumnKeys.has(col.key)) return;
+
+          const label =
+            col.key === "cart_number"
+              ? `${title} Number`
+              : col.key === "taxable_amt"
+                ? `Taxable Amount (${currencyName})`
+                : col.key === "gst_amt"
+                  ? `Tax Amount (${currencyName})`
+                  : col.key === "tcs_amt"
+                    ? `TCS Amount (${currencyName})`
+                    : col.key === "round_off"
+                      ? `Round Off (${currencyName})`
+                      : col.key === "grand_total"
+                        ? `Grand Total (${currencyName})`
+                        : col.label;
+
+          row[label] = getExportCellValue(col, item, "excel");
+        });
+
+        EXTRA_EXPORT_COLUMNS_EXCEL.forEach((extra) => {
+          row[extra.label] = getExtraExportValue(extra.key, item);
+        });
+
+        customFieldKeys.forEach((fieldName: string) => {
           const label = customFieldMap[fieldName];
           const val = item[fieldName];
           row[label] =
@@ -828,6 +844,27 @@ const TeamPurchaseInvoiceDataReportsView = ({
 
         return row;
       });
+
+            const exportSource = selectedCustomers.length > 0 ? selectedCustomers : exportData;
+      const totalRow: any = {
+        ...(showProductDetails && { "Product Details": "" }),
+        "Purchase Invoice Number": "Total",
+        "Approval Status": "",
+        "Company Name": "",
+        "Customer Name": "",
+        "Customer Phone": "",
+        
+        "Created By": "",
+        Status: "",
+        "Created Date Time": "",
+        "Approve Date Time": "",
+        [`Taxable_Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+        [`Grand Total (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
+      };
+      excelRows.push(totalRow);
 
       const ws = xlsx.utils.json_to_sheet(excelRows);
       const wb = xlsx.utils.book_new();
@@ -878,6 +915,19 @@ const TeamPurchaseInvoiceDataReportsView = ({
           ? customers
           : filteredData;
 
+    const printColumnLabel = (col: CartColumnDef) =>
+      col.key === "taxable_amt"
+        ? `Taxable Amount (${currencyName})`
+        : col.key === "gst_amt"
+          ? `Tax Amount (${currencyName})`
+          : col.key === "tcs_amt"
+            ? `TCS Amount (${currencyName})`
+            : col.key === "round_off"
+              ? `Round Off (${currencyName})`
+              : col.key === "grand_total"
+                ? `Grand Total (${currencyName})`
+                : col.label;
+
     const printContent = `
     <html>
       <head>
@@ -894,23 +944,8 @@ const TeamPurchaseInvoiceDataReportsView = ({
         <table>
           <thead>
             <tr>
-            ${showProductDetails ? `<th>Product Details</th>` : ""}
-              <th>${title} Number</th>
-              <th>Customer Name</th>
-              <th>Customer Phone</th>
-              <th>Created By</th>
-              <th>Status</th>
-              <!-- <th>Type</th> -->
-              <th>Created Date Time</th>
-              <th>Approve Date Time</th>
-              <th>Taxable Amount (${currencyName})</th>
-              <th>Tax Amount (${currencyName})</th>
-              <th>TCS Amount (${currencyName})</th>
-              <th>Round Off (${currencyName})</th>
-              <th>Grand Total (${currencyName})</th>
-              ${uniqueCustomFields
-        .map((field: any) => `<th>${field.fieldLabel}</th>`)
-        .join("")}
+              ${visibleColumns.map((col) => `<th>${printColumnLabel(col)}</th>`).join("")}
+              ${EXTRA_EXPORT_COLUMNS_PDF_PRINT.map((extra) => `<th>${extra.label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -918,65 +953,40 @@ const TeamPurchaseInvoiceDataReportsView = ({
         .map(
           (item: any) => `
                 <tr>
-                         ${showProductDetails
-              ? `
-<td>
-  <table style="width:100%; border-collapse: collapse; border:1px solid #ccc; table-layout:auto;">
-    <tr>
-      <th style="border:1px solid #ccc;">Product</th>
-      <th style="border:1px solid #ccc;">Qty</th>
-      <th style="border:1px solid #ccc;">Rate</th>
-    </tr>
-    ${item.items
-                ?.map((i: any) => {
-                  const name = i.item_product_name || "";
-                  const code = i.item_product_code || "";
-
-                  return `
-          <tr>
-            <td style="border:1px solid #ccc;">
-              ${code ? `${name} (${code})` : name}
-            </td>
-            <td style="border:1px solid #ccc; text-align:right;">
-              ${i.item_qty}
-            </td>
-            <td style="border:1px solid #ccc; text-align:right;">
-              ${i.item_rate}
-            </td>
-          </tr>
-        `;
-                })
-                .join("") || `<tr><td colspan="2">-</td></tr>`
-              }
-  </table>
-</td>
-`
-              : ""
-            }
-                  <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
-                  <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
-                  <td>${item.to_customer_phone || "-"}</td>
-                  <td>${item.username || "-"}</td>
-                  <td>${item.cart_status !== undefined ? item.cart_status : "-"}</td>
-                  <!-- <td>${item.type || "-"}</td> -->
-                  <td>${formatDateTime(item.created_date_time)}</td>
-                  <td>${formatDateTime(item.update_Date_time)}</td>
-                  <td>${item.taxable_amt_wo_c !== undefined ? `${item.taxable_amt_wo_c}` : "-"}</td>
-                  <td>${item.gst_amt_wo_c !== undefined ? `${item.gst_amt_wo_c}` : "-"}</td>
-                  <td>${item.tcs_amt_wo_c !== undefined ? `${item.tcs_amt_wo_c}` : "-"}</td>
-                  <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
-                  <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
-                  ${uniqueCustomFields
+                  ${visibleColumns
               .map(
-                (field: any) =>
-                  `<td>${item[field.fieldName] || "-"}</td>`,
+                (col) =>
+                  `<td>${getExportCellValue(col, item, "print")}</td>`,
               )
               .join("")}
+                  ${EXTRA_EXPORT_COLUMNS_PDF_PRINT.map(
+                (extra) =>
+                  `<td>${getExtraExportValue(extra.key, item)}</td>`,
+              ).join("")}
                 </tr>
               `,
         )
         .join("")}
           </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #f2f2f2;">
+              ${showProductDetails ? `<td></td>` : ""}
+              <td>Total</td>
+              <td></td>
+              <td></td>
+              ${''}
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              <td>${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}</td>
+              ${uniqueCustomFields.map(() => `<td></td>`).join("")}
+            </tr>
+          </tfoot>
         </table>
       </body>
     </html>
@@ -989,6 +999,445 @@ const TeamPurchaseInvoiceDataReportsView = ({
       printWindow.print();
     }
   };
+
+  type CartColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: CartColumnDef[] = useMemo(() => {
+    const defs: CartColumnDef[] = [];
+
+    if (showProductDetails) {
+      defs.push({
+        key: "items",
+        label: "Product Details",
+        header: <span>Product Details</span>,
+        width: "250px",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: any) => {
+          const items = rowData.items || [];
+          const shouldScroll = items.length > 5;
+
+          return (
+            <div
+              style={{
+                maxHeight: shouldScroll ? "200px" : "auto",
+                overflowY: shouldScroll ? "auto" : "visible",
+                border: shouldScroll ? "1px solid #ccc" : "none",
+              }}
+            >
+              {items.length > 0 ? (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead
+                    style={{
+                      position: shouldScroll ? "sticky" : "static",
+                      top: 0,
+                      background: "#fff",
+                      zIndex: 1,
+                    }}
+                  >
+                    <tr>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "left",
+                          padding: "4px",
+                        }}
+                      >
+                        Product Name
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Qty
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid #ccc",
+                          textAlign: "right",
+                          padding: "4px",
+                        }}
+                      >
+                        Rate
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any, index: number) => {
+                      const name = item.item_product_name || "";
+                      const code = item.item_product_code || "";
+
+                      return (
+                        <tr key={index}>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              padding: "4px",
+                            }}
+                          >
+                            {name}
+                            {code ? ` (${code})` : ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_qty}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid #ccc",
+                              textAlign: "right",
+                              padding: "4px",
+                            }}
+                          >
+                            {item.item_rate}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                "-"
+              )}
+            </div>
+          );
+        },
+      });
+    }
+
+    defs.push(
+      {
+        key: "cart_number",
+        label: `${title} Number`,
+        header: `${title} Number`.replace(/ /g, "\n"),
+        width: "250px",
+        body: (rowData: any) => (
+          <span
+            style={{
+              cursor: "normal",
+              fontSize: "14px",
+            }}
+            onClick={() => {
+              if (!MobileFlag) {
+                handelChangeShowModelQuotation(rowData);
+              }
+            }}
+            title={`View ${title}`}
+          >
+            {rowData.cart_number || "# XXXXXXX"} <br />
+            <span
+              style={{
+                backgroundColor: rowData.is_approve?.bg_color,
+                border: `2px solid ${rowData.is_approve?.border_color}`,
+                color: rowData.is_approve?.text_color,
+                fontSize: "2px",
+                padding: "1px 1px",
+                fontWeight: "500",
+              }}
+              className="badge rounded-pill"
+            >
+              {rowData.is_approve?.name}
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: "to_customer_name",
+        label: "Contact Details",
+        header: (
+          <span>
+            Contact <br /> Details
+          </span>
+        ),
+        width: "125px",
+        body: (rowData: any) => (
+          <div>
+            <div>
+              <div>
+                {rowData.to_customer_company_name || "-"}(
+                {rowData.to_customer_name || "-"})
+              </div>
+              <div>{rowData.to_customer_phone || "-"}</div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "username",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        width: "90px",
+        body: (rowData: any) => rowData.username || "-",
+      },
+      {
+        key: "transaction_mode",
+        label: "Transaction Mode",
+        header: (
+          <span>
+            Transaction <br /> Mode
+          </span>
+        ),
+        width: "110px",
+        body: (rowData: any) => {
+          let modeText = "-";
+
+          if (rowData.transaction_mode === 1) {
+            modeText = "Cash Memo";
+          } else if (rowData.transaction_mode === 2) {
+            modeText = "Debit Memo";
+          }
+
+          return <span>{modeText}</span>;
+        },
+      },
+      {
+        key: "cart_status",
+        label: "Status",
+        header: "Status",
+        width: "90px",
+        body: (rowData: any) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour
+                ? rowData.status_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.cart_status}
+          </span>
+        ),
+      },
+      {
+        key: "created_date_time",
+        label: "Created Date-Time",
+        header: (
+          <span>
+            Created <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        body: (rowData: any) => formatDateTime(rowData.created_date_time),
+      },
+      {
+        key: "update_Date_time",
+        label: "Approve Date-Time",
+        header: (
+          <span>
+            Approve <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        body: (rowData: any) => formatDateTime(rowData.update_Date_time),
+      },
+      {
+        key: "taxable_amt",
+        label: "Taxable Amount",
+        header: (
+          <span>
+            Taxable <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        body: (rowData: any) =>
+          rowData.taxable_amt !== undefined ? `${rowData.taxable_amt}` : "0",
+      },
+      {
+        key: "gst_amt",
+        label: "Tax Amount",
+        header: (
+          <span>
+            Tax <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        body: (rowData: any) =>
+          rowData.gst_amt !== undefined ? `${rowData.gst_amt}` : "0",
+      },
+      {
+        key: "tcs_amt",
+        label: "TCS Amount",
+        header: (
+          <span>
+            TCS <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        body: (rowData: any) =>
+          rowData.tcs_amt !== undefined ? `${rowData.tcs_amt}` : "0",
+      },
+      {
+        key: "round_off",
+        label: "Round Off",
+        header: (
+          <span>
+            Round <br /> Off
+          </span>
+        ),
+        width: "90px",
+        body: (rowData: any) =>
+          rowData.round_off !== undefined ? `${rowData.round_off}` : "0",
+      },
+      {
+        key: "grand_total",
+        label: "Grand Total",
+        header: (
+          <span>
+            Grand <br /> Total
+          </span>
+        ),
+        width: "100px",
+        body: (rowData: any) =>
+          rowData.grand_total !== undefined ? `${rowData.grand_total}` : "0",
+      },
+    );
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel.replace(/ /g, "\n"),
+        width: "250px",
+        filterMatchMode: field.dataType === 1 ? "equals" : "contains",
+        body: (row: any) => {
+          const val = row[field.fieldName];
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
+        },
+      });
+    });
+
+    return defs;
+  }, [showProductDetails, uniqueCustomFields, title, MobileFlag]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("purchase_invoice_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: CartColumnDef,
+    item: any,
+    variant: "pdf" | "print" | "excel" = "pdf",
+  ): string => {
+    switch (col.key) {
+      case "items":
+        return (
+          item.items
+            ?.map((i: any) => {
+              const name = i.item_product_name || "";
+              const code = i.item_product_code || "";
+              const product = code ? `${name} (${code})` : name;
+
+              return `${product} | ${i.item_qty} | ${i.item_rate}`;
+            })
+            .join("\n") || "-"
+        );
+      case "cart_number":
+        return variant === "excel"
+          ? item.cart_number || "XXXXXXX"
+          : `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`;
+      case "to_customer_name":
+        return variant === "excel"
+          ? item.to_customer_name || "-"
+          : `${item.to_customer_company_name}(${item.to_customer_name})` ||
+              "-";
+      case "username":
+        return item.username || "-";
+      case "transaction_mode": {
+        if (item.transaction_mode === 1) return "Cash Memo";
+        if (item.transaction_mode === 2) return "Debit Memo";
+        return "-";
+      }
+      case "cart_status":
+        return item.cart_status !== undefined ? item.cart_status : "-";
+      case "created_date_time":
+        return formatDateTime(item.created_date_time);
+      case "update_Date_time":
+        return formatDateTime(item.update_Date_time);
+      case "taxable_amt":
+        return item.taxable_amt_wo_c !== undefined
+          ? `${item.taxable_amt_wo_c}`
+          : "-";
+      case "gst_amt":
+        return item.gst_amt_wo_c !== undefined
+          ? `${item.gst_amt_wo_c}`
+          : "-";
+      case "tcs_amt":
+        return item.tcs_amt_wo_c !== undefined
+          ? `${item.tcs_amt_wo_c}`
+          : "-";
+      case "round_off":
+        return item.round_off_wo_c !== undefined
+          ? `${item.round_off_wo_c}`
+          : "-";
+      case "grand_total":
+        return item.grand_total_wo_c !== undefined
+          ? `${item.grand_total_wo_c}`
+          : "-";
+      default:
+        return item[col.key] ?? "-";
+    }
+  };
+
+  const EXTRA_EXPORT_COLUMNS_PDF_PRINT = [
+    { key: "to_customer_phone", label: "Customer Phone" },
+  ];
+
+  const EXTRA_EXPORT_COLUMNS_EXCEL = [
+    { key: "to_customer_phone", label: "Customer Phone" },
+    { key: "to_customer_company_name", label: "Company Name" },
+    { key: "is_approve_name", label: "Approval Status" },
+  ];
+
+  const getExtraExportValue = (key: string, item: any): string => {
+    switch (key) {
+      case "to_customer_phone":
+        return item.to_customer_phone || "-";
+      case "to_customer_company_name":
+        return item.to_customer_company_name || "";
+      case "is_approve_name":
+        return item.is_approve?.name || "-";
+      default:
+        return item[key] ?? "-";
+    }
+  };
+
   if (error) {
     return (
       <div>
@@ -1009,6 +1458,12 @@ const TeamPurchaseInvoiceDataReportsView = ({
 
     openPrint(selectedIds.join(","), viewFormate);
   };
+
+  const handleSyncWithMiracle = () => {
+    if (selectedIds.length === 0) return;
+    syncMiracleInvoice(selectedIds.join(","));
+  };
+
   return (
     <PrimeReactProvider>
       <>
@@ -1035,7 +1490,9 @@ const TeamPurchaseInvoiceDataReportsView = ({
                 paddingLeft: MobileFlag ? "10px" : "",
               }}
             >
-              {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && (
+              {(!MobileFlag ||
+                MobileFlag === undefined ||
+                MobileFlag === null) && (
                 <select
                   value={actionType}
                   onChange={(e) => {
@@ -1047,6 +1504,9 @@ const TeamPurchaseInvoiceDataReportsView = ({
                       return;
                     }
 
+                    if (value === "sync") {
+                      setIsSyncConfirmationOpen(true);
+                    }
 
                     if (value === "multiPrint") {
                       handleMultiPrint();
@@ -1055,13 +1515,20 @@ const TeamPurchaseInvoiceDataReportsView = ({
                   style={{ padding: "6px", borderRadius: "5px" }}
                 >
                   <option value="">Select Action</option>
+                  {isFeatureEnabled && (
+                    <option value="sync" disabled={selectedIds.length === 0}>
+                      Sync with Miracle
+                    </option>
+                  )}
 
-
-                  <option value="multiPrint" disabled={selectedIds.length === 0}>
+                  <option
+                    value="multiPrint"
+                    disabled={selectedIds.length === 0}
+                  >
                     Generate Multi Print
                   </option>
                 </select>
-              )} */}
+              )}
               <div
                 className="d-flex gap-2 align-items-center"
                 style={{
@@ -1341,6 +1808,27 @@ const TeamPurchaseInvoiceDataReportsView = ({
                     )}
                   </ul>
                 </div>
+                <Button
+                  icon="pi pi-refresh"
+                  className="report_button"
+                  style={{ backgroundColor: "#4C4C4C" }}
+                  rounded
+                  onClick={handleRefresh}
+                  tooltip="Refresh"
+                  tooltipOptions={{
+                    position: "top",
+                    style: {
+                      fontSize: "14px",
+                    },
+                  }}
+                />
+                <ColumnsButton
+                  columns={orderedColumns}
+                  hiddenKeys={hiddenKeys}
+                  onToggle={toggleColumn}
+                  onReorder={reorderColumns}
+                  onReset={resetColumns}
+                />
               </div>
             </div>
             {/* )} */}
@@ -1482,498 +1970,37 @@ const TeamPurchaseInvoiceDataReportsView = ({
                     )}
                   />
                 )}
-              {showProductDetails && (
+              {visibleColumns.map((col) => (
                 <Column
-                  field="items"
-                  header={<span>Product Details</span>}
-                  headerClassName="center-header"
+                  key={col.key}
+                  field={col.key}
+                  header={col.header}
+                  sortable={col.sortableCol !== false}
+                  filter={col.filterCol !== false}
+                  filterField={col.key}
+                  filterPlaceholder="Search"
+                  filterMatchMode={col.filterMatchMode || "contains"}
                   headerStyle={{
-                    width: "250px",
+                    width: col.width || "150px",
                     position: "sticky",
                     top: 0,
                     zIndex: 1,
+                    background: "#f8f9fa",
                     fontSize: "14px",
                   }}
-                  bodyStyle={{ fontSize: "14px" }}
-                  body={(rowData: any) => {
-                    const items = rowData.items || [];
-                    const shouldScroll = items.length > 5;
-
-                    return (
-                      <div
-                        style={{
-                          maxHeight: shouldScroll ? "200px" : "auto",
-                          overflowY: shouldScroll ? "auto" : "visible",
-                          border: shouldScroll ? "1px solid #ccc" : "none",
-                        }}
-                      >
-                        {items.length > 0 ? (
-                          <table
-                            style={{
-                              width: "100%",
-                              borderCollapse: "collapse",
-                            }}
-                          >
-                            <thead
-                              style={{
-                                position: shouldScroll ? "sticky" : "static",
-                                top: 0,
-                                background: "#fff",
-                                zIndex: 1,
-                              }}
-                            >
-                              <tr>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "left",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Product Name
-                                </th>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "right",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Qty
-                                </th>
-                                <th
-                                  style={{
-                                    border: "1px solid #ccc",
-                                    textAlign: "right",
-                                    padding: "4px",
-                                  }}
-                                >
-                                  Rate
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {items.map((item: any, index: number) => {
-                                const name = item.item_product_name || "";
-                                const code = item.item_product_code || "";
-
-                                return (
-                                  <tr key={index}>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {name}
-                                      {code ? ` (${code})` : ""}
-                                    </td>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        textAlign: "right",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {item.item_qty}
-                                    </td>
-                                    <td
-                                      style={{
-                                        border: "1px solid #ccc",
-                                        textAlign: "right",
-                                        padding: "4px",
-                                      }}
-                                    >
-                                      {item.item_rate}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        ) : (
-                          "-"
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-              )}
-              <Column
-                field="cart_number"
-                header={`${title} Number`.replace(/ /g, "\n")}
-                sortable
-                filter
-                filterField="cart_number"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "250px",
-                  whiteSpace: "pre-wrap",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                body={(rowData: any) => (
-                  <span
-                    style={{
-                      cursor: "normal",
-                      fontSize: "14px",
-                    }}
-                    onClick={() => {
-                      if (!MobileFlag) {
-                        handelChangeShowModelQuotation(rowData);
-                      }
-                    }}
-                    // onClick={
-                    //   !MobileFlag ? () => handelChangeShowModelQuotation(rowData) : undefined
-                    // }
-
-                    title={`View ${title}`}
-                  >
-                    {rowData.cart_number || "# XXXXXXX"} <br />
-                    <span
-                      style={{
-                        backgroundColor: rowData.is_approve?.bg_color,
-                        border: `2px solid ${rowData.is_approve?.border_color}`,
-                        color: rowData.is_approve?.text_color,
-                        fontSize: "2px",
-                        padding: "1px 1px",
-                        fontWeight: "500",
-                      }}
-                      className="badge rounded-pill"
-                    >
-                      {rowData.is_approve?.name}
-                    </span>
-                  </span>
-                )}
-              />
-              <Column
-                field="to_customer_name"
-                header={
-                  <span>
-                    Contact <br /> Details
-                  </span>
-                }
-                sortable
-                filter
-                filterField="to_customer_name"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "125px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) => (
-                  <div>
-                    <div>
-                      <div>
-                        {rowData.to_customer_company_name || "-"}(
-                        {rowData.to_customer_name || "-"})
-                      </div>
-                      <div>{rowData.to_customer_phone || "-"}</div>
-                    </div>
-                  </div>
-                )}
-              />
-              <Column
-                field="username"
-                header={
-                  <span>
-                    Created <br /> By
-                  </span>
-                }
-                sortable
-                filter
-                filterField="username"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) => rowData.username || "-"}
-              />
-              <Column
-                field="transaction_mode"
-                header={
-                  <span>
-                    Transaction <br /> Mode
-                  </span>
-                }
-                sortable
-                filter
-                filterField="transaction_mode"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "110px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) => {
-                  let modeText = "-";
-
-                  if (rowData.transaction_mode === 1) {
-                    modeText = "Cash Memo";
-                  } else if (rowData.transaction_mode === 2) {
-                    modeText = "Debit Memo";
-                  }
-
-                  return <span>{modeText}</span>;
-                }}
-              />
-              <Column
-                field="cart_status"
-                header="Status"
-                sortable
-                filter
-                filterField="cart_status"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) => (
-                  <span
-                    style={{
-                      backgroundColor: rowData.status_colour
-                        ? rowData.status_colour
-                        : "#eeeeee",
-                    }}
-                    className="badge rounded-pill"
-                  >
-                    {rowData.cart_status}
-                  </span>
-                )}
-              />
-              <Column
-                field="created_date_time"
-                header={
-                  <span>
-                    Created <br /> Date-Time
-                  </span>
-                }
-                sortable
-                filter
-                filterField="created_date_time"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "120px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) =>
-                  formatDateTime(rowData.created_date_time)
-                }
-              />
-              <Column
-                field="update_Date_time"
-                header={
-                  <span>
-                    Approve <br /> Date-Time
-                  </span>
-                }
-                sortable
-                filter
-                filterField="update_Date_time"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "120px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                  fontSize: "14px",
-                }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) =>
-                  formatDateTime(rowData.update_Date_time)
-                }
-              />
-              <Column
-                field="taxable_amt"
-                header={
-                  <span>
-                    Taxable <br /> Amount
-                  </span>
-                }
-                sortable
-                filter
-                filterField="taxable_amt"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{
-                  textAlign: "right",
-                  // paddingRight: "70px",
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) =>
-                  rowData.taxable_amt !== undefined
-                    ? `${rowData.taxable_amt}`
-                    : "0"
-                }
-              />
-              <Column
-                field="gst_amt"
-                header={
-                  <span>
-                    Tax <br /> Amount
-                  </span>
-                }
-                sortable
-                filter
-                filterField="gst_amt"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{
-                  textAlign: "right",
-                  // paddingRight: "70px",
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) =>
-                  rowData.gst_amt !== undefined ? `${rowData.gst_amt}` : "0"
-                }
-              />
-              <Column
-                field="tcs_amt"
-                header={
-                  <span>
-                    TCS <br /> Amount
-                  </span>
-                }
-                sortable
-                filter
-                filterField="tcs_amt"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{
-                  textAlign: "right",
-                  // paddingRight: "70px",
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) =>
-                  rowData.tcs_amt !== undefined ? `${rowData.tcs_amt}` : "0"
-                }
-              />
-              <Column
-                field="round_off"
-                header={
-                  <span>
-                    Round <br /> Off
-                  </span>
-                }
-                sortable
-                filter
-                filterField="round_off"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "90px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{
-                  textAlign: "right",
-                  // paddingRight: "70px",
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) =>
-                  rowData.round_off !== undefined ? `${rowData.round_off}` : "0"
-                }
-              />
-              <Column
-                field="grand_total"
-                header={
-                  <span>
-                    Grand <br /> Total
-                  </span>
-                }
-                sortable
-                filter
-                filterField="grand_total"
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
-                headerStyle={{
-                  width: "100px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                bodyStyle={{
-                  textAlign: "right",
-                  // paddingRight: "70px",
-                  fontSize: "14px",
-                }}
-                body={(rowData: any) =>
-                  rowData.grand_total !== undefined
-                    ? `${rowData.grand_total}`
-                    : "0"
-                }
-              />
-              {uniqueCustomFields.map((field: any) => (
-                <Column
-                  key={field.fieldName}
-                  field={field.fieldName}
-                  header={field.fieldLabel.replace(/ /g, "\n")}
-                  sortable
-                  filter
-                  filterField={field.fieldName}
-                  filterPlaceholder={`Search ${field.fieldLabel}`}
-                  filterMatchMode={field.dataType === 1 ? "equals" : "contains"}
-                  headerStyle={{
-                    width: "250px",
-                    whiteSpace: "pre-wrap",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
+                  bodyStyle={{
                     fontSize: "14px",
+                    textAlign: [
+                      "taxable_amt",
+                      "gst_amt",
+                      "tcs_amt",
+                      "round_off",
+                      "grand_total",
+                    ].includes(col.key)
+                      ? "right"
+                      : undefined,
                   }}
-                  bodyStyle={{ fontSize: "14px" }}
-                  body={(row) => {
-                    const val = row[field.fieldName];
-                    return val !== null && val !== undefined && val !== ""
-                      ? val
-                      : "-";
-                  }}
+                  body={col.body}
                 />
               ))}
             </DataTable>
@@ -2018,6 +2045,10 @@ const TeamPurchaseInvoiceDataReportsView = ({
               show={isOrderShow}
               onHide={() => setIsOrderShow(false)}
               handleSubmit={() => setIsOrderShow(true)}
+              onConversionSuccess={() => {
+                setIsOrderShow(false);
+                setRefreshReport(true);
+              }}
               title={"Create"}
               message={"Please Enter Your Order Details"}
               btn1={"CANCEL"}
@@ -2082,6 +2113,24 @@ const TeamPurchaseInvoiceDataReportsView = ({
             cartType={4}
             title={title}
           />
+          {isSyncConfirmationOpen && (
+            <ConfirmationModal
+              show={isSyncConfirmationOpen}
+              onHide={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+              }}
+              handleSubmit={() => {
+                setIsSyncConfirmationOpen(false);
+                setActionType("");
+                handleSyncWithMiracle();
+              }}
+              title="Sync with Miracle Confirmation"
+              message="Are you sure you want to sync selected records with Miracle?"
+              btn1="CANCEL"
+              btn2="SYNC"
+            />
+          )}
         </div>
       </>
     </PrimeReactProvider>

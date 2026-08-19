@@ -14,13 +14,18 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -238,6 +243,24 @@ const AllSourceReport = ({
     debouncedSearchText,
   ]);
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    setApiParams({ ul: 0, ll: 50 });
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    fetchSource(
+      setSourceReport,
+      filters.selectedDateArray,
+      MobileToken,
+      getID,
+      MobileFlag,
+      filters.checkedSourceTypes,
+      filters.checkedOptionsUser,
+      0,
+      50,
+      debouncedSearchText,
+    );
+  };
+
   const dataArray: ISourceReport[] = sourceReport
     ? sourceReport.map((item) => ({
         source_name: item.source_name || "-",
@@ -388,22 +411,71 @@ const AllSourceReport = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Source Name", dataKey: "source_name" },
-    { title: "Contact Count", dataKey: "contactCount" },
-    { title: "Inquiry Count", dataKey: "inquiryCount" },
-  ];
+  type SourceColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    body: (rowData: ISourceReport) => React.ReactNode;
+  };
+
+  const baseColumnDefs: SourceColumnDef[] = useMemo(
+    () => [
+      {
+        key: "source_name",
+        label: "Source Name",
+        header: "Source Name",
+        width: "200px",
+        body: (rowData: ISourceReport) => rowData.source_name || "-",
+      },
+      {
+        key: "contactCount",
+        label: "Contact Count",
+        header: "Contact Count",
+        width: "150px",
+        body: (rowData: ISourceReport) => rowData.contactCount ?? "-",
+      },
+      {
+        key: "inquiryCount",
+        label: "Inquiry Count",
+        header: "Inquiry Count",
+        width: "150px",
+        body: (rowData: ISourceReport) => rowData.inquiryCount ?? "-",
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("source_wise_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: { key: string },
+    customer: any,
+  ): any => customer[col.key] ?? "-";
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     const filteredData = getFilteredData();
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
+
     const tableData = (
       selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => ({
-      source_name: customer.source_name || "-",
-      contactCount: customer.contactCount || "-",
-      inquiryCount: customer.inquiryCount || "-",
-    }));
+    ).map((customer) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, customer);
+      });
+      return row;
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
@@ -479,11 +551,13 @@ const AllSourceReport = ({
 
       const exportData = (
         selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => ({
-        "Source Name": customer.source_name || "-",
-        "Contact Count": customer.contactCount ?? 0,
-        "Inquiry Count": customer.inquiryCount ?? 0,
-      }));
+      ).map((customer) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer);
+        });
+        return row;
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = [{ wpx: 220 }, { wpx: 160 }, { wpx: 160 }];
@@ -539,7 +613,7 @@ const AllSourceReport = ({
           <table>
             <thead>
               <tr>
-                ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -547,9 +621,12 @@ const AllSourceReport = ({
                 .map(
                   (customer) => `
                   <tr>
-                    <td>${customer.source_name || "-"}</td>
-                    <td>${customer.contactCount || "-"}</td>
-                    <td>${customer.inquiryCount || "-"}</td>
+                    ${visibleColumns
+                      .map(
+                        (col) =>
+                          `<td>${getExportCellValue(col, customer)}</td>`,
+                      )
+                      .join("")}
                   </tr>
                 `,
                 )
@@ -775,6 +852,29 @@ const AllSourceReport = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -825,60 +925,28 @@ const AllSourceReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="source_name"
-            header="Source Name"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "200px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: ISourceReport) => rowData.source_name || "-"}
-          />
-          <Column
-            field="contactCount"
-            header="Contact Count"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: ISourceReport) => rowData.contactCount ?? "-"}
-          />
-          <Column
-            field="inquiryCount"
-            header="Inquiry Count"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: ISourceReport) => rowData.inquiryCount ?? "-"}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

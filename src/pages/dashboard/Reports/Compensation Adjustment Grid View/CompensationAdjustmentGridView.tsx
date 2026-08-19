@@ -11,9 +11,11 @@ import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import {
   ADJUSTMENT_TYPES,
@@ -275,6 +277,88 @@ const CompensationAdjustmentGridView = ({
     );
   };
 
+  type CompAdjColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: ICompensationAdjustmentView) => React.ReactNode;
+  };
+
+  const baseColumnDefs: CompAdjColumnDef[] = useMemo(() => {
+    return [
+      {
+        key: "employee_name",
+        label: "Employee Name",
+        header: <span>Employee Name</span>,
+        width: "250px",
+        body: (rowData) => {
+          return (
+            <span>
+              {rowData.employee_name || `EMP#${rowData.employee_id}`}
+            </span>
+          );
+        },
+      },
+      {
+        key: "apply_date",
+        label: "Apply Date",
+        header: <span>Apply Date</span>,
+        width: "250px",
+        body: (rowData) => {
+          return (
+            <span className="mx-1 text-muted" title="Apply Date">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                style={{
+                  marginBottom: "1px",
+                  marginRight: "2px",
+                }}
+              >
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" />
+              </svg>
+              {formatDate(rowData.apply_date)}
+            </span>
+          );
+        },
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: <span>Remark</span>,
+        width: "250px",
+        body: (rowData) => {
+          return (
+            <span
+              className="badge rounded-pill mx-1 px-2 py-1"
+              style={{
+                fontSize: "0.73rem",
+                ...getAdjBadgeStyle(rowData.adjustment_type),
+              }}
+            >
+              {rowData.remark}
+            </span>
+          );
+        },
+      },
+    ];
+  }, []);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences(
+    "compensation_adjustment_grid_view",
+    baseColumnDefs,
+  );
+
   return (
     <PrimeReactProvider>
       <div>
@@ -305,6 +389,27 @@ const CompensationAdjustmentGridView = ({
                   fontSize: "14px",
                 },
               }}
+            />
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefreshList}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
             />
           </div>
         </div>
@@ -351,88 +456,28 @@ const CompensationAdjustmentGridView = ({
               }}
               body={actionBodyTemplate}
             />
-            <Column
-              field="employee_name"
-              header={<span>Employee Name</span>}
-              sortable
-              filter
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "250px",
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: ICompensationAdjustmentView) => {
-                return (
-                  <span>
-                    {rowData.employee_name || `EMP#${rowData.employee_id}`}
-                  </span>
-                );
-              }}
-            />
-            <Column
-              field="apply_date"
-              header={<span>Apply Date</span>}
-              sortable
-              filter
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "250px",
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: ICompensationAdjustmentView) => {
-                return (
-                  <span className="mx-1 text-muted" title="Apply Date">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="11"
-                      height="11"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      style={{
-                        marginBottom: "1px",
-                        marginRight: "2px",
-                      }}
-                    >
-                      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" />
-                    </svg>
-                    {formatDate(rowData.apply_date)}
-                  </span>
-                );
-              }}
-            />
-            <Column
-              field="remark"
-              header={<span>Remark</span>}
-              sortable
-              filter
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "250px",
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: ICompensationAdjustmentView) => {
-                return (
-                  <span
-                    className="badge rounded-pill mx-1 px-2 py-1"
-                    style={{
-                      fontSize: "0.73rem",
-                      ...getAdjBadgeStyle(rowData.adjustment_type),
-                    }}
-                  >
-                    {rowData.remark}
-                  </span>
-                );
-              }}
-            />
+            {visibleColumns.map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable
+                filter
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerStyle={{
+                  width: col.width || "150px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  background: "#f8f9fa",
+                  fontSize: "14px",
+                }}
+                bodyStyle={{ fontSize: "14px" }}
+                body={col.body}
+              />
+            ))}
           </DataTable>
           <OverlayPanel ref={op} className="action-overlay">
             <ul className="list-unstyled m-0 p-0" id="dropLeft">

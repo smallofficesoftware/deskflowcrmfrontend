@@ -855,7 +855,11 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
       )}
 
       <Editor
-        editorStyle={{ paddingLeft: "10px" }}
+        editorStyle={{
+          paddingLeft: "10px",
+          maxHeight: "150px",
+          overflowY: "auto",
+        }}
         placeholder="  Enter Your Messages"
         editorState={editorState}
         toolbar={{

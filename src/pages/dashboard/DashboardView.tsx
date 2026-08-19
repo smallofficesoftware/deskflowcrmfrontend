@@ -15,7 +15,6 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { MultiValue } from "react-select";
 import { toast } from "react-toastify";
-import { openInNewTab } from "../../common/SharedFunction";
 import DateTimeRangePicker from "../../components/DateTimeRangePicker";
 import ReportModal from "../../components/model/ReportsModel";
 import MultiSelect, { Option } from "../../components/MultiSelect";
@@ -197,8 +196,8 @@ const DashboardView = ({
 
   const getCurrentMonthDateRange = () => {
     const now = new Date();
-    const startOfMonth = new Date();
-    const endOfMonth = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return [startOfMonth, endOfMonth];
   };
 
@@ -634,28 +633,6 @@ const DashboardView = ({
                     My Insights
                   </h2>
                   <div className="ICON">
-                    <button className="icons">
-                      <p
-                        className="landing-page-text"
-                        style={{
-                          cursor: "pointer",
-                          color: "blue",
-                          fontSize: "13px",
-                        }}
-                        onClick={() => openInNewTab("/videoTutorial", 11)}
-                      >
-                        Learn More :
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          height="24px"
-                          viewBox="0 -960 960 960"
-                          width="24px"
-                          fill="#0000FF"
-                        >
-                          <path d="M616-242q-27 1-51.5 1.5t-43.5.5h-41q-71 0-133-2-53-2-104.5-5.5T168-257q-26-7-45-26t-26-45q-6-23-9.5-56T82-447q-2-36-2-73t2-73q2-30 5.5-63t9.5-56q7-26 26-45t45-26q23-6 74.5-9.5T347-798q62-2 133-2t133 2q53 2 104.5 5.5T792-783q26 7 45 26t26 45q6 23 9.5 56t5.5 63q2 36 2 73v17q-19-8-39-12.5t-41-4.5q-83 0-141.5 58.5T600-320q0 21 4 40.5t12 37.5ZM400-400l208-120-208-120v240Zm360 200v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z" />
-                        </svg>
-                      </p>
-                    </button>
                     <button className="icons" onClick={handelRefreshDashboard}>
                       <svg width="30" height="30" viewBox="0 0 50 50">
                         <path

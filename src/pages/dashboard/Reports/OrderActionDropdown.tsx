@@ -24,6 +24,7 @@ interface OrderActionDropdownProps {
     showTask?: (item: IOrder) => void;
     openStageAndStatusLog?: (item: IOrder) => void;
     handleModalConvertIntoOrder?: (id: number, number: string) => void;
+    handleModalConvertIntoProforma?: (id: number, number: string) => void;
     handleModalConvertIntoDisPatch?: (id: number, number: string) => void;
     handleModalConvertIntoInvoice?: (id: number, number: string) => void;
     handleModalConvertDispatchIntoInvoice?: (id: number, number: string) => void;
@@ -61,6 +62,7 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
     showTask,
     openStageAndStatusLog,
     handleModalConvertIntoOrder,
+    handleModalConvertIntoProforma,
     handleModalConvertIntoDisPatch,
     handleModalConvertIntoInvoice,
     handleModalConvertDispatchIntoInvoice,
@@ -536,6 +538,40 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
                         }
                     >
                         Convert to {dynamicOrder}
+                    </li>
+                ) : (
+                    <span></span>
+                )}
+                {item.type === 1 && item.cart_number ? (
+                    <li
+                        style={{ height: "auto" }}
+                        className="listItem-report"
+                        role="button"
+                        onClick={() =>
+                            handleModalConvertIntoProforma?.(
+                                item.id,
+                                item.cart_number,
+                            )
+                        }
+                    >
+                        Convert to {dynamicProformaInvoice}
+                    </li>
+                ) : (
+                    <span></span>
+                )}
+                {item.type === 1 && item.cart_number ? (
+                    <li
+                        style={{ height: "auto" }}
+                        className="listItem-report"
+                        role="button"
+                        onClick={() =>
+                            handleModalConvertIntoInvoice?.(
+                                item.id,
+                                item.cart_number,
+                            )
+                        }
+                    >
+                        Convert to {dynamicInvoice}
                     </li>
                 ) : (
                     <span></span>

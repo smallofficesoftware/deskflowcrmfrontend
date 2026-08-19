@@ -123,6 +123,22 @@ const SalaryProcessGridView = ({
         }
     }, [canView]);
 
+    const handleRefresh = async () => {
+        if (!canView) return;
+        setOffset(0);
+        setHasMore(true);
+        setProcessAttendanceList([]);
+        setLoading(true);
+        const more = await fetchProcessAttendanceApi(
+            setProcessAttendanceList,
+            setLoading,
+            PAGE_SIZE,
+            0,
+            false,
+        );
+        setHasMore(more);
+    };
+
     const onVirtualLoad = (event: VirtualScrollerLazyEvent) => {
         // Safely get the last visible index
         const lastVisible =
@@ -238,6 +254,20 @@ const SalaryProcessGridView = ({
                                 Generate Salary
                             </button>
                         </div>
+                        <Button
+                            icon="pi pi-refresh"
+                            className="report_button"
+                            style={{ backgroundColor: "#4C4C4C" }}
+                            rounded
+                            onClick={handleRefresh}
+                            tooltip="Refresh"
+                            tooltipOptions={{
+                                position: "top",
+                                style: {
+                                    fontSize: "14px",
+                                },
+                            }}
+                        />
                     </div>
                 </div>
 

@@ -27,15 +27,15 @@ const uuid = () => localStorage.getItem("UUID");
 export const fetchJobCardList = async (
   setList: TReactSetState<IJobCardListItem[]>,
   setLoading: TReactSetState<boolean>,
-  searchTerm: string,
+  searchTerm: string = "",
   limit: number = 30,
   offset: number = 0,
   append: boolean = false,
-  labelOptions: any[],
-  statusOptions: any[],
-  assignedTeamOptions: any[] | undefined,
-  createdTeamOptions: any[] | undefined,
-  labelAndOr: number | undefined,
+  labelOptions: any[] = [],
+  statusOptions: any[] = [],
+  assignedTeamOptions: any[] = [],
+  createdTeamOptions: any[] = [],
+  labelAndOr: number = 0,
 ): Promise<boolean> => {
   try {
     const data = await axiosInstance.post("job-card/fetch", {

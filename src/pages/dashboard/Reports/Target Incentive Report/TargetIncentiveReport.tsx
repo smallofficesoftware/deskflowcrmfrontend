@@ -16,9 +16,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -231,6 +233,14 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
     }
   };
 
+  const handleRefresh = async () => {
+    offsetRef.current = 0;
+    hasMoreRef.current = true;
+    setCustomers([]);
+    setAllRawData([]);
+    loadData(true);
+  };
+
   useEffect(() => {
     offsetRef.current = 0;
     hasMoreRef.current = true;
@@ -301,28 +311,16 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
       selectedCustomers.length > 0 ? selectedCustomers : customers;
     if (dataToExport.length === 0) return;
 
-    const formattedData = dataToExport.map((item) => ({
-      "Team Member": item.username,
-      "Target Type": item.target_type_label || "Invoice",
-      "Target Count": item.target_count || "-",
-      "Achieved Count": item.achieved_count || 0,
-      "Target Value": item.target_value
-        ? `${currSym}${(item.target_value || 0).toLocaleString("en-IN")}`
-        : "-",
-      "Achieved Value": item.achieved_value
-        ? `${currSym}${(item.achieved_value || 0).toLocaleString("en-IN")}`
-        : `${currSym}0`,
-      "Achievement (%)": `${item.achievement_percentage ?? item.achievement_pct ?? 0}%`,
-      "Incentive Type": item.incentive_type_label || "-",
-      "Incentive Rule":
-        item.incentive_type === 1
-          ? `${item.incentive_value}%`
-          : item.incentive_type === 2
-            ? `${currSym}${item.incentive_value} (Flat)`
-            : "None",
-      "Earned Incentive": `${currSym}${(item.incentive_amount ?? item.earned_incentive ?? 0).toLocaleString("en-IN")}`,
-      Status: item.status,
-    }));
+    const formattedData = dataToExport.map((item) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.label] = getExportCellValue(col, item);
+      });
+      EXTRA_EXPORT_COLUMNS.forEach((col) => {
+        row[col.label] = (item as any)[col.key] || "-";
+      });
+      return row;
+    });
 
     const worksheet = xlsx.utils.json_to_sheet(formattedData);
     const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
@@ -351,34 +349,14 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
 
     const head = [
       [
-        "Team Member",
-        "Target Type",
-        "Target / Achieved Count",
-        "Target / Achieved Value",
-        "Achievement (%)",
-        "Incentive Rule",
-        "Earned Incentive",
-        "Status",
+        ...visibleColumns.map((col) => col.label),
+        ...EXTRA_EXPORT_COLUMNS.map((col) => col.label),
       ],
     ];
 
     const body = dataToExport.map((item) => [
-      item.username,
-      item.target_type_label || "Invoice",
-      item.target_count && item.target_count > 0
-        ? `${item.target_count} / ${item.achieved_count || 0}`
-        : "-",
-      item.target_value && item.target_value > 0
-        ? `${currSym}${(item.target_value || 0).toLocaleString("en-IN")} / ${currSym}${(item.achieved_value || 0).toLocaleString("en-IN")}`
-        : "-",
-      `${item.achievement_percentage ?? item.achievement_pct ?? 0}%`,
-      item.incentive_type === 1
-        ? `${item.incentive_value}%`
-        : item.incentive_type === 2
-          ? `${currSym}${item.incentive_value} (Flat)`
-          : "None",
-      `${currSym}${(item.incentive_amount ?? item.earned_incentive ?? 0).toLocaleString("en-IN")}`,
-      item.status,
+      ...visibleColumns.map((col) => getExportCellValue(col, item)),
+      ...EXTRA_EXPORT_COLUMNS.map((col) => (item as any)[col.key] || "-"),
     ]);
 
     autoTable(doc, {
@@ -418,14 +396,8 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
           <table>
             <thead>
               <tr>
-                <th>Team Member</th>
-                <th>Target Type</th>
-                <th>Count (Target / Achieved)</th>
-                <th>Value (Target / Achieved)</th>
-                <th>Achievement (%)</th>
-                <th>Incentive Rule</th>
-                <th>Earned Incentive</th>
-                <th>Status</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
+                ${EXTRA_EXPORT_COLUMNS.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -433,14 +405,12 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                 .map(
                   (item) => `
                     <tr>
-                      <td>${item.username || "-"}</td>
-                      <td>${item.target_type_label || "Invoice"}</td>
-                      <td>${item.target_count && item.target_count > 0 ? `${item.target_count} / ${item.achieved_count || 0}` : "-"}</td>
-                      <td>${item.target_value && item.target_value > 0 ? `${currSym}${(item.target_value || 0).toLocaleString("en-IN")} / ${currSym}${(item.achieved_value || 0).toLocaleString("en-IN")}` : "-"}</td>
-                      <td>${item.achievement_percentage ?? item.achievement_pct ?? 0}%</td>
-                      <td>${item.incentive_type === 1 ? `${item.incentive_value}%` : item.incentive_type === 2 ? `${currSym}${item.incentive_value} (Flat)` : "None"}</td>
-                      <td>${currSym}${(item.incentive_amount ?? item.earned_incentive ?? 0).toLocaleString("en-IN")}</td>
-                      <td>${item.status}</td>
+                      ${visibleColumns
+                        .map((col) => `<td>${getExportCellValue(col, item)}</td>`)
+                        .join("")}
+                      ${EXTRA_EXPORT_COLUMNS.map(
+                        (col) => `<td>${(item as any)[col.key] || "-"}</td>`,
+                      ).join("")}
                     </tr>
                   `,
                 )
@@ -474,6 +444,139 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
       badgeClass = "badge bg-warning text-dark";
 
     return <span className={badgeClass}>{rowData.status}</span>;
+  };
+
+  type TargetColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    body?: (rowData: ITargetIncentiveItem) => React.ReactNode;
+  };
+
+  const baseColumnDefs: TargetColumnDef[] = useMemo(
+    () => [
+      {
+        key: "username",
+        label: "Team Member",
+        header: "Team Member",
+      },
+      {
+        key: "target_type_label",
+        label: "Target Type",
+        header: "Target Type",
+        body: (rowData: ITargetIncentiveItem) => (
+          <span className="badge bg-info text-dark">
+            {rowData.target_type_label || "Invoice"}
+          </span>
+        ),
+      },
+      {
+        key: "target_achieved_count",
+        label: "Target / Achieved Count",
+        header: "Target / Achieved Count",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: ITargetIncentiveItem) =>
+          rowData.target_count && rowData.target_count > 0
+            ? `${rowData.target_count} / ${rowData.achieved_count || 0}`
+            : "-",
+      },
+      {
+        key: "target_achieved_value",
+        label: "Target / Achieved Value",
+        header: "Target / Achieved Value",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: ITargetIncentiveItem) =>
+          rowData.target_value && rowData.target_value > 0
+            ? `${currSym}${rowData.target_value.toLocaleString("en-IN")} / ${currSym}${(rowData.achieved_value || 0).toLocaleString("en-IN")}`
+            : "-",
+      },
+      {
+        key: "achievement_percentage",
+        label: "Achievement (%)",
+        header: "Achievement (%)",
+        filterCol: false,
+        body: pctBodyTemplate,
+      },
+      {
+        key: "incentive_rule",
+        label: "Incentive Rule",
+        header: "Incentive Rule",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: ITargetIncentiveItem) =>
+          rowData.incentive_type === 1
+            ? `${rowData.incentive_value}%`
+            : rowData.incentive_type === 2
+              ? `${currSym}${Number(rowData.incentive_value || 0).toLocaleString("en-IN")} (Flat)`
+              : "None",
+      },
+      {
+        key: "earned_incentive",
+        label: "Earned Incentive",
+        header: "Earned Incentive",
+        filterCol: false,
+        body: (rowData: ITargetIncentiveItem) =>
+          `${currSym}${(rowData.incentive_amount ?? rowData.earned_incentive ?? 0).toLocaleString("en-IN")}`,
+      },
+      {
+        key: "status",
+        label: "Status",
+        header: "Status",
+        body: statusBodyTemplate,
+      },
+    ],
+    [currSym],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("target_incentive_report", baseColumnDefs);
+
+  const EXTRA_EXPORT_COLUMNS: { key: string; label: string }[] = [
+    { key: "incentive_type_label", label: "Incentive Type" },
+  ];
+
+  const getExportCellValue = (
+    col: TargetColumnDef,
+    item: ITargetIncentiveItem,
+  ): string => {
+    switch (col.key) {
+      case "username":
+        return item.username || "-";
+      case "target_type_label":
+        return item.target_type_label || "Invoice";
+      case "target_achieved_count":
+        return item.target_count && item.target_count > 0
+          ? `${item.target_count} / ${item.achieved_count || 0}`
+          : "-";
+      case "target_achieved_value":
+        return item.target_value && item.target_value > 0
+          ? `${currSym}${(item.target_value || 0).toLocaleString("en-IN")} / ${currSym}${(item.achieved_value || 0).toLocaleString("en-IN")}`
+          : "-";
+      case "achievement_percentage":
+        return `${item.achievement_percentage ?? item.achievement_pct ?? 0}%`;
+      case "incentive_rule":
+        return item.incentive_type === 1
+          ? `${item.incentive_value}%`
+          : item.incentive_type === 2
+            ? `${currSym}${item.incentive_value} (Flat)`
+            : "None";
+      case "earned_incentive":
+        return `${currSym}${(item.incentive_amount ?? item.earned_incentive ?? 0).toLocaleString("en-IN")}`;
+      case "status":
+        return item.status;
+      default:
+        return (item as any)[col.key] ?? "-";
+    }
   };
 
   if (!canViewReport) {
@@ -670,6 +773,27 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                 </li>
               </ul>
             </div>
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
       </div>
@@ -773,81 +897,28 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
             />
           )}
 
-          <Column
-            field="username"
-            header="Team Member"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            sortable
-            filter
-            filterPlaceholder="Search Member"
-          />
-          <Column
-            field="target_type_label"
-            header="Target Type"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) => (
-              <span className="badge bg-info text-dark">
-                {rowData.target_type_label || "Invoice"}
-              </span>
-            )}
-            sortable
-            filter
-            filterPlaceholder="Target Type"
-          />
-          <Column
-            header="Target / Achieved Count"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              rowData.target_count && rowData.target_count > 0
-                ? `${rowData.target_count} / ${rowData.achieved_count || 0}`
-                : "-"
-            }
-          />
-          <Column
-            header="Target / Achieved Value"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              rowData.target_value && rowData.target_value > 0
-                ? `${currSym}${rowData.target_value.toLocaleString("en-IN")} / ${currSym}${(rowData.achieved_value || 0).toLocaleString("en-IN")}`
-                : "-"
-            }
-          />
-          <Column
-            field="achievement_percentage"
-            header="Achievement (%)"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={pctBodyTemplate}
-            sortable
-          />
-          <Column
-            header="Incentive Rule"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              rowData.incentive_type === 1
-                ? `${rowData.incentive_value}%`
-                : rowData.incentive_type === 2
-                  ? `${currSym}${Number(rowData.incentive_value || 0).toLocaleString("en-IN")} (Flat)`
-                  : "None"
-            }
-          />
-          <Column
-            field="earned_incentive"
-            header="Earned Incentive"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={(rowData) =>
-              `${currSym}${(rowData.incentive_amount ?? rowData.earned_incentive ?? 0).toLocaleString("en-IN")}`
-            }
-            sortable
-          />
-          <Column
-            field="status"
-            header="Status"
-            headerStyle={{ position: "sticky", top: 0, zIndex: 1 }}
-            body={statusBodyTemplate}
-            sortable
-            filter
-            filterPlaceholder="Search Status"
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable={col.sortableCol !== false}
+              filter={col.filterCol !== false}
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
 

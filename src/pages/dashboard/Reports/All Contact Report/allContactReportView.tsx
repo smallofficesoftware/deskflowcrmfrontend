@@ -25,6 +25,7 @@ import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { AppContext } from "../../../../common/AppContext";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
 import {
@@ -32,6 +33,7 @@ import {
   ITEMS_PER_PAGE,
 } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import CreateContactView from "../../../left-side/create-contact/CreateContactView";
@@ -547,6 +549,8 @@ const AllcontactReport = ({
     debouncedSearchText,
     selectedProductSearchId: filters.selectedProductSearchId,
     setSelectOrderType: filters.selectedOrderListId,
+    leadAgingBucket: filters.leadAgingBucket,
+    leadAgingActivityTypes: filters.leadAgingActivityTypes,
   });
 
   useEffect(() => {
@@ -591,6 +595,8 @@ const AllcontactReport = ({
           filters.assignedByMultiTeamMember,
           filters.createdByMultiTeamMember,
           isArchivState,
+          filters.leadAgingBucket,
+          filters.leadAgingActivityTypes,
         );
 
         if (newData.length < limit) {
@@ -639,9 +645,18 @@ const AllcontactReport = ({
       filters.selectedProductSearchId,
       filters.selectedOrderListId,
       debouncedSearchText,
+      filters.leadAgingBucket,
+      filters.leadAgingActivityTypes,
       hasMore,
     ],
   );
+
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    loadTasks(0, 50, true);
+  };
 
   const dataArray: IAllcontact[] = useMemo(() => {
     return customers.map((item) => ({
@@ -774,6 +789,247 @@ const AllcontactReport = ({
     });
   }, [dataArray]);
 
+  type ContactColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IAllcontact) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ContactColumnDef[] = useMemo(() => {
+    const defs: ContactColumnDef[] = [
+      {
+        key: "person_name",
+        label: "Person Name",
+        header: <span>Person <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.person_name || "-",
+      },
+      {
+        key: "mobile_number",
+        label: "Mobile Number",
+        header: <span>Mobile <br /> Number</span>,
+        width: "150px",
+        body: (rowData) => rowData.mobile_number || "-",
+      },
+      {
+        key: "company_name",
+        label: "Company Name",
+        header: <span>Company <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.company_name || "-",
+      },
+      {
+        key: "source_name",
+        label: "Source Name",
+        header: <span>Source <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.source_colour
+                ? rowData.source_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.source_name}
+          </span>
+        ),
+      },
+      {
+        key: "lable_name",
+        label: "Lable Name",
+        header: <span>Lable <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => {
+          const labelNames = rowData.lable_name
+            ? rowData.lable_name
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s)
+            : [];
+          const labelColors = rowData.lable_colour
+            ? rowData.lable_colour
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s)
+            : [];
+
+          if (labelNames.length === 0) return "-";
+
+          return (
+            <div className="d-flex flex-wrap gap-1">
+              {labelNames.map((name, idx) => (
+                <span
+                  key={idx}
+                  className="badge rounded-pill"
+                  style={{
+                    backgroundColor: labelColors[idx] || "#6c757d",
+                    color: "#fff",
+                    fontSize: "0.85em",
+                    padding: "4px 8px",
+                  }}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        key: "status_name",
+        label: "Status Name",
+        header: <span>Status <br /> Name</span>,
+        width: "120px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour
+                ? rowData.status_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.status_name}
+          </span>
+        ),
+      },
+      {
+        key: "address",
+        label: "Address",
+        header: "Address",
+        width: "150px",
+        body: (rowData) => {
+          if (rowData.latitude && rowData.longitude && !MobileFlag) {
+            return (
+              <a
+                href={`https://www.google.com/maps/dir//${rowData.latitude},${rowData.longitude}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {rowData.address || "-"}
+              </a>
+            );
+          }
+          return rowData.address || "-";
+        },
+      },
+      {
+        key: "country_name",
+        label: "Country Name",
+        header: <span>Country <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.country_name || "-",
+      },
+      {
+        key: "state_name",
+        label: "State Name",
+        header: <span>State <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.state_name || "-",
+      },
+      {
+        key: "city_name",
+        label: "City Name",
+        header: <span>City <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.city_name || "-",
+      },
+      {
+        key: "area_name",
+        label: "Area Name",
+        header: <span>Area <br /> Name</span>,
+        width: "150px",
+        body: (rowData) => rowData.area_name || "-",
+      },
+    ];
+
+    if (showCartColumns.cart_number) {
+      defs.push({
+        key: "cart_number",
+        label: "Last Cart Number",
+        header: "Last Cart Number",
+        width: "150px",
+        body: (rowData) => rowData.cart_number || "-",
+      });
+    }
+
+    if (showCartColumns.created_date_time) {
+      defs.push({
+        key: "created_date_time",
+        label: "Created Date",
+        header: "Created Date",
+        width: "150px",
+        body: (rowData) => rowData.created_date_time || "-",
+      });
+    }
+
+    defs.push(
+      {
+        key: "assigned_to",
+        label: "Assign To",
+        header: "Assign To",
+        width: "150px",
+        body: (rowData) => rowData.assigned_to || "-",
+      },
+      {
+        key: "created_by",
+        label: "Created By",
+        header: "Created By",
+        width: "150px",
+        body: (rowData) => rowData.created_by || "-",
+      },
+    );
+
+    if (showCartColumns.grand_total) {
+      defs.push({
+        key: "grand_total",
+        label: "Grand Total",
+        header: "Grand Total",
+        width: "150px",
+        filterMatchMode: "equals",
+        body: (rowData) =>
+          rowData.grand_total ? `₹ ${rowData.grand_total}` : "-",
+      });
+    }
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel,
+        width: field.dataType === 3 ? "220px" : "150px",
+        filterMatchMode:
+          field.dataType === 1 || field.dataType === 7 ? "equals" : "contains",
+        body: (rowData: any) => {
+          const val = rowData[field.fieldName];
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
+        },
+      });
+    });
+
+    return defs;
+  }, [showCartColumns, uniqueCustomFields, MobileFlag]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_contact_report", baseColumnDefs);
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -835,35 +1091,19 @@ const AllcontactReport = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Person Name", dataKey: "person_name" },
-    { title: "Mobile Number", dataKey: "mobile_number" },
-    { title: "Company Name", dataKey: "company_name" },
-    { title: "Country Name", dataKey: "country_name" },
-    { title: "State Name", dataKey: "state_name" },
-    { title: "City Name", dataKey: "city_name" },
-    { title: "Area Name", dataKey: "area_name" },
-    { title: "Address", dataKey: "address" },
-    { title: "Source Name", dataKey: "source_name" },
-    { title: "Label Name", dataKey: "lable_name" },
-    { title: "Status Name", dataKey: "status_name" },
-    ...(showCartColumns.cart_number
-      ? [{ title: "Last Cart Number", dataKey: "cart_number" }]
-      : []),
-    ...(showCartColumns.created_date_time
-      ? [{ title: "Created Date", dataKey: "created_date_time" }]
-      : []),
-    { title: "Created By", dataKey: "created_by" },
-    { title: "Assign To", dataKey: "assigned_to" },
-
-    ...(showCartColumns.grand_total
-      ? [{ title: "Grand Total", dataKey: "grand_total" }]
-      : []),
-    ...uniqueCustomFields.map((field: any) => ({
-      title: field.fieldLabel,
-      dataKey: field.fieldName,
-    })),
-  ];
+  const getExportCellValue = (
+    col: ContactColumnDef,
+    customer: any,
+    moneyFormat: "inr" | "symbol" | "plain" = "plain",
+  ): string => {
+    if (col.key === "grand_total") {
+      if (!customer.grand_total) return "-";
+      if (moneyFormat === "inr") return `INR ${customer.grand_total}`;
+      if (moneyFormat === "symbol") return `₹${customer.grand_total}`;
+      return String(customer.grand_total);
+    }
+    return customer[col.key] ?? "-";
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
@@ -871,47 +1111,31 @@ const AllcontactReport = ({
     const tableData = (
       selectedCustomers.length > 0 ? selectedCustomers : filteredData
     ).map((customer) => {
-      const rowData: any = {
-        person_name: customer.person_name || "-",
-        mobile_number: customer.mobile_number || "-",
-        company_name: customer.company_name || "-",
-        country_name: customer.country_name || "-",
-        state_name: customer.state_name || "-",
-        city_name: customer.city_name || "-",
-        area_name: customer.area_name || "-",
-        address: customer.address || "-",
-        source_name: customer.source_name || "-",
-        lable_name: customer.lable_name || "-",
-        status_name: customer.status_name || "-",
-        created_by: customer.created_by || "-",
-        assigned_to: customer.assigned_to || "-",
-        ...(showCartColumns.cart_number
-          ? { cart_number: customer.cart_number || "-" }
-          : {}),
-        ...(showCartColumns.created_date_time
-          ? {
-            created_date_time: customer.created_date_time || "-",
-          }
-          : {}),
-        ...(showCartColumns.grand_total
-          ? {
-            grand_total: customer.grand_total
-              ? `INR ${customer.grand_total}`
-              : "-",
-          }
-          : {}),
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = customer[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, customer, "inr");
       });
       return rowData;
     });
+
+        if (showCartColumns.grand_total) {
+      const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
+      tableData.push({
+        Person_Name: "Total",
+        Grand_Total: grandTotalSum.toFixed(2),
+      } as any);
+    }
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -927,6 +1151,11 @@ const AllcontactReport = ({
       didDrawPage: (data) => {
         doc.setFontSize(14);
         doc.text("All Contact Report", data.settings.margin.left, 10);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body" && showCartColumns.grand_total) {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
 
@@ -956,6 +1185,8 @@ const AllcontactReport = ({
         globalSearch: debouncedSearchText,
         assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
         createdByMultiTeamMember: filters.createdByMultiTeamMember,
+        leadAgingBucket: filters.leadAgingBucket,
+        leadAgingActivityTypes: filters.leadAgingActivityTypes,
       });
 
       if (!allContacts.length) {
@@ -966,32 +1197,20 @@ const AllcontactReport = ({
       const exportData = (
         selectedCustomers.length > 0 ? selectedCustomers : allContacts
       ).map((customer) => {
-        const row: any = {
-          Person_Name: customer.person_name || "-",
-          Mobile_Number: customer.mobile_number || "-",
-          Company_Name: customer.company_name || "-",
-          Country_Name: customer.country_name || "-",
-          State_Name: customer.state_name || "-",
-          City_Name: customer.city_name || "-",
-          Area_Name: customer.area_name || "-",
-          Address: customer.address || "-",
-          Source_Name: customer.source_name || "-",
-          Label_Name: customer.lable_name || "-",
-          Status_Name: customer.status_name || "-",
-          Cart_Number: customer.cart_number || "-",
-          Created_Date: customer.created_date_time || "-",
-          Grand_Total: customer.grand_total || "-",
-          created_by: customer.created_by || "-",
-          assigned_to: customer.assigned_to || "-",
-        };
-
-        // Dynamic custom fields
-        uniqueCustomFields.forEach((field: any) => {
-          row[field.fieldLabel] = customer[field.fieldName] || "-";
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer, "plain");
         });
-
         return row;
       });
+
+            if (showCartColumns.grand_total) {
+        const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : allContacts).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
+        exportData.push({
+          Person_Name: "Total",
+          Grand_Total: grandTotalSum.toFixed(2),
+        });
+      }
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
@@ -1046,7 +1265,7 @@ const AllcontactReport = ({
           <table>
             <thead>
               <tr>
-                ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -1054,36 +1273,10 @@ const AllcontactReport = ({
         .map(
           (customer) => `
                   <tr>
-                    <td>${customer.person_name || "-"}</td>
-                    <td>${customer.mobile_number || "-"}</td>
-                    <td>${customer.company_name || "-"}</td>
-                    <td>${customer.country_name || "-"}</td>
-                    <td>${customer.state_name || "-"}</td>
-                    <td>${customer.city_name || "-"}</td>
-                    <td>${customer.area_name || "-"}</td>
-                    <td>${customer.address || "-"}</td>
-                    <td>${customer.source_name || "-"}</td>
-                    <td>${customer.lable_name || "-"}</td>
-                    <td>${customer.status_name || "-"}</td>
-                    ${showCartColumns.cart_number
-              ? `<td>${customer.cart_number || "-"}</td>`
-              : ""
-            }
-                    ${showCartColumns.created_date_time
-              ? `<td>${customer.created_date_time || "-"}</td>`
-              : ""
-            }
-                    ${showCartColumns.grand_total
-              ? `<td>${customer.grand_total ? `₹${customer.grand_total}` : "-"}</td>`
-              : ""
-            }
-                    <td>${customer.created_by || "-"}</td>
-                    <td>${customer.assigned_to || "-"}</td>
-
-                    ${uniqueCustomFields
+                    ${visibleColumns
               .map(
-                (field: any) =>
-                  `<td>${customer[field.fieldName] || "-"}</td>`,
+                (col) =>
+                  `<td>${getExportCellValue(col, customer, "symbol")}</td>`,
               )
               .join("")}
                   </tr>
@@ -1445,6 +1638,29 @@ const AllcontactReport = ({
               </li>
             </ul>
           </div>
+
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
+
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1542,438 +1758,29 @@ const AllcontactReport = ({
               body={actionBodyTemplate}
             />
           )}
-          <Column
-            field="person_name"
-            header={
-              <span>
-                Person <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.person_name || "-"}
-          />
-          <Column
-            field="mobile_number"
-            header={
-              <span>
-                Mobile <br /> Number
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.mobile_number || "-"}
-          />
-          <Column
-            field="company_name"
-            header={
-              <span>
-                Company <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.company_name || "-"}
-          />
-          <Column
-            field="source_name"
-            header={
-              <span>
-                Source <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => (
-              <span
-                style={{
-                  backgroundColor: rowData.source_colour
-                    ? rowData.source_colour
-                    : "#eeeeee",
-                }}
-                className="badge rounded-pill"
-              >
-                {rowData.source_name}
-              </span>
-            )}
-          />
-          <Column
-            field="lable_name"
-            header={
-              <span>
-                Lable <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => {
-              const labelNames = rowData.lable_name
-                ? rowData.lable_name
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter((s) => s)
-                : [];
-              const labelColors = rowData.lable_colour
-                ? rowData.lable_colour
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter((s) => s)
-                : [];
-
-              if (labelNames.length === 0) return "-";
-
-              return (
-                <div className="d-flex flex-wrap gap-1">
-                  {labelNames.map((name, idx) => (
-                    <span
-                      key={idx}
-                      className="badge rounded-pill"
-                      style={{
-                        backgroundColor: labelColors[idx] || "#6c757d",
-                        color: "#fff",
-                        fontSize: "0.85em",
-                        padding: "4px 8px",
-                      }}
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              );
-            }}
-          />
-          <Column
-            field="status_name"
-            header={
-              <span>
-                Status <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "120px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => (
-              <span
-                style={{
-                  backgroundColor: rowData.status_colour
-                    ? rowData.status_colour
-                    : "#eeeeee",
-                }}
-                className="badge rounded-pill"
-              >
-                {rowData.status_name}
-              </span>
-            )}
-          />
-          <Column
-            field="address"
-            header="Address"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => {
-              if (rowData.latitude && rowData.longitude && !MobileFlag) {
-                return (
-                  <a
-                    href={`https://www.google.com/maps/dir//${rowData.latitude},${rowData.longitude}/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {rowData.address || "-"}
-                  </a>
-                );
-              }
-              return rowData.address || "-";
-            }}
-          />
-          <Column
-            field="country_name"
-            header={
-              <span>
-                Country <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.country_name || "-"}
-          />
-          <Column
-            field="state_name"
-            header={
-              <span>
-                State <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.state_name || "-"}
-          />
-          <Column
-            field="city_name"
-            header={
-              <span>
-                City <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.city_name || "-"}
-          />
-          <Column
-            field="area_name"
-            header={
-              <span>
-                Area <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.area_name || "-"}
-          />
-          {showCartColumns.cart_number && (
+          {visibleColumns.map((col) => (
             <Column
-              field="cart_number"
-              header="Last Cart Number"
+              key={col.key}
+              field={col.key}
+              header={col.header}
               sortable
               filter
+              filterField={col.key}
               filterPlaceholder="Search"
-              filterMatchMode="contains"
+              filterMatchMode={col.filterMatchMode || "contains"}
               headerStyle={{
-                width: "150px",
+                width: col.width || "150px",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
                 background: "#f8f9fa",
                 fontSize: "14px",
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IAllcontact) => rowData.cart_number || "-"}
-            />
-          )}
-          {showCartColumns.created_date_time && (
-            <Column
-              field="created_date_time"
-              header="Created Date"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                background: "#f8f9fa",
+              bodyStyle={{
                 fontSize: "14px",
+                textAlign: col.key === "grand_total" ? "right" : undefined,
               }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IAllcontact) => rowData.created_date_time || "-"}
-            />
-          )}
-
-          <Column
-            field="assigned_to"
-            header="Assign To"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.assigned_to || "-"}
-          />
-
-          <Column
-            field="created_by"
-            header="Created By"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IAllcontact) => rowData.created_by || "-"}
-          />
-
-          {showCartColumns.grand_total && (
-            <Column
-              field="grand_total"
-              header="Grand Total"
-              sortable
-              filter
-              filterPlaceholder="Search"
-              filterMatchMode="equals"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px", textAlign: "right" }}
-              body={(rowData: IAllcontact) =>
-                rowData.grand_total ? `₹ ${rowData.grand_total}` : "-"
-              }
-            />
-          )}
-          {uniqueCustomFields.map((field: any) => (
-            <Column
-              key={field.fieldName}
-              field={field.fieldName}
-              header={field.fieldLabel}
-              sortable
-              filter
-              filterField={field.fieldName}
-              filterPlaceholder={`Search`}
-              filterMatchMode={
-                field.dataType === 1 || field.dataType === 7
-                  ? "equals"
-                  : "contains"
-              }
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: IAllcontact) => rowData[field.fieldName] || "-"}
+              body={col.body}
             />
           ))}
         </DataTable>
@@ -1995,7 +1802,7 @@ const AllcontactReport = ({
           message="Please select the Dates and Team Members for the Report."
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 2, 3, 4, 5, 6, 9, 19]}
+          filtersToShow={[1, 2, 3, 4, 5, 6, 9, 19, 29]}
           pageId={1}
           stageandStatusOrderType={1}
           initialFilterData={{
@@ -2019,6 +1826,8 @@ const AllcontactReport = ({
           initialSelectedDays={filters.selectedDays}
           selectedWarehouseIds={filters.selectedWarehouseIds}
           initialReferenceWiseContact={filters.referenceWiseContact}
+          initialLeadAgingBucket={filters.leadAgingBucket}
+          initialLeadAgingActivityTypes={filters.leadAgingActivityTypes}
           isApplyReport={1}
         />
       )}

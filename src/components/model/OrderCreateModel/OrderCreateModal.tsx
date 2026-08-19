@@ -15,7 +15,6 @@ import {
   formatDateSendDataBase,
   formatNumber,
   getCustomFieldDatavalues,
-  openInNewTab,
   useEscapeKey,
 } from "../../../common/SharedFunction";
 import {
@@ -51,6 +50,7 @@ import {
 import {
   handleConvertIntoDispath,
   handleConvertIntoInvoice,
+  handleConvertIntoProforma,
   handleConvertIntoInward,
   handleConvertIntoOrder,
   handleConvertIntoPurchaseInvoice,
@@ -104,6 +104,10 @@ interface IOrderCreateModal {
   show: boolean;
   onHide: () => void;
   handleSubmit: () => void;
+  /** Called after a conversion succeeds, with the target order type number.
+   *  e.g. Quotation(1) → Proforma(12): onConversionSuccess(12)
+   *  Optional — callers that don't need to redirect can omit it. */
+  onConversionSuccess?: (targetOrderType: number) => void;
   title: string;
   message: string;
   btn1: string;
@@ -132,6 +136,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   show,
   onHide,
   handleSubmit,
+  onConversionSuccess,
   title,
   message,
   btn1,
@@ -318,6 +323,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     isConvertIntoInvoiceConfirmation,
     setIsConvertIntoInvoiceConfirmation,
   ] = useState(false);
+  const [isConvertIntoProformaConfirmation, setIsConvertIntoProformaConfirmation] =
+    useState(false);
 
   const [
     isConvertIntoDisPatchConfirmation,
@@ -369,6 +376,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     selectedTrasactionMode: "",
     selectedMiracleLedger: "",
   });
+  const isApproveSubmittingRef = useRef(false);
   const [conversionType, setConversionType] = useState("");
   const [buttonLoading, setButtonloding] = useState(false);
   const [isEditPageUrlModalOpen, setIsEditPageUrlModalOpen] = useState(false);
@@ -413,6 +421,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (approveData.checkedOptions && approveData.checkedOptions.length > 0) {
+      // Guard: prevent duplicate submissions if approveData is still populated
+      // during a re-render that happens before the state resets.
+      if (isApproveSubmittingRef.current) return;
+      isApproveSubmittingRef.current = true;
+
       const shouldPrint = approveData.checkedOptions.includes("opt2");
       const shouldApprove = approveData.checkedOptions.includes("opt1");
       const approveSeries = approveData.selectedSeries?.value;
@@ -427,6 +440,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       const transaction_mode = approveData.selectedTrasactionMode || "";
       const selectedMiracleLedger_main =
         approveData.selectedMiracleLedger || "";
+
+      // Reset approveData immediately (all closure values are already captured
+      // in local variables above, so this is safe).
+      setApproveData({
+        checkedOptions: [],
+        dropdownValue: undefined,
+        selectedSeries: undefined,
+        customSeriesNumber: "",
+        customSeriesDate: undefined,
+        selectedTrasactionMode: "",
+        selectedMiracleLedger: "",
+      });
 
       if (shouldApprove) {
         onSubmit(
@@ -455,69 +480,87 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           syncWithMiracle,
         );
       }
-      setTimeout(() => {
-        setApproveData({
-          checkedOptions: [],
-          dropdownValue: undefined,
-          selectedSeries: undefined,
-          customSeriesNumber: "",
-          customSeriesDate: undefined,
-          selectedTrasactionMode: "",
-          selectedMiracleLedger: "",
-        });
-      }, 5000);
+    } else {
+      // Reset the guard once approveData is cleared, ready for next approval.
+      isApproveSubmittingRef.current = false;
     }
   }, [approveData]);
 
   useEffect(() => {
     if (isConversionSuccess && isOrderShowNum == 1) {
-      setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+      if (conversionType === "proforma") {
+        setnewOrderShowNumAfterConversion(12); // 1 = quotation => 12 = proforma invoice
+        onConversionSuccess?.(12);
+      } else if (conversionType === "invoice") {
+        setnewOrderShowNumAfterConversion(3); // 1 = quotation => 3 = sales invoice
+        onConversionSuccess?.(3);
+      } else {
+        setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+        onConversionSuccess?.(2);
+      }
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3); // 1 = sales order => 3 = sales Invoice
-    } else if (isConversionSuccess && isOrderShowNum == 3) {
+      setnewOrderShowNumAfterConversion(3); // 2 = sales order => 3 = sales Invoice
+      onConversionSuccess?.(3);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum == 3 &&
+      conversionType === "returnSalesInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(6); // 3 = sales invoice => 6 = return sales invoice
-    } else if (isConversionSuccess && isOrderShowNum == 4) {
+      onConversionSuccess?.(6);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum == 4 &&
+      conversionType === "returnPurchaseInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(7); // 4 = purchase invoice => 7 = return purchase invoice
+      onConversionSuccess?.(7);
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 5 &&
       conversionType === "purchaseInvoice"
     ) {
-      setnewOrderShowNumAfterConversion(4); // 5 = purchase order =>  4 = purchase invoice
+      setnewOrderShowNumAfterConversion(4); // 5 = purchase order => 4 = purchase invoice
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
       conversionType === "dispatch"
     ) {
-      setnewOrderShowNumAfterConversion(9); // 1 = sales order => 9 = Dispatch
+      setnewOrderShowNumAfterConversion(9); // 2 = sales order => 9 = Dispatch
+      onConversionSuccess?.(9);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 5 &&
       conversionType === "Inward"
     ) {
       setnewOrderShowNumAfterConversion(8); // 5 = purchase order => 8 = Inward
+      onConversionSuccess?.(8);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 9 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3); // 9 = Dispatch  => 3 = Invoice
+      setnewOrderShowNumAfterConversion(3); // 9 = Dispatch => 3 = Invoice
+      onConversionSuccess?.(3);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 8 &&
       conversionType === "purchaseInvoice"
     ) {
-      setnewOrderShowNumAfterConversion(4); // 8 = Inward  => 4 = purchase invoice
+      setnewOrderShowNumAfterConversion(4); // 8 = Inward => 4 = purchase invoice
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 12 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3);
+      setnewOrderShowNumAfterConversion(3); // 12 = Proforma => 3 = Invoice
+      onConversionSuccess?.(3);
     }
   }, [isConversionSuccess]);
 
@@ -3874,12 +3917,41 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     const transport_charge_gst =
       Number(transportCharge) * (TRANSPORT_CHARGE__GST / 100);
 
+    const baseGst =
+      totalGst + packing_forwarding_charge_gst + transport_charge_gst;
+
+    const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+    const transportChargeValue = parseFloat(transportCharge as string) || 0;
+    const grossTaxableAmount =
+      totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+    let discountRatio = 0;
+    if ((Number(cashDiscount) || 0) > 0 && grossTaxableAmount > 0) {
+      if (cashDiscountType === "percentage") {
+        discountRatio = Math.min((Number(cashDiscount) || 0) / 100, 1);
+      } else {
+        discountRatio = Math.min(
+          (Number(cashDiscount) || 0) / grossTaxableAmount,
+          1,
+        );
+      }
+    }
+
     const gstFinal = isGstActive
-      ? totalGst + packing_forwarding_charge_gst + transport_charge_gst
+      ? Math.max(0, baseGst * (1 - discountRatio))
       : 0;
 
     setGstAmount(gstFinal);
-  }, [isGstActive, totalGst, packingForwardingCharge, transportCharge]);
+  }, [
+    isGstActive,
+    totalGst,
+    packingForwardingCharge,
+    transportCharge,
+    totalAmount,
+    showDiscount,
+    cashDiscount,
+    cashDiscountType,
+  ]);
 
   useEffect(() => {
     const total = taxAbleAmount + gstAmount + tcsAmount;
@@ -5634,6 +5706,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (canEditOrder) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("order");
       setIsConvetIntoOrderConfirmation(true);
     } else {
       setIsConvetIntoOrderConfirmation(false);
@@ -5652,6 +5725,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
+  const handleModalConvertIntoProforma = (id: number, number: string) => {
+    if (canApproveProfomaInvoice || canEditProfomaInvoice) {
+      setConverCartId(id);
+      setConvertCartNumber(number);
+      setIsConvertIntoProformaConfirmation(true);
+      setConversionType("proforma");
+    } else {
+      setIsConvertIntoProformaConfirmation(false);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
   const handleModalConvertIntoDisPatch = (id: number, number: string) => {
     if (canEditDispatch) {
       setConverCartId(id);
@@ -5695,6 +5780,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (true) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnPurchaseInvoice");
       setIsConvertPurchaseIntoReturnPurchaseInvoiceConfirmation(true);
     } else {
       setIsConvertPurchaseIntoReturnPurchaseInvoiceConfirmation(false);
@@ -5709,6 +5795,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (true) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnSalesInvoice");
       setIsConvertIntoReturnSalesInvoiceConfirmation(true);
     } else {
       setIsConvertIntoReturnSalesInvoiceConfirmation(false);
@@ -6448,8 +6535,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
 
     if (cashDiscountType === "flat") {
-      if (discountValue > taxAbleAmount) {
-        toast.error("Cash Discount cannot be greater than Taxable Amount");
+      const packingCharge = parseFloat(packingForwardingCharge as string) || 0;
+      const transportChargeValue = parseFloat(transportCharge as string) || 0;
+      const grossTaxableAmount =
+        totalAmount - showDiscount + packingCharge + transportChargeValue;
+
+      if (discountValue > grossTaxableAmount) {
+        toast.error("Cash Discount cannot be greater than Gross Taxable Amount");
         return;
       }
     }
@@ -6788,28 +6880,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         ×
                       </span>
                       <span
-                        className="landing-page-text text-end"
-                        style={{
-                          cursor: "pointer",
-                          color: "blue",
-                          float: "right",
-                          fontSize: "13px",
-                          paddingLeft: "10px",
-                        }}
-                        onClick={() => openInNewTab("/videoTutorial", 12)}
-                      >
-                        {/*Learn More :*/}{" "}
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          height="28px"
-                          viewBox="0 -960 960 960"
-                          width="28px"
-                          fill="#0000FF"
-                        >
-                          <path d="M616-242q-27 1-51.5 1.5t-43.5.5h-41q-71 0-133-2-53-2-104.5-5.5T168-257q-26-7-45-26t-26-45q-6-23-9.5-56T82-447q-2-36-2-73t2-73q2-30 5.5-63t9.5-56q7-26 26-45t45-26q23-6 74.5-9.5T347-798q62-2 133-2t133 2q53 2 104.5 5.5T792-783q26 7 45 26t26 45q6 23 9.5 56t5.5 63q2 36 2 73v17q-19-8-39-12.5t-41-4.5q-83 0-141.5 58.5T600-320q0 21 4 40.5t12 37.5ZM400-400l208-120-208-120v240Zm360 200v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z" />
-                        </svg>
-                      </span>
-                      <span
                         className="close px-2"
                         onClick={openPrintSetting}
                         onMouseEnter={(e) => showTooltip("Print Setting", e)}
@@ -6961,6 +7031,64 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 onMouseEnter={(e) =>
                                   showTooltip(
                                     `Convert to ${dynamicSalesOrderTitle}`,
+                                    e,
+                                  )
+                                }
+                                onMouseLeave={hideTooltip}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="30px"
+                                  viewBox="0 -960 960 960"
+                                  width="30px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M400-280h160v-80H400v80Zm0-160h280v-80H400v80ZM280-600h400v-80H280v80Zm200 120ZM80-80v-80h102q-48-23-77.5-68T75-330q0-79 55.5-134.5T265-520v80q-45 0-77.5 32T155-330q0 39 24 69t61 38v-97h80v240H80Zm320-40v-80h360v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H400Z" />
+                                </svg>
+                              </span>
+                            )}
+                          {orderTypesNameFind == "Quotation" &&
+                            cartnumber != "" && (
+                              <span
+                                className="close px-2"
+                                onClick={() =>
+                                  handleModalConvertIntoProforma(
+                                    cartId,
+                                    cartnumber,
+                                  )
+                                }
+                                onMouseEnter={(e) =>
+                                  showTooltip(
+                                    `Convert to ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}`,
+                                    e,
+                                  )
+                                }
+                                onMouseLeave={hideTooltip}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  height="30px"
+                                  viewBox="0 -960 960 960"
+                                  width="30px"
+                                  fill="currentColor"
+                                >
+                                  <path d="M400-280h160v-80H400v80Zm0-160h280v-80H400v80ZM280-600h400v-80H280v80Zm200 120ZM80-80v-80h102q-48-23-77.5-68T75-330q0-79 55.5-134.5T265-520v80q-45 0-77.5 32T155-330q0 39 24 69t61 38v-97h80v240H80Zm320-40v-80h360v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H400Z" />
+                                </svg>
+                              </span>
+                            )}
+                          {orderTypesNameFind == "Quotation" &&
+                            cartnumber != "" && (
+                              <span
+                                className="close px-2"
+                                onClick={() =>
+                                  handleModalConvertIntoInvoice(
+                                    cartId,
+                                    cartnumber,
+                                  )
+                                }
+                                onMouseEnter={(e) =>
+                                  showTooltip(
+                                    `Convert to ${dynamicSalesInvoiceTitle}`,
                                     e,
                                   )
                                 }
@@ -9057,7 +9185,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     </td>
                                   </tr>
                                   <tr>
-                                    {/* <td
+                                    <td
                                       colSpan={footerBaseColSpan}
                                       className="order-text"
                                     >
@@ -9125,7 +9253,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         value={cashDiscount}
                                         onChange={handleCashDiscount}
                                       />
-                                    </td> */}
+                                    </td>
                                     {customFormListProduct.map((field) => (
                                       <th
                                         key={field.reference_column_name}
@@ -11281,6 +11409,26 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         />
       )}
 
+      {isConvertIntoProformaConfirmation && (
+        <ConfirmationModal
+          show={isConvertIntoProformaConfirmation}
+          onHide={() => setIsConvertIntoProformaConfirmation(false)}
+          handleSubmit={() => {
+            handleConvertIntoProforma(
+              converCartId,
+              convertCartNumber,
+              setIsConvertIntoProformaConfirmation,
+              setRefreshCarts,
+              setIsConversionSuccess,
+              setConverCartId,
+            );
+          }}
+          title={`Convert to ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}`}
+          message={`Are you sure you want to Convert this ${dynamicTitle} Into ${printDate?.[0]?.proforma_invoice_title || "Proforma Invoice"}?`}
+          btn1="CANCEL"
+          btn2="Apply"
+        />
+      )}
       {isConvetIntoOrderConfirmation && (
         <ConfirmationModal
           show={isConvetIntoOrderConfirmation}

@@ -8,12 +8,14 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import CreateExpenseTypeView from "../../../left-side/header/Setting/expense-type/CreateExpenseTypeView";
 import { handleDeleteExpenseType, IExpenseTypeView } from "../../../left-side/header/Setting/expense-type/ExpenseTypeController";
@@ -238,6 +240,46 @@ const ExpenseTypesReport = ({ onHide }: IWhatsappTemplateReport) => {
         );
     }, [openDropdownId, canEdit, canDelete]);
 
+    type ExpenseColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: IExpenseTypeView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: ExpenseColumnDef[] = useMemo(
+        () => [
+            {
+                key: "expense_name",
+                label: "Expense Name",
+                header: <span>Expense Name</span>,
+                width: "200px",
+                body: (rowData: IExpenseTypeView) => (
+                    <span
+                        style={{
+                            backgroundColor: rowData.color
+                                ? rowData.color
+                                : "#eeeeee",
+                        }}
+                        className="badge rounded-pill"
+                    >
+                        {rowData.expense_name}
+                    </span>
+                ),
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("expense_type_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -268,6 +310,27 @@ const ExpenseTypesReport = ({ onHide }: IWhatsappTemplateReport) => {
                                 fontSize: "14px",
                             },
                         }}
+                    />
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshExpenseType}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
                     />
                 </div>
             </div>
@@ -306,38 +369,28 @@ const ExpenseTypesReport = ({ onHide }: IWhatsappTemplateReport) => {
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="expense_name"
-                        header={
-                            <span>
-                                Expense Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IExpenseTypeView) => {
-                            return (
-                                <span
-                                    style={{
-                                        backgroundColor: rowData.color
-                                            ? rowData.color
-                                            : "#eeeeee"
-                                    }}
-                                    className="badge rounded-pill"
-                                >
-                                    {rowData.expense_name}
-                                </span>
-                            );
-                        }}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isDeleteConfirmation && (

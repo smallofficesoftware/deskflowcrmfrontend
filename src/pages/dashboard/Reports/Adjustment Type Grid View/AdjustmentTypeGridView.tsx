@@ -4,11 +4,13 @@ import { Column } from "primereact/column";
 import { DataTable, DataTableFilterEvent, DataTableFilterMeta } from "primereact/datatable";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import AddAdjustmentTypeView from "../../../left-side/header/Setting/adjustment type/AddAdjustmentTypeView";
 import { deleteAdjustmentType, fetchAdjustmentTypeApi, IAdjustmentTypeView, METHOD_TYPES, MODE_TYPES } from "../../../left-side/header/Setting/adjustment type/AdjustmentTypeController";
 
@@ -231,6 +233,83 @@ const AdjustmentTypeGridView = ({
         );
     };
 
+    type AdjustmentColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: IAdjustmentTypeView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: AdjustmentColumnDef[] = useMemo(
+        () => [
+            {
+                key: "method",
+                label: "Applied On",
+                header: <span>Applied On</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span>
+                        {rowData.method
+                            ? METHOD_TYPES.find((m) => m.id === rowData.method)?.name
+                            : "-"}
+                    </span>
+                ),
+            },
+            {
+                key: "mode",
+                label: "Mode",
+                header: <span>Mode</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span className="mx-1 text-muted">
+                        {rowData.mode
+                            ? MODE_TYPES.find((m) => m.id === rowData.mode)?.name
+                            : "-"}
+                    </span>
+                ),
+            },
+            {
+                key: "name",
+                label: "Name",
+                header: <span>Name</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <span className="mx-1 text-muted">{rowData.name || "-"}</span>
+                ),
+            },
+            {
+                key: "knowledge_info",
+                label: "Knowledge Info",
+                header: <span>Knowledge Info</span>,
+                width: "250px",
+                body: (rowData) => (
+                    <div
+                        className="mx-1 text-muted"
+                        style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            whiteSpace: "normal",
+                        }}
+                    >
+                        {rowData.knowledge_info || "-"}
+                    </div>
+                ),
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("adjustment_type_grid_view", baseColumnDefs);
+
     return (
         <PrimeReactProvider>
             <div>
@@ -255,6 +334,13 @@ const AdjustmentTypeGridView = ({
                                     fontSize: "14px",
                                 },
                             }}
+                        />
+                        <ColumnsButton
+                            columns={orderedColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onReorder={reorderColumns}
+                            onReset={resetColumns}
                         />
                     </div>
                 </div>
@@ -301,123 +387,28 @@ const AdjustmentTypeGridView = ({
                             }}
                             body={actionBodyTemplate}
                         />
-                        <Column
-                            field="method"
-                            header={
-                                <span>
-                                    Applied On
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentTypeView) => {
-                                return (
-                                    <span>
-                                        {rowData.method
-                                            ? METHOD_TYPES.find((m) => m.id === rowData.method)?.name
-                                            : "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="mode"
-                            header={
-                                <span>
-                                    Mode
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentTypeView) => {
-                                return (
-                                    <span
-                                        className="mx-1 text-muted"
-                                    >
-                                        {rowData.mode
-                                            ? MODE_TYPES.find((m) => m.id === rowData.mode)?.name
-                                            : "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="name"
-                            header={
-                                <span>
-                                    Name
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentTypeView) => {
-                                return (
-                                    <span
-                                        className="mx-1 text-muted"
-                                    >
-                                        {rowData.name || "-"}
-                                    </span>
-                                );
-                            }}
-                        />
-                        <Column
-                            field="knowledge_info"
-                            header={
-                                <span>
-                                    Knowledge Info
-                                </span>
-                            }
-                            sortable
-                            filter
-                            filterPlaceholder="Search"
-                            filterMatchMode="contains"
-                            headerStyle={{
-                                width: "250px",
-                                background: "#f8f9fa",
-                                fontSize: "14px",
-                            }}
-                            bodyStyle={{ fontSize: "14px" }}
-                            body={(rowData: IAdjustmentTypeView) => {
-                                return (
-                                    <div
-                                        className="mx-1 text-muted"
-                                        style={{
-                                            display: "-webkit-box",
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: "vertical",
-                                            overflow: "hidden",
-                                            whiteSpace: "normal",
-                                        }}
-                                    >
-                                        {rowData.knowledge_info || "-"}
-                                    </div>
-                                );
-                            }}
-                        />
+                        {visibleColumns.map((col) => (
+                            <Column
+                                key={col.key}
+                                field={col.key}
+                                header={col.header}
+                                sortable
+                                filter
+                                filterField={col.key}
+                                filterPlaceholder="Search"
+                                filterMatchMode={col.filterMatchMode || "contains"}
+                                headerStyle={{
+                                    width: col.width || "150px",
+                                    position: "sticky",
+                                    top: 0,
+                                    zIndex: 1,
+                                    background: "#f8f9fa",
+                                    fontSize: "14px",
+                                }}
+                                bodyStyle={{ fontSize: "14px" }}
+                                body={col.body}
+                            />
+                        ))}
                     </DataTable>
                     <OverlayPanel ref={op} className="action-overlay">
                         <ul className="list-unstyled m-0 p-0" id="dropLeft">

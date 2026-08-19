@@ -11,7 +11,7 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card as BsCard, Col, Row } from "react-bootstrap";
 import { toast } from "react-toastify";
-import { openInNewTab, useEscapeKey } from "../../../common/SharedFunction";
+import { useEscapeKey } from "../../../common/SharedFunction";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   DEFAULT_STATUS_CODE_SUCCESS,
@@ -532,9 +532,6 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
                 </div>
               </div>
               <div className="text-end">
-                <span onClick={() => openInNewTab("/videoTutorial", 12)}>
-                  Learn More
-                </span>
                 <span
                   className="close ms-3"
                   onClick={() => setIsCloseConfirmation(true)}

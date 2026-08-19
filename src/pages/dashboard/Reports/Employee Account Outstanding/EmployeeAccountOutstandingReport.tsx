@@ -18,9 +18,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { exportAllEmployeeAccountOutstadingData, fetchEmployeeAccountOutstanding, IEmployeeAccountOutstanding } from "./EmployeeAccountOutstandingReportContoller";
@@ -317,6 +319,15 @@ const EmployeeAccountOutstandingReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setEmployees([]);
+    setHasMore(true);
+    setSelectedEmployees([]);
+    loadAccountData(true);
+  };
+
   const onLazyLoad = (event: VirtualScrollerLazyEvent) => {
     const first =
       typeof event.first === "number" ? event.first : (event.first?.first ?? 0);
@@ -470,12 +481,6 @@ const EmployeeAccountOutstandingReport = ({
   );
 
   const grandTotal = payableTotal + receivableTotal;
-
-  const exportColumns = [
-    { title: "Employee Name", dataKey: "employee_name" },
-    { title: "Total Outstanding Amount", dataKey: "total_outstanding_amount" },
-    { title: "Outstanding Type", dataKey: "outstanding_type" },
-  ];
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
@@ -842,6 +847,78 @@ const EmployeeAccountOutstandingReport = ({
     return 0;
   };
 
+  type OutstandingColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body?: (rowData: IEmployeeAccountOutstanding) => React.ReactNode;
+    footer?: React.ReactNode | (() => React.ReactNode);
+    footerStyle?: React.CSSProperties;
+  };
+
+  const baseColumnDefs: OutstandingColumnDef[] = useMemo(
+    () => [
+      {
+        key: "employee_name",
+        label: "Employee Name",
+        header: "Employee Name",
+        width: "250px",
+        footer: PamountFooterTemplate,
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f8f9fa",
+        },
+      },
+      {
+        key: "total_outstanding_amount",
+        label: "Total Outstanding Amount",
+        header: "Total Outstanding Amount",
+        width: "250px",
+        body: amountBodyTemplate,
+        footer: RamountFooterTemplate,
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f8f9fa",
+        },
+      },
+      {
+        key: "outstanding_type",
+        label: "Outstanding Type",
+        header: "Outstanding Type",
+        width: "250px",
+        footer: amountFooterTemplate,
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f8f9fa",
+        },
+      },
+    ],
+    [payableTotal, receivableTotal, grandTotal, currencySymbol],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences(
+    "employee_account_outstanding_report",
+    baseColumnDefs,
+  );
+
+  const exportColumns = visibleColumns.map((col) => ({
+    title: col.label,
+    dataKey: col.key,
+  }));
+
   return (
     <div>
       <div
@@ -1033,6 +1110,27 @@ const EmployeeAccountOutstandingReport = ({
                 </li>
               </ul>
             </div>
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1109,72 +1207,30 @@ const EmployeeAccountOutstandingReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="employee_name"
-            header="Employee Name"
-            sortable
-            filter
-            filterField="employee_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            footer={PamountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
-          <Column
-            field="total_outstanding_amount"
-            header="Total Outstanding Amount"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={amountBodyTemplate}
-            footer={RamountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
-          <Column
-            field="outstanding_type"
-            header="Outstanding Type"
-            sortable
-            filter
-            filterField="outstanding_type"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            footer={amountFooterTemplate}
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+              footer={col.footer}
+              footerStyle={col.footerStyle}
+            />
+          ))}
         </DataTable>{" "}
       </div>
       {isModalFilterVisible && (

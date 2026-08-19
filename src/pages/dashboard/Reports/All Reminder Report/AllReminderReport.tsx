@@ -4,25 +4,41 @@ import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
+import { PrimeReactProvider } from "primereact/api";
+import { OverlayPanel } from "primereact/overlaypanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ReminderModal from "../../../../components/model/ReminderModal";
-import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import {
+  DEFAULT_MESSAGE_ERROR_PERMISSION,
+  DEFAULT_STATUS_CODE_SUCCESS,
+  MESSAGE_UNKNOWN_ERROR_OCCURRED,
+} from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
   createReminderForMy,
   IReminderList,
+  updateContactFormReminder,
+  updateOrderFormReminder,
+  updateInquiryFormReminder,
 } from "../../../left-side/header/list-reminder/ListReminderController";
+import { axiosInstance } from "../../../../services/axiosInstance";
 import {
   exportTaskAndSupportTicketData,
   fetchTaskReport,
   IReminderItem,
-} from "./AllReminderController"; // ← update import name if needed
+} from "./AllReminderController";
 // import { axiosInstance } from "../../../../services/axiosInstance";
 
 interface IReminderReportProps {
@@ -73,9 +89,25 @@ const AllReminderReport = ({
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState<IReminderItem[]>([]);
   const [displayReminders, setDisplayReminders] = useState<IReminderItem[]>([]);
+  const [filterType, setFilterType] = useState<
+    "due" | "future" | "complete" | "all"
+  >("due");
+  const [counts, setCounts] = useState({
+    due: 0,
+    future: 0,
+    complete: 0,
+    all: 0,
+  });
   const [selectedReminders, setSelectedReminders] = useState<IReminderItem[]>(
     [],
   );
+  const [selectedRow, setSelectedRow] = useState<IReminderItem | null>(null);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<IReminderItem | null>(null);
+  const [isReminderConfirmationStatus, setIsReminderConfirmationStatus] = useState(false);
+  const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
+  const [isReminderConfirmation, setIsReminderConfirmation] = useState(false);
+  const [reminderRescheduleData, setReminderRescheduleData] = useState<IReminderItem | null>(null);
+  const op = useRef<OverlayPanel>(null);
   const [hasMore, setHasMore] = useState(true);
 
   const [isSetReminderConfirmation, setIsSetReminderConfirmation] =
@@ -199,6 +231,18 @@ const AllReminderReport = ({
     PAGE_ID.REMINDER_REPORT,
     PERMISSION_TYPE.ADD,
   );
+  const canApprove = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.APPROVE,
+  );
+  const canEdit = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.EDIT,
+  );
+  const canDelete = useCheckUserPermission(
+    PAGE_ID.REMINDER,
+    PERMISSION_TYPE.DELETE,
+  );
 
   // Reset & reload when filters change
   useEffect(() => {
@@ -217,6 +261,7 @@ const AllReminderReport = ({
     MobileFlag,
     filters.selectedContactId,
     filters.referenceWiseContact,
+    filterType,
   ]);
 
   const loadReminders = async (
@@ -246,6 +291,8 @@ const AllReminderReport = ({
         is_support_ticket_flag,
         filters.selectedContactId,
         filters.referenceWiseContact,
+        filterType,
+        setCounts,
       );
 
       if (newData.length < limit) {
@@ -269,6 +316,15 @@ const AllReminderReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    setReminders([]);
+    setDisplayReminders([]);
+    currentOffset.current = 0;
+    isInitialLoad.current = true;
+    setHasMore(true);
+    loadReminders(0, 50, true);
+  };
+
   const onVirtualScroller = (event: any) => {
     if (event.last === reminders.length && hasMore && !isLoadingMore.current) {
       loadReminders(currentOffset.current, 50);
@@ -285,34 +341,339 @@ const AllReminderReport = ({
     setSelectedReminders(e.value);
   };
 
-  // ─── Export columns ────────────────────────────────────────
-  const exportColumns = [
-    { title: "ID", dataKey: "id" },
-    { title: "Contact Name", dataKey: "contact_name" },
-    { title: "Reminder Date & Time", dataKey: "reminder_data_time" },
-    { title: "Status", dataKey: "status_display" },
-    { title: "Completed On", dataKey: "completed_date_time" },
-    { title: "Assigned To", dataKey: "assigned_to_name" },
-    { title: "Created By", dataKey: "created_by_username" },
-    { title: "Remark", dataKey: "remark" },
-  ];
+  const handleChangeReminderComplete = (reminderData: IReminderItem) => {
+    if (canApprove) {
+      setSelectedReminderItem(reminderData);
+      setIsReminderConfirmationStatus(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleChangeStatusOfReminder = async () => {
+    if (!selectedReminderItem) return;
+
+    const date = new Date();
+    const formattedDateTime = `${date.getFullYear()}-${String(
+      date.getMonth() + 1,
+    ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(
+      date.getHours(),
+    ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(
+      date.getSeconds(),
+    ).padStart(2, "0")}`;
+
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":"${selectedReminderItem.id}"}`,
+      data: `{"status":"1", "completed_date_time":"${formattedDateTime}"}`,
+    };
+
+    try {
+      const { data } = await axiosInstance.post("commonUpdate", requestData);
+      if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        if ((selectedReminderItem as any).reference_table) {
+          switch ((selectedReminderItem as any).reference_table) {
+            case "contact_message_histories":
+              await updateContactFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            case "cart_quotation":
+            case "cart_order":
+            case "cart_invoice":
+            case "cart_purchase_order":
+              await updateOrderFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            case "inquiries":
+              await updateInquiryFormReminder(
+                (selectedReminderItem as any).reference_id,
+              );
+              break;
+            default:
+              break;
+          }
+        }
+        setIsReminderConfirmationStatus(false);
+        toast.success("Reminder completed successfully");
+        currentOffset.current = 0;
+        setHasMore(true);
+        loadReminders(0, 50, true);
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  };
+
+  const handleOpenReschedule = (row: IReminderItem) => {
+    if (canEdit) {
+      const cleanRemark = row.remark
+        ? row.remark
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<\/?[^>]+(>|$)/g, "")
+            .trim()
+        : "";
+      setReminderRescheduleData({
+        ...row,
+        remark: cleanRemark,
+      });
+      setIsReminderConfirmation(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleReminderReschedule = async (data: {
+    dateTime: string;
+    remark: string;
+    status: string;
+    selectedCategory?: { value: number; label: string } | null;
+  }) => {
+    if (!data.dateTime?.trim() || !data.remark?.trim()) {
+      toast.error("Please enter Date and Time and Remark");
+      return;
+    }
+    const formattedDateTime =
+      data.dateTime.length === 16 ? `${data.dateTime}:00` : data.dateTime;
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":${reminderRescheduleData?.id}}`,
+      data: JSON.stringify({
+        reminder_data_time: formattedDateTime,
+        remark: data.remark,
+        status: "0",
+        ...(data.selectedCategory?.value
+          ? {
+              assigned_to: data.selectedCategory.value,
+              assigned_to_name: data.selectedCategory.label,
+            }
+          : {}),
+      }),
+    };
+    try {
+      setLoading(true);
+      const res = await axiosInstance.post("commonUpdate", requestData);
+      if (res.data?.ack === DEFAULT_STATUS_CODE_SUCCESS || res.data?.code === 200) {
+        setIsReminderConfirmation(false);
+        toast.success("Reminder rescheduled successfully");
+        handleRefresh();
+      } else {
+        toast.error(res.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDelete = (row: IReminderItem) => {
+    if (canDelete) {
+      setSelectedRow(row);
+      setIsDeleteConfirmation(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleDeleteReminder = async () => {
+    if (!selectedRow?.id) return;
+    const requestData = {
+      table: "reminder_messages",
+      where: `{"id":${selectedRow.id}}`,
+      data: `{"isDelete":"1"}`,
+    };
+    try {
+      setLoading(true);
+      const { data } = await axiosInstance.post("commonUpdate", requestData);
+      if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setIsDeleteConfirmation(false);
+        toast.success("Reminder deleted successfully");
+        handleRefresh();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  type ReminderColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    filterMatchMode?: string;
+    body: (rowData: IReminderItem) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ReminderColumnDef[] = useMemo(() => {
+    const defs: ReminderColumnDef[] = [
+      {
+        key: "id",
+        label: "ID",
+        header: "ID",
+        width: "80px",
+        body: (rowData) => rowData.id,
+      },
+      {
+        key: "contact_name",
+        label: "Contact Name",
+        header: (
+          <span>
+            Contact <br /> Name
+          </span>
+        ),
+        width: "180px",
+        body: (rowData) => rowData.contact_name,
+      },
+      {
+        key: "reminder_data_time",
+        label: "Reminder Date & Time",
+        header: (
+          <span>
+            Reminder <br /> Date & Time
+          </span>
+        ),
+        width: "180px",
+        body: (row) => formatDateTime(row.reminder_data_time),
+      },
+      {
+        key: "status_display",
+        label: "Status",
+        header: "Status",
+        width: "120px",
+        body: (row) => {
+          const isCompleted =
+            row.status_display === "Completed" || row.status === 1;
+          const isUpcoming = row.status_display === "Upcoming";
+          const bgColor = isCompleted
+            ? "#28a745"
+            : isUpcoming
+            ? "#0066ff"
+            : "#dc3545";
+          const text = row.status_display || (isCompleted ? "Completed" : "Due");
+          return (
+            <span
+              style={{
+                backgroundColor: bgColor,
+                color: "white",
+                padding: "4px 10px",
+                borderRadius: "12px",
+                fontSize: "13px",
+                cursor: isCompleted ? "default" : "pointer",
+                display: "inline-block",
+              }}
+              onClick={() => {
+                if (!isCompleted) {
+                  handleChangeReminderComplete(row);
+                }
+              }}
+              title={
+                !isCompleted
+                  ? "Click to Mark as Completed"
+                  : undefined
+              }
+            >
+              {text}
+            </span>
+          );
+        },
+      },
+      {
+        key: "completed_date_time",
+        label: "Completed On",
+        header: (
+          <span>
+            Completed <br /> On
+          </span>
+        ),
+        width: "180px",
+        body: (row) => formatDateTime(row.completed_date_time),
+      },
+      {
+        key: "assigned_to_name",
+        label: "Assigned To",
+        header: "Assigned To",
+        width: "160px",
+        body: (rowData) => rowData.assigned_to_name,
+      },
+      {
+        key: "created_by_username",
+        label: "Created By",
+        header: "Created By",
+        width: "160px",
+        body: (rowData) => rowData.created_by_username,
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        width: "220px",
+        body: (row) =>
+          row.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
+          "-",
+      },
+    ];
+
+    return defs;
+  }, []);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_reminder_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: ReminderColumnDef,
+    item: IReminderItem,
+    format: "plain" | "html" = "plain",
+  ): string => {
+    switch (col.key) {
+      case "reminder_data_time":
+        return formatDateTime(item.reminder_data_time);
+      case "completed_date_time":
+        return formatDateTime(item.completed_date_time);
+      case "remark":
+        if (format === "html") return item.remark || "-";
+        return (
+          item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
+          "-"
+        );
+      default:
+        return (item as any)[col.key] ?? "-";
+    }
+  };
 
   const exportPdf = () => {
     const dataToExport =
       selectedReminders.length > 0 ? selectedReminders : displayReminders;
 
-    const tableData = dataToExport.map((item) => ({
-      id: item.id || "-",
-      contact_name: item.contact_name || "-",
-      reminder_data_time: formatDateTime(item.reminder_data_time),
-      status_display: item.status_display || "-",
-      completed_date_time: formatDateTime(item.completed_date_time),
-      assigned_to_name: item.assigned_to_name || "-",
-      created_by_username: item.created_by_username || "-",
-      remark:
-        item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
-        "-",
-    }));
+    const tableData = dataToExport.map((item) => {
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "plain");
+      });
+      return rowData;
+    });
+
+        tableData.push({
+      id: `Total Reminders: ${dataToExport.length}`,
+      contact_name: "",
+      reminder_data_time: "",
+      status_display: "",
+      completed_date_time: "",
+      assigned_to_name: "",
+      created_by_username: "",
+      remark: "",
+    } as any);
 
     if (tableData.length === 0) {
       const doc = new jsPDF();
@@ -321,12 +682,22 @@ const AllReminderReport = ({
       return;
     }
 
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
+
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     autoTable(doc, {
       columns: exportColumns,
       body: tableData,
       theme: "grid",
       styles: { fontSize: 10 },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
       headStyles: { fillColor: [41, 128, 185] },
       margin: { top: 20 },
       didDrawPage: () => {
@@ -356,6 +727,8 @@ const AllReminderReport = ({
             debouncedSearchText,
             is_support_ticket_flag,
             filters.selectedContactId,
+            filters.referenceWiseContact,
+            filterType,
           ),
         500,
       );
@@ -367,18 +740,24 @@ const AllReminderReport = ({
 
       const exportData = (
         selectedReminders.length > 0 ? selectedReminders : allReminders
-      ).map((item) => ({
-        ID: item.id || "-",
-        "Contact Name": item.contact_name || "-",
-        "Reminder Date & Time": formatDateTime(item.reminder_data_time),
-        Status: item.status_display || "-",
-        "Completed On": formatDateTime(item.completed_date_time),
-        "Assigned To": item.assigned_to_name || "-",
-        "Created By": item.created_by_username || "-",
-        Remark:
-          item.remark?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
-          "-",
-      }));
+      ).map((item) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "plain");
+        });
+        return row;
+      });
+
+            exportData.push({
+        ID: `Total Reminders: ${exportData.length}`,
+        "Contact Name": "",
+        "Reminder Date & Time": "",
+        Status: "",
+        "Completed On": "",
+        "Assigned To": "",
+        "Created By": "",
+        Remark: "",
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       const workbook = {
@@ -418,26 +797,29 @@ const AllReminderReport = ({
           <h1>${title} Report</h1>
           <table>
             <thead>
-              <tr>${exportColumns.map((c) => `<th>${c.title}</th>`).join("")}</tr>
+              <tr>${visibleColumns.map((c) => `<th>${c.label}</th>`).join("")}</tr>
             </thead>
             <tbody>
               ${dataToExport
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.id || "-"}</td>
-                  <td>${item.contact_name || "-"}</td>
-                  <td>${formatDateTime(item.reminder_data_time)}</td>
-                  <td>${item.status_display || "-"}</td>
-                  <td>${formatDateTime(item.completed_date_time)}</td>
-                  <td>${item.assigned_to_name || "-"}</td>
-                  <td>${item.created_by_username || "-"}</td>
-                  <td>${item.remark || "-"}</td>
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, item, "html")}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
                 )
                 .join("")}
             </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td colspan="8">Total Reminders: ${dataToExport.length}</td>
+              </tr>
+            </tfoot>
           </table>
         </body>
       </html>
@@ -469,16 +851,94 @@ const AllReminderReport = ({
   // };
 
   return (
-    <div>
-      <div
-        className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
-      >
-        <h3
-          style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "" }}
-          className="dash-board-text-count"
+    <PrimeReactProvider value={{ hideOverlaysOnDocumentScrolling: true }}>
+      <div>
+        <div
+          className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
         >
-          {title}
-        </h3>
+        <div className="d-flex align-items-center gap-3">
+          <h3
+            style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "", margin: 0 }}
+            className="dash-board-text-count"
+          >
+            {title}
+          </h3>
+          <div className="d-flex align-items-center gap-1">
+            <button
+              className={`btn rounded-5 contact-btn-search fw_500 ${filterType === "due" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("due")}
+            >
+              <span className="contact-btn-search-text">Due</span>
+              <span
+                className="badge bg-danger ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.due}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "future" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("future")}
+            >
+              <span className="contact-btn-search-text">Upcoming</span>
+              <span
+                className="badge ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                  backgroundColor: "#0066ff",
+                }}
+              >
+                {counts.future}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "complete" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("complete")}
+            >
+              <span className="contact-btn-search-text">Completed</span>
+              <span
+                className="badge bg-success ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.complete}
+              </span>
+            </button>
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${filterType === "all" ? "selected-btn active" : ""}`}
+              onClick={() => setFilterType("all")}
+            >
+              <span className="contact-btn-search-text">All</span>
+              <span
+                className="badge bg-secondary ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                }}
+              >
+                {counts.all}
+              </span>
+            </button>
+          </div>
+        </div>
 
         {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && ( */}
         <div
@@ -679,6 +1139,29 @@ const AllReminderReport = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -727,108 +1210,151 @@ const AllReminderReport = ({
           )}
 
           <Column
-            field="id"
-            header="ID"
-            sortable
-            headerStyle={{ width: "80px" }}
-          />
-          <Column
-            field="contact_name"
-            header={
-              <span>
-                Contact <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search contact..."
-            headerStyle={{ width: "180px" }}
-          />
-          <Column
-            field="reminder_data_time"
-            header={
-              <span>
-                Reminder <br /> Date & Time
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "180px" }}
-            body={(row) => formatDateTime(row.reminder_data_time)}
-          />
-          <Column
-            field="status_display"
-            header="Status"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "120px" }}
-            body={(row) => (
-              <span
-                style={{
-                  backgroundColor:
-                    row.status_display === "Completed" ? "#28a745" : "#dc3545",
-                  color: "white",
-                  padding: "4px 10px",
-                  borderRadius: "12px",
-                  fontSize: "13px",
+            header=""
+            headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
+            bodyStyle={{ textAlign: "center" }}
+            body={(rowData: IReminderItem) => (
+              <Button
+                icon="pi pi-cog"
+                className="p-button-text p-0"
+                style={{ color: "green", width: "24px", height: "24px" }}
+                onClick={(e) => {
+                  setSelectedRow(rowData);
+                  op.current?.toggle(e);
+                  requestAnimationFrame(() => {
+                    const panel = op.current?.getElement();
+                    if (panel) panel.style.transform = "translate(40px, -25px)";
+                  });
                 }}
-              >
-                {row.status_display || "-"}
-              </span>
+              />
             )}
           />
-          <Column
-            field="completed_date_time"
-            header={
-              <span>
-                Completed <br /> On
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "180px" }}
-            body={(row) => formatDateTime(row.completed_date_time)}
-          />
-          <Column
-            field="assigned_to_name"
-            header="Assigned To"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "160px" }}
-          />
-          <Column
-            field="created_by_username"
-            header="Created By"
-            sortable
-            filter
-            filterPlaceholder="Search..."
-            headerStyle={{ width: "160px" }}
-          />
-          <Column
-            field="remark"
-            header="Remark"
-            sortable
-            filter
-            filterPlaceholder="Search remark..."
-            headerStyle={{ width: "220px" }}
-            bodyStyle={{
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-              maxWidth: "220px",
-            }}
-            body={(row) =>
-              row.remark
-                .replace(/<br\s*\/?>/gi, "\n")
-                .replace(/<[^>]+>/g, "") || "-"
-            }
-          />
+
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                ...(col.key === "remark"
+                  ? {
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                      maxWidth: "220px",
+                    }
+                  : {}),
+              }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
+
+      {/* Actions OverlayPanel */}
+      <OverlayPanel ref={op} className="action-overlay">
+        {selectedRow && (
+          <ul className="list-unstyled m-0 p-0" id="dropLeft">
+            {selectedRow.status_display !== "Completed" && selectedRow.status !== 1 && (
+              <li
+                className="listItem text-start"
+                style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px" }}
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  op.current?.hide();
+                  handleChangeReminderComplete(selectedRow);
+                }}
+              >
+                Complete Reminder
+              </li>
+            )}
+            <li
+              className="listItem text-start"
+              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px" }}
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                op.current?.hide();
+                handleOpenReschedule(selectedRow);
+              }}
+            >
+              Reschedule
+            </li>
+            <li
+              className="listItem text-start"
+              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "13px", color: "red", fontWeight: "600" }}
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                op.current?.hide();
+                handleOpenDelete(selectedRow);
+              }}
+            >
+              Delete
+            </li>
+          </ul>
+        )}
+      </OverlayPanel>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteConfirmation && (
+        <ConfirmationModal
+          show={isDeleteConfirmation}
+          onHide={() => setIsDeleteConfirmation(false)}
+          handleSubmit={handleDeleteReminder}
+          title="Delete this Reminder"
+          message="Are you sure you want to delete this Reminder?"
+          btn1="CANCEL"
+          btn2="DELETE"
+        />
+      )}
+
+      {/* Reschedule Reminder Modal */}
+      {isReminderConfirmation && (
+        <ReminderModal
+          show={isReminderConfirmation}
+          onHide={() => setIsReminderConfirmation(false)}
+          handleSubmit={handleReminderReschedule}
+          title={"Reminder Reschedule"}
+          message={"Are you sure you want to reschedule this reminder?"}
+          btn1="CANCEL"
+          btn2="Set Reminder"
+          remarkMsg={reminderRescheduleData?.remark}
+          selectedMember={reminderRescheduleData?.assigned_to_name || undefined}
+          selectedMemberId={reminderRescheduleData?.assigned_to}
+          request_flag="1"
+          dateTimeMsg={reminderRescheduleData?.reminder_data_time}
+        />
+      )}
+
+      {/* Complete Reminder Confirmation Modal */}
+      {isReminderConfirmationStatus && (
+        <ConfirmationModal
+          show={isReminderConfirmationStatus}
+          onHide={() => setIsReminderConfirmationStatus(false)}
+          handleSubmit={handleChangeStatusOfReminder}
+          title="Change Status"
+          message="Are you sure you want to complete this reminder?"
+          btn1="CANCEL"
+          btn2="COMPLETE"
+        />
+      )}
+
       {isSetReminderConfirmation && (
         <ReminderModal
           show={isSetReminderConfirmation}
@@ -915,7 +1441,8 @@ const AllReminderReport = ({
           isApplyReport={1}
         />
       )}
-    </div>
+      </div>
+    </PrimeReactProvider>
   );
 };
 

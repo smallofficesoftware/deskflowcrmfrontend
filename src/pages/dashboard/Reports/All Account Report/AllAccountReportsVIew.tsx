@@ -19,9 +19,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -104,6 +107,7 @@ const AllAccountReports = ({
   const [hasMore, setHasMore] = useState(true);
   const currentOffset = useRef(0);
   const [actionType, setActionType] = useState<string>("");
+  const [isModalExcelVisible, setIsModalExcelVisible] = useState<boolean>(false);
 
   const [lazyState, setLazyState] = useState<LazyState>({
     first: 0,
@@ -250,6 +254,18 @@ const AllAccountReports = ({
     PERMISSION_TYPE.PRINT,
   );
 
+  const canImportReport = useCheckUserPermission(
+    PAGE_ID.ALLACCOUNTTRANSCTION_REPORT,
+    PERMISSION_TYPE.IMPORT,
+  );
+
+  const canImportAccount = useCheckUserPermission(
+    PAGE_ID.ACCOUNT_HISTORY,
+    PERMISSION_TYPE.IMPORT,
+  );
+
+  const canImport = canImportReport || canImportAccount;
+
   const dt = useRef<DataTable<IAccountTransaction[]>>(null);
 
   // useEffect(() => {
@@ -388,6 +404,14 @@ const AllAccountReports = ({
       setLoading(false);
       isLoadingMore.current = false;
     }
+  };
+
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setTransactions([]);
+    setSelectedTransactions([]);
+    loadAccountData(0, 50, true);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -555,33 +579,204 @@ const AllAccountReports = ({
     }
   };
 
+  type AccountColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body?: (rowData: IAccountTransaction) => React.ReactNode;
+  };
+
+  const baseColumnDefs: AccountColumnDef[] = useMemo(
+    () => [
+      {
+        key: "acc_series",
+        label: "ID",
+        header: "ID",
+        width: "80px",
+      },
+      {
+        key: "contact_masters_id",
+        label: "Contact Details",
+        header: (
+          <span>
+            Contact <br /> Details
+          </span>
+        ),
+        body: (rowData) => {
+          const company = rowData.contact_companyName || "";
+          const contact = rowData.contact_name || "";
+          const mobile = rowData.contact_mobileNumber || "";
+
+          let parts = [];
+
+          if (company || contact) {
+            if (company && contact) {
+              parts.push(`${company} (${contact})`);
+            } else if (company) {
+              parts.push(company);
+            } else {
+              parts.push(contact);
+            }
+          }
+
+          if (mobile) {
+            parts.push(mobile);
+          }
+
+          return parts.length > 0 ? parts.join(" - ") : "-";
+        },
+      },
+      {
+        key: "typeItem",
+        label: "Payment Type",
+        header: (
+          <span>
+            Payment <br /> Type
+          </span>
+        ),
+        body: (rowData) => {
+          const type = rowData.typeItem || "";
+          let color = "black"; // default
+
+          if (type.toLowerCase() === "credit") {
+            color = "green";
+          } else if (type.toLowerCase() === "debit") {
+            color = "red";
+          }
+
+          return <span style={{ color, fontWeight: "bold" }}>{type}</span>;
+        },
+      },
+      {
+        key: "modeItem",
+        label: "Payment Mode",
+        header: (
+          <span>
+            Payment <br /> Mode
+          </span>
+        ),
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        header: "Amount",
+        body: (rowData) =>
+          rowData.amountwithcurrency ||
+          `₹${rowData.amount?.toLocaleString() || "0.00"}`,
+      },
+      {
+        key: "payment_date_time",
+        label: "Payment Date & Time",
+        header: (
+          <span>
+            Payment <br />
+            Date & Time
+          </span>
+        ),
+        body: (rowData) => rowData.payment_date_time || "-",
+      },
+      {
+        key: "approved_name",
+        label: "Approved By",
+        header: (
+          <span>
+            Approved <br /> By
+          </span>
+        ),
+        body: (rowData) => rowData.approved_name || "-",
+      },
+      {
+        key: "created_name",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        body: (rowData) => rowData.created_name || "-",
+      },
+      {
+        key: "remark",
+        label: "Remark",
+        header: "Remark",
+        body: (rowData) => (
+          <div
+            dangerouslySetInnerHTML={{ __html: rowData.remark || "-" }}
+          />
+        ),
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_account_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: AccountColumnDef,
+    txn: IAccountTransaction,
+  ): string => {
+    switch (col.key) {
+      case "contact_masters_id": {
+        const company = txn.contact_companyName || "";
+        const contact = txn.contact_name || "";
+        const mobile = txn.contact_mobileNumber || "";
+        const parts: string[] = [];
+        if (company || contact) {
+          parts.push(
+            company && contact ? `${company} (${contact})` : company || contact,
+          );
+        }
+        if (mobile) parts.push(mobile);
+        return parts.length > 0 ? parts.join(" - ") : "-";
+      }
+      case "amount":
+        return (
+          txn.amountwithcurrency ||
+          `₹${txn.amount?.toLocaleString() || "0.00"}`
+        );
+      case "payment_date_time":
+        return formatDateTime(txn.payment_date_time);
+      case "remark":
+        return (
+          (txn.remark || "").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ||
+          "-"
+        );
+      default:
+        return (txn as any)[col.key] ?? "-";
+    }
+  };
+
   const exportPdf = () => {
     const dataToExport =
       selectedTransactions.length > 0 ? selectedTransactions : getExportData();
 
-    const tableData = dataToExport.map((txn) => ({
-      ID: txn.acc_series || "-",
-      "Contact Name": `${txn.contact_companyName}(${txn.contact_name})` || "-",
-      "Contact Phone": txn.contact_mobileNumber || "-",
-      "Payment Type": txn.typeItem,
-      "Payment Mode": txn.modeItem,
-      [`Amount (${currencyName})`]:
-        txn.amountwithoutcurrency || `${txn.amount}`,
-      "Payment Date & Time": `${formatDateTime(txn.payment_date_time)}`,
-      // "Approver ID": txn.approve_by_a_application_login_id,
-      "Approved By": txn.approved_name || "-",
-      "Created By": txn.created_name || "-",
-      Remark:
-        txn.remark.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") || "-",
-      // "Approve Date": txn.approve_date_time
-      //   ? new Date(txn.approve_date_time).toLocaleDateString()
-      //   : "-",
-      // "Ref ID": txn.reference_id,
-      // "Ref Table": txn.reference_table || "-",
-      // "Created At": new Date(txn.created_date_time).toLocaleDateString(),
-      // "Timestamp": new Date(txn.s_timestemp).toLocaleDateString(),
-      // "Is Active": txn.isActive === 1 ? "Yes" : "No",
-    }));
+    const tableData = dataToExport.map((txn) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, txn);
+      });
+      return row;
+    });
+
+        tableData.push({
+      ID: "Closing Balance",
+      "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      "Contact Phone": "",
+      "Payment Type": "",
+      "Payment Mode": "",
+      [`Amount (${currencyName})`]: "",
+      "Payment Date & Time": "",
+      "Approved By": "",
+      "Created By": "",
+      Remark: "",
+    });
 
     if (tableData.length === 0) {
       const doc = new jsPDF();
@@ -590,10 +785,15 @@ const AllAccountReports = ({
       return;
     }
 
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
+
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
     autoTable(doc, {
-      head: [Object.keys(tableData[0])],
-      body: tableData.map((row) => Object.values(row)),
+      columns: exportColumns,
+      body: tableData,
       theme: "grid",
       styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -601,6 +801,11 @@ const AllAccountReports = ({
       didDrawPage: () => {
         doc.setFontSize(16);
         doc.text("Account Transactions Report", 14, 15);
+      },
+      didParseCell: (data: any) => {
+        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
     doc.save(`account_transactions_${Date.now()}.pdf`);
@@ -660,22 +865,26 @@ const AllAccountReports = ({
 
       const exportData = (
         selectedTransactions.length > 0 ? selectedTransactions : allTransactions
-      ).map((txn) => ({
-        ID: txn.acc_series ?? "-",
-        "Contact Name": txn.contact_name ?? "",
-        "Company Name": txn.contact_companyName ?? "",
-        "Contact Phone": txn.contact_mobileNumber ?? "-",
-        "Payment Type": txn.typeItem ?? "-",
-        "Payment Mode": txn.modeItem ?? "-",
-        [`Amount (${currencyName})`]:
-          txn.amountwithoutcurrency || txn.amount || "-",
-        "Payment Date & Time": `${formatDateTime(txn.payment_date_time)}`,
-        "Approved By": txn.approved_name ?? "-",
-        "Created By": txn.created_name ?? "-",
-        Remark:
-          txn.remark.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") ??
-          "-",
-      }));
+      ).map((txn) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, txn);
+        });
+        return row;
+      });
+
+            exportData.push({
+        ID: "Closing Balance",
+        "Contact Name": `${balanceSymbol} ${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        "Contact Phone": "",
+        "Payment Type": "",
+        "Payment Mode": "",
+        [`Amount (${currencyName})`]: "",
+        "Payment Date & Time": "",
+        "Approved By": "",
+        "Created By": "",
+        Remark: "",
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
@@ -719,15 +928,7 @@ const AllAccountReports = ({
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Contact Details</th>
-                <th>Payment Type</th>
-                <th>Payment Mode</th>
-                <th>Amount (${currencyName})</th>
-                <th>Payment Date & Time</th>
-                <th>Approved By</th>
-                <th>Created By</th>
-                <th>Remark</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -735,19 +936,11 @@ const AllAccountReports = ({
                 .map(
                   (txn) => `
                 <tr>
-                  <td>${txn.acc_series || "-"}</td>
-      <td>${
-        [txn.contact_companyName, txn.contact_name, txn.contact_mobileNumber]
-          .filter(Boolean)
-          .join(" - ") || "-"
-      }</td>
-                  <td>${txn.typeItem}</td>
-                  <td>${txn.modeItem}</td>
-                  <td>${txn.amountwithoutcurrency || `${txn.amount}`}</td>
-                  <td>${formatDateTime(txn.payment_date_time)}</td>
-                  <td>${txn.approved_name || "-"}</td>
-                  <td>${txn.created_name || "-"}</td>
-                  <td>${txn.remark || "-"}</td>
+                  ${visibleColumns
+                    .map(
+                      (col) => `<td>${getExportCellValue(col, txn)}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
                 )
@@ -981,8 +1174,46 @@ const AllAccountReports = ({
                     <i className="pi pi-print" style={{ marginRight: "4px" }} />
                     Print
                   </li>
+                  <li
+                    className="listItem text-start"
+                    role="button"
+                    onClick={() => {
+                      setIsExportDropdownOpen(false);
+                      if (canImport) {
+                        setIsModalExcelVisible(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                  >
+                    <i className="pi pi-file-import" style={{ marginRight: "4px" }} />
+                    Import Transaction
+                  </li>
                 </ul>
               </div>
+
+              <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+
+              <ColumnsButton
+                columns={orderedColumns}
+                hiddenKeys={hiddenKeys}
+                onToggle={toggleColumn}
+                onReorder={reorderColumns}
+                onReset={resetColumns}
+              />
             </div>
           </div>
         )}
@@ -1128,148 +1359,31 @@ const AllAccountReports = ({
               )}
             />
           )}
-          <Column
-            field="acc_series"
-            header="ID"
-            sortable
-            style={{ width: "50px" }}
-          />
-
-          <Column
-            field="contact_masters_id"
-            header={
-              <span>
-                Contact <br /> Details
-              </span>
-            }
-            sortable
-            style={{ width: "250px" }}
-            body={(rowData) => {
-              const company = rowData.contact_companyName || "";
-              const contact = rowData.contact_name || "";
-              const mobile = rowData.contact_mobileNumber || "";
-
-              let parts = [];
-
-              if (company || contact) {
-                if (company && contact) {
-                  parts.push(`${company} (${contact})`);
-                } else if (company) {
-                  parts.push(company);
-                } else {
-                  parts.push(contact);
-                }
-              }
-
-              if (mobile) {
-                parts.push(mobile);
-              }
-
-              return parts.length > 0 ? parts.join(" - ") : "-";
-            }}
-          />
-
-          <Column
-            field="typeItem"
-            header={
-              <span>
-                Payment <br /> Type
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search type"
-            style={{ width: "200px" }}
-            body={(rowData) => {
-              const type = rowData.typeItem || "";
-              let color = "black"; // default
-
-              if (type.toLowerCase() === "credit") {
-                color = "green";
-              } else if (type.toLowerCase() === "debit") {
-                color = "red";
-              }
-
-              return <span style={{ color, fontWeight: "bold" }}>{type}</span>;
-            }}
-          />
-
-          <Column
-            field="modeItem"
-            header={
-              <span>
-                Payment <br /> Mode
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search mode"
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="amount"
-            header="Amount"
-            sortable
-            body={(rowData) =>
-              rowData.amountwithcurrency ||
-              `₹${rowData.amount?.toLocaleString() || "0.00"}`
-            }
-            style={{ textAlign: "right", width: "150px" }}
-          />
-
-          <Column
-            field="payment_date_time"
-            header={
-              <span>
-                Payment <br />
-                Date & Time
-              </span>
-            }
-            sortable
-            body={(rowData) => rowData.payment_date_time || "-"}
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="approved_name"
-            header={
-              <span>
-                Approved <br /> By
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search approver"
-            body={(rowData) => rowData.approved_name || "-"}
-            style={{ width: "200px" }}
-          />
-          <Column
-            field="created_name"
-            header={
-              <span>
-                Created <br /> By
-              </span>
-            }
-            sortable
-            filter
-            filterPlaceholder="Search approver"
-            body={(rowData) => rowData.created_name || "-"}
-            style={{ width: "200px" }}
-          />
-
-          <Column
-            field="remark"
-            header="Remark"
-            filter
-            filterPlaceholder="Search remark"
-            style={{ minWidth: "200px" }}
-            body={(rowData) => (
-              <div
-                dangerouslySetInnerHTML={{ __html: rowData.remark || "-" }}
-              />
-            )}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                textAlign: col.key === "amount" ? "right" : undefined,
+              }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
         <div className="mb-3 p-3 bg-light rounded"></div>
       </div>
@@ -1308,6 +1422,22 @@ const AllAccountReports = ({
           selectedWarehouseIds={filters.selectedWarehouseIds}
           initialReferenceWiseContact={filters.referenceWiseContact}
           isApplyReport={1}
+        />
+      )}
+      {isModalExcelVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelVisible}
+          onHide={() => setIsModalExcelVisible(false)}
+          handleSubmit={() => {
+            setIsModalExcelVisible(false);
+            loadAccountData(0, 50, true);
+          }}
+          title={"Import Excel For Account Transaction"}
+          message={"Please Import excel as per sample excel"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation="sampleAccountTransaction.xlsx"
+          potions={8}
         />
       )}
     </div>

@@ -6,7 +6,6 @@ import { toast } from "react-toastify";
 import {
   formatDate,
   formatDateYMD,
-  openInNewTab,
   useEscapeKey,
 } from "../../common/SharedFunction";
 import {
@@ -50,6 +49,43 @@ export const monthOptions = [
   { value: 11, label: "November" },
   { value: 12, label: "December" },
 ];
+
+const LEAD_AGING_ACTIVITY_OPTIONS = [
+  { value: "call", label: "Call" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "visit", label: "Visit" },
+  { value: "task", label: "Task" },
+  { value: "inquiry", label: "Inquiry" },
+  { value: "sales_order", label: "Sales Order" },
+  { value: "quotation", label: "Quotation" },
+  { value: "proforma_invoice", label: "Proforma Invoice" },
+  { value: "invoice", label: "Invoice" },
+  { value: "purchase_order", label: "Purchase Order" },
+];
+
+const getLeadAgingSummaryLabel = (
+  bucket: string | null,
+  activityTypes: string[],
+): string => {
+  if (!bucket) return "";
+
+  const sourceLabel =
+    activityTypes.length > 0
+      ? activityTypes
+          .map(
+            (v) =>
+              LEAD_AGING_ACTIVITY_OPTIONS.find((opt) => opt.value === v)
+                ?.label ?? v,
+          )
+          .join(" or ")
+      : "any source";
+
+  if (Number(bucket) === 0) {
+    return `Showing contacts never contacted via ${sourceLabel}`;
+  }
+
+  return `Showing contacts where ${sourceLabel} not done in last ${bucket} days`;
+};
 
 // Define interface for filterData
 
@@ -97,6 +133,8 @@ interface CheckBoxModalProps {
   initialselectedOrderListId?: any | null;
   initialCheckedOptionsContactAssignOrnot?: any[] | null;
   initialReferenceWiseContact?: number;
+  initialLeadAgingBucket?: string | null;
+  initialLeadAgingActivityTypes?: string[] | null;
   isApplyReport?: number;
 }
 
@@ -143,6 +181,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   initialselectedOrderListId,
   initialCheckedOptionsContactAssignOrnot,
   initialReferenceWiseContact = 1,
+  initialLeadAgingBucket,
+  initialLeadAgingActivityTypes,
   isApplyReport,
 }) => {
   const convertToDateObject = (date: any) => {
@@ -315,6 +355,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   const [referenceWiseContact, setReferenceWiseContact] = useState<number>(
     initialReferenceWiseContact || 1,
   );
+
+  const [leadAgingBucket, setLeadAgingBucket] = useState<string | null>(
+    initialLeadAgingBucket ?? null,
+  );
+  const [leadAgingActivityTypes, setLeadAgingActivityTypes] = useState<
+    string[]
+  >(initialLeadAgingActivityTypes || []);
 
   const [sourceSearch, setSourceSearch] = useState("");
   const [expenseSearch, setExpenseSearch] = useState("");
@@ -610,7 +657,9 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       endSearchDate ||
       warehouseIds ||
       selectedOrderListId ||
-      referenceWiseContact;
+      referenceWiseContact ||
+      leadAgingBucket ||
+      leadAgingActivityTypes.length > 0;
     setIsFilterModified(!!hasAnyFilter);
   }, [
     checkedOptions,
@@ -649,6 +698,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     warehouseIds,
     selectedOrderListId,
     referenceWiseContact,
+    leadAgingBucket,
+    leadAgingActivityTypes,
   ]);
   const onSubmit = async () => {
     if (isLoading) {
@@ -753,6 +804,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedProductSearchId,
       selectedOrderListId,
       referenceWiseContact,
+      leadAgingBucket,
+      leadAgingActivityTypes,
     });
   };
 
@@ -799,6 +852,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setCheckedOptionsContactassignOrNot([]);
     setCheckedOptionsShowTemplateTask([]);
     setReferenceWiseContact(1);
+    setLeadAgingBucket(null);
+    setLeadAgingActivityTypes([]);
     handleSubmit({
       filterData: null,
       checkedOptionsLabel: [],
@@ -829,6 +884,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedProductSearchId: null,
       selectedOrderListId: null,
       referenceWiseContact: 1,
+      leadAgingBucket: null,
+      leadAgingActivityTypes: [],
     });
     onHide();
     setLabelAndOr(0);
@@ -1020,7 +1077,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCountriesList(response.data.data);
+      setCountriesList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCountriesList([]);
     }
@@ -1042,7 +1099,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         setOptionJoinCompany([]);
       }
-      setOptionJoinCompany(data.data.data.item);
+      setOptionJoinCompany(Array.isArray(data?.data?.data?.item) ? data.data.data.item : []);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1058,7 +1115,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setStateList(response.data.data);
+      setStateList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setStateList([]);
     }
@@ -1073,7 +1130,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     };
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCategoryList(response.data.data);
+      setCategoryList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCategoryList([]);
     }
@@ -1088,7 +1145,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     };
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setProductList(response.data.data);
+      setProductList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setProductList([]);
     }
@@ -1104,7 +1161,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setCityList(response.data.data);
+      setCityList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setCityList([]);
     }
@@ -1120,7 +1177,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const getUUID = getID || localStorage.getItem("UUID");
     try {
       const response = await axiosInstance.post("commonGet", requestData);
-      setAreaList(response.data.data);
+      setAreaList(Array.isArray(response?.data?.data) ? response.data.data : []);
     } catch (error) {
       setAreaList([]);
     }
@@ -1151,8 +1208,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank label ko sabse upar add karo
-      setLabelList([blankLabel, ...data.data.data]);
+      setLabelList([blankLabel, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1163,7 +1219,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
   const blankPayment: IPaymentTypeView = {
     id: BLANK_PAYMENT_ID,
-    payment_type_name: "Blank Label",
+    payment_type_name: "Blank Payment Type",
     payment_color: "#000000",
     transaction_type: BLANK_TYPE_ID,
   };
@@ -1185,8 +1241,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank ko sabse upar add karo
-      setPaymentByList([blankPayment, ...data.data.data]);
+      setPaymentByList([blankPayment, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1302,8 +1357,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      // 👇 Blank source sabse upar
-      setSourceOfTypesLists([blankSourceType, ...(data.data.data.item || [])]);
+      setSourceOfTypesLists([blankSourceType, ...(Array.isArray(data?.data?.data?.item) ? data.data.data.item : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1340,7 +1394,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         return;
       }
 
-      setExpenseOfTypesLists([blankExpenseType, ...(data.data.data || [])]);
+      setExpenseOfTypesLists([blankExpenseType, ...(Array.isArray(data?.data?.data) ? data.data.data : [])]);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -1348,7 +1402,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
   useEffect(() => {
     if (selectedCategoryId) {
-      const filteredProducts = productList
+      const filteredProducts = (productList || [])
         .filter(
           (product: any) => product.category_id === selectedCategoryId.value,
         )
@@ -1446,20 +1500,19 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setStartSearchDate(
       initialStartSearchDate
         ? convertToDateObject(initialStartSearchDate)
-        : // : new DateObject().subtract(7, "days")
-          null,
+        : null,
     );
     setEndSearchDate(
       initialEndSearchDate ? convertToDateObject(initialEndSearchDate) : null,
     );
   }, [initialStartSearchDate, initialEndSearchDate]);
 
-  const countryOptions = countriesList.map((country: any) => ({
+  const countryOptions = (countriesList || []).map((country: any) => ({
     value: country.id,
     label: country.country_name,
   }));
 
-  const categoryOptions = categoryList.map((category: any) => ({
+  const categoryOptions = (categoryList || []).map((category: any) => ({
     value: category.id,
     label: category.category_name,
   }));
@@ -1470,32 +1523,32 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     );
   };
 
-  const productOptions = productList.map((product: any) => ({
+  const productOptions = (productList || []).map((product: any) => ({
     value: product.id,
     label: product.product_name,
   }));
 
-  const stateOptions = stateList.map((state: any) => ({
+  const stateOptions = (stateList || []).map((state: any) => ({
     value: state.id,
     label: state.state_name,
   }));
 
-  const cityOptions = cityList.map((city: any) => ({
+  const cityOptions = (cityList || []).map((city: any) => ({
     value: city.id,
     label: city.city_name,
   }));
 
-  const areaOptions = areaList.map((area: any) => ({
+  const areaOptions = (areaList || []).map((area: any) => ({
     value: area.id,
     label: area.area_name,
   }));
 
-  const activeOptions = activeData.map((option: any) => ({
+  const activeOptions = (activeData || []).map((option: any) => ({
     value: option.id,
     label: option.value,
   }));
 
-  const orderListOptions = orderTypesList.map((option: any) => ({
+  const orderListOptions = (orderTypesList || []).map((option: any) => ({
     value: option.id,
     label: option.type,
   }));
@@ -1903,29 +1956,6 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
               <div className="col-4">
                 <span className="close ms-3 pb-3" onClick={onHide}>
                   &times;
-                </span>
-                <span>
-                  <p
-                    className="landing-page-text text-end"
-                    style={{
-                      cursor: "pointer",
-                      color: "blue",
-                      float: "right",
-                      fontSize: "13px",
-                    }}
-                    onClick={() => openInNewTab("/videoTutorial", 3)}
-                  >
-                    Learn More :{" "}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="24px"
-                      viewBox="0 -960 960 960"
-                      width="24px"
-                      fill="#0000FF"
-                    >
-                      <path d="M616-242q-27 1-51.5 1.5t-43.5.5h-41q-71 0-133-2-53-2-104.5-5.5T168-257q-26-7-45-26t-26-45q-6-23-9.5-56T82-447q-2-36-2-73t2-73q2-30 5.5-63t9.5-56q7-26 26-45t45-26q23-6 74.5-9.5T347-798q62-2 133-2t133 2q53 2 104.5 5.5T792-783q26 7 45 26t26 45q6 23 9.5 56t5.5 63q2 36 2 73v17q-19-8-39-12.5t-41-4.5q-83 0-141.5 58.5T600-320q0 21 4 40.5t12 37.5ZM400-400l208-120-208-120v240Zm360 200v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z" />
-                    </svg>
-                  </p>
                 </span>
               </div>
             </div>
@@ -4355,6 +4385,84 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                             })}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {filtersToShow.includes(29) && (
+                  <div className="col-xxl-4 col-xl-4 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
+                    <div className="">
+                      <div className="ms-2 mt-1 d-flex align-items-center justify-content-between">
+                        <label className="fw-bold">Lead Ageing</label>
+                        {leadAgingBucket && (
+                          <span
+                            role="button"
+                            className="text-danger"
+                            style={{ fontSize: "12px", cursor: "pointer" }}
+                            onClick={() => {
+                              setLeadAgingBucket(null);
+                              setLeadAgingActivityTypes([]);
+                            }}
+                          >
+                            Clear
+                          </span>
+                        )}
+                      </div>
+                      <hr />
+                      <div className="p-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          className="form-control"
+                          placeholder="Enter days (0 = never contacted)"
+                          value={leadAgingBucket ?? ""}
+                          disabled={isLoading}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setLeadAgingBucket(null);
+                              return;
+                            }
+                            const days = Number(raw);
+                            if (!Number.isInteger(days) || days < 0) return;
+                            setLeadAgingBucket(String(days));
+                          }}
+                        />
+
+                        {leadAgingBucket && (
+                          <div className="mt-3">
+                            <MultiSelect
+                              options={LEAD_AGING_ACTIVITY_OPTIONS}
+                              value={LEAD_AGING_ACTIVITY_OPTIONS.filter((opt) =>
+                                leadAgingActivityTypes.includes(
+                                  String(opt.value),
+                                ),
+                              )}
+                              onChange={(selected) =>
+                                setLeadAgingActivityTypes(
+                                  selected.map((opt) => String(opt.value)),
+                                )
+                              }
+                              isSelectAll={true}
+                              isMulti
+                              isClearable={leadAgingActivityTypes.length > 0}
+                              isDisabled={isLoading}
+                              menuPlacement="top"
+                              placeholder="All sources"
+                            />
+
+                            <div
+                              className="text-muted mt-2"
+                              style={{ fontSize: "12px" }}
+                            >
+                              {getLeadAgingSummaryLabel(
+                                leadAgingBucket,
+                                leadAgingActivityTypes,
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

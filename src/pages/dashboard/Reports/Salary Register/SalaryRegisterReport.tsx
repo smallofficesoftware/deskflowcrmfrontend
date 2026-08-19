@@ -16,11 +16,16 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -322,6 +327,13 @@ const SalaryRegisterReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setSalaries([]);
+    loadAttendance(0, 50, true);
+  };
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -356,55 +368,461 @@ const SalaryRegisterReport = ({
     }
   };
 
-  // ──────────────────────────────────────────────────────────────
-  //  EXPORT COLUMNS (for PDF & structure reference)
-  // ──────────────────────────────────────────────────────────────
-  const exportColumns = [
-    { title: "Month-Year", dataKey: "month_year" },
-    { title: "Employee Name", dataKey: "employee_name" },
-    { title: "Added Date", dataKey: "added_date" },
-    { title: "Present Day", dataKey: "total_present_day" },
-    { title: "Half Day", dataKey: "half_day" },
-    { title: "Week Off", dataKey: "total_week_off" },
-    { title: "Leave", dataKey: "total_leave" },
-    { title: "Absent", dataKey: "total_absent" },
-    { title: "Salaried Days", dataKey: "total_day" },
-    { title: "Working Hour", dataKey: "working_hour" },
-    { title: "CTC", dataKey: "ctc" },
-    { title: "Gross Salary", dataKey: "gross_salary" },
-    { title: "Per Day Salary", dataKey: "per_day_salary" },
-    { title: "Fix Basic", dataKey: "fxs_basic" },
-    { title: "Fix HRA", dataKey: "fxs_hra" },
-    { title: "Fix Other", dataKey: "fxs_other" },
-    { title: "Fix Total Earning", dataKey: "fxs_total_earning" },
-    { title: "Dw Basic", dataKey: "dws_basic" },
-    { title: "Dw HRA", dataKey: "dws_hra" },
-    { title: "Dw Other", dataKey: "dws_other" },
-    { title: "Dw Total Earning", dataKey: "dws_total_earning" },
-    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
-    { title: "Reg. OT Amt.", dataKey: "regular_ot_payable_amt" },
-    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
-    { title: "Extra OT Amt.", dataKey: "extra_ot_payable_amt" },
-    { title: "Total OT Hours", dataKey: "earn_ot_hours" },
-    { title: "Total OT Amt.", dataKey: "earn_ot_payable_amt" },
-    { title: "Earn. Head F.", dataKey: "earn_head_first" },
-    { title: "Earn. Head S.", dataKey: "earn_head_second" },
-    { title: "Earn. Head T.", dataKey: "earn_head_third" },
-    { title: "Bonus Amt.", dataKey: "bonus_amount" },
-    { title: "Sub Total", dataKey: "earn_sub_total" },
-    { title: "Total Earning", dataKey: "total_earning" },
-    { title: "PF", dataKey: "ded_emp_pf" },
-    { title: "PM PF", dataKey: "ded_pradhan_mantri_pf" },
-    { title: "ESI Employee", dataKey: "ded_esi_employee" },
-    { title: "ESI Company", dataKey: "ded_esi_company" },
-    { title: "PT", dataKey: "ded_pt" },
-    { title: "Insurance", dataKey: "ded_insurance" },
-    { title: "Ded. F.", dataKey: "ded_first" },
-    { title: "Ded. S.", dataKey: "ded_second" },
-    { title: "Ded. T.", dataKey: "ded_third" },
-    { title: "Total Ded.", dataKey: "total_deduction" },
-    { title: "Net Bank Pay", dataKey: "net_bank_pay" },
+  type SalaryColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    width?: string;
+    className?: string;
+    bodyClassName?: string;
+    bodyStyleOverride?: React.CSSProperties;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: SalaryColumnDef[] = useMemo(
+    () => [
+      {
+        key: "year",
+        label: "Month-Year",
+        header: <span>Month-Year</span>,
+        width: "150px",
+        bodyStyleOverride: { background: "#F8F9FA" },
+        body: (rowData: any) =>
+          `${months[rowData.month]} - ${rowData.year}` || "-",
+      },
+      {
+        key: "employee_name",
+        label: "Employee Name",
+        header: <span>Employee Name</span>,
+        width: "160px",
+        bodyStyleOverride: { background: "#F8F9FA" },
+        body: (rowData: any) => rowData.employee_name ?? "-",
+      },
+      {
+        key: "added_date",
+        label: "Added Date",
+        header: <span>Added Date</span>,
+        width: "160px",
+        bodyStyleOverride: { background: "#F8F9FA" },
+        bodyClassName: "text-center",
+        body: (rowData: any) => formatDateToDDMMYYYY(rowData.added_date) ?? "-",
+      },
+      {
+        key: "total_present_day",
+        label: "Present Day",
+        header: <span>Present Day</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_present_day ?? "-",
+      },
+      {
+        key: "half_day",
+        label: "Half Day",
+        header: <span>Half Day</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.half_day ?? "-",
+      },
+      {
+        key: "holiday",
+        label: "Holiday",
+        header: <span>Holiday</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.holiday ?? "-",
+      },
+      {
+        key: "total_week_off",
+        label: "Week Off",
+        header: <span>Week Off</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_week_off ?? "-",
+      },
+      {
+        key: "total_leave",
+        label: "Leave",
+        header: <span>Leave</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_leave ?? "-",
+      },
+      {
+        key: "total_absent",
+        label: "Absent",
+        header: <span>Absent</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_absent ?? "-",
+      },
+      {
+        key: "total_day",
+        label: "Salaried Days",
+        header: <span>Salaried Days</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_day ?? "-",
+      },
+      {
+        key: "working_hour",
+        label: "Working Hour",
+        header: <span>Working Hour</span>,
+        width: "160px",
+        className: "attendance-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.working_hour ?? "-",
+      },
+      {
+        key: "ctc",
+        label: "CTC",
+        header: <span>CTC</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ctc ?? "-",
+      },
+      {
+        key: "gross_salary",
+        label: "Gross Salary",
+        header: <span>Gross Salary</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.gross_salary ?? "-",
+      },
+      {
+        key: "per_day_salary",
+        label: "Per Day Salary",
+        header: <span>Per Day Salary</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.per_day_salary ?? "-",
+      },
+      {
+        key: "fxs_basic",
+        label: "Fix Basic",
+        header: <span>Fix Basic</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.fxs_basic ?? "-",
+      },
+      {
+        key: "fxs_hra",
+        label: "Fix HRA",
+        header: <span>Fix HRA</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.fxs_hra ?? "-",
+      },
+      {
+        key: "fxs_other",
+        label: "Fix Other",
+        header: <span>Fix Other</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.fxs_other ?? "-",
+      },
+      {
+        key: "fxs_total_earning",
+        label: "Fix Total Earning",
+        header: <span>Fix Total Earning</span>,
+        width: "160px",
+        className: "payroll-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.fxs_total_earning ?? "-",
+      },
+      {
+        key: "dws_basic",
+        label: "Basic",
+        header: <span>Basic</span>,
+        width: "160px",
+        className: "calculation-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.dws_basic ?? "-",
+      },
+      {
+        key: "dws_hra",
+        label: "HRA",
+        header: <span>HRA</span>,
+        width: "160px",
+        className: "calculation-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.dws_hra ?? "-",
+      },
+      {
+        key: "dws_other",
+        label: "Other",
+        header: <span>Other</span>,
+        width: "160px",
+        className: "calculation-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.dws_other ?? "-",
+      },
+      {
+        key: "dws_total_earning",
+        label: "Total Earning (Dw)",
+        header: <span>Total Earning</span>,
+        width: "160px",
+        className: "calculation-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.dws_total_earning ?? "-",
+      },
+      {
+        key: "regular_ot_hours",
+        label: "Reg. OT Hours",
+        header: <span>Reg. OT Hours</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.regular_ot_hours ?? "-",
+      },
+      {
+        key: "regular_ot_payable_amt",
+        label: "Reg. OT Amt.",
+        header: <span>Reg. OT Amt.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.regular_ot_payable_amt ?? "-",
+      },
+      {
+        key: "extra_ot_hours",
+        label: "Extra OT Hours",
+        header: <span>Extra OT Hours</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.extra_ot_hours ?? "-",
+      },
+      {
+        key: "extra_ot_payable_amt",
+        label: "Extra OT Amt.",
+        header: <span>Extra OT Amt.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.extra_ot_payable_amt ?? "-",
+      },
+      {
+        key: "earn_ot_hours",
+        label: "Total OT Hours",
+        header: <span>Total OT Hours</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_ot_hours ?? "-",
+      },
+      {
+        key: "earn_ot_payable_amt",
+        label: "Total OT Amt.",
+        header: <span>Total OT Amt.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_ot_payable_amt ?? "-",
+      },
+      {
+        key: "earn_head_first",
+        label: "Earn. Head F.",
+        header: <span>Earn. Head F.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_head_first ?? "-",
+      },
+      {
+        key: "earn_head_second",
+        label: "Earn. Head S.",
+        header: <span>Earn. Head S.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_head_second ?? "-",
+      },
+      {
+        key: "earn_head_third",
+        label: "Earn. Head T.",
+        header: <span>Earn. Head T.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_head_third ?? "-",
+      },
+      {
+        key: "bonus_amount",
+        label: "Bonus Amt.",
+        header: <span>Bonus Amt.</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.bonus_amount ?? "-",
+      },
+      {
+        key: "earn_sub_total",
+        label: "Sub Total",
+        header: <span>Sub Total</span>,
+        width: "160px",
+        className: "earning-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.earn_sub_total ?? "-",
+      },
+      {
+        key: "total_earning",
+        label: "Total Earning",
+        header: <span>Total Earning</span>,
+        width: "160px",
+        bodyStyleOverride: { background: "#E6FFF8" },
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_earning ?? "-",
+      },
+      {
+        key: "ded_emp_pf",
+        label: "PF",
+        header: <span>PF</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_emp_pf ?? "-",
+      },
+      {
+        key: "ded_pradhan_mantri_pf",
+        label: "PM PF",
+        header: <span>PM PF</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_pradhan_mantri_pf ?? "-",
+      },
+      {
+        key: "ded_esi_employee",
+        label: "ESI Employee",
+        header: <span>ESI Employee</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_esi_employee ?? "-",
+      },
+      {
+        key: "ded_esi_company",
+        label: "ESI Company",
+        header: <span>ESI Company</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_esi_company ?? "-",
+      },
+      {
+        key: "ded_pt",
+        label: "PT",
+        header: <span>PT</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_pt ?? "-",
+      },
+      {
+        key: "ded_insurance",
+        label: "Insurance",
+        header: <span>Insurance</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_insurance ?? "-",
+      },
+      {
+        key: "ded_first",
+        label: "Ded. F.",
+        header: <span>Ded. F.</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_first ?? "-",
+      },
+      {
+        key: "ded_second",
+        label: "Ded. S.",
+        header: <span>Ded. S.</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_second ?? "-",
+      },
+      {
+        key: "ded_third",
+        label: "Ded. T.",
+        header: <span>Ded. T.</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.ded_third ?? "-",
+      },
+      {
+        key: "total_deduction",
+        label: "Total Ded.",
+        header: <span>Total Ded.</span>,
+        width: "160px",
+        className: "deduction-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.total_deduction ?? "-",
+      },
+      {
+        key: "net_bank_pay",
+        label: "Net Bank Pay",
+        header: <span>Net Bank Pay</span>,
+        width: "160px",
+        className: "net-pay-section",
+        bodyClassName: "text-end",
+        body: (rowData: any) => rowData.net_bank_pay ?? "-",
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("salary_register_report", baseColumnDefs);
+
+  const EXTRA_EXPORT_COLUMNS: { key: string; label: string }[] = [
+    { key: "employee_id", label: "Employee Id" },
+    { key: "recovery_mobile", label: "Employee Mobile" },
+    { key: "aadhar_card_number", label: "Adhar Number" },
+    { key: "pan_card_number", label: "PAN Number" },
   ];
+
+  const getExportCellValue = (col: { key: string }, salary: any): any => {
+    switch (col.key) {
+      case "year":
+        return `${months[salary.month]} - ${salary.year}` || "-";
+      case "employee_name":
+        return salary.employee_name ?? "-";
+      case "added_date":
+        return formatDateToDDMMYYYY(salary.added_date) ?? "00/00/0000";
+      case "regular_ot_hours":
+        return (salary as any).regular_ot_hours ?? "00:00:00";
+      case "regular_ot_payable_amt":
+        return (salary as any).regular_ot_payable_amt ?? "0";
+      case "extra_ot_hours":
+        return (salary as any).extra_ot_hours ?? "00:00:00";
+      case "extra_ot_payable_amt":
+        return (salary as any).extra_ot_payable_amt ?? "0";
+      default:
+        return salary[col.key] ?? "-";
+    }
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a2" });
@@ -418,53 +836,16 @@ const SalaryRegisterReport = ({
       return;
     }
 
-    const tableData = dataToExport.map((salary) => {
-      const row: Record<string, any> = { year: salary.year ?? "-" };
-      row.month = salary.month ?? "-";
-      row.added_date = formatDateToDDMMYYYY(salary.added_date) ?? "00/00/0000";
-      row.employee_name = salary.employee_name ?? "-";
-      row.total_present_day = salary.total_present_day ?? "0";
-      row.half_day = salary.half_day ?? "0";
-      row.total_week_off = salary.total_week_off ?? "0";
-      row.total_leave = salary.total_leave ?? "0";
-      row.total_absent = salary.total_absent ?? "0";
-      row.total_day = salary.total_day ?? "0";
-      row.working_hour = salary.working_hour ?? "0";
-      row.ctc = salary.ctc ?? "0";
-      row.gross_salary = salary.gross_salary ?? "0";
-      row.per_day_salary = salary.per_day_salary ?? "0";
-      row.fxs_basic = salary.fxs_basic ?? "0";
-      row.fxs_hra = salary.fxs_hra ?? "0";
-      row.fxs_other = salary.fxs_other ?? "0";
-      row.fxs_total_earning = salary.fxs_total_earning ?? "0";
-      row.dws_basic = salary.dws_basic ?? "0";
-      row.dws_hra = salary.dws_hra ?? "0";
-      row.dws_other = salary.dws_other ?? "0";
-      row.dws_total_earning = salary.dws_total_earning ?? "0";
-      row.regular_ot_hours = (salary as any).regular_ot_hours ?? "00:00:00";
-      row.regular_ot_payable_amt = (salary as any).regular_ot_payable_amt ?? "0";
-      row.extra_ot_hours = (salary as any).extra_ot_hours ?? "00:00:00";
-      row.extra_ot_payable_amt = (salary as any).extra_ot_payable_amt ?? "0";
-      row.earn_ot_hours = salary.earn_ot_hours ?? "0";
-      row.earn_ot_payable_amt = salary.earn_ot_payable_amt ?? "0";
-      row.earn_head_first = salary.earn_head_first ?? "0";
-      row.earn_head_second = salary.earn_head_second ?? "0";
-      row.earn_head_third = salary.earn_head_third ?? "0";
-      row.bonus_amount = salary.bonus_amount ?? "0";
-      row.earn_sub_total = salary.earn_sub_total ?? "0";
-      row.total_earning = salary.total_earning ?? "0";
-      row.ded_emp_pf = salary.ded_emp_pf ?? "0";
-      row.ded_pradhan_mantri_pf = salary.ded_pradhan_mantri_pf ?? "0";
-      row.ded_esi_employee = salary.ded_esi_employee ?? "0";
-      row.ded_esi_company = salary.ded_esi_company ?? "0";
-      row.ded_pt = salary.ded_pt ?? "0";
-      row.ded_insurance = salary.ded_insurance ?? "0";
-      row.ded_first = salary.ded_first ?? "0";
-      row.ded_second = salary.ded_second ?? "0";
-      row.ded_third = salary.ded_third ?? "0";
-      row.total_deduction = salary.total_deduction ?? "0";
-      row.net_bank_pay = salary.net_bank_pay ?? "0";
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
+    const tableData = dataToExport.map((salary) => {
+      const row: Record<string, any> = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, salary);
+      });
       return row;
     });
 
@@ -549,109 +930,19 @@ const SalaryRegisterReport = ({
       }
 
       const headers = [
-        "Month",
-        "Year",
-        "Employee Name",
-        "Employee Id",
-        "Employee Mobile",
-        "Adhar Number",
-        "PAN Number",
-        "Added Date",
-        "Present Day",
-        "Half Day",
-        "Week Off",
-        "Leave",
-        "Absent",
-        "Salaried Days",
-        "Working Hour",
-        "CTC",
-        "Gross Salary",
-        "Per Day Salary",
-        "Fix Basic",
-        "Fix HRA",
-        "Fix Other",
-        "Fix Total Earning",
-        "Dw Basic",
-        "Dw HRA",
-        "Dw Other",
-        "Dw Total Earning",
-        "Reg. OT Hours",
-        "Reg. OT Amt.",
-        "Extra OT Hours",
-        "Extra OT Amt.",
-        "Total OT Hours",
-        "Total OT Amt.",
-        "Earn. Head F.",
-        "Earn. Head S.",
-        "Earn. Head T.",
-        "Bonus Amt.",
-        "Sub Total",
-        "Total Earning",
-        "PF",
-        "PM PF",
-        "ESI Employee",
-        "ESI Company",
-        "PT",
-        "Insurance",
-        "Ded. F.",
-        "Ded. S.",
-        "Ded. T.",
-        "Total Ded.",
-        "Net Bank Pay",
+        ...visibleColumns.map((col) => col.label),
+        ...EXTRA_EXPORT_COLUMNS.map((c) => c.label),
       ];
 
       const rows = (
         selectedSalaries.length > 0 ? selectedSalaries : allAttendance
       ).map((salary) => {
-        const row: any[] = [months[salary.month] || "-"];
-        row.push(salary.year ?? "-");
-        row.push(salary.employee_name ?? "-");
-        row.push(salary.employee_id ?? "-");
-        row.push(salary.recovery_mobile ?? "-");
-        row.push(salary.aadhar_card_number || "-");
-        row.push(salary.pan_card_number || "-");
-        row.push(formatDateToDDMMYYYY(salary.added_date) ?? "00/00/0000");
-        row.push(salary.total_present_day ?? "0");
-        row.push(salary.half_day ?? "0");
-        row.push(salary.total_week_off ?? "0");
-        row.push(salary.total_leave ?? "0");
-        row.push(salary.total_absent ?? "0");
-        row.push(salary.total_day ?? "0");
-        row.push(salary.working_hour ?? "");
-        row.push(salary.ctc ?? "");
-        row.push(salary.gross_salary ?? "");
-        row.push(salary.per_day_salary ?? "");
-        row.push(salary.fxs_basic ?? "");
-        row.push(salary.fxs_hra ?? "");
-        row.push(salary.fxs_other ?? "");
-        row.push(salary.fxs_total_earning ?? "");
-        row.push(salary.dws_basic ?? "");
-        row.push(salary.dws_hra ?? "");
-        row.push(salary.dws_other ?? "");
-        row.push(salary.dws_total_earning ?? "");
-        row.push((salary as any).regular_ot_hours ?? "00:00:00");
-        row.push((salary as any).regular_ot_payable_amt ?? "0");
-        row.push((salary as any).extra_ot_hours ?? "00:00:00");
-        row.push((salary as any).extra_ot_payable_amt ?? "0");
-        row.push(salary.earn_ot_hours ?? "");
-        row.push(salary.earn_ot_payable_amt ?? "");
-        row.push(salary.earn_head_first ?? "");
-        row.push(salary.earn_head_second ?? "");
-        row.push(salary.earn_head_third ?? "");
-        row.push(salary.bonus_amount ?? "");
-        row.push(salary.earn_sub_total ?? "");
-        row.push(salary.total_earning ?? "");
-        row.push(salary.ded_emp_pf ?? "");
-        row.push(salary.ded_pradhan_mantri_pf ?? "");
-        row.push(salary.ded_esi_employee ?? "");
-        row.push(salary.ded_esi_company ?? "");
-        row.push(salary.ded_pt ?? "");
-        row.push(salary.ded_insurance ?? "");
-        row.push(salary.ded_first ?? "");
-        row.push(salary.ded_second ?? "");
-        row.push(salary.ded_third ?? "");
-        row.push(salary.total_deduction ?? "");
-        row.push(salary.net_bank_pay ?? "");
+        const row: any[] = visibleColumns.map((col) =>
+          getExportCellValue(col, salary),
+        );
+        EXTRA_EXPORT_COLUMNS.forEach((c) => {
+          row.push(getExportCellValue(c, salary));
+        });
 
         return row;
       });
@@ -705,93 +996,18 @@ const SalaryRegisterReport = ({
       return;
     }
 
-    const headers = `
-        <th>Month-Year</th>
-        <th>Employee Name</th>
-        <th>Added Date</th>
-        <th>Present Day</th>
-        <th>Half Day</th>
-        <th>Week Off</th>
-        <th>Leave</th>
-        <th>Absent</th>
-        <th>Salaried Days</th>
-        <th>Working Hour</th>
-        <th>CTC</th>
-        <th>Gross Salary</th>
-        <th>Per Day Salary</th>
-        <th>Fix Basic</th>
-        <th>Fix HRA</th>
-        <th>Fix Other</th>
-        <th>Fix Total Earning</th>
-        <th>Dw Basic</th>
-        <th>Dw HRA</th>
-        <th>Dw Other</th>
-        <th>Dw Total Earning</th>
-        <th>OT Hours</th>
-        <th>OT Payable Amt.</th>
-        <th>Earn. Head F.</th>
-        <th>Earn. Head S.</th>
-        <th>Earn. Head T.</th>
-        <th>Bonus Amt.</th>
-        <th>Sub Total</th>
-        <th>Total Earning</th>
-        <th>PF</th>
-        <th>PM PF</th>
-        <th>ESI Employee</th>
-        <th>ESI Company</th>
-        <th>PT</th>
-        <th>Insurance</th>
-        <th>Ded. F.</th>
-        <th>Ded. S.</th>
-        <th>Ded. T.</th>
-        <th>Total Ded.</th>
-        <th>Net Bank Pay</th>
-      `;
+    const headers = visibleColumns
+      .map((col) => `<th>${col.label}</th>`)
+      .join("");
 
     const rows = dataToPrint
       .map((salary) => {
+        const cells = visibleColumns
+          .map((col) => `<td>${getExportCellValue(col, salary)}</td>`)
+          .join("");
         return `
           <tr>
-            <td>${salary.year ?? "-"}</td>
-            <td>${salary.employee_name ?? "-"}</td>
-            <td>${formatDateToDDMMYYYY(salary.added_date) ?? "00/00/0000"}</td>
-            <td>${salary.total_present_day ?? "0"}</td>
-            <td>${salary.half_day ?? "0"}</td>
-            <td>${salary.total_week_off ?? "0"}</td>
-            <td>${salary.total_leave ?? "0"}</td>
-            <td>${salary.total_absent ?? "0"}</td>
-            <td>${salary.total_day ?? "0"}</td>
-            <td>${salary.working_hour ?? "0"}</td>
-            <td>${salary.ctc ?? "0"}</td>
-            <td>${salary.gross_salary ?? "0"}</td>
-            <td>${salary.per_day_salary ?? "0"}</td>
-            <td>${salary.fxs_basic ?? "0"}</td>
-            <td>${salary.fxs_hra ?? "0"}</td>
-            <td>${salary.fxs_other ?? "0"}</td>
-            <td>${salary.fxs_total_earning ?? "0"}</td>
-            <td>${salary.dws_basic ?? "0"}</td>
-            <td>${salary.dws_hra ?? "0"}</td>
-            <td>${salary.dws_other ?? "0"}</td>
-            <td>${salary.dws_total_earning ?? "0"}</td>
-            <td>${salary.earn_ot_hours ?? "0"}</td>
-            <td>${salary.earn_ot_payable_amt ?? "0"}</td>
-            <td>${salary.earn_head_first ?? "0"}</td>
-            <td>${salary.earn_head_second ?? "0"}</td>
-            <td>${salary.earn_head_third ?? "0"}</td>
-            <td>${salary.bonus_amount ?? "0"}</td>
-            <td>${salary.earn_sub_total ?? "0"}</td>
-            <td>${salary.total_earning ?? "0"}</td>
-            <td>${salary.ded_emp_pf ?? "0"}</td>
-            <td>${salary.ded_pradhan_mantri_pf ?? "0"}</td>
-            <td>${salary.ded_esi_employee ?? "0"}</td>
-            <td>${salary.ded_esi_company ?? "0"}</td>
-            <td>${salary.ded_pt ?? "0"}</td>
-            <td>${salary.ded_insurance ?? "0"}</td>
-            <td>${salary.ded_first ?? "0"}</td>
-            <td>${salary.ded_second ?? "0"}</td>
-            <td>${salary.ded_third ?? "0"}</td>
-            <td>${salary.total_deduction ?? "0"}</td>
-            <td>${salary.net_bank_pay ?? "0"}</td>
+            ${cells}
           </tr>
         `;
       })
@@ -1100,6 +1316,29 @@ const SalaryRegisterReport = ({
               </li>
             </ul>
           </div>
+
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
+
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1173,605 +1412,30 @@ const SalaryRegisterReport = ({
             />
           )}
 
-          <Column
-            field="year"
-            header={<span>Month-Year</span>}
-            sortable
-            filter
-            filterField="year"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "150px" }}
-            body={(rowData) =>
-              `${months[rowData.month]} - ${rowData.year}` || "-"
-            }
-            bodyStyle={{ background: "#F8F9FA" }}
-          />
-
-          <Column
-            field="employee_name"
-            header={<span>Employee Name</span>}
-            sortable
-            filter
-            filterField="employee_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyStyle={{ background: "#F8F9FA" }}
-            body={(rowData) => rowData.employee_name ?? "-"}
-          />
-
-          <Column
-            field="added_date"
-            header={<span>Added Date</span>}
-            sortable
-            filter
-            filterField="added_date"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyStyle={{ background: "#F8F9FA" }}
-            bodyClassName={"text-center"}
-            body={(rowData) => formatDateToDDMMYYYY(rowData.added_date) ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="total_present_day"
-            header={<span>Present Day</span>}
-            sortable
-            filter
-            filterField="total_present_day"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_present_day ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="half_day"
-            header={<span>Half Day</span>}
-            sortable
-            filter
-            filterField="half_day"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.half_day ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="holiday"
-            header={<span>Holiday</span>}
-            sortable
-            filter
-            filterField="holiday"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.holiday ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="total_week_off"
-            header={<span>Week Off</span>}
-            sortable
-            filter
-            filterField="total_week_off"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_week_off ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="total_leave"
-            header={<span>Leave</span>}
-            sortable
-            filter
-            filterField="total_leave"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_leave ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="total_absent"
-            header={<span>Absent</span>}
-            sortable
-            filter
-            filterField="total_absent"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_absent ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="total_day"
-            header={<span>Salaried Days</span>}
-            sortable
-            filter
-            filterField="total_day"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_day ?? "-"}
-          />
-
-          <Column
-            className="attendance-section"
-            field="working_hour"
-            header={<span>Working Hour</span>}
-            sortable
-            filter
-            filterField="working_hour"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.working_hour ?? "-"}
-          />
-
-          <Column
-            className="payroll-section"
-            field="ctc"
-            header={<span>CTC</span>}
-            sortable
-            filter
-            filterField="ctc"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ctc ?? "-"}
-          />
-
-          <Column
-            className="payroll-section"
-            field="gross_salary"
-            header={<span>Gross Salary</span>}
-            sortable
-            filter
-            filterField="gross_salary"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.gross_salary ?? "-"}
-          />
-
-          <Column
-            className="payroll-section"
-            field="per_day_salary"
-            header={<span>Per Day Salary</span>}
-            sortable
-            filter
-            filterField="per_day_salary"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.per_day_salary ?? "-"}
-          />
-
-          <Column
-            className="payroll-section"
-            field="fxs_basic"
-            header={<span>Fix Basic</span>}
-            sortable
-            filter
-            filterField="fxs_basic"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.fxs_basic ?? "-"}
-          />
-          <Column
-            className="payroll-section"
-            field="fxs_hra"
-            header={<span>Fix HRA</span>}
-            sortable
-            filter
-            filterField="fxs_hra"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.fxs_hra ?? "-"}
-          />
-          <Column
-            className="payroll-section"
-            field="fxs_other"
-            header={<span>Fix Other</span>}
-            sortable
-            filter
-            filterField="fxs_other"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.fxs_other ?? "-"}
-          />
-          <Column
-            className="payroll-section"
-            field="fxs_total_earning"
-            header={<span>Fix Total Earning</span>}
-            sortable
-            filter
-            filterField="fxs_total_earning"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.fxs_total_earning ?? "-"}
-          />
-          <Column
-            className="calculation-section"
-            field="dws_basic"
-            header={<span>Basic</span>}
-            sortable
-            filter
-            filterField="dws_basic"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.dws_basic ?? "-"}
-          />
-          <Column
-            className="calculation-section"
-            field="dws_hra"
-            header={<span>HRA</span>}
-            sortable
-            filter
-            filterField="dws_hra"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.dws_hra ?? "-"}
-          />
-          <Column
-            className="calculation-section"
-            field="dws_other"
-            header={<span>Other</span>}
-            sortable
-            filter
-            filterField="dws_other"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.dws_other ?? "-"}
-          />
-          <Column
-            className="calculation-section"
-            field="dws_total_earning"
-            header={<span>Total Earning</span>}
-            sortable
-            filter
-            filterField="dws_total_earning"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.dws_total_earning ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="regular_ot_hours"
-            header={<span>Reg. OT Hours</span>}
-            sortable
-            filter
-            filterField="regular_ot_hours"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.regular_ot_hours ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="regular_ot_payable_amt"
-            header={<span>Reg. OT Amt.</span>}
-            sortable
-            filter
-            filterField="regular_ot_payable_amt"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.regular_ot_payable_amt ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="extra_ot_hours"
-            header={<span>Extra OT Hours</span>}
-            sortable
-            filter
-            filterField="extra_ot_hours"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.extra_ot_hours ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="extra_ot_payable_amt"
-            header={<span>Extra OT Amt.</span>}
-            sortable
-            filter
-            filterField="extra_ot_payable_amt"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.extra_ot_payable_amt ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_ot_hours"
-            header={<span>Total OT Hours</span>}
-            sortable
-            filter
-            filterField="earn_ot_hours"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_ot_hours ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_ot_payable_amt"
-            header={<span>Total OT Amt.</span>}
-            sortable
-            filter
-            filterField="earn_ot_payable_amt"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_ot_payable_amt ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_head_first"
-            header={<span>Earn. Head F.</span>}
-            sortable
-            filter
-            filterField="earn_head_first"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_head_first ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_head_second"
-            header={<span>Earn. Head S.</span>}
-            sortable
-            filter
-            filterField="earn_head_second"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_head_second ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_head_third"
-            header={<span>Earn. Head T.</span>}
-            sortable
-            filter
-            filterField="earn_head_third"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_head_third ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="bonus_amount"
-            header={<span>Bonus Amt.</span>}
-            sortable
-            filter
-            filterField="bonus_amount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.bonus_amount ?? "-"}
-          />
-          <Column
-            className="earning-section"
-            field="earn_sub_total"
-            header={<span>Sub Total</span>}
-            sortable
-            filter
-            filterField="earn_sub_total"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.earn_sub_total ?? "-"}
-          />
-          <Column
-            field="total_earning"
-            header={<span>Total Earning</span>}
-            sortable
-            filter
-            filterField="total_earning"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyStyle={{ background: "#E6FFF8" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_earning ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_emp_pf"
-            header={<span>PF</span>}
-            sortable
-            filter
-            filterField="ded_emp_pf"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_emp_pf ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_pradhan_mantri_pf"
-            header={<span>PM PF</span>}
-            sortable
-            filter
-            filterField="ded_pradhan_mantri_pf"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_pradhan_mantri_pf ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_esi_employee"
-            header={<span>ESI Employee</span>}
-            sortable
-            filter
-            filterField="ded_esi_employee"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_esi_employee ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_esi_company"
-            header={<span>ESI Company</span>}
-            sortable
-            filter
-            filterField="ded_esi_company"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_esi_company ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_pt"
-            header={<span>PT</span>}
-            sortable
-            filter
-            filterField="ded_pt"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_pt ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_insurance"
-            header={<span>Insurance</span>}
-            sortable
-            filter
-            filterField="ded_insurance"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_insurance ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_first"
-            header={<span>Ded. F.</span>}
-            sortable
-            filter
-            filterField="ded_first"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_first ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_second"
-            header={<span>Ded. S.</span>}
-            sortable
-            filter
-            filterField="ded_second"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_second ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="ded_third"
-            header={<span>Ded. T.</span>}
-            sortable
-            filter
-            filterField="ded_third"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.ded_third ?? "-"}
-          />
-          <Column
-            className="deduction-section"
-            field="total_deduction"
-            header={<span>Total Ded.</span>}
-            sortable
-            filter
-            filterField="total_deduction"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.total_deduction ?? "-"}
-          />
-          <Column
-            className="net-pay-section"
-            field="net_bank_pay"
-            header={<span>Net Bank Pay</span>}
-            sortable
-            filter
-            filterField="net_bank_pay"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{ width: "160px" }}
-            bodyClassName={"text-end"}
-            body={(rowData) => rowData.net_bank_pay ?? "-"}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              className={col.className}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px", ...col.bodyStyleOverride }}
+              bodyClassName={col.bodyClassName}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

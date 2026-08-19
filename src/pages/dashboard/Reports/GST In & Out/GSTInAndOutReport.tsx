@@ -1,4 +1,5 @@
 import "primeicons/primeicons.css";
+import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import {
     DataTable,
@@ -7,8 +8,10 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { fetchGSTInOutApi, IGSTInOUT } from "./GSTInAndOutReportController";
 
 interface GSTInAndOutReportProps {
@@ -43,11 +46,72 @@ const GSTInAndOutReport = ({
         );
     }, [reportType]);
 
+    const handleRefresh = async () => {
+        fetchGSTInOutApi(
+            setGstLists,
+            setLoading,
+            reportType
+        );
+    };
+
     useEscapeKey(() => {
     if (onHide) {
       onHide?.();
     }
   });
+
+    type GSTColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        bodyAlign?: "end";
+        body: (rowData: IGSTInOUT) => React.ReactNode;
+    };
+
+    const baseColumnDefs: GSTColumnDef[] = useMemo(
+        () => [
+            {
+                key: "cart_number",
+                label: "Cart Number",
+                header: <span>Cart Number</span>,
+                width: "200px",
+                body: (rowData: IGSTInOUT) => rowData.cart_number,
+            },
+            {
+                key: "to_customer_name",
+                label: "Customer Name",
+                header: <span>Customer Name</span>,
+                width: "200px",
+                body: (rowData: IGSTInOUT) => rowData.to_customer_name,
+            },
+            {
+                key: "gst_amt",
+                label: "GST Amount",
+                header: <span>GST Amount</span>,
+                width: "200px",
+                bodyAlign: "end",
+                body: (rowData: IGSTInOUT) => rowData.gst_amt,
+            },
+            {
+                key: "gst_number",
+                label: "GST Number",
+                header: <span>GST Number</span>,
+                width: "200px",
+                bodyAlign: "end",
+                body: (rowData: IGSTInOUT) => rowData.gst_number,
+            },
+        ],
+        [],
+    );
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("gst_in_out_report", baseColumnDefs);
 
     return (
         <div>
@@ -59,6 +123,29 @@ const GSTInAndOutReport = ({
                 >
                     {reportType === "IN" ? "GST In" : "GST Out"}
                 </h3>
+                <div className="d-flex align-items-center gap-2">
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefresh}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                    />
+                </div>
             </div>
 
             <div
@@ -83,66 +170,31 @@ const GSTInAndOutReport = ({
                     filters={filters}
                     onFilter={onFilter}
                 >
-                    <Column
-                        field="cart_number"
-                        header={<span>Cart Number</span>}
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px !important",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IGSTInOUT) => rowData.cart_number}
-                    />
-                    <Column
-                        field="to_customer_name"
-                        header={<span>Customer Name</span>}
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IGSTInOUT) => rowData.to_customer_name}
-                    />
-                    <Column
-                        field="gst_amt"
-                        header={<span>GST Amount</span>}
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px", textAlign: "end" }}
-                        body={(rowData: IGSTInOUT) => rowData.gst_amt}
-                    />
-                    <Column
-                        field="gst_number"
-                        header={<span>GST Number</span>}
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px", textAlign: "end" }}
-                        body={(rowData: IGSTInOUT) => rowData.gst_number}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{
+                                fontSize: "14px",
+                                textAlign: col.bodyAlign,
+                            }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
         </div>

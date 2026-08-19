@@ -8,15 +8,17 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { IOption } from "../../../../helpers/AppInterface";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import AddCityView from "../../../left-side/header/Setting/cities/AddCityView";
@@ -49,7 +51,8 @@ const AllCitiesReport = ({
 
     const [isModalFilterVisible, setIsModalFilterVisible] =
         useState<boolean>(false);
-    const { filters, setFilters, setFilter } = useCommonFilterStore();
+    const { getFilter, setFilters, setFilter } = useCommonFilterStore();
+    const filters = getFilter("all_cities_report");
     const [hasData, setHasData] = useState<boolean>(false);
     const [tablefilters, setTableFilters] = useState<DataTableFilterMeta>({
         city_name: {
@@ -305,10 +308,7 @@ const AllCitiesReport = ({
 
     const handleApplyFilters = async (data: any) => {
         // 1. Send the raw data to the Zustand store
-        setFilters({
-            ...filters,
-            ...data // This contains the newly updated filterData from the modal
-        });
+        setFilters("all_cities_report", data);
 
         // 2. Visual indicator that filters are active
         setHasData(Object.keys(data?.filterData || {}).length > 0);
@@ -378,6 +378,56 @@ const AllCitiesReport = ({
         );
     }, [openDropdownId, canEdit, canDelete]);
 
+    type CityColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: ICitiesView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: CityColumnDef[] = useMemo(() => {
+        return [
+            {
+                key: "city_name",
+                label: "City Name",
+                header: <span>City Name</span>,
+                width: "150px",
+                body: (rowData) => <span>{rowData.city_name}</span>,
+            },
+            {
+                key: "state_name",
+                label: "State Name",
+                header: <span>State Name</span>,
+                width: "150px",
+                body: (rowData) => (
+                    <span>
+                        {(statesList.find((s) => s.id === rowData.state_id))?.state_name}
+                    </span>
+                ),
+            },
+            {
+                key: "country_name",
+                label: "Country Name",
+                header: <span>Country Name</span>,
+                width: "150px",
+                body: (rowData) => (
+                    <span>
+                        {(countriesList.find((c) => c.id === rowData.country_id))?.country_name}
+                    </span>
+                ),
+            },
+        ];
+    }, [statesList, countriesList]);
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("all_cities_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -423,6 +473,29 @@ const AllCitiesReport = ({
                             },
                         }}
                     />
+
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshCities}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                    />
                 </div>
             </div>
 
@@ -460,78 +533,28 @@ const AllCitiesReport = ({
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="city_name"
-                        header={
-                            <span>
-                                City Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICitiesView) => {
-                            return (
-                                <span>
-                                    {rowData.city_name}
-                                </span>
-                            );
-                        }}
-                    />
-                    <Column
-                        field="state_name"
-                        header={
-                            <span>
-                                State Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICitiesView) => {
-                            return (
-                                <span>
-                                    {(statesList.find((s) => s.id === rowData.state_id))?.state_name}
-                                </span>
-                            );
-                        }}
-                    />
-                    <Column
-                        field="country_name"
-                        header={
-                            <span>
-                                Country Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICitiesView) => {
-                            return (
-                                <span>
-                                    {(countriesList.find((c) => c.id === rowData.country_id))?.country_name}
-                                </span>
-                            );
-                        }}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isDeleteConfirmation && (

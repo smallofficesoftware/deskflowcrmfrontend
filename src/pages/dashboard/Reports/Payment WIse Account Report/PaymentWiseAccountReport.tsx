@@ -1,13 +1,22 @@
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
   fetchPaymentTypeAccountList,
   IPaymentTypeWiseAccount,
 } from "./PaymentWiseAccountReportController";
+
+type PaymentColumnDef = ColumnDef & {
+  header: React.ReactNode;
+  filterMatchMode?: string;
+  width?: string;
+  body: (rowData: IPaymentTypeWiseAccount) => React.ReactNode;
+};
 
 interface IPropsPaymentTypeWiseAccount {
   selectedDates?: Date[];
@@ -93,6 +102,19 @@ const PaymentWiseAccountReport = ({
       dateArrayToUse,
     );
   }, [filters.selectedDateArray]);
+
+  const handleRefresh = async () => {
+    const dateArrayToUse =
+      filters.selectedDateArray && filters.selectedDateArray.length === 2
+        ? filters.selectedDateArray
+        : getCurrentMonthDateRange();
+
+    fetchPaymentTypeAccountList(
+      setPaymentTypeAccountList,
+      setLoading,
+      dateArrayToUse,
+    );
+  };
 
   // const handleClickOutside = (event: MouseEvent) => {
   //     const target = event.target as HTMLElement;
@@ -180,6 +202,53 @@ const PaymentWiseAccountReport = ({
   //     );
   // }, [openDropdownId, canEdit, canDelete]);
 
+  const baseColumnDefs: PaymentColumnDef[] = useMemo(
+    () => [
+      {
+        key: "payment_type_name",
+        label: "Payment Type",
+        header: <span>Payment Type</span>,
+        width: "200px",
+        body: (rowData: IPaymentTypeWiseAccount) => (
+          <span
+            style={{ backgroundColor: rowData.payment_color || "#eeeeee" }}
+            className="badge rounded-pill"
+          >
+            {rowData.payment_type_name}
+          </span>
+        ),
+      },
+      {
+        key: "credit_amount",
+        label: "Credit Amount",
+        header: <span>Credit Amount</span>,
+        width: "200px",
+        body: (rowData: IPaymentTypeWiseAccount) => (
+          <span>{rowData.credit_amount}</span>
+        ),
+      },
+      {
+        key: "debit_amount",
+        label: "Debit Amount",
+        header: <span>Debit Amount</span>,
+        width: "200px",
+        body: (rowData: IPaymentTypeWiseAccount) => (
+          <span>{rowData.debit_amount}</span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("payment_wise_account_report", baseColumnDefs);
+
   return (
     <div>
       <div className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}>
@@ -211,6 +280,27 @@ const PaymentWiseAccountReport = ({
                   fontSize: "14px",
                 },
               }}
+            />
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
             />
           </div>
         </div>
@@ -249,63 +339,28 @@ const PaymentWiseAccountReport = ({
                         body={actionBodyTemplate}
                     /> */}
 
-          <Column
-            field="payment_type_name"
-            header={<span>Payment Type</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "200px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IPaymentTypeWiseAccount) => (
-              <span
-                style={{ backgroundColor: rowData.payment_color || "#eeeeee" }}
-                className="badge rounded-pill"
-              >
-                {rowData.payment_type_name}
-              </span>
-            )}
-          />
-
-          <Column
-            field="credit_amount"
-            header={<span>Credit Amount</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "200px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IPaymentTypeWiseAccount) => (
-              <span>{rowData.credit_amount}</span>
-            )}
-          />
-          <Column
-            field="debit_amount"
-            header={<span>Debit Amount</span>}
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "200px",
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IPaymentTypeWiseAccount) => (
-              <span>{rowData.debit_amount}</span>
-            )}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px" }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

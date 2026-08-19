@@ -14,15 +14,17 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ExpenseStatusUpdateModel from "../../../../components/model/ExpenseStatusUpdateModel";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import CreateExpenseView from "../../../left-side/header/Setting/expense/create-expense/CreateExpenseView";
@@ -479,6 +481,13 @@ const AllTeamExpense = ({
     }
   };
 
+  const handleRefresh = async () => {
+    offsetRef.current = 0;
+    setHasMore(true);
+    setSourceReport([]);
+    loadMoreData(true);
+  };
+
   // const loadLazyData = () => {
   //   setLoading(true);
   //   if (networkTimeout.current) clearTimeout(networkTimeout.current);
@@ -565,14 +574,131 @@ const AllTeamExpense = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Team Member Name", dataKey: "username" },
-    ...dateRange.map((date) => ({
-      title: formatDate(date),
-      dataKey: `combined_amount_${formatDate(date)}`,
-    })),
-    { title: "Total Expense", dataKey: "total_combined_amount" },
-  ];
+  type ExpenseColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    filterCol?: boolean;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ExpenseColumnDef[] = useMemo(() => {
+    const defs: ExpenseColumnDef[] = [
+      {
+        key: "username",
+        label: "Team Member Name",
+        header: "Team Member Name",
+        width: "250px",
+        body: (rowData: IExpenseReport) => rowData.username || "-",
+      },
+    ];
+
+    dateRange.forEach((date) => {
+      const dateStr = formatDate(date);
+      const key = `combined_amount_${dateStr}`;
+
+      defs.push({
+        key,
+        label: dateStr,
+        header: dateStr,
+        width: "200px",
+        filterCol: false,
+        body: (rowData: any) => {
+          const amount = rowData[key] || "-";
+
+          // Ye field aapke API response ke hisab se change karna padega
+          const expenseImage = rowData.exp_image?.[key];
+          return (
+            <div>
+              <span
+                style={{
+                  cursor: amount !== "-" ? "pointer" : "default",
+                  display: "block",
+                  marginBottom: "5px",
+                }}
+                onClick={() => {
+                  if (!canEdit) {
+                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    return;
+                  }
+
+                  if (!MobileFlag && amount !== "-" && canEdit) {
+                    setEditExpenseStatusItem({
+                      a_application_login_id: rowData.a_application_login_id,
+                      created_date_time: rowData.expense_date[key],
+                    } as IExpenseView);
+
+                    setEditExpenseamount(0);
+                    setExpenseTypeId("");
+                    setIsCloseConfirmation(true);
+                  }
+                }}
+              >
+                {amount}
+              </span>
+
+              {expenseImage && (
+                <Button
+                  icon="pi pi-image"
+                  className="p-button-text p-0"
+                  style={{
+                    color: "green",
+                    fontSize: "16px",
+                  }}
+                  onClick={() => {
+                    setImageViewData({
+                      image: expenseImage,
+                    });
+                    setViewerOpen(true);
+                  }}
+                />
+              )}
+            </div>
+          );
+        },
+      });
+    });
+
+    defs.push({
+      key: "total_combined_amount",
+      label: "Total Expense",
+      header: "Total Expense",
+      width: "200px",
+      body: (rowData: any) => rowData.total_combined_amount || "₹0(₹0)",
+    });
+
+    return defs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange.map((d) => formatDate(d)).join(","), canEdit, MobileFlag]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("team_day_wise_expense_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: ExpenseColumnDef,
+    customer: any,
+    moneyFormat: "inr" | "plain" = "plain",
+  ): string => {
+    if (col.key === "username") return customer.username || "-";
+
+    if (col.key === "total_combined_amount") {
+      const val = customer.total_combined_amount || "-";
+      return moneyFormat === "inr" ? val.replace(/₹/g, "INR") : val;
+    }
+
+    if (col.key.startsWith("combined_amount_")) {
+      const val = customer[col.key] || "-";
+      return moneyFormat === "inr" ? val.replace(/₹/g, "INR") : val;
+    }
+
+    return customer[col.key] ?? "-";
+  };
 
   useEffect(() => {
     if (!refreshReport) return;
@@ -601,17 +727,9 @@ const AllTeamExpense = ({
     const tableData = (
       (selectedCustomers?.length ?? 0 > 0) ? selectedCustomers : filteredData
     ).map((customer) => {
-      const row: any = {
-        username: customer.username || "-",
-        total_combined_amount: (customer.total_combined_amount || "-").replace(
-          /₹/g,
-          "INR",
-        ),
-      };
-      dateRange.forEach((date) => {
-        const dateStr = formatDate(date);
-        const amount = customer[`combined_amount_${dateStr}`] || "-";
-        row[`combined_amount_${dateStr}`] = amount.replace(/₹/g, "INR");
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, customer, "inr");
       });
       return row;
     });
@@ -621,6 +739,11 @@ const AllTeamExpense = ({
       doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -651,24 +774,15 @@ const AllTeamExpense = ({
     const exportData = (
       (selectedCustomers?.length ?? 0 > 0) ? selectedCustomers : filteredData
     ).map((customer) => {
-      const row: any = {
-        "Team Member Name": customer.username || "-",
-        "Total Expense": customer.total_combined_amount || "-",
-      };
-      dateRange.forEach((date) => {
-        const dateStr = formatDate(date);
-        const amount = customer[`combined_amount_${dateStr}`] || "-";
-        row[dateStr] = amount;
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.label] = getExportCellValue(col, customer, "plain");
       });
       return row;
     });
 
     const worksheet = xlsx.utils.json_to_sheet(exportData);
-    worksheet["!cols"] = [
-      { wch: 30 },
-      ...dateRange.map(() => ({ wch: 20 })),
-      { wch: 20 },
-    ];
+    worksheet["!cols"] = visibleColumns.map(() => ({ wch: 20 }));
 
     const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
     const excelBuffer = xlsx.write(workbook, {
@@ -730,7 +844,7 @@ const AllTeamExpense = ({
         <table>
           <thead>
             <tr>
-              ${exportColumns.map((col) => `<th>${col.title}</th>`).join("")}
+              ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -738,19 +852,12 @@ const AllTeamExpense = ({
               .map(
                 (customer) => `
                 <tr>
-                  <td>${customer.username || "-"}</td>
-                  ${dateRange
-                    .map((date) => {
-                      const dateStr = formatDate(date);
-                      const amount =
-                        customer[`combined_amount_${dateStr}`] || "-";
-                      return `<td>${amount.replace(/₹/g, "INR")}</td>`;
-                    })
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, customer, "inr")}</td>`,
+                    )
                     .join("")}
-                  <td>${(customer.total_combined_amount || "-").replace(
-                    /₹/g,
-                    "INR",
-                  )}</td>
                 </tr>
               `,
               )
@@ -795,78 +902,6 @@ const AllTeamExpense = ({
     link.click();
     document.body.removeChild(link);
   };
-
-  const dynamicColumns = dateRange.map((date) => {
-    const dateStr = formatDate(date);
-    const safeKey = `combined_amount_${dateStr.replace(/[^a-zA-Z0-9-]/g, "_")}`;
-    return (
-      <Column
-        key={safeKey} // ← guaranteed unique & valid
-        field={`combined_amount_${dateStr}`}
-        header={dateStr}
-        sortable
-        filterMatchMode="contains"
-        headerStyle={{ width: "200px" }}
-        bodyStyle={{ width: "200px", textAlign: "right", paddingRight: "50px" }}
-        body={(rowData: any) => {
-          const amount = rowData[`combined_amount_${dateStr}`] || "-";
-
-          // Ye field aapke API response ke hisab se change karna padega
-          const expenseImage =
-            rowData.exp_image?.[`combined_amount_${dateStr}`];
-          console.log("bbb", expenseImage);
-          return (
-            <div>
-              <span
-                style={{
-                  cursor: amount !== "-" ? "pointer" : "default",
-                  display: "block",
-                  marginBottom: "5px",
-                }}
-                onClick={() => {
-                  if (!canEdit) {
-                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    return;
-                  }
-
-                  if (!MobileFlag && amount !== "-" && canEdit) {
-                    setEditExpenseStatusItem({
-                      a_application_login_id: rowData.a_application_login_id,
-                      created_date_time:
-                        rowData.expense_date[`combined_amount_${dateStr}`],
-                    } as IExpenseView);
-
-                    setEditExpenseamount(0);
-                    setExpenseTypeId("");
-                    setIsCloseConfirmation(true);
-                  }
-                }}
-              >
-                {amount}
-              </span>
-
-              {expenseImage && (
-                <Button
-                  icon="pi pi-image"
-                  className="p-button-text p-0"
-                  style={{
-                    color: "green",
-                    fontSize: "16px",
-                  }}
-                  onClick={() => {
-                    setImageViewData({
-                      image: expenseImage,
-                    });
-                    setViewerOpen(true);
-                  }}
-                />
-              )}
-            </div>
-          );
-        }}
-      />
-    );
-  });
 
   return (
     <div>
@@ -1056,6 +1091,27 @@ const AllTeamExpense = ({
               </li>
             </ul>
           </div>
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1121,48 +1177,44 @@ const AllTeamExpense = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="username"
-            header="Team Member Name"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "250px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IExpenseReport) => rowData.username || "-"}
-          />
-          {dynamicColumns}
-          <Column
-            field="total_combined_amount"
-            header="Total Expense"
-            sortable
-            filter
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "200px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-              fontSize: "14px",
-            }}
-            bodyStyle={{
-              width: "250px",
-              textAlign: "right",
-              paddingRight: "20px",
-              fontSize: "14px",
-            }}
-            body={(rowData: any) => rowData.total_combined_amount || "₹0(₹0)"}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter={col.filterCol !== false}
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={
+                col.key === "total_combined_amount"
+                  ? {
+                      width: "250px",
+                      textAlign: "right",
+                      paddingRight: "20px",
+                      fontSize: "14px",
+                    }
+                  : col.key.startsWith("combined_amount_")
+                    ? {
+                        width: "200px",
+                        textAlign: "right",
+                        paddingRight: "50px",
+                        fontSize: "14px",
+                      }
+                    : { fontSize: "14px" }
+              }
+              body={col.body}
+            />
+          ))}
         </DataTable>
         {viewerOpen && (
           <ImageViewer

@@ -8,12 +8,14 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import AddCountryView from "../../../left-side/header/Setting/countries/AddCountryView";
 import { handleDeleteCountries, ICountriesView } from "../../../left-side/header/Setting/countries/CountriesController";
@@ -227,6 +229,40 @@ const AllCountriesReport = ({ onHide }: IAllCountriesReport) => {
         );
     }, [openDropdownId, canEdit, canDelete]);
 
+    type CountryColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        filterMatchMode?: string;
+        width?: string;
+        body: (rowData: ICountriesView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: CountryColumnDef[] = useMemo(() => {
+        return [
+            {
+                key: "country_name",
+                label: "Country Name",
+                header: <span>Country Name</span>,
+                width: "200px",
+                body: (rowData) => (
+                    <span style={{ color: "black" }} className="badge rounded-pill">
+                        {rowData.country_name}
+                        {rowData.country_code && ` (${rowData.country_code})`}
+                        {rowData.country_iso && ` [${rowData.country_iso}]`}
+                    </span>
+                ),
+            },
+        ];
+    }, []);
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("all_countries_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -257,6 +293,29 @@ const AllCountriesReport = ({ onHide }: IAllCountriesReport) => {
                                 fontSize: "14px",
                             },
                         }}
+                    />
+
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshCountries}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
                     />
                 </div>
             </div>
@@ -295,36 +354,28 @@ const AllCountriesReport = ({ onHide }: IAllCountriesReport) => {
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="country_name"
-                        header={
-                            <span>
-                                Country Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            width: "200px",
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: ICountriesView) => {
-                            return (
-                                <span
-                                    style={{ color: "black" }}
-                                    className="badge rounded-pill"
-                                >
-                                    {rowData.country_name}
-                                    {rowData.country_code && ` (${rowData.country_code})`}
-                                    {rowData.country_iso && ` [${rowData.country_iso}]`}
-                                </span>
-                            );
-                        }}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isDeleteConfirmation && (

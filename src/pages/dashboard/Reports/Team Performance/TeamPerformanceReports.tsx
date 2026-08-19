@@ -17,9 +17,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -204,31 +209,7 @@ const TeamPerformanceReports = ({
     }
   }, []);
 
-  const [columnTotals, setColumnTotals] = useState({
-    contactCount: 0,
-    inquiryCount: 0,
-    dueTaskCount: 0,
-    dueSupportTicketCount: 0,
-    quotationCount: 0,
-    quotationAmount: 0,
-    orderCount: 0,
-    orderAmount: 0,
-    sellInvoiceCount: 0,
-    sellInvoiceAmount: 0,
-    purchaseOrderCount: 0,
-    purchaseOrderAmount: 0,
-    purchaseInvoiceCount: 0,
-    purchaseInvoiceAmount: 0,
-    visitCount: 0,
-    expenseRequested: 0,
-    expensePassed: 0,
-    pendingReminder: 0,
-    creditCount: 0,
-    creditAmount: 0,
-    debitCount: 0,
-    debitAmount: 0,
-    currencySymbol: "",
-  });
+  
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
@@ -354,22 +335,22 @@ const TeamPerformanceReports = ({
     debouncedSearchText,
   ]);
 
-  useEffect(() => {
-    const parseValue = (value: any): number => {
-      if (!value) return 0;
-      // Remove currency symbols, spaces, and commas, then convert to number
-      const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
-      const parsed = parseFloat(cleaned);
-      return isNaN(parsed) ? 0 : parsed;
-    };
+  const parseValue = (value: any): number => {
+    if (!value) return 0;
+    // Remove currency symbols, spaces, and commas, then convert to number
+    const cleaned = String(value).replace(/[₹$€£¥,\s]/g, "");
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
-    const extractCurrencySymbol = (value: any): string => {
-      if (!value) return "";
-      const str = String(value);
-      const match = str.match(/[₹$€£¥]/);
-      return match ? match[0] + " " : "";
-    };
+  const extractCurrencySymbol = (value: any): string => {
+    if (!value) return "";
+    const str = String(value);
+    const match = str.match(/[₹$€£¥]/);
+    return match ? match[0] + " " : "";
+  };
 
+  const columnTotals = useMemo(() => {
     // Get currency symbol from first item (assuming all amounts use same currency)
     const currencySymbol =
       customers.length > 0
@@ -441,7 +422,7 @@ const TeamPerformanceReports = ({
         currencySymbol: "",
       },
     );
-    setColumnTotals(totals);
+    return totals;
   }, [customers]);
 
   useEffect(() => {
@@ -606,6 +587,15 @@ const TeamPerformanceReports = ({
     }
   };
 
+  const handleRefresh = async () => {
+    offsetRef.current = 0;
+    hasMoreRef.current = true;
+    setCustomers([]);
+    setTaskPerformance([]);
+    setAttendanceData([]);
+    loadAttendance(0, 50, true);
+  };
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -638,37 +628,318 @@ const TeamPerformanceReports = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Team Member", dataKey: "Name" },
-    { title: "New Contacts", dataKey: "Contact Total" },
-    { title: "Inquiry", dataKey: "Inquiry" },
-    { title: `${quotationTitle} Total`, dataKey: `${quotationTitle} Total` },
-    { title: `${quotationTitle} Amount`, dataKey: `${quotationTitle} Amount` },
-    { title: `${orderTitle} Total`, dataKey: `${orderTitle} Total` },
-    { title: `${orderTitle} Amount`, dataKey: `${orderTitle} Amount` },
-    { title: `${invoiceTitle} Total`, dataKey: `${invoiceTitle} Total` },
-    { title: `${invoiceTitle} Amount`, dataKey: `${invoiceTitle} Amount` },
-    {
-      title: `${purchaseOrderTitle} Total`,
-      dataKey: `${purchaseOrderTitle} Total`,
-    },
-    {
-      title: `${purchaseOrderTitle} Amount`,
-      dataKey: `${purchaseOrderTitle} Amount`,
-    },
-    { title: `${purchaseTitle} Total`, dataKey: `${purchaseTitle} Total` },
-    { title: `${purchaseTitle} Amount`, dataKey: `${purchaseTitle} Amount` },
-    { title: "Visit", dataKey: "Visits" },
-    { title: "Expense Requested", dataKey: "Expense Requested" },
-    { title: "Expense Passed", dataKey: "Expense Passed" },
-    { title: "Pending Reminder", dataKey: "Pending Reminder Total" },
-    { title: "Total Due Task", dataKey: "Total Due Task" },
-    { title: "Total Due Support Ticket", dataKey: "Total Due Support Ticket" },
-    { title: "Credit Total", dataKey: "Credit Total" }, // Added
-    { title: "Credit Amount", dataKey: "Credit Amount" }, // Added
-    { title: "Debit Total", dataKey: "Debit Total" }, // Added
-    { title: "Debit Amount", dataKey: "Debit Amount" }, // Added
-  ];
+  type TeamColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: ITaskPerformance) => React.ReactNode;
+    footer?: () => React.ReactNode;
+  };
+
+  const baseColumnDefs: TeamColumnDef[] = useMemo(
+    () => [
+      {
+        key: "username",
+        label: "Team Member",
+        header: (
+          <span>
+            Team <br /> Member
+          </span>
+        ),
+        width: "100px",
+        body: (rowData) => rowData.username || "N/A",
+        footer: () => <strong style={{ fontSize: "17px" }}>Total</strong>,
+      },
+      {
+        key: "contactCount",
+        label: "New Contacts",
+        header: (
+          <span>
+            New <br /> Contacts
+          </span>
+        ),
+        width: "90px",
+        body: (rowData) => rowData.contactCount ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.contactCount}
+          </strong>
+        ),
+      },
+      {
+        key: "inquiryCount",
+        label: "Inquiry",
+        header: <span>Inquiry</span>,
+        width: "90px",
+        body: (rowData) => rowData.inquiryCount ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.inquiryCount}
+          </strong>
+        ),
+      },
+      {
+        key: "quotation",
+        label: quotationTitle,
+        header: `${quotationTitle.replace(/ /g, "\n")}`,
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.quotation?.count ?? "N/A"} (${rowData.quotation?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ fontSize: "17px", display: "block", textAlign: "right" }}
+          >{`${columnTotals.quotationCount} (${columnTotals.currencySymbol}${columnTotals.quotationAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "order",
+        label: orderTitle,
+        header: `${orderTitle.replace(/ /g, "\n")}`,
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.order?.count ?? "N/A"} (${rowData.order?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.orderCount} (${columnTotals.currencySymbol}${columnTotals.orderAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "sell_invoice",
+        label: invoiceTitle,
+        header: `${invoiceTitle.replace(/ /g, "\n")}`,
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.sell_invoice?.count ?? "N/A"} (${rowData.sell_invoice?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.sellInvoiceCount} (${columnTotals.currencySymbol}${columnTotals.sellInvoiceAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "purchase_order",
+        label: purchaseOrderTitle,
+        header: `${purchaseOrderTitle.replace(/ /g, "\n")}`,
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.purchase_order?.count ?? "N/A"} (${rowData.purchase_order?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.purchaseOrderCount} (${columnTotals.currencySymbol}${columnTotals.purchaseOrderAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "purchase_invoice",
+        label: purchaseTitle,
+        header: `${purchaseTitle.replace(/ /g, "\n")}`,
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.purchase_invoice?.count ?? "N/A"} (${rowData.purchase_invoice?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.purchaseInvoiceCount} (${columnTotals.currencySymbol}${columnTotals.purchaseInvoiceAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "visitCount",
+        label: "Visit",
+        header: "Visit",
+        width: "90px",
+        body: (rowData) => rowData.visitCount ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.visitCount}
+          </strong>
+        ),
+      },
+      {
+        key: "expense",
+        label: "Passed Expense",
+        header: (
+          <span>
+            Passed <br /> Expense
+          </span>
+        ),
+        width: "100px",
+        filterMatchMode: "custom",
+        body: (rowData) => {
+          const requested = rowData.expense?.RequestedAmount;
+          const passed = rowData.expense?.PassedAmount;
+
+          const parts = [];
+
+          if (
+            requested !== undefined &&
+            requested !== null &&
+            requested > 0
+          ) {
+            parts.push(`R ${requested}`);
+          }
+
+          if (passed !== undefined && passed !== null && passed > 0) {
+            parts.push(`P ${passed}`);
+          }
+
+          return passed ? passed : "";
+        },
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.currencySymbol}${columnTotals.expensePassed.toLocaleString()}`}</strong>
+        ),
+      },
+      {
+        key: "pendingReminder",
+        label: "Pending Reminder",
+        header: (
+          <span>
+            Pending <br /> Reminder
+          </span>
+        ),
+        width: "100px",
+        body: (rowData) => rowData.pendingReminder ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.pendingReminder}
+          </strong>
+        ),
+      },
+      {
+        key: "dueTaskCount",
+        label: "Due Task",
+        header: <span>Due Task</span>,
+        width: "100px",
+        body: (rowData) => rowData.dueTaskCount ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.dueTaskCount}
+          </strong>
+        ),
+      },
+      {
+        key: "dueSupportTicketCount",
+        label: "Due Support Ticket",
+        header: (
+          <span>
+            Due Support
+            <br /> Ticket
+          </span>
+        ),
+        width: "100px",
+        body: (rowData) => rowData.dueSupportTicketCount ?? "N/A",
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >
+            {columnTotals.dueSupportTicketCount}
+          </strong>
+        ),
+      },
+      {
+        key: "account_credit",
+        label: "Credit",
+        header: "Credit",
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.account?.credit?.count ?? "N/A"} (${rowData.account?.credit?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.creditCount} (${columnTotals.currencySymbol}${columnTotals.creditAmount.toLocaleString()})`}</strong>
+        ),
+      },
+      {
+        key: "account_debit",
+        label: "Debit",
+        header: "Debit",
+        width: "135px",
+        filterMatchMode: "custom",
+        body: (rowData) =>
+          `${rowData.account?.debit?.count ?? "N/A"} (${rowData.account?.debit?.amount ?? "N/A"})`,
+        footer: () => (
+          <strong
+            style={{ display: "block", fontSize: "17px", textAlign: "right" }}
+          >{`${columnTotals.debitCount} (${columnTotals.currencySymbol}${columnTotals.debitAmount.toLocaleString()})`}</strong>
+        ),
+      },
+    ],
+    [
+      quotationTitle,
+      orderTitle,
+      invoiceTitle,
+      purchaseOrderTitle,
+      purchaseTitle,
+      columnTotals,
+    ],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("team_performance_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: TeamColumnDef,
+    customer: ITaskPerformance,
+  ): string => {
+    switch (col.key) {
+      case "username":
+        return customer.username || "-";
+      case "contactCount":
+        return String(customer.contactCount ?? "-");
+      case "inquiryCount":
+        return String(customer.inquiryCount ?? "-");
+      case "quotation":
+        return `${customer.quotation?.count ?? "-"} (${customer.quotation?.amount ?? "-"})`;
+      case "order":
+        return `${customer.order?.count ?? "-"} (${customer.order?.amount ?? "-"})`;
+      case "sell_invoice":
+        return `${customer.sell_invoice?.count ?? "-"} (${customer.sell_invoice?.amount ?? "-"})`;
+      case "purchase_order":
+        return `${customer.purchase_order?.count ?? "-"} (${customer.purchase_order?.amount ?? "-"})`;
+      case "purchase_invoice":
+        return `${customer.purchase_invoice?.count ?? "-"} (${customer.purchase_invoice?.amount ?? "-"})`;
+      case "visitCount":
+        return String(customer.visitCount ?? "-");
+      case "expense":
+        return String(customer.expense?.PassedAmount ?? "-");
+      case "pendingReminder":
+        return String(customer.pendingReminder ?? "-");
+      case "dueTaskCount":
+        return String(customer.dueTaskCount ?? "-");
+      case "dueSupportTicketCount":
+        return String(customer.dueSupportTicketCount ?? "-");
+      case "account_credit":
+        return `${customer.account?.credit?.count ?? "-"} (${customer.account?.credit?.amount ?? "-"})`;
+      case "account_debit":
+        return `${customer.account?.debit?.count ?? "-"} (${customer.account?.debit?.amount ?? "-"})`;
+      default:
+        return "-";
+    }
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
@@ -685,31 +956,13 @@ const TeamPerformanceReports = ({
           ? customers
           : dataArray;
 
-    const tableData = dataToExport.map((customer) => ({
-      Name: customer.username || "-",
-      "Contact Total": customer.contactCount ?? "-",
-      Inquiry: customer.inquiryCount ?? "-",
-      [`${quotationTitle} Total`]: customer.quotation?.count ?? "-",
-      [`${quotationTitle} Amount`]: customer.quotation?.amount ?? "-",
-      [`${orderTitle} Total`]: customer.order?.count ?? "-",
-      [`${orderTitle} Amount`]: customer.order?.amount ?? "-",
-      [`${invoiceTitle} Total`]: customer.sell_invoice?.count ?? "-",
-      [`${invoiceTitle} Amount`]: customer.sell_invoice?.amount ?? "-",
-      [`${purchaseOrderTitle} Total`]: customer.purchase_order?.count ?? "-",
-      [`${purchaseOrderTitle} Amount`]: customer.purchase_order?.amount ?? "-",
-      [`${purchaseTitle} Total`]: customer.purchase_invoice?.count ?? "-",
-      [`${purchaseTitle} Amount`]: customer.purchase_invoice?.amount ?? "-",
-      Visits: customer.visitCount ?? "-",
-      "Expense Requested": customer.expense?.RequestedAmount ?? "-",
-      "Expense Passed": customer.expense?.PassedAmount ?? "-",
-      "Pending Reminder Total": customer.pendingReminder ?? "-",
-      "Total Due Task": customer.dueTaskCount ?? "-",
-      "Total Due Support Ticket": customer.dueSupportTicketCount ?? "-",
-      "Credit Total": customer.account?.credit?.count ?? "-",
-      "Credit Amount": customer.account?.credit?.amount ?? "-",
-      "Debit Total": customer.account?.debit?.count ?? "-",
-      "Debit Amount": customer.account?.debit?.amount ?? "-",
-    }));
+    const tableData = dataToExport.map((customer) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.label] = getExportCellValue(col, customer);
+      });
+      return row;
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
@@ -717,43 +970,10 @@ const TeamPerformanceReports = ({
       return;
     }
 
-    const exportColumns = [
-      { title: "Team Member", dataKey: "Name" },
-      { title: "New Contacts", dataKey: "Contact Total" },
-      { title: "Inquiry", dataKey: "Inquiry" },
-      { title: `${quotationTitle} Total`, dataKey: `${quotationTitle} Total` },
-      {
-        title: `${quotationTitle} Amount`,
-        dataKey: `${quotationTitle} Amount`,
-      },
-      { title: `${orderTitle} Total`, dataKey: `${orderTitle} Total` },
-      { title: `${orderTitle} Amount`, dataKey: `${orderTitle} Amount` },
-      { title: `${invoiceTitle} Total`, dataKey: `${invoiceTitle} Total` },
-      { title: `${invoiceTitle} Amount`, dataKey: `${invoiceTitle} Amount` },
-      {
-        title: `${purchaseOrderTitle} Total`,
-        dataKey: `${purchaseOrderTitle} Total`,
-      },
-      {
-        title: `${purchaseOrderTitle} Amount`,
-        dataKey: `${purchaseOrderTitle} Amount`,
-      },
-      { title: `${purchaseTitle} Total`, dataKey: `${purchaseTitle} Total` },
-      { title: `${purchaseTitle} Amount`, dataKey: `${purchaseTitle} Amount` },
-      { title: "Visit", dataKey: "Visits" },
-      { title: "Expense Requested", dataKey: "Expense Requested" },
-      { title: "Expense Passed", dataKey: "Expense Passed" },
-      { title: "Pending Reminder", dataKey: "Pending Reminder Total" },
-      { title: "Total Due Task", dataKey: "Total Due Task" },
-      {
-        title: "Total Due Support Ticket",
-        dataKey: "Total Due Support Ticket",
-      },
-      { title: "Credit Total", dataKey: "Credit Total" }, // Added
-      { title: "Credit Amount", dataKey: "Credit Amount" }, // Added
-      { title: "Debit Total", dataKey: "Debit Total" }, // Added
-      { title: "Debit Amount", dataKey: "Debit Amount" }, // Added
-    ];
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.label,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -777,31 +997,6 @@ const TeamPerformanceReports = ({
       didDrawPage: (data) => {
         doc.setFontSize(12);
         doc.text("Team Performance Reports", data.settings.margin.left, 10);
-      },
-      columnStyles: {
-        Name: { cellWidth: 30 },
-        "Contact Total": { cellWidth: 20 },
-        Inquiry: { cellWidth: 20 },
-        [`${quotationTitle} Total`]: { cellWidth: 20 },
-        [`${quotationTitle} Amount`]: { cellWidth: 20 },
-        [`${orderTitle} Total`]: { cellWidth: 20 },
-        [`${orderTitle} Amount`]: { cellWidth: 20 },
-        [`${invoiceTitle} Total`]: { cellWidth: 20 },
-        [`${invoiceTitle} Amount`]: { cellWidth: 20 },
-        [`${purchaseOrderTitle} Total`]: { cellWidth: 20 },
-        [`${purchaseOrderTitle} Amount`]: { cellWidth: 20 },
-        [`${purchaseTitle} Total`]: { cellWidth: 20 },
-        [`${purchaseTitle} Amount`]: { cellWidth: 20 },
-        Visits: { cellWidth: 15 },
-        "Expense Requested": { cellWidth: 20 },
-        "Expense Passed": { cellWidth: 20 },
-        "Pending Reminder Total": { cellWidth: 20 },
-        "Total Due Task": { cellWidth: 20 },
-        "Total Due Support Ticket": { cellWidth: 20 },
-        "Credit Total": { cellWidth: 20 }, // Added
-        "Credit Amount": { cellWidth: 20 }, // Added
-        "Debit Total": { cellWidth: 20 }, // Added
-        "Debit Amount": { cellWidth: 20 }, // Added
       },
     });
 
@@ -894,42 +1089,40 @@ const TeamPerformanceReports = ({
 
       const excelRows = (
         selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => ({
-        "Team Member": customer.username || "-",
-        "New Contacts": customer.contactCount ?? "-",
-        Inquiry: customer.inquiryCount ?? "-",
+      ).map((customer) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer);
+        });
+        return row;
+      });
 
-        [`${quotationTitle} Total`]: customer.quotation?.count ?? "-",
-        [`${quotationTitle} Amount`]: customer.quotation?.amount ?? "-",
-
-        [`${orderTitle} Total`]: customer.order?.count ?? "-",
-        [`${orderTitle} Amount`]: customer.order?.amount ?? "-",
-
-        [`${invoiceTitle} Total`]: customer.sell_invoice?.count ?? "-",
-        [`${invoiceTitle} Amount`]: customer.sell_invoice?.amount ?? "-",
-
-        [`${purchaseOrderTitle} Total`]: customer.purchase_order?.count ?? "-",
-        [`${purchaseOrderTitle} Amount`]:
-          customer.purchase_order?.amount ?? "-",
-
-        [`${purchaseTitle} Total`]: customer.purchase_invoice?.count ?? "-",
-        [`${purchaseTitle} Amount`]: customer.purchase_invoice?.amount ?? "-",
-
-        Visits: customer.visitCount ?? "-",
-
-        // "Expense Requested": customer.expense?.RequestedAmount ?? "-",
-        "Expense Passed": customer.expense?.PassedAmount ?? "-",
-
-        "Pending Reminder Total": customer.pendingReminder ?? "-",
-        "Total Due Task": customer.dueTaskCount ?? "-",
-        "Total Due Support Ticket": customer.dueSupportTicketCount ?? "-",
-
-        "Credit Total": customer.account?.credit?.count ?? "-",
-        "Credit Amount": customer.account?.credit?.amount ?? "-",
-
-        "Debit Total": customer.account?.debit?.count ?? "-",
-        "Debit Amount": customer.account?.debit?.amount ?? "-",
-      }));
+      const exportRowsSource =
+        selectedCustomers.length > 0 ? selectedCustomers : allContacts;
+      excelRows.push({
+        "Team Member": "Total",
+        "New Contacts": exportRowsSource.reduce((sum, c) => sum + parseValue(c.contactCount), 0),
+        Inquiry: exportRowsSource.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0),
+        [`${quotationTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0),
+        [`${quotationTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0),
+        [`${orderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.count), 0),
+        [`${orderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.amount), 0),
+        [`${invoiceTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0),
+        [`${invoiceTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0),
+        [`${purchaseOrderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0),
+        [`${purchaseOrderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0),
+        [`${purchaseTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0),
+        [`${purchaseTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0),
+        Visits: exportRowsSource.reduce((sum, c) => sum + parseValue(c.visitCount), 0),
+        "Expense Passed": exportRowsSource.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0),
+        "Pending Reminder Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0),
+        "Total Due Task": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0),
+        "Total Due Support Ticket": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0),
+        "Credit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0),
+        "Credit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0),
+        "Debit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0),
+        "Debit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0),
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(excelRows);
       worksheet["!cols"] = Object.keys(excelRows[0]).map(() => ({
@@ -1001,21 +1194,7 @@ const TeamPerformanceReports = ({
       <table>
         <thead>
           <tr>
-            <th>Team Member</th>
-            <th>New Contacts</th>
-            <th>Inquiry</th>
-            <th>${quotationTitle}</th>
-            <th>${orderTitle}</th>
-            <th>${invoiceTitle}</th>
-            <th>${purchaseOrderTitle}</th>
-            <th>${purchaseTitle}</th>
-            <th>Visit</th>
-            <th>Passed Expense</th>
-            <th>Pending Reminder</th>
-            <th>Total Due Task</th>
-            <th>Total Due Support Ticket</th>
-            <th>Credit</th> <!-- Added -->
-            <th>Debit</th> <!-- Added -->
+            ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
           </tr>
         </thead>
         <tbody>
@@ -1023,26 +1202,36 @@ const TeamPerformanceReports = ({
             .map(
               (customer) => `
                 <tr>
-                  <td>${customer.username || "N/A"}</td>
-                  <td>${customer.contactCount ?? "N/A"}</td>
-                  <td>${customer.inquiryCount ?? "N/A"}</td>
-                  <td>${customer.quotation?.count ?? "N/A"} (${customer.quotation?.amount ?? "N/A"})</td>
-                  <td>${customer.order?.count ?? "N/A"} (${customer.order?.amount ?? "N/A"})</td>
-                  <td>${customer.sell_invoice?.count ?? "N/A"} (${customer.sell_invoice?.amount ?? "N/A"})</td>
-                  <td>${customer.purchase_order?.count ?? "N/A"} (${customer.purchase_order?.amount ?? "N/A"})</td>
-                  <td>${customer.purchase_invoice?.count ?? "N/A"} (${customer.purchase_invoice?.amount ?? "N/A"})</td>
-                  <td>${customer.visitCount ?? "N/A"}</td>
-                  <td>${customer.expense?.PassedAmount ?? "N/A"}</td>
-                  <td>${customer.pendingReminder ?? "N/A"}</td>
-                  <td>${customer.dueTaskCount ?? "N/A"}</td>
-                  <td>${customer.dueSupportTicketCount ?? "N/A"}</td>
-                  <td>${customer.account?.credit?.count ?? "N/A"} (${customer.account?.credit?.amount ?? "N/A"})</td> <!-- Added -->
-                  <td>${customer.account?.debit?.count ?? "N/A"} (${customer.account?.debit?.amount ?? "N/A"})</td> <!-- Added -->
+                  ${visibleColumns
+                    .map(
+                      (col) =>
+                        `<td>${getExportCellValue(col, customer)}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
             )
             .join("")}
         </tbody>
+        <tfoot>
+          <tr style="font-weight: bold; background-color: #f2f2f2;">
+            <td>Total</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.contactCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.visitCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0)})</td>
+          </tr>
+        </tfoot>
       </table>
     </body>
   </html>
@@ -1263,6 +1452,29 @@ const TeamPerformanceReports = ({
               </ul>
             </div>
           </div>
+
+          <Button
+            icon="pi pi-refresh"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={handleRefresh}
+            tooltip="Refresh"
+            tooltipOptions={{
+              position: "top",
+              style: {
+                fontSize: "14px",
+              },
+            }}
+          />
+
+          <ColumnsButton
+            columns={orderedColumns}
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleColumn}
+            onReorder={reorderColumns}
+            onReset={resetColumns}
+          />
         </div>
         {/* )} */}
       </div>
@@ -1330,513 +1542,41 @@ const TeamPerformanceReports = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          <Column
-            field="username"
-            header={
-              <span>
-                Team <br /> Member
-              </span>
-            }
-            sortable
-            filter
-            filterField="username"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "100px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={(rowData: ITaskPerformance) => rowData.username || "N/A"}
-            footer={() => <strong style={{ fontSize: "17px" }}>Total</strong>}
-          />
-          <Column
-            field="contactCount"
-            header={
-              <span>
-                New <br /> Contacts
-              </span>
-            }
-            sortable
-            filter
-            filterField="contactCount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "90px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) => rowData.contactCount ?? "N/A"}
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.contactCount}
-              </strong>
-            )}
-          />
-          <Column
-            field="inquiryCount"
-            header={<span>Inquiry</span>}
-            sortable
-            filter
-            filterField="inquiryCount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "90px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) => rowData.inquiryCount ?? "N/A"}
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.inquiryCount}
-              </strong>
-            )}
-          />
-          <Column
-            field="quotation"
-            header={`${quotationTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="quotation"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              whiteSpace: "pre-wrap",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.quotation?.count ?? "N/A"} (${rowData.quotation?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  fontSize: "17px",
-                  // paddingRight: "50px",
-                  display: "block",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.quotationCount} (${columnTotals.currencySymbol}${columnTotals.quotationAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="order"
-            header={`${orderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="order"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              whiteSpace: "pre-wrap",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.order?.count ?? "N/A"} (${rowData.order?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.orderCount} (${columnTotals.currencySymbol}${columnTotals.orderAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="sell_invoice"
-            header={`${invoiceTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="sell_invoice"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              whiteSpace: "pre-wrap",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.sell_invoice?.count ?? "N/A"} (${rowData.sell_invoice?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.sellInvoiceCount} (${columnTotals.currencySymbol}${columnTotals.sellInvoiceAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="purchase_order"
-            header={`${purchaseOrderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchase_order"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              whiteSpace: "pre-wrap",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.purchase_order?.count ?? "N/A"} (${rowData.purchase_order?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.purchaseOrderCount} (${columnTotals.currencySymbol}${columnTotals.purchaseOrderAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="purchase_invoice"
-            header={`${purchaseTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchase_invoice"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.purchase_invoice?.count ?? "N/A"} (${rowData.purchase_invoice?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.purchaseInvoiceCount} (${columnTotals.currencySymbol}${columnTotals.purchaseInvoiceAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="visitCount"
-            header="Visit"
-            sortable
-            filter
-            filterField="visitCount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "90px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) => rowData.visitCount ?? "N/A"}
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.visitCount}
-              </strong>
-            )}
-          />
-          <Column
-            field="expense"
-            header={
-              <span>
-                Passed <br /> Expense
-              </span>
-            }
-            sortable
-            filter
-            filterField="expense"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "100px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) => {
-              const requested = rowData.expense?.RequestedAmount;
-              const passed = rowData.expense?.PassedAmount;
-
-              const parts = [];
-
-              if (
-                requested !== undefined &&
-                requested !== null &&
-                requested > 0
-              ) {
-                parts.push(`R ${requested}`);
-              }
-
-              if (passed !== undefined && passed !== null && passed > 0) {
-                parts.push(`P ${passed}`);
-              }
-
-              return passed ? passed : "";
-            }}
-            footer={() => (
-              // <strong
-              //   style={{
-              //     paddingRight: "50px",
-              //     display: "block",
-              //     fontSize: "17px",
-              //     textAlign: "right",
-              //   }}
-              // >{`${columnTotals.currencySymbol}${columnTotals.expenseRequested.toLocaleString()} (${columnTotals.currencySymbol}${columnTotals.expensePassed.toLocaleString()})`}</strong>
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.currencySymbol}${columnTotals.expensePassed.toLocaleString()}`}</strong>
-            )}
-          />
-          <Column
-            field="pendingReminder"
-            header={
-              <span>
-                Pending <br /> Reminder
-              </span>
-            }
-            sortable
-            filter
-            filterField="pendingReminder"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "100px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              rowData.pendingReminder ?? "N/A"
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.pendingReminder}
-              </strong>
-            )}
-          />
-          <Column
-            field="dueTaskCount"
-            header={<span>Due Task</span>}
-            sortable
-            filter
-            filterField="dueTaskCount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "100px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) => rowData.dueTaskCount ?? "N/A"}
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.dueTaskCount}
-              </strong>
-            )}
-          />
-          <Column
-            field="dueSupportTicketCount"
-            header={
-              <span>
-                Due Support
-                <br /> Ticket
-              </span>
-            }
-            sortable
-            filter
-            filterField="dueSupportTicketCount"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "100px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              rowData.dueSupportTicketCount ?? "N/A"
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >
-                {columnTotals.dueSupportTicketCount}
-              </strong>
-            )}
-          />
-          <Column
-            field="account_credit"
-            header="Credit"
-            sortable
-            filter
-            filterField="account_credit"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.account?.credit?.count ?? "N/A"} (${rowData.account?.credit?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  // paddingRight: "50px",
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.creditCount} (${columnTotals.currencySymbol}${columnTotals.creditAmount.toLocaleString()})`}</strong>
-            )}
-          />
-          <Column
-            field="account_debit"
-            header="Debit"
-            sortable
-            filter
-            filterField="account_debit"
-            filterPlaceholder="Search"
-            filterMatchMode="custom"
-            headerClassName="center-header"
-            headerStyle={{
-              width: "135px",
-              // minWidth: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: ITaskPerformance) =>
-              `${rowData.account?.debit?.count ?? "N/A"} (${rowData.account?.debit?.amount ?? "N/A"})`
-            }
-            footer={() => (
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: "17px",
-                  textAlign: "right",
-                }}
-              >{`${columnTotals.debitCount} (${columnTotals.currencySymbol}${columnTotals.debitAmount.toLocaleString()})`}</strong>
-            )}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerClassName="center-header"
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+                whiteSpace:
+                  col.key === "quotation" ||
+                  col.key === "order" ||
+                  col.key === "sell_invoice" ||
+                  col.key === "purchase_order" ||
+                  col.key === "purchase_invoice"
+                    ? "pre-wrap"
+                    : undefined,
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                textAlign: col.key === "username" ? undefined : "right",
+              }}
+              body={col.body}
+              footer={col.footer}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

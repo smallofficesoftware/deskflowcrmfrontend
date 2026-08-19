@@ -17,10 +17,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController"; // Adjust path as needed
@@ -532,6 +534,13 @@ const AllCallReportsView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCallData([]);
+    loadTasks(0, 50, true);
+  };
+
   //   const loadTasks = async (event: DataTablePageEvent) => {
   //   const currentPage = event.page ?? 0;
   //   const offset = currentPage * 50;     // starting point (ul)
@@ -653,17 +662,201 @@ const AllCallReportsView = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Start Date & Time", dataKey: "call_date_time" },
-    { title: "Status", dataKey: "call_status" },
-    { title: "Contact Name", dataKey: "call_name" },
-    { title: "Source Name", dataKey: "source_name" },
-    { title: "Contact Status", dataKey: "status_name" },
-    { title: "Lable", dataKey: "lable_name" },
-    { title: "Call ID", dataKey: "id" },
-    { title: "Created By", dataKey: "username" },
-    { title: "Duration", dataKey: "duration" },
+  type CallColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: CallColumnDef[] = useMemo(() => {
+    return [
+      {
+        key: "start_date",
+        label: "Start Date & Time",
+        header: "Start Date & Time",
+        width: "200px",
+        body: (rowData) => formatDateTime(rowData.call_date_time),
+      },
+      {
+        key: "status",
+        label: "Status",
+        header: "Status",
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              color: rowData.call_color,
+              fontSize: "14px",
+            }}
+          >
+            {rowData.call_status !== undefined ? rowData.call_status : "-"}
+          </span>
+        ),
+      },
+      {
+        key: "person_name",
+        label: "Contact Details",
+        header: "Contact Details",
+        width: "250px",
+        filterMatchMode: "custom",
+        body: (rowData) => (
+          <div>
+            <div>
+              {rowData.call_name || "-"} {" -"} {" "}
+              {rowData.mobile_number || "-654"}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "source_name",
+        label: "Source Name",
+        header: "Source Name",
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.source_colour
+                ? rowData.source_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.source_name}
+          </span>
+        ),
+      },
+      {
+        key: "status_name",
+        label: "Contact Status",
+        header: "Contact Status",
+        width: "150px",
+        body: (rowData) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour
+                ? rowData.status_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.status_name}
+          </span>
+        ),
+      },
+      {
+        key: "lable_name",
+        label: "Lable",
+        header: "Lable",
+        width: "150px",
+        body: (rowData) => {
+          const labelNames = rowData.lable_name
+            ? rowData.lable_name
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter((s: string) => s)
+            : [];
+
+          const labelColors = rowData.lable_colour
+            ? rowData.lable_colour
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter((s: string) => s)
+            : [];
+
+          if (labelNames.length === 0) return "-";
+
+          return (
+            <div className="d-flex flex-wrap gap-1">
+              {labelNames.map((name: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="badge rounded-pill"
+                  style={{
+                    backgroundColor: labelColors[idx] || "#6c757d",
+                    color: "#fff",
+                    fontSize: "0.85em",
+                    padding: "4px 8px",
+                  }}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        key: "username",
+        label: "Created By",
+        header: "Created By",
+        width: "250px",
+        body: (rowData) => rowData.username || "-",
+      },
+      {
+        key: "duration",
+        label: "Duration",
+        header: "Duration",
+        width: "250px",
+        filterMatchMode: "custom",
+        body: (rowData) => {
+          const duration = rowData.duration || "-";
+          const remark = rowData.remark || "";
+
+          // Agar remark empty hai to sirf duration dikhao, "-" mat lagao
+          if (!remark || remark.trim() === "") {
+            return <div>{duration}</div>;
+          }
+
+          // Agar remark hai tabhi duration - remark dikhao
+          return (
+            <div>
+              {duration} - {remark}
+            </div>
+          );
+        },
+      },
+    ];
+  }, []);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("all_call_report", baseColumnDefs);
+
+  // Export-only fields: not shown as table columns, but always included in exports/print.
+  const EXTRA_EXPORT_COLUMNS: { key: string; label: string }[] = [
+    { key: "id", label: "Call ID" },
+    { key: "remark", label: "Remark" },
   ];
+
+  const getExportCellValue = (col: CallColumnDef, item: any): string => {
+    switch (col.key) {
+      case "start_date":
+        return formatDateTime(item.call_date_time);
+      case "status":
+        return item.call_status || "-";
+      case "person_name":
+        return item.call_name || item.person_name || "-";
+      case "source_name":
+        return item.source_name || "-";
+      case "status_name":
+        return item.status_name || "-";
+      case "lable_name":
+        return item.lable_name || "-";
+      case "username":
+        return item.username || "-";
+      case "duration":
+        return item.duration || item.remark || "-";
+      default:
+        return item[col.key] ?? "-";
+    }
+  };
 
   const handleChangeShowModelVisit = (item: IUserList) => {
     setContactInfoOrder(item);
@@ -686,23 +879,33 @@ const AllCallReportsView = ({
           ? visits
           : filteredData;
 
-    const tableData = dataToExport.map((item) => ({
-      call_date_time: formatDateTime(item.call_date_time),
-      call_status: item.call_status || "-",
-      call_name: item.call_name || item.person_name || "-",
-      source_name: item.source_name || "-",
-      status_name: item.status_name || "-",
-      lable_name: item.lable_name || "-",
-      id: item.id || "XXXXXXX",
-      username: item.username || "-",
-      duration: item.duration || item.remark || "-",
-    }));
+    const tableData = dataToExport.map((item) => {
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item);
+      });
+      EXTRA_EXPORT_COLUMNS.forEach((col) => {
+        rowData[col.key] = item[col.key] ?? "-";
+      });
+      return rowData;
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = [
+      ...visibleColumns.map((col) => ({
+        title: col.label,
+        dataKey: col.key,
+      })),
+      ...EXTRA_EXPORT_COLUMNS.map((col) => ({
+        title: col.label,
+        dataKey: col.key,
+      })),
+    ];
 
     autoTable(doc, {
       columns: exportColumns,
@@ -784,18 +987,16 @@ const AllCallReportsView = ({
 
       const finalData = selectedVisits.length > 0 ? selectedVisits : allRows;
 
-      const exportData = finalData.map((item) => ({
-        "Start Date & Time": formatDateTime(item.call_date_time),
-        Status: item.call_status || "-",
-        "Contact Name": item.call_name || item.person_name || "-",
-        Source: item.source_name || "-",
-        "Contact Status": item.status_name || "-",
-        Lable: item.lable_name || "-",
-        "Call ID": item.id || "XXXXXXX",
-        "Created By": item.username || "-",
-        Duration: item.duration || "",
-        Remark: item.remark || "",
-      }));
+      const exportData = finalData.map((item) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item);
+        });
+        EXTRA_EXPORT_COLUMNS.forEach((col) => {
+          row[col.label] = item[col.key] ?? "-";
+        });
+        return row;
+      });
 
       console.log("EXPORT DATA READY", exportData.length);
 
@@ -878,15 +1079,8 @@ const AllCallReportsView = ({
           <table>
             <thead>
               <tr>
-                <th>Start Date & Time</th>
-                <th>Status</th>
-                <th>Contact Name</th>
-                <th>Source</th>
-                <th>Contact Status</th>
-                <th>Lable</th>
-                <th>Call ID</th>
-                <th>Created By</th>
-                <th>Duration</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
+                ${EXTRA_EXPORT_COLUMNS.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -894,15 +1088,12 @@ const AllCallReportsView = ({
         .map(
           (item) => `
                 <tr>
-                  <td>${formatDateTime(item.call_date_time)}</td>
-                  <td>${item.call_status || "-"}</td>
-                  <td>${item.call_name || item.person_name || "-"}</td>
-                  <td>${item.source_name || "-"}</td>
-                  <td>${item.status_name || "-"}</td>
-                  <td>${item.lable_name || "-"}</td>
-                  <td>${item.id || "XXXXXXX"}</td>
-                  <td>${item.username || "-"}</td>
-                  <td>${item.duration || item.remark || "-"}</td>
+                  ${visibleColumns
+              .map((col) => `<td>${getExportCellValue(col, item)}</td>`)
+              .join("")}
+                  ${EXTRA_EXPORT_COLUMNS
+              .map((col) => `<td>${item[col.key] ?? "-"}</td>`)
+              .join("")}
                 </tr>
               `,
         )
@@ -1127,6 +1318,29 @@ const AllCallReportsView = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
           {/* )} */}
         </div>
@@ -1207,251 +1421,28 @@ const AllCallReportsView = ({
                   bodyStyle={{ textAlign: "center" }}
                 />
               )}
-            <Column
-              field="start_date"
-              header="Start Date & Time"
-              sortable
-              filter
-              filterField="start_date"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "200px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => formatDateTime(rowData.call_date_time)}
-            />
-            <Column
-              field="status"
-              header="Status"
-              sortable
-              filter
-              filterField="status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    color: rowData.call_color,
-                    fontSize: "14px",
-                  }}
-                >
-                  {rowData.call_status !== undefined
-                    ? rowData.call_status
-                    : "-"}
-                </span>
-              )}
-            />
-            <Column
-              field="person_name"
-              header="Contact Details"
-              sortable
-              filter
-              filterField="person_name"
-              filterPlaceholder="Search"
-              filterMatchMode="custom"
-              headerStyle={{
-                width: "250px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => (
-                <div>
-                  <div>
-                    {rowData.call_name || "-"} {" -"}{" "}
-                    {rowData.mobile_number || "-654"}
-                  </div>
-                </div>
-              )}
-            />
-            <Column
-              field="source_name"
-              header="Source Name"
-              sortable
-              filter
-              filterField="status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    backgroundColor: rowData.source_colour
-                      ? rowData.source_colour
-                      : "#eeeeee",
-                  }}
-                  className="badge rounded-pill"
-                >
-                  {rowData.source_name}
-                </span>
-              )}
-            />
-            <Column
-              header="Contact Status"
-              sortable
-              filter
-              filterField="status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    backgroundColor: rowData.status_colour
-                      ? rowData.status_colour
-                      : "#eeeeee",
-                  }}
-                  className="badge rounded-pill"
-                >
-                  {rowData.status_name}
-                </span>
-              )}
-            />
-            <Column
-              field="lable_name"
-              header="Lable"
-              sortable
-              filter
-              filterField="status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => {
-                const labelNames = rowData.lable_name
-                  ? rowData.lable_name
-                    .split(",")
-                    .map((s: string) => s.trim())
-                    .filter((s: string) => s)
-                  : [];
-
-                const labelColors = rowData.lable_colour
-                  ? rowData.lable_colour
-                    .split(",")
-                    .map((s: string) => s.trim())
-                    .filter((s: string) => s)
-                  : [];
-
-                if (labelNames.length === 0) return "-";
-
-                return (
-                  <div className="d-flex flex-wrap gap-1">
-                    {labelNames.map((name: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="badge rounded-pill"
-                        style={{
-                          backgroundColor: labelColors[idx] || "#6c757d",
-                          color: "#fff",
-                          fontSize: "0.85em",
-                          padding: "4px 8px",
-                        }}
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                );
-              }}
-            />
-            <Column
-              field="username"
-              header="Created By"
-              sortable
-              filter
-              filterField="username"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "250px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => rowData.username || "-"}
-            />
-            {/* <Column
-              field="duration"
-              header="Duration"
-              sortable
-              filter
-              filterField="duration"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerStyle={{
-                width: "150px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => rowData.duration || "-"}
-            /> */}
-            <Column
-              field="duration"
-              header="Duration"
-              sortable
-              filter
-              filterField="duration"
-              filterPlaceholder="Search"
-              filterMatchMode="custom"
-              headerStyle={{
-                width: "250px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => {
-                const duration = rowData.duration || "-";
-                const remark = rowData.remark || "";
-
-                // Agar remark empty hai to sirf duration dikhao, "-" mat lagao
-                if (!remark || remark.trim() === "") {
-                  return <div>{duration}</div>;
-                }
-
-                // Agar remark hai tabhi duration - remark dikhao
-                return (
-                  <div>
-                    {duration} - {remark}
-                  </div>
-                );
-              }}
-            />
+            {visibleColumns.map((col) => (
+              <Column
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable
+                filter
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerStyle={{
+                  width: col.width || "150px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  background: "#f8f9fa",
+                  fontSize: "14px",
+                }}
+                bodyStyle={{ fontSize: "14px" }}
+                body={col.body}
+              />
+            ))}
           </DataTable>
         </div>
         <div

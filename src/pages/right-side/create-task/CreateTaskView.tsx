@@ -43,9 +43,11 @@ import {
   createTaskValidationSchema,
   fetchCategoryApiForProduct,
   fetchCustomInqFromApiForTask,
+  fetchTeamMemberTaskWorkload,
   fetchTemplateName,
   ICustomFromList,
   ITaskCreate,
+  ITeamMemberWorkload,
   selectWeeklyDays,
   taskPriorityList,
   taskTypesList,
@@ -102,6 +104,9 @@ const CreateTaskView = ({
   const [taskCategoryList, setTaskCategoryList] = useState<any>([]);
   const [taskTemplateList, setTaskTemplateList] = useState<any>([]);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [teamMemberWorkload, setTeamMemberWorkload] = useState<
+    Record<string, ITeamMemberWorkload>
+  >({});
   const [selectedDays, setSelectedDays] = useState<any[]>([]);
   const [isOpenAddTaskCategoryModal, setIsOpenAddTaskCategoryModal] =
     useState<boolean>(false);
@@ -345,6 +350,26 @@ const CreateTaskView = ({
     }
   }, [show, productToEdit]);
 
+  useEffect(() => {
+    const memberIds = selectedUsers.map((u: any) => u.value);
+
+    if (memberIds.length === 0) {
+      setTeamMemberWorkload({});
+      return;
+    }
+
+    let cancelled = false;
+
+    fetchTeamMemberTaskWorkload(memberIds).then((workload) => {
+      if (!cancelled) setTeamMemberWorkload(workload);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUsers.map((u: any) => u.value).join(",")]);
+
   // Constants
   const TASK_TYPES_WITH_DAYS = ["2"];
   const TASK_TYPES_WITH_DATE = ["3", "4", "6", "7", "8", "9", "10"];
@@ -484,7 +509,7 @@ const CreateTaskView = ({
     isSubmittingRef.current = true;
     try {
       for (const item of customFormList) {
-        if (item.form_type !== 12) continue; // only inquiry custom fields
+        if (item.form_type !== 14 && item.form_type !== 15) continue;
 
         const fieldName = item.reference_column_name;
         const rawValue = (values as any)[fieldName];
@@ -761,7 +786,7 @@ const CreateTaskView = ({
     switch (item.data_type) {
       case 1: // Number
         return (
-          <div className="col-12 col-md-4" key={item.id}>
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -788,7 +813,7 @@ const CreateTaskView = ({
 
       case 2: // Text
         return (
-          <div className="col-12 col-md-4" key={item.id}>
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -810,9 +835,39 @@ const CreateTaskView = ({
           </div>
         );
 
+      case 3: // Text Area
+        return (
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
+            <div className="form-group">
+              <label className="pb-2 form_label">
+                {name}
+                {item.required_or_not === 1 && (
+                  <span className="text-danger">*</span>
+                )}
+              </label>
+              <Field
+                as="textarea"
+                name={fieldName}
+                className={`form-control font-size-15 rounded-1 ${isError ? "is-invalid input-box-error" : ""}`}
+                onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = target.scrollHeight + "px";
+                }}
+                rows={1}
+              />
+              <ErrorMessage
+                name={fieldName}
+                component="div"
+                className="field-error text-danger"
+              />
+            </div>
+          </div>
+        );
+
       case 8: // Decimal
         return (
-          <div className="col-12 col-md-4" key={item.id}>
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -852,7 +907,7 @@ const CreateTaskView = ({
         }));
 
         return (
-          <div className="col-12 col-md-4" key={item.id}>
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -881,7 +936,7 @@ const CreateTaskView = ({
         );
 
         return (
-          <div className="col-12 col-md-4" key={item.id}>
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -909,7 +964,7 @@ const CreateTaskView = ({
         const currentValue = values?.[fieldName];
 
         return (
-          <div className="col-12 col-md-4">
+          <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
             <div className="form-group">
               <label className="pb-2 form_label">
                 {name}
@@ -1645,6 +1700,62 @@ const CreateTaskView = ({
                                       component="div"
                                       className="field-error text-danger"
                                     />
+                                    {selectedUsers.length > 0 && (
+                                      <div
+                                        className="mt-2 d-flex flex-column gap-1"
+                                        style={{
+                                          background: "#f8f9fa",
+                                          borderRadius: "6px",
+                                          padding: "8px 10px",
+                                        }}
+                                      >
+                                        {selectedUsers.map((user: any) => {
+                                          const load =
+                                            teamMemberWorkload[
+                                              String(user.value)
+                                            ];
+
+                                          return (
+                                            <div
+                                              key={user.value}
+                                              className="d-flex align-items-center flex-wrap gap-2"
+                                            >
+                                              <span
+                                                style={{
+                                                  fontSize: "12px",
+                                                  fontWeight: 600,
+                                                  minWidth: "90px",
+                                                }}
+                                              >
+                                                {user.label}:
+                                              </span>
+                                              {taskPriorityList.map(
+                                                (priority) => (
+                                                  <span
+                                                    key={priority.id}
+                                                    className="badge"
+                                                    style={{
+                                                      backgroundColor:
+                                                        priority.color,
+                                                      color: "#fff",
+                                                      fontSize: "11px",
+                                                      fontWeight: 500,
+                                                    }}
+                                                  >
+                                                    {priority.mode_name}{" "}
+                                                    {load
+                                                      ? (load as any)[
+                                                          priority.mode_name.toLowerCase()
+                                                        ]
+                                                      : 0}
+                                                  </span>
+                                                ),
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 {supportTicketFlag === 0 && (
@@ -1903,27 +2014,38 @@ const CreateTaskView = ({
                                     </div>
                                   </>
                                 )}
-                                <div className="row mt-2">
-                                  {customFormList?.map((item) => (
-                                    <React.Fragment
-                                      key={
-                                        item.reference_column_name || item.id
-                                      }
-                                    >
-                                      {renderInputField(
-                                        item,
-                                        item.title,
-                                        item.reference_column_name,
-                                        setFieldValue,
-                                        errors,
-                                        touched,
-                                        values,
-                                      )}
-                                    </React.Fragment>
-                                  ))}
-                                </div>
                               </div>
                             </div>
+
+                            {/* Third Box: Custom Form Fields (Full Width) */}
+                            {customFormList && customFormList.length > 0 && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "30px",
+                                }}
+                                className="w-100 mt-2"
+                              >
+                                {customFormList?.map((item) => (
+                                  <React.Fragment
+                                    key={
+                                      item.reference_column_name || item.id
+                                    }
+                                  >
+                                    {renderInputField(
+                                      item,
+                                      item.title,
+                                      item.reference_column_name,
+                                      setFieldValue,
+                                      errors,
+                                      touched,
+                                      values,
+                                    )}
+                                  </React.Fragment>
+                                ))}
+                              </div>
+                            )}
 
                             <div className="col-12 col-12 pt-4 pe-3 d-flex justify-content-end modal-buttons">
                               <button

@@ -20,9 +20,11 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { IUserList } from "../../../left-side/LeftSideController";
 import { openPrint } from "../Quotations/QuotationController";
@@ -176,6 +178,7 @@ const TeamSalesOrderDataReportsView = ({
   useEffect(() => {
     offsetRef.current = 0;
     currentOffset.current = 0;
+    setHasMore(true);
     onVirtualScroll(0, 50, true);
   }, [
     selectedDates,
@@ -364,6 +367,14 @@ const TeamSalesOrderDataReportsView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    offsetRef.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    onVirtualScroll(0, PAGE_SIZE, true);
+  };
+
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -462,28 +473,6 @@ const TeamSalesOrderDataReportsView = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Product Details", dataKey: "product_details" },
-    { title: "Product Qty", dataKey: "item_qty" },
-    { title: `${title} Number`, dataKey: "cart_number" },
-    { title: "Customer Name", dataKey: "to_customer_name" },
-    { title: "Customer Phone", dataKey: "to_customer_phone" },
-    { title: "Created By", dataKey: "username" },
-    { title: "Status", dataKey: "cart_status" },
-    // { title: "Type", dataKey: "type" },
-    { title: "Created Date-Time", dataKey: "created_date_time" },
-    { title: "Approve Date-Time", dataKey: "update_Date_time" },
-    { title: `Taxable Amount (${currencyName})`, dataKey: "taxable_amt" },
-    { title: `Tax Amount (${currencyName})`, dataKey: "gst_amt" },
-    { title: `TCS Amount (${currencyName})`, dataKey: "tcs_amt" },
-    { title: `Round Off (${currencyName})`, dataKey: "round_off" },
-    { title: `Grand Total (${currencyName})`, dataKey: "grand_total" },
-    ...uniqueCustomFields.map((field: any) => ({
-      title: field.fieldLabel,
-      dataKey: field.fieldName,
-    })),
-  ];
-
   const handelChangeShowModelOrder = (item: IUserList) => {
     setContactInfoOrder(item);
     setIsOrderShowFromContactType(2);
@@ -513,46 +502,12 @@ const TeamSalesOrderDataReportsView = ({
           : filteredData;
 
     const tableData = dataToExport.map((item) => {
-      const rowData: any = {
-        product_details:
-          item.items
-            ?.map((i: ICartItem) => {
-              const name = i.item_product_name?.trim() || "";
-              const code = i.item_product_code?.trim() || "";
-
-              return code ? `${name} (${code})` : name;
-            })
-            .filter(Boolean)
-            .join(", ") || "-",
-
-        item_qty:
-          item.items?.map((i: ICartItem) => i.item_qty).join(", ") || "-",
-        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
-        to_customer_name:
-          `${item.to_customer_company_name}(${item.to_customer_name})` || "-",
-        to_customer_phone: item.to_customer_phone || "-",
-        username: item.username || "-",
-        cart_status: item.cart_status !== undefined ? item.cart_status : "-",
-        // type: item.type || "-",
-        created_date_time: formatDateTime(item.created_date_time),
-        update_Date_time: formatDateTime(item.update_Date_time),
-        taxable_amt:
-          item.taxable_amt_wo_c !== undefined
-            ? `  ${item.taxable_amt_wo_c}`
-            : "-",
-        gst_amt:
-          item.gst_amt_wo_c !== undefined ? `  ${item.gst_amt_wo_c}` : "-",
-        tcs_amt:
-          item.tcs_amt_wo_c !== undefined ? `  ${item.tcs_amt_wo_c}` : "-",
-        round_off:
-          item.round_off_wo_c !== undefined ? `  ${item.round_off_wo_c}` : "-",
-        grand_total:
-          item.grand_total_wo_c !== undefined
-            ? `  ${item.grand_total_wo_c}`
-            : "-",
-      };
-      uniqueCustomFields.forEach((field: any) => {
-        rowData[field.fieldName] = item[field.fieldName] || "-";
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "pdf");
+      });
+      EXTRA_EXPORT_COLUMNS.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, item, "pdf");
       });
       return rowData;
     });
@@ -562,6 +517,14 @@ const TeamSalesOrderDataReportsView = ({
       doc.save(`${title}_report_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const exportColumns = [
+      ...visibleColumns.map((col) => ({ title: col.label, dataKey: col.key })),
+      ...EXTRA_EXPORT_COLUMNS.map((col) => ({
+        title: col.label,
+        dataKey: col.key,
+      })),
+    ];
 
     autoTable(doc, {
       columns: exportColumns,
@@ -610,53 +573,16 @@ const TeamSalesOrderDataReportsView = ({
         return;
       }
 
-      // 🔹 collect custom fields
-      const customFields = Array.from(
-        new Set(
-          exportData.flatMap((item) =>
-            (item.customForm || []).map((cf) => cf.fieldName),
-          ),
-        ),
-      );
-
       const excelRows = (
         selectedCustomers.length > 0 ? selectedCustomers : exportData
       ).map((item) => {
-        const row: any = {
-          "Product Details":
-            item.items
-              ?.map((i: ICartItem) => {
-                const name = i.item_product_name || "";
-                const code = i.item_product_code || "";
-
-                return code ? `${name} (${code})` : name;
-              })
-              .join(", ") || "-",
-
-          "Product Qty":
-            item.items?.map((i: ICartItem) => i.item_qty).join(", ") || "-",
-          "Order Number": `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
-          "Customer Name": `${item.to_customer_company_name || ""} (${item.to_customer_name || "-"})`,
-          "Customer Phone": item.to_customer_phone || "-",
-          "Created By": item.username || "-",
-          // type: title || "Sales Order",
-          Status: item.cart_status || "-",
-          "Created Date-Time": formatDateTime(item.created_date_time),
-          "Approve Date-Time": formatDateTime(item.update_Date_time),
-          [`Taxable Amount (${currencyName})`]: item.taxable_amt_wo_c || "-",
-          [`Tax Amount (${currencyName})`]: item.gst_amt_wo_c || "-",
-          [`TCS Amount (${currencyName})`]: item.tcs_amt_wo_c || "-",
-          [`Round Off (${currencyName})`]: item.round_off_wo_c || "-",
-          [`Grand Total (${currencyName})`]: item.grand_total_wo_c || "-",
-        };
-
-        customFields.forEach((field) => {
-          const found = item.customForm?.find(
-            (cf: any) => cf.fieldName === field,
-          );
-          row[field] = found?.value || "-";
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "excel");
         });
-
+        EXTRA_EXPORT_COLUMNS.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "excel");
+        });
         return row;
       });
 
@@ -682,6 +608,380 @@ const TeamSalesOrderDataReportsView = ({
       toast.error("Excel export failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  type OrderColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    sortableCol?: boolean;
+    filterCol?: boolean;
+    headerAlign?: "right";
+    headerWhiteSpace?: "pre-wrap";
+    bodyAlign?: "right";
+    bodyWhiteSpace?: "pre-wrap";
+    bodyWordBreak?: "break-word";
+    body: (rowData: any) => React.ReactNode;
+  };
+
+  const baseColumnDefs: OrderColumnDef[] = useMemo(() => {
+    const defs: OrderColumnDef[] = [
+      {
+        key: "items",
+        label: "Product Details",
+        header: (
+          <span>
+            Product <br /> Details
+          </span>
+        ),
+        width: "200px",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: any) => (
+          <div>
+            {rowData.items && rowData.items.length > 0
+              ? rowData.items.map((item: any, index: number) => {
+                  const productName = item.item_product_name || "";
+                  const productCode = item.item_product_code || "";
+
+                  return (
+                    <div key={index}>
+                      {productName}
+                      {productCode ? ` (${productCode})` : ""}
+                    </div>
+                  );
+                })
+              : "-"}
+          </div>
+        ),
+      },
+      {
+        key: "item_qty",
+        label: "Product Qty",
+        header: "Product Qty",
+        width: "80px",
+        sortableCol: false,
+        filterCol: false,
+        headerAlign: "right",
+        bodyAlign: "right",
+        body: (rowData: any) => (
+          <div>
+            {rowData.items && rowData.items.length > 0
+              ? rowData.items.map((item: any, index: number) => (
+                  <div key={index}>{item.item_qty}</div>
+                ))
+              : "-"}
+          </div>
+        ),
+      },
+      {
+        key: "cart_number",
+        label: `${title} Number`,
+        header: `${title} Number`.replace(/ /g, "\n"),
+        width: "125px",
+        headerWhiteSpace: "pre-wrap",
+        filterMatchMode: "contains",
+        body: (rowData: any) => (
+          <span
+            style={{
+              cursor: "normal",
+              fontSize: "14px",
+            }}
+            onClick={() => {
+              if (canEditSalesOrder && !MobileFlag) {
+                handelChangeShowModelOrder(rowData);
+              } else if (!canEditSalesOrder) {
+                toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              }
+            }}
+            title={`View ${title}`}
+          >
+            {rowData.cart_number || "# XXXXXXX"} <br />
+            <span
+              style={{
+                backgroundColor: rowData.is_approve?.bg_color,
+                border: `2px solid ${rowData.is_approve?.border_color}`,
+                color: rowData.is_approve?.text_color,
+                fontSize: "2px",
+                padding: "1px 1px",
+                fontWeight: "500",
+              }}
+              className="badge rounded-pill"
+            >
+              {rowData.is_approve?.name}
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: "to_customer_name",
+        label: "Contact Details",
+        header: (
+          <span>
+            Contact <br /> Details
+          </span>
+        ),
+        width: "125px",
+        filterMatchMode: "contains",
+        body: (rowData: any) => (
+          <div>
+            <div>
+              {rowData.to_customer_company_name || "-"}(
+              {rowData.to_customer_name || "-"}){" -"}{" "}
+              {rowData.to_customer_phone || "-"}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "username",
+        label: "Created By",
+        header: (
+          <span>
+            Created <br /> By
+          </span>
+        ),
+        width: "90px",
+        filterMatchMode: "contains",
+        body: (rowData: any) => rowData.username || "-",
+      },
+      {
+        key: "cart_status",
+        label: "Status",
+        header: "Status",
+        width: "90px",
+        filterMatchMode: "contains",
+        body: (rowData: any) => (
+          <span
+            style={{
+              backgroundColor: rowData.status_colour
+                ? rowData.status_colour
+                : "#eeeeee",
+            }}
+            className="badge rounded-pill"
+          >
+            {rowData.cart_status}
+          </span>
+        ),
+      },
+      {
+        key: "created_date_time",
+        label: "Created Date-Time",
+        header: (
+          <span>
+            Created <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        filterMatchMode: "contains",
+        body: (rowData: any) => formatDateTime(rowData.created_date_time),
+      },
+      {
+        key: "update_Date_time",
+        label: "Approve Date-Time",
+        header: (
+          <span>
+            Approve <br /> Date-Time
+          </span>
+        ),
+        width: "120px",
+        filterMatchMode: "contains",
+        body: (rowData: any) => formatDateTime(rowData.update_Date_time),
+      },
+      {
+        key: "taxable_amt",
+        label: "Taxable Amount",
+        header: (
+          <span>
+            Taxable <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        headerAlign: "right",
+        bodyAlign: "right",
+        filterMatchMode: "contains",
+        body: (rowData: any) =>
+          rowData.taxable_amt !== undefined ? `${rowData.taxable_amt}` : "0",
+      },
+      {
+        key: "gst_amt",
+        label: "Tax Amount",
+        header: (
+          <span>
+            Tax <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        bodyAlign: "right",
+        filterMatchMode: "contains",
+        body: (rowData: any) =>
+          rowData.gst_amt !== undefined ? `${rowData.gst_amt}` : "0",
+      },
+      {
+        key: "tcs_amt",
+        label: "TCS Amount",
+        header: (
+          <span>
+            TCS <br /> Amount
+          </span>
+        ),
+        width: "90px",
+        bodyAlign: "right",
+        filterMatchMode: "contains",
+        body: (rowData: any) =>
+          rowData.tcs_amt !== undefined ? `${rowData.tcs_amt}` : "0",
+      },
+      {
+        key: "round_off",
+        label: "Round Off",
+        header: (
+          <span>
+            Round <br /> Off
+          </span>
+        ),
+        width: "90px",
+        bodyAlign: "right",
+        filterMatchMode: "contains",
+        body: (rowData: any) =>
+          rowData.round_off !== undefined ? `${rowData.round_off}` : "0",
+      },
+      {
+        key: "grand_total",
+        label: "Grand Total",
+        header: (
+          <span>
+            Grand <br /> Total
+          </span>
+        ),
+        width: "100px",
+        bodyAlign: "right",
+        filterMatchMode: "contains",
+        body: (rowData: any) =>
+          rowData.grand_total !== undefined
+            ? `${rowData.grand_total}`
+            : "0",
+      },
+    ];
+
+    uniqueCustomFields.forEach((field: any) => {
+      defs.push({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        header: field.fieldLabel.replace(/ /g, "\n"),
+        width: field.dataType === 3 ? "250px" : "150px",
+        headerWhiteSpace: "pre-wrap",
+        bodyWhiteSpace: field.dataType === 3 ? "pre-wrap" : undefined,
+        bodyWordBreak: field.dataType === 3 ? "break-word" : undefined,
+        filterMatchMode: field.dataType === 1 ? "equals" : "contains",
+        body: (rowData: any) => {
+          const val = rowData[field.fieldName];
+          if (val === null || val === undefined || val === "") return "-";
+          if (field.dataType === 3) {
+            return (
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {val}
+              </div>
+            );
+          }
+          return val;
+        },
+      });
+    });
+
+    return defs;
+  }, [title, canEditSalesOrder, MobileFlag, uniqueCustomFields]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("detailed_order_report", baseColumnDefs);
+
+  const EXTRA_EXPORT_COLUMNS: { key: string; label: string }[] = [
+    { key: "to_customer_phone", label: "Customer Phone" },
+  ];
+
+  const getExportCellValue = (
+    col: { key: string; label: string },
+    item: any,
+    format: "pdf" | "excel" | "print",
+  ): string => {
+    switch (col.key) {
+      case "items": {
+        const names = item.items
+          ?.map((i: ICartItem) => {
+            const name = i.item_product_name?.trim() || "";
+            const code = i.item_product_code?.trim() || "";
+
+            return code ? `${name} (${code})` : name;
+          })
+          .filter(Boolean);
+        if (!names || names.length === 0) return "-";
+        return format === "print" ? names.join("<br/>") : names.join(", ");
+      }
+      case "item_qty": {
+        const qtys = item.items?.map((i: ICartItem) => i.item_qty);
+        if (!qtys || qtys.length === 0) return "-";
+        return format === "print" ? qtys.join("<br/>") : qtys.join(", ");
+      }
+      case "cart_number":
+        return format === "print"
+          ? `${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}`
+          : `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`;
+      case "to_customer_name":
+        if (format === "excel") {
+          return `${item.to_customer_company_name || ""} (${item.to_customer_name || "-"})`;
+        }
+        return `${item.to_customer_company_name}(${item.to_customer_name || "-"})`;
+      case "to_customer_phone":
+        return item.to_customer_phone || "-";
+      case "username":
+        return item.username || "-";
+      case "cart_status":
+        if (format === "excel") return item.cart_status || "-";
+        return item.cart_status !== undefined ? item.cart_status : "-";
+      case "created_date_time":
+        return formatDateTime(item.created_date_time);
+      case "update_Date_time":
+        return formatDateTime(item.update_Date_time);
+      case "taxable_amt":
+        if (item.taxable_amt_wo_c === undefined) return "-";
+        return format === "pdf"
+          ? `  ${item.taxable_amt_wo_c}`
+          : `${item.taxable_amt_wo_c}`;
+      case "gst_amt":
+        if (item.gst_amt_wo_c === undefined) return "-";
+        return format === "pdf"
+          ? `  ${item.gst_amt_wo_c}`
+          : `${item.gst_amt_wo_c}`;
+      case "tcs_amt":
+        if (item.tcs_amt_wo_c === undefined) return "-";
+        return format === "pdf"
+          ? `  ${item.tcs_amt_wo_c}`
+          : `${item.tcs_amt_wo_c}`;
+      case "round_off":
+        if (item.round_off_wo_c === undefined) return "-";
+        return format === "pdf"
+          ? `  ${item.round_off_wo_c}`
+          : `${item.round_off_wo_c}`;
+      case "grand_total":
+        if (item.grand_total_wo_c === undefined) return "-";
+        return format === "pdf"
+          ? `  ${item.grand_total_wo_c}`
+          : `${item.grand_total_wo_c}`;
+      default: {
+        if (format === "excel") {
+          const found = item.customForm?.find(
+            (cf: any) => cf.fieldName === col.key,
+          );
+          return found?.value ?? item[col.key] ?? "-";
+        }
+        return item[col.key] || "-";
+      }
     }
   };
 
@@ -714,24 +1014,8 @@ const TeamSalesOrderDataReportsView = ({
         <table>
           <thead>
             <tr>
-              <th>Product Details</th>
-              <th>Product Qty</th>
-              <th>${title} Number</th>
-              <th>Customer Name</th>
-              <th>Customer Phone</th>
-              <th>Created By</th>
-              <th>Status</th>
-              <!-- <th>Type</th> -->
-              <th>Created Date Time</th>
-              <th>Approve Date Time</th>
-              <th>Taxable Amount (${currencyName})</th>
-              <th>Tax Amount (${currencyName})</th>
-              <th>TCS Amount (${currencyName})</th>
-              <th>Round Off (${currencyName})</th>
-              <th>Grand Total (${currencyName})</th>
-              ${uniqueCustomFields
-                .map((field: any) => `<th>${field.fieldLabel}</th>`)
-                .join("")}
+              ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
+              ${EXTRA_EXPORT_COLUMNS.map((col) => `<th>${col.label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -739,41 +1023,16 @@ const TeamSalesOrderDataReportsView = ({
               .map(
                 (item: any) => `
                 <tr>
-     <td>
-    ${
-      item.items
-        ?.map((i: ICartItem) => {
-          const name = i.item_product_name?.trim() || "";
-          const code = i.item_product_code?.trim() || "";
-
-          return code ? `${name} (${code})` : name;
-        })
-        .filter(Boolean) // empty entries remove karega
-        .join("<br/>") || "-"
-    }
-</td>
-<td>
-  ${item.items?.map((i: ICartItem) => i.item_qty).join("<br/>") || "-"}
-</td>
-                  <td>${item.cart_number || "XXXXXXX"} <br/> ${item.is_approve?.name || ""}</td>
-                  <td>${item.to_customer_company_name}(${item.to_customer_name || "-"})</td>
-                  <td>${item.to_customer_phone || "-"}</td>
-                  <td>${item.username || "-"}</td>
-                  <td>${item.cart_status !== undefined ? item.cart_status : "-"}</td>
-                  <!-- <td>${item.type || "-"}</td -->
-                  <td>${formatDateTime(item.created_date_time)}</td>
-                  <td>${formatDateTime(item.update_Date_time)}</td>
-                  <td>${item.taxable_amt_wo_c !== undefined ? `${item.taxable_amt_wo_c}` : "-"}</td>
-                  <td>${item.gst_amt_wo_c !== undefined ? `${item.gst_amt_wo_c}` : "-"}</td>
-                  <td>${item.tcs_amt_wo_c !== undefined ? `${item.tcs_amt_wo_c}` : "-"}</td>
-                  <td>${item.round_off_wo_c !== undefined ? `${item.round_off_wo_c}` : "-"}</td>
-                  <td>${item.grand_total_wo_c !== undefined ? `${item.grand_total_wo_c}` : "-"}</td>
-                  ${uniqueCustomFields
+                  ${visibleColumns
                     .map(
-                      (field: any) =>
-                        `<td>${item[field.fieldName] || "-"}</td>`,
+                      (col) =>
+                        `<td>${getExportCellValue(col, item, "print")}</td>`,
                     )
                     .join("")}
+                  ${EXTRA_EXPORT_COLUMNS.map(
+                    (col) =>
+                      `<td>${getExportCellValue(col, item, "print")}</td>`,
+                  ).join("")}
                 </tr>
               `,
               )
@@ -896,6 +1155,27 @@ const TeamSalesOrderDataReportsView = ({
                 }
                 tooltip="Print"
                 disabled={customers.length === 0}
+              />
+              <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+              <ColumnsButton
+                columns={orderedColumns}
+                hiddenKeys={hiddenKeys}
+                onToggle={toggleColumn}
+                onReorder={reorderColumns}
+                onReset={resetColumns}
               />
             </div>
           )}
@@ -1053,408 +1333,34 @@ const TeamSalesOrderDataReportsView = ({
                 )}
               />
             )}
-            <Column
-              field="items"
-              header={
-                <span>
-                  Product <br /> Details
-                </span>
-              }
-              headerClassName="center-header"
-              headerStyle={{
-                width: "200px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => (
-                <div>
-                  {rowData.items && rowData.items.length > 0
-                    ? rowData.items.map((item: any, index: number) => {
-                        const productName = item.item_product_name || "";
-                        const productCode = item.item_product_code || "";
-
-                        return (
-                          <div key={index}>
-                            {productName}
-                            {productCode ? ` (${productCode})` : ""}
-                          </div>
-                        );
-                      })
-                    : "-"}
-                </div>
-              )}
-            />
-
-            <Column
-              field="item_qty"
-              header="Product Qty"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "80px",
-                textAlign: "right",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <div>
-                  {rowData.items && rowData.items.length > 0
-                    ? rowData.items.map((item: any, index: number) => (
-                        <div key={index}>{item.item_qty}</div>
-                      ))
-                    : "-"}
-                </div>
-              )}
-            />
-            <Column
-              field="cart_number"
-              header={`${title} Number`.replace(/ /g, "\n")}
-              sortable
-              filter
-              filterField="cart_number"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "125px",
-                whiteSpace: "pre-wrap",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    cursor: "normal",
-                    fontSize: "14px",
-                  }}
-                  onClick={() => {
-                    if (canEditSalesOrder && !MobileFlag) {
-                      handelChangeShowModelOrder(rowData);
-                    } else if (!canEditSalesOrder) {
-                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }
-                  }}
-                  title={`View ${title}`}
-                >
-                  {rowData.cart_number || "# XXXXXXX"} <br />
-                  <span
-                    style={{
-                      backgroundColor: rowData.is_approve?.bg_color,
-                      border: `2px solid ${rowData.is_approve?.border_color}`,
-                      color: rowData.is_approve?.text_color,
-                      fontSize: "2px",
-                      padding: "1px 1px",
-                      fontWeight: "500",
-                    }}
-                    className="badge rounded-pill"
-                  >
-                    {rowData.is_approve?.name}
-                  </span>
-                </span>
-              )}
-            />
-            <Column
-              field="to_customer_name"
-              header={
-                <span>
-                  Contact <br /> Details
-                </span>
-              }
-              sortable
-              filter
-              filterField="to_customer_name"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "125px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => (
-                <div>
-                  <div>
-                    {rowData.to_customer_company_name || "-"}(
-                    {rowData.to_customer_name || "-"}){" -"}{" "}
-                    {rowData.to_customer_phone || "-"}
-                  </div>
-                </div>
-              )}
-            />
-            <Column
-              field="username"
-              header={
-                <span>
-                  Created <br /> By
-                </span>
-              }
-              sortable
-              filter
-              filterField="username"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => rowData.username || "-"}
-            />
-            <Column
-              field="cart_status"
-              header="Status"
-              sortable
-              filter
-              filterField="cart_status"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              body={(rowData: any) => (
-                <span
-                  style={{
-                    backgroundColor: rowData.status_colour
-                      ? rowData.status_colour
-                      : "#eeeeee",
-                  }}
-                  className="badge rounded-pill"
-                >
-                  {rowData.cart_status}
-                </span>
-              )}
-            />
-            <Column
-              field="created_date_time"
-              header={
-                <span>
-                  Created <br /> Date-Time
-                </span>
-              }
-              sortable
-              filter
-              filterField="created_date_time"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "120px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => formatDateTime(rowData.created_date_time)}
-            />
-            <Column
-              field="update_Date_time"
-              header={
-                <span>
-                  Approve <br /> Date-Time
-                </span>
-              }
-              sortable
-              filter
-              filterField="update_Date_time"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "120px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px" }}
-              body={(rowData: any) => formatDateTime(rowData.update_Date_time)}
-            />
-            <Column
-              field="taxable_amt"
-              header={
-                <span>
-                  Taxable <br /> Amount
-                </span>
-              }
-              sortable
-              filter
-              filterField="taxable_amt"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                textAlign: "right",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                // paddingRight: "70px",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) =>
-                rowData.taxable_amt !== undefined
-                  ? `${rowData.taxable_amt}`
-                  : "0"
-              }
-            />
-            <Column
-              field="gst_amt"
-              header={
-                <span>
-                  Tax <br /> Amount
-                </span>
-              }
-              sortable
-              filter
-              filterField="gst_amt"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                // paddingRight: "70px",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) =>
-                rowData.gst_amt !== undefined ? `${rowData.gst_amt}` : "0"
-              }
-            />
-            <Column
-              field="tcs_amt"
-              header={
-                <span>
-                  TCS <br /> Amount
-                </span>
-              }
-              sortable
-              filter
-              filterField="tcs_amt"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                // paddingRight: "70px",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) =>
-                rowData.tcs_amt !== undefined ? `${rowData.tcs_amt}` : "0"
-              }
-            />
-            <Column
-              field="round_off"
-              header={
-                <span>
-                  Round <br /> Off
-                </span>
-              }
-              sortable
-              filter
-              filterField="round_off"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "90px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                // paddingRight: "70px",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) =>
-                rowData.round_off !== undefined ? `${rowData.round_off}` : "0"
-              }
-            />
-            <Column
-              field="grand_total"
-              header={
-                <span>
-                  Grand <br /> Total
-                </span>
-              }
-              sortable
-              filter
-              filterField="grand_total"
-              filterPlaceholder="Search"
-              filterMatchMode="contains"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "100px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-              bodyStyle={{
-                textAlign: "right",
-                // paddingRight: "70px",
-                fontSize: "14px",
-              }}
-              body={(rowData: any) =>
-                rowData.grand_total !== undefined
-                  ? `${rowData.grand_total}`
-                  : "0"
-              }
-            />
-            {uniqueCustomFields.map((field: any) => (
+            {visibleColumns.map((col) => (
               <Column
-                key={field.fieldName}
-                field={field.fieldName}
-                header={field.fieldLabel.replace(/ /g, "\n")}
-                sortable
-                filter
-                filterField={field.fieldName}
-                filterPlaceholder={`Search ${field.fieldLabel}`}
-                filterMatchMode={field.dataType === 1 ? "equals" : "contains"}
+                key={col.key}
+                field={col.key}
+                header={col.header}
+                sortable={col.sortableCol !== false}
+                filter={col.filterCol !== false}
+                filterField={col.key}
+                filterPlaceholder="Search"
+                filterMatchMode={col.filterMatchMode || "contains"}
+                headerClassName="center-header"
                 headerStyle={{
-                  width: "250px",
-                  whiteSpace: "pre-wrap",
+                  width: col.width || "150px",
                   position: "sticky",
                   top: 0,
                   zIndex: 1,
+                  background: "#f8f9fa",
                   fontSize: "14px",
+                  whiteSpace: col.headerWhiteSpace,
+                  textAlign: col.headerAlign,
                 }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(rowData: any) => rowData[field.fieldName] || "-"}
+                bodyStyle={{
+                  fontSize: "14px",
+                  textAlign: col.bodyAlign,
+                  whiteSpace: col.bodyWhiteSpace,
+                  wordBreak: col.bodyWordBreak,
+                }}
+                body={col.body}
               />
             ))}
           </DataTable>

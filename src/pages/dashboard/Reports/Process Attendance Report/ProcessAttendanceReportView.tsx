@@ -7,11 +7,13 @@ import { DataTable } from "primereact/datatable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import ProcessAttendanceDayWiseDetails from "./ProcessAttendanceDayWiseDetails";
@@ -31,6 +33,16 @@ interface IPropsProcessAttendance {
   onHide?: () => void;
   selectedDayMonthYear?: number[] | null;
 }
+
+type AttendanceColumnDef = ColumnDef & {
+  header: React.ReactNode;
+  filterMatchMode?: string;
+  width?: string;
+  sortableCol?: boolean;
+  filterCol?: boolean;
+  bodyClassName?: string;
+  body: (rowData: IProcessAttendance) => React.ReactNode;
+};
 
 const formatDateDisplay = (date: Date): string => {
   return String(date.getDate()).padStart(2, "0"); // Returns DD (e.g., "24")
@@ -257,6 +269,12 @@ const ProcessAttendanceReportView = ({
     ],
   );
 
+  const handleRefresh = async () => {
+    setAttendanceData([]);
+    setSelectedEmployees([]);
+    loadAttendance(0, 0, true);
+  };
+
   useEffect(() => {
     if (canView) {
       setAttendanceData([]);
@@ -288,27 +306,51 @@ const ProcessAttendanceReportView = ({
     }
   };
 
-  const exportColumns = [
-    { title: "Employee Name", dataKey: "username" },
-    ...allDates.map((date) => ({
-      title: formatDateDisplay(date),
-      dataKey: formatDate(date),
-    })),
-    { title: "Total Working Time", dataKey: "total_working_hours" },
-    { title: "Round Off Hours", dataKey: "roundoff_hours" },
-    { title: "Net Working Time", dataKey: "net_working_hours" },
-    { title: "Reg. OT Hours", dataKey: "regular_ot_hours" },
-    { title: "Extra OT Hours", dataKey: "extra_ot_hours" },
-    { title: "Total OT Hours", dataKey: "overtime_hours" },
-    { title: "Present", dataKey: "present" },
-    { title: "Half Day", dataKey: "half_day" },
-    { title: "Absent", dataKey: "absent" },
-    { title: "Leave", dataKey: "leave" },
-    { title: "Weak Off", dataKey: "week_off" },
-    { title: "Public Holiday", dataKey: "public_holiday" },
-    { title: "Work On Week Off", dataKey: "work_on_week_off" },
-    { title: "Work On Public Holiday", dataKey: "work_on_public_holiday" },
-  ];
+  const isDateColumnKey = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(key);
+
+  const getExportCellValue = (
+    col: AttendanceColumnDef,
+    emp: IProcessAttendance,
+  ): string => {
+    switch (col.key) {
+      case "employee_name":
+        return emp.employee_name ?? "-";
+      case "total_working_time_sum":
+        return String(emp.total_working_time_sum ?? "00:00:00");
+      case "roundoff_hour_sum":
+        return String((emp as any).roundoff_hour_sum ?? "00:00:00");
+      case "net_working_hour_sum":
+        return String(emp.net_working_hour_sum ?? "00:00:00");
+      case "regular_ot_hour_sum":
+        return String((emp as any).regular_ot_hour_sum ?? "00:00:00");
+      case "extra_ot_hour_sum":
+        return String((emp as any).extra_ot_hour_sum ?? "00:00:00");
+      case "overtime_hour_sum":
+        return String(emp.overtime_hour_sum ?? "00:00:00");
+      case "present":
+        return String(emp.status_count.P ?? "-");
+      case "half_day":
+        return String(emp.status_count.HD ?? "-");
+      case "absent":
+        return String(emp.status_count.A ?? "-");
+      case "leave":
+        return String(emp.status_count.L ?? "-");
+      case "week_off":
+        return String(emp.status_count.WO ?? "-");
+      case "holiday":
+        return String(emp.status_count.PH ?? "-");
+      case "work_on_week_off":
+        return String(emp.status_count.WOWO ?? "-");
+      case "work_on_public_holiday":
+        return String(emp.status_count.WOPH ?? "-");
+      default: {
+        // Date columns are keyed by their formatted date (YYYY-MM-DD)
+        const attendance = emp.presentDates?.find((a) => a.date === col.key);
+        if (!attendance) return "-";
+        return DAY_STATUS[attendance.day_status] ?? "-";
+      }
+    }
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a2" });
@@ -323,42 +365,17 @@ const ProcessAttendanceReportView = ({
     }
 
     const tableData = dataToExport.map((emp) => {
-      const row: Record<string, any> = { username: emp.employee_name ?? "-" };
-
-      // All date columns
-      allDates.forEach((date) => {
-        const formattedDate = formatDate(date);
-        const attendance = emp.presentDates?.find(
-          (a) => a.date === formattedDate,
-        );
-        let cellValue = "-";
-        if (attendance) {
-          const statusId = attendance.day_status;
-          const status = DAY_STATUS[statusId];
-
-          cellValue = status;
-        }
-        row[formattedDate] = cellValue;
+      const row: Record<string, any> = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, emp);
       });
-
-      // Fixed new columns
-      row.total_working_hours = emp.total_working_time_sum ?? "00:00:00";
-      row.roundoff_hours = (emp as any).roundoff_hour_sum ?? "00:00:00";
-      row.net_working_hours = emp.net_working_hour_sum ?? "00:00:00";
-      row.regular_ot_hours = (emp as any).regular_ot_hour_sum ?? "00:00:00";
-      row.extra_ot_hours = (emp as any).extra_ot_hour_sum ?? "00:00:00";
-      row.overtime_hours = emp.overtime_hour_sum ?? "00:00:00";
-      row.present = emp.status_count.P ?? "-";
-      row.half_day = emp.status_count.HD ?? "-";
-      row.absent = emp.status_count.A ?? "-";
-      row.leave = emp.status_count.L ?? "-";
-      row.week_off = emp.status_count.WO ?? "-";
-      row.public_holiday = emp.status_count.PH ?? "-";
-      row.work_on_week_off = emp.status_count.WOWO ?? "-";
-      row.work_on_public_holiday = emp.status_count.WOPH ?? "-";
-
       return row;
     });
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -373,21 +390,20 @@ const ProcessAttendanceReportView = ({
         fontSize: 8,
       },
       margin: { top: 20, left: 5, bottom: 10 },
-      columnStyles: {
-        username: { cellWidth: 28 },
-        total_working_hours: { cellWidth: 22 },
-        company_paid_leave: { cellWidth: 18 },
-        employee_paid_leave: { cellWidth: 18 },
-        paid_days_paid_hours: { cellWidth: 22 },
-        salary: { cellWidth: 18 },
-        ...allDates.reduce(
-          (acc, date) => {
-            acc[formatDate(date)] = { cellWidth: 14 };
-            return acc;
-          },
-          {} as Record<string, { cellWidth: number }>,
-        ),
-      },
+      columnStyles: visibleColumns.reduce(
+        (acc, col) => {
+          acc[col.key] = {
+            cellWidth:
+              col.key === "employee_name"
+                ? 28
+                : isDateColumnKey(col.key)
+                  ? 14
+                  : 20,
+          };
+          return acc;
+        },
+        {} as Record<string, { cellWidth: number }>,
+      ),
       willDrawPage: (data) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         // Title
@@ -456,71 +472,16 @@ const ProcessAttendanceReportView = ({
         return;
       }
 
-      const sortedDates = [...allDates].sort(
-        (a, b) => a.getTime() - b.getTime(),
-      );
-
-      const headers = [
-        "Employee Name",
-        ...sortedDates.map(formatDateDisplay),
-        "Total Working Time",
-        "Round Off Hours",
-        "Net Working Time",
-        "Reg. OT Hours",
-        "Extra OT Hours",
-        "Total OT Hours",
-        "Present",
-        "Half Day",
-        "Absent",
-        "Leave",
-        "Weak Off",
-        "Public Holiday",
-        "Work On Week Off",
-        "Work On Public Holiday",
-      ];
+      const headers = visibleColumns.map((col) => col.label);
 
       const rows = (
         selectedEmployees.length > 0 ? selectedEmployees : allAttendance
-      ).map((emp) => {
-        const row: any[] = [emp.employee_name || "-"];
-
-        sortedDates.forEach((date) => {
-          const formattedDate = formatDate(date);
-          const attendance = emp.presentDates?.find(
-            (a) => a.date === formattedDate,
-          );
-
-          let cellValue = "-";
-          if (attendance) {
-            const statusId = attendance.day_status;
-            const status = DAY_STATUS[statusId];
-
-            cellValue = status;
-          }
-
-          row.push(cellValue);
-        });
-
-        row.push(emp.total_working_time_sum ?? "00:00:00");
-        row.push((emp as any).roundoff_hour_sum ?? "00:00:00");
-        row.push(emp.net_working_hour_sum ?? "00:00:00");
-        row.push((emp as any).regular_ot_hour_sum ?? "00:00:00");
-        row.push((emp as any).extra_ot_hour_sum ?? "00:00:00");
-        row.push(emp.overtime_hour_sum ?? "00:00:00");
-        row.push(emp.status_count.P ?? "-");
-        row.push(emp.status_count.HD ?? "-");
-        row.push(emp.status_count.A ?? "-");
-        row.push(emp.status_count.L ?? "-");
-        row.push(emp.status_count.WO ?? "-");
-        row.push(emp.status_count.PH ?? "-");
-        row.push(emp.status_count.WOWO ?? "-");
-        row.push(emp.status_count.WOPH ?? "-");
-
-        return row;
-      });
+      ).map((emp) =>
+        visibleColumns.map((col) => getExportCellValue(col, emp)),
+      );
 
       const worksheet = xlsx.utils.aoa_to_sheet([
-        ["monthName", "year", ...Array(headers.length - 2).fill("")],
+        ["monthName", "year", ...Array(Math.max(headers.length - 2, 0)).fill("")],
         headers,
         ...rows,
       ]);
@@ -529,15 +490,9 @@ const ProcessAttendanceReportView = ({
         monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label ?? "";
       worksheet["B1"].v = effectiveMonthYear.year;
 
-      worksheet["!cols"] = [
-        { wpx: 180 },
-        ...sortedDates.map(() => ({ wpx: 110 })),
-        { wpx: 160 },
-        { wpx: 140 },
-        { wpx: 140 },
-        { wpx: 160 },
-        { wpx: 120 },
-      ];
+      worksheet["!cols"] = visibleColumns.map((col) => ({
+        wpx: col.key === "employee_name" ? 180 : 110,
+      }));
 
       const workbook = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(
@@ -581,73 +536,19 @@ const ProcessAttendanceReportView = ({
       return;
     }
 
-    const dateHeaders = allDates
-      .map((d) => `<th>${formatDateDisplay(d)}</th>`)
+    const headers = visibleColumns
+      .map((col) => `<th>${col.label}</th>`)
       .join("");
-
-    const headers = `
-      <th>Employee Name</th>
-      ${dateHeaders}
-      <th>Total Working Time</th>
-      <th>Net Working Time</th>
-      <th>Overtime Hours</th>
-      <th>Present</th>
-      <th>Half Day</th>
-      <th>Absent</th>
-      <th>Leave</th>
-      <th>Weak Off</th>
-      <th>Public Holiday</th>
-      <th>Work On Weak Off</th>
-      <th>Work On Public Holiday</th>
-    `;
 
     const rows = dataToPrint
       .map((emp) => {
-        const dateCells = allDates
-          .map((date) => {
-            const formattedDate = formatDate(date);
-            const attendance = emp.presentDates.find(
-              (a) => a.date == formattedDate,
-            );
-            if (!attendance) {
-              return "<td>-</td>";
-            }
-
-            const statusId = attendance.day_status;
-            const status = DAY_STATUS[statusId];
-
-            const statusColor =
-              status === "P"
-                ? "green"
-                : status === "A"
-                  ? "red"
-                  : status === "L"
-                    ? "orange"
-                    : status === "WO"
-                      ? "blue"
-                      : "black";
-
-            return `<td><div style={{ color: ${statusColor}, fontWeight: 600 }}>
-                        ${status}
-                      </div></td>`;
-          })
+        const cells = visibleColumns
+          .map((col) => `<td>${getExportCellValue(col, emp)}</td>`)
           .join("");
 
         return `
         <tr>
-          <td>${emp.employee_name ?? "-"}</td>
-          ${dateCells}
-          <td>${emp.total_working_time_sum ?? "00:00:00"}</td>
-          <td>${emp.net_working_hour_sum ?? "00:00:00"}</td>
-          <td>${emp.overtime_hour_sum ?? "00:00:00"}</td>
-          <td>${emp.status_count.P ?? "-"}</td>
-          <td>${emp.status_count.HD ?? "-"}</td>
-          <td>${emp.status_count.A ?? "-"}</td>
-          <td>${emp.status_count.L ?? "-"}</td>
-          <td>${emp.status_count.WO ?? "-"}</td>
-          <td>${emp.status_count.PH ?? "-"}</td>
-          <td>${emp.status_count.WOWO ?? "-"}</td>
-          <td>${emp.status_count.WOPH ?? "-"}</td>
+          ${cells}
         </tr>
       `;
       })
@@ -738,6 +639,253 @@ const ProcessAttendanceReportView = ({
     const supportURL = `${baseURL}/ProcessAttendanceMonthlySlip/${selectedEmployeesIds}/${effectiveMonthYear.month}/${effectiveMonthYear.year}`;
     const myWindow = window.open(supportURL, "_blank");
   };
+
+  const baseColumnDefs: AttendanceColumnDef[] = useMemo(() => {
+    const defs: AttendanceColumnDef[] = [
+      {
+        key: "employee_name",
+        label: "Employee Name",
+        header: "Employee Name",
+        width: "125px",
+        body: (row) => <span>{row.employee_name || "-"}</span>,
+      },
+    ];
+
+    allDates.forEach((date) => {
+      const formattedDate = formatDate(date);
+      const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNumber = String(date.getDate()).padStart(2, "0");
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+      defs.push({
+        key: formattedDate,
+        label: `${dayName} ${dayNumber}`,
+        header: (
+          <div
+            style={{
+              textAlign: "center",
+              color: isWeekend ? "#dc3545" : "#495057",
+              fontWeight: 600,
+              lineHeight: "1.2",
+            }}
+          >
+            <div>{dayName}</div>
+            <div>{dayNumber}</div>
+          </div>
+        ),
+        width: "120px",
+        sortableCol: false,
+        filterCol: false,
+        body: (rowData: IProcessAttendance) => {
+          const attendance = rowData.presentDates.find(
+            (a) => a.date == formattedDate,
+          );
+          if (!attendance) {
+            return "-";
+          }
+
+          const statusId = attendance.day_status;
+          const status = DAY_STATUS[statusId];
+
+          const statusColor =
+            status === "P"
+              ? "green"
+              : status === "A"
+                ? "red"
+                : status === "L"
+                  ? "orange"
+                  : status === "WO"
+                    ? "blue"
+                    : "black";
+
+          return (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                setDayDetailModal({
+                  visible: true,
+                  username: rowData.employee_name ?? "",
+                  date: formattedDate,
+                  displayDate: dayNumber,
+                  attendance: attendance,
+                  companyTeamInfo: {
+                    id: attendance?.employee_id,
+                    username: rowData.employee_name,
+                  },
+                })
+              }
+            >
+              <div style={{ color: statusColor, fontWeight: 600 }}>
+                {status}
+              </div>
+            </div>
+          );
+        },
+      });
+    });
+
+    defs.push(
+      {
+        key: "total_working_time_sum",
+        label: "Total Working Time",
+        header: (
+          <span>
+            Total Working <br /> Time
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => row.total_working_time_sum,
+      },
+      {
+        key: "net_working_hour_sum",
+        label: "Net Working Time",
+        header: (
+          <span>
+            Net Working <br /> Time
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => row.net_working_hour_sum,
+      },
+      {
+        key: "roundoff_hour_sum",
+        label: "Round Off Hours",
+        header: (
+          <span>
+            Round Off <br /> Hours
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => (row as any).roundoff_hour_sum ?? "00:00:00",
+      },
+      {
+        key: "regular_ot_hour_sum",
+        label: "Reg. OT Hours",
+        header: (
+          <span>
+            Reg. OT <br /> Hours
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => (row as any).regular_ot_hour_sum ?? "00:00:00",
+      },
+      {
+        key: "extra_ot_hour_sum",
+        label: "Extra OT Hours",
+        header: (
+          <span>
+            Extra OT <br /> Hours
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => (row as any).extra_ot_hour_sum ?? "00:00:00",
+      },
+      {
+        key: "overtime_hour_sum",
+        label: "Total OT Hours",
+        header: (
+          <span>
+            Total OT <br /> Hours
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-center",
+        body: (row) => row.overtime_hour_sum,
+      },
+      {
+        key: "present",
+        label: "Present",
+        header: <span>Present</span>,
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.P,
+      },
+      {
+        key: "half_day",
+        label: "Half Day",
+        header: <span>Half Day</span>,
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.HD,
+      },
+      {
+        key: "absent",
+        label: "Absent",
+        header: <span>Absent</span>,
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.A,
+      },
+      {
+        key: "leave",
+        label: "Leave",
+        header: <span>Leave</span>,
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.L,
+      },
+      {
+        key: "week_off",
+        label: "Week Off",
+        header: <span>Week Off</span>,
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.WO,
+      },
+      {
+        key: "holiday",
+        label: "Public Holiday",
+        header: (
+          <span>
+            Public <br /> Holiday
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.PH,
+      },
+      {
+        key: "work_on_week_off",
+        label: "Work On Week Off",
+        header: (
+          <span>
+            Work On <br /> Week Off
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.WOWO,
+      },
+      {
+        key: "work_on_public_holiday",
+        label: "Work On Public Holiday",
+        header: (
+          <span>
+            Work On <br /> Public Holiday
+          </span>
+        ),
+        width: "120px",
+        bodyClassName: "text-end",
+        body: (rowData: IProcessAttendance) => rowData.status_count.WOPH,
+      },
+    );
+
+    return defs;
+  }, [allDates]);
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("process_attendance_report", baseColumnDefs);
 
   if (error) {
     return (
@@ -898,6 +1046,27 @@ const ProcessAttendanceReportView = ({
                 Generate Att. Slip
               </li>
             </ul>
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -963,288 +1132,32 @@ const ProcessAttendanceReportView = ({
                 />
               )}
 
-              <Column
-                field="employee_name"
-                header="Employee Name"
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                headerStyle={{ whiteSpace: "pre-wrap", width: "125px" }}
-                body={(row) => <span>{row.employee_name || "-"}</span>}
-              />
-
-              {allDates.map((date) => {
-                const formattedDate = formatDate(date);
-
-                const dayName = date.toLocaleDateString("en-US", {
-                  weekday: "short",
-                });
-
-                const dayNumber = String(date.getDate()).padStart(2, "0");
-
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-
-                return (
-                  <Column
-                    key={formattedDate}
-                    header={
-                      <div
-                        style={{
-                          textAlign: "center",
-                          color: isWeekend ? "#dc3545" : "#495057",
-                          fontWeight: 600,
-                          lineHeight: "1.2",
-                        }}
-                      >
-                        <div>{dayName}</div>
-                        <div>{dayNumber}</div>
-                      </div>
-                    }
-                    headerStyle={{ textAlign: "center", width: "120px" }}
-                    bodyStyle={{ textAlign: "center" }}
-                    body={(rowData: IProcessAttendance) => {
-                      const attendance = rowData.presentDates.find(
-                        (a) => a.date == formattedDate,
-                      );
-                      if (!attendance) {
-                        return "-";
-                      }
-
-                      const statusId = attendance.day_status;
-                      const status = DAY_STATUS[statusId];
-
-                      const statusColor =
-                        status === "P"
-                          ? "green"
-                          : status === "A"
-                            ? "red"
-                            : status === "L"
-                              ? "orange"
-                              : status === "WO"
-                                ? "blue"
-                                : "black";
-
-                      return (
-                        <div
-                          style={{ cursor: "pointer" }} // 👈 pointer cursor
-                          onClick={() =>
-                            setDayDetailModal({
-                              visible: true,
-                              username: rowData.employee_name ?? "",
-                              date: formattedDate,
-                              displayDate: dayNumber,
-                              attendance: attendance,
-                              companyTeamInfo: {
-                                id: attendance?.employee_id,
-                                username: rowData.employee_name,
-                              },
-                            })
-                          }
-                        >
-                          <div style={{ color: statusColor, fontWeight: 600 }}>
-                            {status}
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                );
-              })}
-              <Column
-                field="total_working_time_sum"
-                header={
-                  <span>
-                    Total Working <br /> Time
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => row.total_working_time_sum}
-              />
-              <Column
-                field="net_working_hour_sum"
-                header={
-                  <span>
-                    Net Working <br /> Time
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => row.net_working_hour_sum}
-              />
-              <Column
-                field="roundoff_hour_sum"
-                header={
-                  <span>
-                    Round Off <br /> Hours
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => (row as any).roundoff_hour_sum ?? "00:00:00"}
-              />
-              <Column
-                field="regular_ot_hour_sum"
-                header={
-                  <span>
-                    Reg. OT <br /> Hours
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => (row as any).regular_ot_hour_sum ?? "00:00:00"}
-              />
-              <Column
-                field="extra_ot_hour_sum"
-                header={
-                  <span>
-                    Extra OT <br /> Hours
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => (row as any).extra_ot_hour_sum ?? "00:00:00"}
-              />
-              <Column
-                field="overtime_hour_sum"
-                header={
-                  <span>
-                    Total OT <br /> Hours
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-center"}
-                body={(row) => row.overtime_hour_sum}
-              />
-              <Column
-                field="present"
-                header={<span>Present</span>}
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.P}
-              />
-              <Column
-                field="half_day"
-                header={<span>Half Day</span>}
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.HD}
-              />
-              <Column
-                field="absent"
-                header={<span>Absent</span>}
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.A}
-              />
-              <Column
-                field="leave"
-                header={<span>Leave</span>}
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.L}
-              />
-              <Column
-                field="week_off"
-                header={<span>Week Off</span>}
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.WO}
-              />
-              <Column
-                field="holiday"
-                header={
-                  <span>
-                    Public <br /> Holiday
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) => rowData.status_count.PH}
-              />
-              <Column
-                field="work_on_week_off"
-                header={
-                  <span>
-                    Work On <br /> Week Off
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) =>
-                  rowData.status_count.WOWO
-                }
-              />
-              <Column
-                field="work_on_public_holiday"
-                header={
-                  <span>
-                    Work On <br /> Public Holiday
-                  </span>
-                }
-                headerStyle={{ width: "120px" }}
-                sortable
-                filter
-                filterPlaceholder="Search"
-                headerClassName="center-header"
-                bodyClassName={"text-end"}
-                body={(rowData: IProcessAttendance) =>
-                  rowData.status_count.WOPH
-                }
-              />
+              {visibleColumns.map((col) => (
+                <Column
+                  key={col.key}
+                  field={col.key}
+                  header={col.header}
+                  sortable={col.sortableCol !== false}
+                  filter={col.filterCol !== false}
+                  filterField={col.key}
+                  filterPlaceholder="Search"
+                  filterMatchMode={col.filterMatchMode || "contains"}
+                  headerStyle={{
+                    width: col.width || "150px",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                    background: "#f8f9fa",
+                    fontSize: "14px",
+                  }}
+                  bodyStyle={{
+                    fontSize: "14px",
+                    textAlign: isDateColumnKey(col.key) ? "center" : undefined,
+                  }}
+                  bodyClassName={col.bodyClassName}
+                  body={col.body}
+                />
+              ))}
             </DataTable>
           </div>
         </>

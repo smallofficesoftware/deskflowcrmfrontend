@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { openInNewTab } from "../../../common/SharedFunction";
+import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import "../../../components/model/ConfirmationModal.css";
 import {
   DEFAULT_STATUS_CODE_SUCCESS,
@@ -88,16 +89,21 @@ const TeamRightsView = ({
   show,
   onHide,
   companyTeamInfo,
+  companyTeamList,
 }: {
   show: boolean;
   onHide: () => void;
   companyTeamInfo: ICompanyTeam | undefined;
+  companyTeamList?: ICompanyTeam[];
 }) => {
   const [teamRightList, setTeamRightList] = useState<ITeamRights[]>([]);
   const [updatedPermissions, setUpdatedPermissions] = useState<{
     [key: number]: any;
   }>({});
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<ICompanyTeam[]>([]);
+  const [selectedSourceUserId, setSelectedSourceUserId] = useState<number | string>("");
+  const [isCopying, setIsCopying] = useState<boolean>(false);
 
   const fetchApiTeamRight = async () => {
     const getUUID = await localStorage.getItem("UUID");
@@ -124,9 +130,86 @@ const TeamRightsView = ({
     setSearchTerm(e.target.value);
   };
 
+  const fetchTeamMembers = async () => {
+    if (companyTeamList && companyTeamList.length > 0) {
+      setTeamMembers(companyTeamList);
+      return;
+    }
+    const token = await localStorage.getItem("token");
+    const GetID = await localStorage.getItem("UUID");
+    const companyId = localStorage.getItem("COMPANY_ID");
+    const targetCompanyId = companyId ? Number(companyId) : companyTeamInfo?.employee_id;
+    try {
+      const data = await axiosInstance.post(
+        "my-team",
+        { company_masters_id: targetCompanyId, searchTerm: "" },
+        {
+          headers: {
+            Authorization: `${token}`,
+            "x-tenant-id": `${GetID}`,
+            ...(companyId ? { "x-company-id": companyId } : {}),
+          },
+        }
+      );
+      if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setTeamMembers(data.data.data.item || []);
+      }
+    } catch {
+      // Non-critical fallback
+    }
+  };
+
+  const handleCopyFromUser = async (sourceUserId: number) => {
+    if (!sourceUserId) {
+      setSelectedSourceUserId("");
+      return;
+    }
+    setSelectedSourceUserId(sourceUserId);
+    setIsCopying(true);
+    const token = await localStorage.getItem("token");
+    try {
+      const response = await axiosInstance.post(
+        "getTeamRights",
+        { a_application_login_id: sourceUserId },
+        { headers: { Authorization: `${token}` } }
+      );
+      if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        const sourceRights: ITeamRights[] = response.data.data.item || [];
+        const newPermissionsMap: { [key: number]: any } = {};
+
+        teamRightList.forEach((targetItem) => {
+          const targetPageId = targetItem.page_id || targetItem.id;
+          const matchingSource = sourceRights.find(
+            (s) =>
+              (s.page_id && s.page_id === targetPageId) ||
+              s.id === targetItem.id ||
+              s.modual_name === targetItem.modual_name
+          );
+          if (matchingSource && matchingSource.a_page_id_rights_jason) {
+            newPermissionsMap[targetItem.id] = parseRights(matchingSource.a_page_id_rights_jason);
+          }
+        });
+
+        setUpdatedPermissions(newPermissionsMap);
+        const sourceUser = teamMembers.find((m) => m.id === sourceUserId);
+        toast.success(`Rights loaded from ${sourceUser?.username || "selected employee"}. Review and click Save.`);
+      } else {
+        toast.error(response.data.ack_msg || "Failed to fetch rights");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsCopying(false);
+    }
+  };
 
   useEffect(() => {
-    fetchApiTeamRight();
+    if (show) {
+      setSelectedSourceUserId("");
+      setUpdatedPermissions({});
+      fetchApiTeamRight();
+      fetchTeamMembers();
+    }
   }, [show]);
 
   const handleToggle = (
@@ -373,11 +456,23 @@ const TeamRightsView = ({
   const handleClose = () => {
     onHide();
     setUpdatedPermissions({});
+    setSelectedSourceUserId("");
   };
 
   const filteredTeamRightList = teamRightList.filter((item) =>
     item.modual_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const memberOptions = (teamMembers || [])
+    .filter((member) => member.id !== companyTeamInfo?.id)
+    .map((member) => ({
+      value: member.id,
+      label: member.username || `User #${member.id}`,
+    }));
+
+  const selectedMemberOption =
+    memberOptions.find((opt) => opt.value === selectedSourceUserId) || null;
+
   return (
     <React.Fragment>
       {show && (
@@ -399,22 +494,6 @@ const TeamRightsView = ({
               </div>
               <div className="col-4 d-flex justify-content-end align-items-center gap-3">
 
-                <p
-                  className="landing-page-text text-end"
-                  style={{ cursor: "pointer", color: "blue", fontSize: "13px" }}
-                  onClick={() => openInNewTab("/videoTutorial", 26)}
-                >
-                  Learn More :
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="24px"
-                    viewBox="0 -960 960 960"
-                    width="24px"
-                    fill="#0000FF"
-                  >
-                    <path d="M616-242q-27 1-51.5 1.5t-43.5.5h-41q-71 0-133-2-53-2-104.5-5.5T168-257q-26-7-45-26t-26-45q-6-23-9.5-56T82-447q-2-36-2-73t2-73q2-30 5.5-63t9.5-56q7-26 26-45t45-26q23-6 74.5-9.5T347-798q62-2 133-2t133 2q53 2 104.5 5.5T792-783q26 7 45 26t26 45q6 23 9.5 56t5.5 63q2 36 2 73v17q-19-8-39-12.5t-41-4.5q-83 0-141.5 58.5T600-320q0 21 4 40.5t12 37.5ZM400-400l208-120-208-120v240Zm360 200v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z" />
-                  </svg>
-                </p>
                 <span
                   className="close ms-3 pb-3"
                   onClick={onHide}
@@ -423,6 +502,117 @@ const TeamRightsView = ({
                   &times;
                 </span>
               </div>
+            </div>
+            <div
+              className="d-flex align-items-center justify-content-between my-2 p-2 rounded"
+              style={{
+                background: "var(--secondary, #f0f2f5)",
+                border: "1px solid var(--border-not, rgba(134, 150, 160, 0.2))",
+              }}
+            >
+              <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: "650px" }}>
+                <label
+                  className="form-label mb-0 fw-semibold d-flex align-items-center gap-1 text-nowrap"
+                  style={{ fontSize: "13px", color: "var(--h4, #111b21)" }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    fill="var(--modal-btn2, #f58634)"
+                    className="bi bi-copy"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"
+                    />
+                  </svg>
+                  Copy Rights From:
+                </label>
+                <div style={{ width: "300px" }}>
+                  <CustomSearchDropdown
+                    options={memberOptions}
+                    value={selectedMemberOption}
+                    onChange={(selected: any) => {
+                      if (selected?.value) {
+                        handleCopyFromUser(Number(selected.value));
+                      } else {
+                        setSelectedSourceUserId("");
+                      }
+                    }}
+                    placeholder="Search & select employee..."
+                    isDisabled={isCopying}
+                    styles={{
+                      control: (provided: any) => ({
+                        ...provided,
+                        minHeight: "34px",
+                        height: "34px",
+                        fontSize: "13px",
+                        borderRadius: "6px",
+                        border: "1px solid #ced4da",
+                        boxShadow: "none",
+                      }),
+                      valueContainer: (provided: any) => ({
+                        ...provided,
+                        padding: "0 8px",
+                      }),
+                      input: (provided: any) => ({
+                        ...provided,
+                        margin: "0px",
+                        fontSize: "13px",
+                      }),
+                      placeholder: (provided: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                        color: "#6c757d",
+                      }),
+                      singleValue: (provided: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                      }),
+                      option: (provided: any, state: any) => ({
+                        ...provided,
+                        fontSize: "13px",
+                        backgroundColor: state.isSelected
+                          ? "var(--modal-btn2, #f58634)"
+                          : state.isFocused
+                          ? "rgba(245, 134, 52, 0.12)"
+                          : "transparent",
+                        color: state.isSelected ? "#fff" : "#212529",
+                        cursor: "pointer",
+                      }),
+                    }}
+                  />
+                </div>
+                {isCopying && (
+                  <span className="spinner-border spinner-border-sm text-warning" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </span>
+                )}
+              </div>
+              {selectedSourceUserId ? (
+                <div className="d-flex align-items-center gap-1" style={{ fontSize: "12px", color: "var(--primary, #54656f)" }}>
+                  <span
+                    className="badge"
+                    style={{
+                      backgroundColor: "rgba(245, 134, 52, 0.15)",
+                      color: "var(--modal-btn2, #f58634)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    Rights Loaded
+                  </span>
+                  <span>Review or adjust permissions, then click <strong>Save</strong>.</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: "12px", color: "var(--primary, #54656f)" }}>
+                  <span>Select an employee above to copy all rights at once.</span>
+                </div>
+              )}
             </div>
             <div className="m-title-2 col-12">
               <div className="head">

@@ -19,9 +19,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -307,6 +309,13 @@ const ProductInventoryReport = ({
     }
   };
 
+  const handleRefresh = async () => {
+    hasMoreRef.current = true;
+    setCustomers([]);
+    setOffset(0);
+    loadMoreData(0);
+  };
+
   // Compute filtered & sorted data from customers
   const filteredData = useMemo(() => {
     let data = [...customers];
@@ -421,58 +430,29 @@ const ProductInventoryReport = ({
   };
 
   // Export & Print logic using filteredData
-  const exportColumns = [
-    { title: "Product Name", dataKey: "Product Name" },
-    { title: "Product Category", dataKey: "Product Category" },
-    { title: "Unit", dataKey: "Unit" },
-    { title: "Opening Stock", dataKey: "openingStock" },
-    { title: `${inwardTitle}`, dataKey: "inward" },
-    { title: `${purchaseTitle}`, dataKey: "purchase" },
-    { title: `${returnPurchaseTitle}`, dataKey: "returnPurchase" },
-    { title: `${dispatchTitle}`, dataKey: "dispatch" },
-    { title: `${invoiceTitle}`, dataKey: "sales" },
-    { title: `${returnSalesTitle}`, dataKey: "returnSales" },
-    {
-      title: `${stockAdjustmentInwardTitle}`,
-      dataKey: "stockAdjustmentInward",
-    },
-    {
-      title: `${stockAdjustmentOutwardTitle}`,
-      dataKey: "stockAdjustmentOutward",
-    },
-    { title: "Closing Stock", dataKey: "closingStock" },
-    { title: "Closing Stock Balance (With GST)", dataKey: "Closing Stock Balance" },
-    { title: "Closing Stock Rate", dataKey: "Closing Stock Rate" },
-  ];
-
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a3" });
     const dataToExport =
       selectedCustomers.length > 0 ? selectedCustomers : filteredData;
-    const tableData = dataToExport.map((customer) => ({
-      "Product Name": `${customer.name ?? "-"}${customer.code ? ` - ${customer.code}` : ""
-        }`,
-      "Product Category": customer.category_name ?? "-",
-      Unit: customer.item_unit_name ?? "-",
-      openingStock: customer.openingStock ?? "-",
-      inward: customer.inward ?? "-",
-      purchase: customer.purchase ?? "-",
-      returnPurchase: customer.returnPurchase ?? "-",
-      dispatch: customer.dispatch ?? "-",
-      sales: customer.sales ?? "-",
-      returnSales: customer.returnSales ?? "-",
-      stockAdjustmentInward: customer.stockAdjustmentInward ?? "-",
-      stockAdjustmentOutward: customer.stockAdjustmentOutward ?? "-",
-      closingStock: customer.closingStock ?? "-",
-      "Closing Stock Balance": customer.total_closing_stock_value ?? "-",
-      "Closing Stock Rate": customer.total_closing_stock_rate ?? "-",
-    }));
 
-    if (tableData.length === 0) {
+    if (dataToExport.length === 0) {
       doc.text("No data available to export", 10, 10);
       doc.save(`product_inventory_${new Date().getTime()}.pdf`);
       return;
     }
+
+    const tableData = dataToExport.map((customer) => {
+      const rowData: any = {};
+      visibleColumns.forEach((col) => {
+        rowData[col.key] = getExportCellValue(col, customer);
+      });
+      return rowData;
+    });
+
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
+    }));
 
     autoTable(doc, {
       columns: exportColumns,
@@ -509,7 +489,6 @@ const ProductInventoryReport = ({
   //     "Closing Stock": customer.closingStock ?? "-",
   //   }));
 
-  //   const worksheet = xlsx.utils.json_to_sheet(exportData);
   //   worksheet["!cols"] = [
   //     { wpx: 150 },
   //     { wpx: 150 },
@@ -564,44 +543,15 @@ const ProductInventoryReport = ({
       const exportData = (
         selectedCustomers.length > 0 ? selectedCustomers : allItems
       ).map((customer) => {
-        const closing_stock_balance = customer.total_closing_stock_value ?? "-";
-        const closing_stock_rate = customer.total_closing_stock_rate ?? "-";
-
-        return {
-          "Product Name": `${customer.name ?? "-"}${customer.code ? ` - ${customer.code}` : ""
-            }`,
-          "Product Category": customer.category_name ?? "-",
-          Unit: customer.item_unit_name ?? "-",
-          "Opening Stock": customer.openingStock ?? "-",
-          [inwardTitle as string]: customer.inward ?? "-",
-          [purchaseTitle as string]: customer.purchase ?? "-",
-          [returnPurchaseTitle as string]: customer.returnPurchase ?? "-",
-          [dispatchTitle as string]: customer.dispatch ?? "-",
-          [invoiceTitle as string]: customer.sales ?? "-",
-          [returnSalesTitle as string]: customer.returnSales ?? "-",
-          [stockAdjustmentInwardTitle as string]:
-            customer.stockAdjustmentInward ?? "-",
-          [stockAdjustmentOutwardTitle as string]:
-            customer.stockAdjustmentOutward ?? "-",
-          "Closing Stock": customer.closingStock ?? "-",
-          "Closing Stock Balance (With GST)": closing_stock_balance ?? "-",
-          "Closing Stock Rate": closing_stock_rate ?? "-",
-        };
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, customer);
+        });
+        return row;
       });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = [
-        { wpx: 150 },
-        { wpx: 150 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-        { wpx: 120 },
-      ];
+      worksheet["!cols"] = visibleColumns.map(() => ({ wpx: 120 }));
 
       const workbook = {
         Sheets: { Inventory: worksheet },
@@ -651,21 +601,7 @@ const ProductInventoryReport = ({
           <table>
             <thead>
               <tr>
-                <th>Product Name</th>
-                <th>Product Category</th>
-                <th>Unit</th>
-                <th>Opening Stock</th>
-                <th>${inwardTitle}</th>
-                <th>${purchaseTitle}</th>
-                <th>${returnPurchaseTitle}</th>
-                <th>${dispatchTitle}</th>
-                <th>${invoiceTitle}</th>
-                <th>${returnSalesTitle}</th>
-                <th>${stockAdjustmentInwardTitle}</th>
-                <th>${stockAdjustmentOutwardTitle}</th>
-                <th>Closing Stock</th>
-                <th>Closing Stock Balance (With GST)</th>
-                <th>Closing Stock Rate</th>
+                ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -673,22 +609,9 @@ const ProductInventoryReport = ({
         .map(
           (customer) => `
                 <tr>
-                  <td>${customer.name ?? "-"}${customer.code ? `- ${customer.code}` : ""
-            }</td>
-                  <td>${customer.category_name ?? "-"}</td>
-                  <td>${customer.item_unit_name ?? "-"}</td>
-                  <td>${customer.openingStock ?? "-"}</td>
-                  <td>${customer.inward ?? "-"}</td>
-                  <td>${customer.purchase ?? "-"}</td>
-                  <td>${customer.returnPurchase ?? "-"}</td>
-                  <td>${customer.dispatch ?? "-"}</td>
-                  <td>${customer.sales ?? "-"}</td>
-                  <td>${customer.returnSales ?? "-"}</td>
-                  <td>${customer.stockAdjustmentInward ?? "-"}</td>
-                  <td>${customer.stockAdjustmentOutward ?? "-"}</td>
-                  <td>${customer.closingStock ?? "-"}</td>
-                  <td>${customer.total_closing_stock_value ?? "-"}</td>
-                  <td>${customer.total_closing_stock_rate ?? "-"}</td>
+                  ${visibleColumns
+              .map((col) => `<td>${getExportCellValue(col, customer)}</td>`)
+              .join("")}
                 </tr>
               `,
         )
@@ -730,6 +653,163 @@ const ProductInventoryReport = ({
     );
   };
 
+  const renderHeader = (text: string) => (
+    <span className="custom-header-tooltip" data-pr-tooltip={text}>
+      {text}
+    </span>
+  );
+
+  type ProductInventoryColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    filterMatchMode?: string;
+    width?: string;
+    body: (rowData: IProductInventory) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ProductInventoryColumnDef[] = useMemo(
+    () => [
+      {
+        key: "name",
+        label: "Product Name",
+        header: renderHeader("Product Name"),
+        width: "130px",
+        body: (rowData) =>
+          `${rowData.name ?? "-"}${rowData.code ? `- ${rowData.code}` : ""}`,
+      },
+      {
+        key: "category_name",
+        label: "Product Category",
+        header: renderHeader("Product Category"),
+        width: "100px",
+        body: (rowData) => rowData.category_name ?? "-",
+      },
+      {
+        key: "item_unit_name",
+        label: "Unit",
+        header: renderHeader("Unit"),
+        width: "60px",
+        body: (rowData) => rowData.item_unit_name ?? "-",
+      },
+      {
+        key: "openingStock",
+        label: "Opening Stock",
+        header: renderHeader("Opening Stock"),
+        width: "90px",
+        body: (rowData) => rowData.openingStock ?? "-",
+      },
+      {
+        key: "inward",
+        label: String(inwardTitle),
+        header: renderHeader(String(inwardTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.inward ?? "-"}`,
+      },
+      {
+        key: "purchase",
+        label: String(purchaseTitle),
+        header: renderHeader(String(purchaseTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.purchase ?? "-"}`,
+      },
+      {
+        key: "returnPurchase",
+        label: String(returnPurchaseTitle),
+        header: renderHeader(String(returnPurchaseTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.returnPurchase ?? "-"}`,
+      },
+      {
+        key: "dispatch",
+        label: String(dispatchTitle),
+        header: renderHeader(String(dispatchTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.dispatch ?? "-"}`,
+      },
+      {
+        key: "sales",
+        label: String(invoiceTitle),
+        header: renderHeader(String(invoiceTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.sales ?? "-"}`,
+      },
+      {
+        key: "returnSales",
+        label: String(returnSalesTitle),
+        header: renderHeader(String(returnSalesTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.returnSales ?? "-"}`,
+      },
+      {
+        key: "stockAdjustmentInward",
+        label: String(stockAdjustmentInwardTitle),
+        header: renderHeader(String(stockAdjustmentInwardTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.stockAdjustmentInward ?? "-"}`,
+      },
+      {
+        key: "stockAdjustmentOutward",
+        label: String(stockAdjustmentOutwardTitle),
+        header: renderHeader(String(stockAdjustmentOutwardTitle)),
+        width: "70px",
+        body: (rowData) => `${rowData.stockAdjustmentOutward ?? "-"}`,
+      },
+      {
+        key: "closingStock",
+        label: "Closing Stock",
+        header: renderHeader("Closing Stock"),
+        width: "70px",
+        body: closingStockBodyTemplate,
+      },
+      {
+        key: "total_closing_stock_value",
+        label: "Closing Stock Balance (With GST)",
+        header: renderHeader("Closing Stock Balance ( With GST )"),
+        width: "70px",
+        body: (rowData) => rowData.total_closing_stock_value ?? "-",
+      },
+      {
+        key: "total_closing_stock_rate",
+        label: "Closing Stock Rate",
+        header: renderHeader("Closing Stock Rate"),
+        width: "70px",
+        body: (rowData) => rowData.total_closing_stock_rate ?? "-",
+      },
+    ],
+    [
+      inwardTitle,
+      purchaseTitle,
+      returnPurchaseTitle,
+      dispatchTitle,
+      invoiceTitle,
+      returnSalesTitle,
+      stockAdjustmentInwardTitle,
+      stockAdjustmentOutwardTitle,
+    ],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("product_inventory_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: ProductInventoryColumnDef,
+    customer: IProductInventory,
+  ): string => {
+    switch (col.key) {
+      case "name":
+        return `${customer.name ?? "-"}${customer.code ? ` - ${customer.code}` : ""}`;
+      case "closingStock":
+        return String(customer.closingStock ?? "-");
+      default:
+        return String((customer as any)[col.key] ?? "-");
+    }
+  };
+
   if (error) {
     return (
       <div>
@@ -745,12 +825,6 @@ const ProductInventoryReport = ({
       </div>
     );
   }
-
-  const renderHeader = (text: string) => (
-    <span className="custom-header-tooltip" data-pr-tooltip={text}>
-      {text}
-    </span>
-  );
 
   return (
     <div>
@@ -942,6 +1016,27 @@ const ProductInventoryReport = ({
                 </li>
               </ul>
             </div>
+            <Button
+                icon="pi pi-refresh"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={handleRefresh}
+                tooltip="Refresh"
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1027,428 +1122,56 @@ const ProductInventoryReport = ({
             />
           )}
 
-          <Column
-            field="name"
-            header={renderHeader("Product Name")}
-            sortable
-            filter
-            filterField="name"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "130px",
-              maxWidth: "130px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IProductInventory) =>
-              `${rowData.name ?? "-"}${rowData.code ? `- ${rowData.code}` : ""}`
-            }
-          />
-          <Column
-            field="category_name"
-            header={renderHeader("Product Category")}
-            sortable
-            filter
-            filterField="category_name"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "100px",
-              maxWidth: "100px",
-            }}
-            bodyStyle={{ fontSize: "14px" }}
-            body={(rowData: IProductInventory) => rowData.category_name ?? "-"}
-          />
-          <Column
-            field="item_unit_name"
-            header={renderHeader("Unit")}
-            sortable
-            filter
-            filterField="item_unit_name"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "60px",
-              maxWidth: "60px",
-            }}
-            bodyStyle={{ fontSize: "14px", alignItems: "center" }}
-            body={(rowData: IProductInventory) => rowData.item_unit_name ?? "-"}
-          />
-          <Column
-            field="openingStock"
-            header={renderHeader("Opening Stock")}
-            sortable
-            filter
-            filterField="openingStock"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "90px",
-              maxWidth: "90px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-              // minWidth: "30px",
-              // width: "30px",
-              // maxWidth: "30px",
-            }}
-            body={(rowData: IProductInventory) => rowData.openingStock ?? "-"}
-          />
-          <Column
-            field="inward"
-            header={renderHeader(String(inwardTitle))}
-            sortable
-            filter
-            filterField="inward"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) => `${rowData.inward ?? "-"}`}
-          />
-          <Column
-            field="purchase"
-            header={renderHeader(String(purchaseTitle))}
-            sortable
-            filter
-            filterField="purchase"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) => `${rowData.purchase ?? "-"}`}
-          />
-          <Column
-            field="returnPurchase"
-            header={renderHeader(String(returnPurchaseTitle))}
-            sortable
-            filter
-            filterField="returnPurchase"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "left",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              `${rowData.returnPurchase ?? "-"}`
-            }
-          />
-          <Column
-            field="dispatch"
-            header={renderHeader(String(dispatchTitle))}
-            sortable
-            filter
-            filterField="dispatch"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) => `${rowData.dispatch ?? "-"}`}
-          />
-          <Column
-            field="sales"
-            header={renderHeader(String(invoiceTitle))}
-            sortable
-            filter
-            filterField="sales"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) => `${rowData.sales ?? "-"}`}
-          />
-          <Column
-            field="returnSales"
-            header={renderHeader(String(returnSalesTitle))}
-            sortable
-            filter
-            filterField="returnSales"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              `${rowData.returnSales ?? "-"}`
-            }
-          />
-          <Column
-            field="stockAdjustmentInward"
-            header={renderHeader(String(stockAdjustmentInwardTitle))}
-            sortable
-            filter
-            filterField="stockAdjustmentInward"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              `${rowData.stockAdjustmentInward ?? "-"}`
-            }
-          />
-          <Column
-            field="stockAdjustmentOutward"
-            header={renderHeader(String(stockAdjustmentOutwardTitle))}
-            sortable
-            filter
-            filterField="stockAdjustmentOutward"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "center",
-              // paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              `${rowData.stockAdjustmentOutward ?? "-"}`
-            }
-          />
-          <Column
-            field="closingStock"
-            header={renderHeader("Closing Stock")}
-            sortable
-            filter
-            filterField="closingStock"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "right",
-              paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={closingStockBodyTemplate}
-          />
-          <Column
-            field="total_closing_stock_value"
-            header={renderHeader("Closing Stock Balance ( With GST )")}
-            sortable
-            filter
-            filterField="total_closing_stock_value"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "right",
-              paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              rowData.total_closing_stock_value ?? "-"
-            }
-          />
-          <Column
-            field="total_closing_stock_rate"
-            header={renderHeader("Closing Stock Rate")}
-            sortable
-            filter
-            filterField="total_closing_stock_rate"
-            filterPlaceholder="Search"
-            headerClassName="center-header"
-            filterMatchMode="contains"
-            headerStyle={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              // textAlign: "right",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap",
-            }}
-            style={{
-              minWidth: "70px",
-              maxWidth: "70px",
-            }}
-            bodyStyle={{
-              textAlign: "right",
-              paddingRight: "50px",
-              fontSize: "14px",
-            }}
-            body={(rowData: IProductInventory) =>
-              rowData.total_closing_stock_rate ?? "-"
-            }
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode={col.filterMatchMode || "contains"}
+              headerStyle={{
+                width: col.width || "150px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{
+                fontSize: "14px",
+                textAlign: [
+                  "openingStock",
+                  "inward",
+                  "purchase",
+                  "returnPurchase",
+                  "dispatch",
+                  "sales",
+                  "returnSales",
+                  "stockAdjustmentInward",
+                  "stockAdjustmentOutward",
+                ].includes(col.key)
+                  ? "center"
+                  : [
+                    "closingStock",
+                    "total_closing_stock_value",
+                    "total_closing_stock_rate",
+                  ].includes(col.key)
+                    ? "right"
+                    : undefined,
+                paddingRight: [
+                  "closingStock",
+                  "total_closing_stock_value",
+                  "total_closing_stock_rate",
+                ].includes(col.key)
+                  ? "50px"
+                  : undefined,
+              }}
+              body={col.body}
+            />
+          ))}
         </DataTable>
       </div>
       <small style={{ color: "#888", display: "block", marginTop: "1rem" }}>

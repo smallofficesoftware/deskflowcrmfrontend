@@ -14,14 +14,19 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { VirtualScrollerState } from "primereact/virtualscroller";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -445,6 +450,13 @@ const ProductPendingView = ({
     }
   };
 
+  const handleRefresh = async () => {
+    currentOffset.current = 0;
+    setHasMore(true);
+    setCustomers([]);
+    loadTasks(0, 50, true);
+  };
+
   const isFilterApplied = () => {
     return Object.values(lazyState.filters).some(
       (filter) =>
@@ -594,16 +606,282 @@ const ProductPendingView = ({
     }
   };
 
-  const exportColumns = [
-    { title: `Product Name`, dataKey: "item_product_name" },
-    { title: `Product Category`, dataKey: "item_category_name" },
-    { title: `${orderTitle}`, dataKey: "salesorder" },
-    { title: `${invoiceTitle}`, dataKey: "salesinvoice" },
-    { title: `Pending Sales`, dataKey: "pending_sales" },
-    { title: `${purchaseTitle}`, dataKey: "purchaseinvoice" },
-    { title: `${purchaseOrderTitle}`, dataKey: "purchaseorder" },
-    { title: `Pending Purchase`, dataKey: "pending_purchase" },
-  ];
+  type ProductPendingColumnDef = ColumnDef & {
+    header: React.ReactNode;
+    headerStyleOverride: React.CSSProperties;
+    bodyStyleOverride?: React.CSSProperties;
+    styleOverride?: React.CSSProperties;
+    footer?: React.ReactNode | (() => React.ReactNode);
+    footerStyle?: React.CSSProperties;
+    body: (rowData: IProductSalesData) => React.ReactNode;
+  };
+
+  const baseColumnDefs: ProductPendingColumnDef[] = useMemo(
+    () => [
+      {
+        key: "item_product_name",
+        label: "Product Name",
+        header: (
+          <span>
+            Product <br /> Name
+          </span>
+        ),
+        headerStyleOverride: {
+          width: "150px",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+        },
+        body: (rowData: IProductSalesData) =>
+          `${rowData.item_product_name ?? "-"}${rowData.item_product_code ? `- ${rowData.item_product_code}` : ""}`,
+        footer: "Total",
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f8f9fa",
+        },
+      },
+      {
+        key: "item_category_name",
+        label: "Product Category",
+        header: (
+          <span>
+            Product <br /> Category
+          </span>
+        ),
+        headerStyleOverride: {
+          width: "125px",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+        },
+        body: (rowData: IProductSalesData) =>
+          `${rowData.item_category_name ?? "-"}`,
+      },
+      {
+        key: "salesorder",
+        label: orderTitle,
+        header: `${orderTitle.replace(/ /g, "\n")}`,
+        styleOverride: { background: "#d7e8f8ff" },
+        headerStyleOverride: {
+          width: "125px",
+          whiteSpace: "pre-wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.salesorder ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "salesorder",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "salesinvoice",
+        label: invoiceTitle,
+        header: `${invoiceTitle.replace(/ /g, "\n")}`,
+        styleOverride: { background: "#d7e8f8ff" },
+        headerStyleOverride: {
+          width: "125px",
+          whiteSpace: "pre-wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.salesinvoice ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "salesinvoice",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "pending_sales",
+        label: "Pending Sales",
+        header: (
+          <span>
+            Pending <br /> Sales
+          </span>
+        ),
+        styleOverride: { background: "#d7e8f8ff" },
+        headerStyleOverride: {
+          width: "125px",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.pending_sales ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "pending_sales",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#d7e8f8ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "purchaseorder",
+        label: purchaseOrderTitle,
+        header: `${purchaseOrderTitle.replace(/ /g, "\n")}`,
+        styleOverride: { background: "#f1f8d7ff" },
+        headerStyleOverride: {
+          width: "125px",
+          whiteSpace: "pre-wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.purchaseorder ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "purchaseorder",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "purchaseinvoice",
+        label: purchaseTitle,
+        header: `${purchaseTitle.replace(/ /g, "\n")}`,
+        styleOverride: { background: "#f1f8d7ff" },
+        headerStyleOverride: {
+          width: "125px",
+          whiteSpace: "pre-wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.purchaseinvoice ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "purchaseinvoice",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+      {
+        key: "pending_purchase",
+        label: "Pending Purchase",
+        header: (
+          <span>
+            Pending <br /> Purchase
+          </span>
+        ),
+        styleOverride: { background: "#f1f8d7ff" },
+        headerStyleOverride: {
+          width: "125px",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+        },
+        bodyStyleOverride: { textAlign: "right" },
+        body: (rowData: IProductSalesData) => rowData.pending_purchase ?? "-",
+        footer: () =>
+          calculateColumnTotals(
+            isFilterApplied() ? customers : dataArray,
+            "pending_purchase",
+          ),
+        footerStyle: {
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+          background: "#f1f8d7ff",
+          textAlign: "right",
+        },
+      },
+    ],
+    [
+      orderTitle,
+      invoiceTitle,
+      purchaseOrderTitle,
+      purchaseTitle,
+      customers,
+      dataArray,
+    ],
+  );
+
+  const {
+    visibleColumns,
+    orderedColumns,
+    hiddenKeys,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+  } = useColumnPreferences("product_pending_report", baseColumnDefs);
+
+  const getExportCellValue = (
+    col: { key: string },
+    item: any,
+    format: "pdf" | "excel" | "print" = "pdf",
+  ): string => {
+    let value: string;
+    switch (col.key) {
+      case "item_product_name":
+        value = `${item.item_product_name ?? "-"}${item.item_product_code ? ` - ${item.item_product_code}` : ""}`;
+        break;
+      case "item_category_name":
+        value = item.item_category_name ?? "-";
+        break;
+      default:
+        value = item[col.key] ?? "-";
+    }
+    return format === "pdf" ? value.replace(/₹/g, "INR") : value;
+  };
+
+  const getExportTotalValue = (
+    col: { key: string },
+    dataToExport: any[],
+    format: "pdf" | "excel" | "print" = "pdf",
+  ): string => {
+    if (col.key === "item_product_name") return "Total";
+    if (col.key === "item_category_name") return "";
+    const total = calculateColumnTotals(dataToExport, col.key);
+    return format === "pdf" ? total.replace(/₹/g, "INR") : total;
+  };
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
@@ -614,45 +892,18 @@ const ProductPendingView = ({
           ? customers
           : dataArray;
 
-    const tableData = dataToExport.map((customer) => ({
-      item_product_name: `${customer.item_product_name ?? "-"}${customer.item_product_code ? ` - ${customer.item_product_code}` : ""}`,
-      item_category_name: `${customer.item_category_name ?? "-"}`,
-      salesorder: (customer.salesorder ?? "-").replace(/₹/g, "INR"),
-      salesinvoice: (customer.salesinvoice ?? "-").replace(/₹/g, "INR"),
-      pending_sales: (customer.pending_sales ?? "-").replace(/₹/g, "INR"),
-      purchaseinvoice: (customer.purchaseinvoice ?? "-").replace(/₹/g, "INR"),
-      purchaseorder: (customer.purchaseorder ?? "-").replace(/₹/g, "INR"),
-      pending_purchase: (customer.pending_purchase ?? "-").replace(/₹/g, "INR"),
+    const exportColumns = visibleColumns.map((col) => ({
+      title: col.label,
+      dataKey: col.key,
     }));
 
-    const totals = {
-      item_product_name: "Total",
-      item_category_name: "",
-      salesorder: calculateColumnTotals(dataToExport, "salesorder").replace(
-        /₹/g,
-        "INR",
-      ),
-      salesinvoice: calculateColumnTotals(dataToExport, "salesinvoice").replace(
-        /₹/g,
-        "INR",
-      ),
-      pending_sales: calculateColumnTotals(
-        dataToExport,
-        "pending_sales",
-      ).replace(/₹/g, "INR"),
-      purchaseinvoice: calculateColumnTotals(
-        dataToExport,
-        "purchaseinvoice",
-      ).replace(/₹/g, "INR"),
-      purchaseorder: calculateColumnTotals(
-        dataToExport,
-        "purchaseorder",
-      ).replace(/₹/g, "INR"),
-      pending_purchase: calculateColumnTotals(
-        dataToExport,
-        "pending_purchase",
-      ).replace(/₹/g, "INR"),
-    };
+    const tableData = dataToExport.map((customer) => {
+      const row: any = {};
+      visibleColumns.forEach((col) => {
+        row[col.key] = getExportCellValue(col, customer, "pdf");
+      });
+      return row;
+    });
 
     if (tableData.length === 0) {
       doc.text("No data available to export", 10, 10);
@@ -660,6 +911,10 @@ const ProductPendingView = ({
       return;
     }
 
+    const totals: any = {};
+    visibleColumns.forEach((col) => {
+      totals[col.key] = getExportTotalValue(col, dataToExport, "pdf");
+    });
     tableData.push(totals);
 
     autoTable(doc, {
@@ -774,18 +1029,31 @@ const ProductPendingView = ({
           : isFilterApplied()
             ? customers
             : dataArray
-      ).map((item) => ({
-        "Product Name": `${item.item_product_name || "-"}${
-          item.item_product_code ? ` - ${item.item_product_code}` : ""
-        }`,
-        "Product Category": item.item_category_name || "-",
-        Quotation: item.quotation || "-",
-        Order: item.salesorder || "-",
-        Invoice: item.salesinvoice || "-",
-        "Purchase Order": item.purchaseorder || "-",
-        "Purchase Invoice": item.purchaseinvoice || "-",
-        "Pending Purchase": item.pending_purchase || "-",
-      }));
+      ).map((item) => {
+        const row: any = {};
+        visibleColumns.forEach((col) => {
+          row[col.label] = getExportCellValue(col, item, "excel");
+        });
+        return row;
+      });
+
+      // ✅ Totals row
+      exportData.push({
+        "Product Name": "Total",
+        "Product Category": "",
+        Quotation: calculateColumnTotals(exportData, "Quotation"),
+        Order: calculateColumnTotals(exportData, "Order"),
+        Invoice: calculateColumnTotals(exportData, "Invoice"),
+        "Purchase Order": calculateColumnTotals(exportData, "Purchase Order"),
+        "Purchase Invoice": calculateColumnTotals(
+          exportData,
+          "Purchase Invoice",
+        ),
+        "Pending Purchase": calculateColumnTotals(
+          exportData,
+          "Pending Purchase",
+        ),
+      });
 
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
@@ -837,14 +1105,7 @@ const ProductPendingView = ({
           ? customers
           : dataArray;
 
-    const totals = {
-      salesorder: calculateColumnTotals(dataToExport, "salesorder"),
-      salesinvoice: calculateColumnTotals(dataToExport, "salesinvoice"),
-      pending_sales: calculateColumnTotals(dataToExport, "pending_sales"),
-      purchaseinvoice: calculateColumnTotals(dataToExport, "purchaseinvoice"),
-      purchaseorder: calculateColumnTotals(dataToExport, "purchaseorder"),
-      pending_purchase: calculateColumnTotals(dataToExport, "pending_purchase"),
-    };
+    const leftAlignedKeys = ["item_product_name", "item_category_name"];
 
     const printContent = `
       <html>
@@ -864,14 +1125,13 @@ const ProductPendingView = ({
           <table>
             <thead>
               <tr>
-                <th>Product Name</th>
-                <th>Product Category</th>
-                <th style="text-align: right; padding-right: 50px;">Order</th>
-                <th style="text-align: right; padding-right: 50px;">Invoice</th>
-                <th style="text-align: right; padding-right: 50px;">Pending Sales</th>
-                <th style="text-align: right; padding-right: 50px;">Purchase Invoice</th>
-                <th style="text-align: right; padding-right: 50px;">Purchase Order</th>
-                <th style="text-align: right; padding-right: 50px;">Pending Purchase</th>
+                ${visibleColumns
+                  .map((col) =>
+                    leftAlignedKeys.includes(col.key)
+                      ? `<th>${col.label}</th>`
+                      : `<th style="text-align: right; padding-right: 50px;">${col.label}</th>`,
+                  )
+                  .join("")}
               </tr>
             </thead>
             <tbody>
@@ -879,29 +1139,27 @@ const ProductPendingView = ({
                 .map(
                   (customer) => `
                 <tr>
-                  <td>${customer.item_product_name ?? "-"}${customer.item_product_code ? `- ${customer.item_product_code}` : ""}</td>
-                  <td>${customer.item_category_name ?? "-"}</td>
-                  <td class="text-right">${customer.salesorder ?? "-"}</td>
-                  <td class="text-right">${customer.salesinvoice ?? "-"}</td>
-                  <td class="text-right">${customer.pending_sales ?? "-"}</td>
-                  <td class="text-right">${customer.purchaseinvoice ?? "-"}</td>
-                  <td class="text-right">${customer.purchaseorder ?? "-"}</td>
-                  <td class="text-right">${
-                    customer.pending_purchase ?? "-"
-                  }</td>
+                  ${visibleColumns
+                    .map((col) =>
+                      leftAlignedKeys.includes(col.key)
+                        ? `<td>${getExportCellValue(col, customer, "print")}</td>`
+                        : `<td class="text-right">${getExportCellValue(col, customer, "print")}</td>`,
+                    )
+                    .join("")}
                 </tr>
               `,
                 )
                 .join("")}
               <tr class="total-row">
-                <td>Total</td>
-                <td></td>
-                <td class="text-right">${totals.salesorder}</td>
-                <td class="text-right">${totals.salesinvoice}</td>
-                <td class="text-right">${totals.pending_sales}</td>
-                <td class="text-right">${totals.purchaseinvoice}</td>
-                <td class="text-right">${totals.purchaseorder}</td>
-                <td class="text-right">${totals.pending_purchase}</td>
+                ${visibleColumns
+                  .map((col) =>
+                    col.key === "item_product_name"
+                      ? `<td>Total</td>`
+                      : col.key === "item_category_name"
+                        ? `<td></td>`
+                        : `<td class="text-right">${getExportTotalValue(col, dataToExport, "print")}</td>`,
+                  )
+                  .join("")}
               </tr>
             </tbody>
           </table>
@@ -1124,6 +1382,29 @@ const ProductPendingView = ({
                 </li>
               </ul>
             </div>
+
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleRefresh}
+              tooltip="Refresh"
+              tooltipOptions={{
+                position: "top",
+                style: {
+                  fontSize: "14px",
+                },
+              }}
+            />
+
+            <ColumnsButton
+              columns={orderedColumns}
+              hiddenKeys={hiddenKeys}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetColumns}
+            />
           </div>
         </div>
         {/* )} */}
@@ -1199,289 +1480,24 @@ const ProductPendingView = ({
             />
           )}
 
-          <Column
-            field="item_product_name"
-            header={
-              <span>
-                Product <br /> Name
-              </span>
-            }
-            sortable
-            filter
-            filterField="item_product_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "150px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={(rowData: IProductSalesData) =>
-              `${rowData.item_product_name ?? "-"}${rowData.item_product_code ? `- ${rowData.item_product_code}` : ""}`
-            }
-            footer="Total"
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f8f9fa",
-            }}
-          />
-          <Column
-            field="item_category_name"
-            header={
-              <span>
-                Product <br /> Category
-              </span>
-            }
-            sortable
-            filter
-            filterField="item_category_name"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-            body={(rowData: IProductSalesData) =>
-              `${rowData.item_category_name ?? "-"}`
-            }
-          />
-
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="salesorder"
-            header={`${orderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesorder"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-            }}
-            body={(rowData: IProductSalesData) => rowData.salesorder ?? "-"}
-            bodyStyle={{
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "salesorder",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="salesinvoice"
-            header={`${invoiceTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="salesinvoice"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IProductSalesData) => rowData.salesinvoice ?? "-"}
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "salesinvoice",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-              // paddingBlock: "10px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#d7e8f8ff",
-            }}
-            field="pending_sales"
-            header={
-              <span>
-                Pending <br /> Sales
-              </span>
-            }
-            sortable
-            filter
-            filterField="pending_sales"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IProductSalesData) => rowData.pending_sales ?? "-"}
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "pending_sales",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#d7e8f8ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-              // paddingBlock: "10px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="purchaseorder"
-            header={`${purchaseOrderTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseorder"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IProductSalesData) => rowData.purchaseorder ?? "-"}
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "purchaseorder",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="purchaseinvoice"
-            header={`${purchaseTitle.replace(/ /g, "\n")}`}
-            sortable
-            filter
-            filterField="purchaseinvoice"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              whiteSpace: "pre-wrap",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IProductSalesData) =>
-              rowData.purchaseinvoice ?? "-"
-            }
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "purchaseinvoice",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
-          <Column
-            style={{
-              background: "#f1f8d7ff",
-            }}
-            field="pending_purchase"
-            header={
-              <span>
-                Pending <br /> Purchase
-              </span>
-            }
-            sortable
-            filter
-            filterField="pending_purchase"
-            filterPlaceholder="Search"
-            filterMatchMode="contains"
-            headerStyle={{
-              width: "125px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-            }}
-            bodyStyle={{ textAlign: "right" }}
-            body={(rowData: IProductSalesData) =>
-              rowData.pending_purchase ?? "-"
-            }
-            footer={() =>
-              calculateColumnTotals(
-                isFilterApplied() ? customers : dataArray,
-                "pending_purchase",
-              )
-            }
-            footerStyle={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 1,
-              background: "#f1f8d7ff",
-              textAlign: "right",
-              // paddingRight: "50px",
-            }}
-          />
+          {visibleColumns.map((col) => (
+            <Column
+              key={col.key}
+              style={col.styleOverride}
+              field={col.key}
+              header={col.header}
+              sortable
+              filter
+              filterField={col.key}
+              filterPlaceholder="Search"
+              filterMatchMode="contains"
+              headerStyle={col.headerStyleOverride}
+              bodyStyle={col.bodyStyleOverride}
+              body={col.body}
+              footer={col.footer}
+              footerStyle={col.footerStyle}
+            />
+          ))}
         </DataTable>
       </div>
       {isModalFilterVisible && (

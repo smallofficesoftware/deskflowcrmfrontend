@@ -91,7 +91,11 @@ const CheckBoxModal: React.FC<ICheckBoxModalProps> = ({
 
   useEffect(() => {
     const parsedLabelIds = selectedLabelIds
-      ? selectedLabelIds.split(",").map(Number)
+      ? typeof selectedLabelIds === "string"
+        ? selectedLabelIds.split(",").map(Number).filter(Boolean)
+        : Array.isArray(selectedLabelIds)
+          ? selectedLabelIds.map(Number)
+          : [Number(selectedLabelIds)]
       : [];
     setCheckedOptions(parsedLabelIds);
   }, [selectedLabelIds, contactId]);

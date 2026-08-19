@@ -8,13 +8,18 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
+import {
+  ColumnDef,
+  useColumnPreferences,
+} from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import AddStatesView from "../../../left-side/header/Setting/states/AddStatesView";
@@ -47,7 +52,8 @@ const AllStatesReport = ({
 
     const [isModalFilterVisible, setIsModalFilterVisible] =
         useState<boolean>(false);
-    const { filters, setFilters, setFilter } = useCommonFilterStore();
+    const { getFilter, setFilters, setFilter } = useCommonFilterStore();
+    const filters = getFilter("all_states_report");
     const [hasData, setHasData] = useState<boolean>(false);
     const [tablefilters, setTableFilters] = useState<DataTableFilterMeta>({
         state_name: {
@@ -238,10 +244,7 @@ const AllStatesReport = ({
 
     const handleApplyFilters = async (data: any) => {
         // 1. Send the raw data to the Zustand store
-        setFilters({
-            ...filters,
-            ...data // This contains the newly updated filterData from the modal
-        });
+        setFilters("all_states_report", data);
 
         // 2. Visual indicator that filters are active
         setHasData(Object.keys(data?.filterData || {}).length > 0);
@@ -311,6 +314,43 @@ const AllStatesReport = ({
         );
     }, [openDropdownId, canEdit, canDelete]);
 
+    type StatesColumnDef = ColumnDef & {
+        header: React.ReactNode;
+        width?: string;
+        filterMatchMode?: string;
+        body: (rowData: IStatesView) => React.ReactNode;
+    };
+
+    const baseColumnDefs: StatesColumnDef[] = useMemo(() => {
+        return [
+            {
+                key: "state_name",
+                label: "State Name",
+                header: <span>State Name</span>,
+                body: (rowData) => <span>{rowData.state_name}</span>,
+            },
+            {
+                key: "country_name",
+                label: "Country Name",
+                header: <span>Country Name</span>,
+                body: (rowData) => (
+                    <span>
+                        {(countriesList.find((c) => c.id === rowData.country_id))?.country_name}
+                    </span>
+                ),
+            },
+        ];
+    }, [countriesList]);
+
+    const {
+        visibleColumns,
+        orderedColumns,
+        hiddenKeys,
+        toggleColumn,
+        reorderColumns,
+        resetColumns,
+    } = useColumnPreferences("all_states_report", baseColumnDefs);
+
     return (
         <div>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
@@ -356,6 +396,29 @@ const AllStatesReport = ({
                             },
                         }}
                     />
+
+                    <Button
+                        icon="pi pi-refresh"
+                        className="report_button"
+                        style={{ backgroundColor: "#4C4C4C" }}
+                        rounded
+                        onClick={handleRefreshStates}
+                        tooltip="Refresh"
+                        tooltipOptions={{
+                            position: "top",
+                            style: {
+                                fontSize: "14px",
+                            },
+                        }}
+                    />
+
+                    <ColumnsButton
+                        columns={orderedColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                    />
                 </div>
             </div>
 
@@ -393,54 +456,28 @@ const AllStatesReport = ({
                         }}
                         body={actionBodyTemplate}
                     />
-                    <Column
-                        field="state_name"
-                        header={
-                            <span>
-                                State Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IStatesView) => {
-                            return (
-                                <span>
-                                    {rowData.state_name}
-                                </span>
-                            );
-                        }}
-                    />
-                    <Column
-                        field="country_name"
-                        header={
-                            <span>
-                                Country Name
-                            </span>
-                        }
-                        sortable
-                        filter
-                        filterPlaceholder="Search"
-                        filterMatchMode="contains"
-                        headerStyle={{
-                            background: "#f8f9fa",
-                            fontSize: "14px",
-                        }}
-                        bodyStyle={{ fontSize: "14px" }}
-                        body={(rowData: IStatesView) => {
-                            return (
-                                <span>
-                                    {(countriesList.find((c) => c.id === rowData.country_id))?.country_name}
-                                </span>
-                            );
-                        }}
-                    />
+                    {visibleColumns.map((col) => (
+                        <Column
+                            key={col.key}
+                            field={col.key}
+                            header={col.header}
+                            sortable
+                            filter
+                            filterField={col.key}
+                            filterPlaceholder="Search"
+                            filterMatchMode={col.filterMatchMode || "contains"}
+                            headerStyle={{
+                                width: col.width || "150px",
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 1,
+                                background: "#f8f9fa",
+                                fontSize: "14px",
+                            }}
+                            bodyStyle={{ fontSize: "14px" }}
+                            body={col.body}
+                        />
+                    ))}
                 </DataTable>
             </div>
             {isDeleteConfirmation && (

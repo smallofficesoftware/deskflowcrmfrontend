@@ -273,6 +273,44 @@ export const handleConvertIntoInvoice = async (
   }
 };
 
+export const handleConvertIntoProforma = async (
+  cartId: number | number[] | undefined,
+  cartNumber: string | string[],
+  setIsDeleteConfirmation: TReactSetState<boolean>,
+  setRefreshTransactions: TReactSetState<boolean>,
+  setIsConversionSuccess?: React.Dispatch<React.SetStateAction<boolean>>,
+  setNewCartID?: TReactSetState<any>,
+) => {
+  const token = localStorage.getItem("token");
+  const getUUID = localStorage.getItem("UUID");
+
+  try {
+    const { data } = await axiosInstance.post("covertOrderSystem", {
+      cart_id: cartId,
+      cart_type: 12,
+      request_flag: 1,
+      a_application_login_id: Number(getUUID),
+      reference_cart_number: cartNumber,
+      multiConvert: 1, // 1=> true 2=> False
+    });
+    if (data.code === 200) {
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setIsDeleteConfirmation(false);
+        setRefreshTransactions(true);
+        toast.success(data.ack_msg);
+        setIsConversionSuccess && setIsConversionSuccess(true);
+        setNewCartID && setNewCartID(data.data.item);
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } else {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  } catch (error: any) {
+    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
 export const handleConvertIntoPurchaseInvoice = async (
   cartId: number | number[] | undefined,
   cartNumber: string | string[],

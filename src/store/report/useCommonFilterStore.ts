@@ -49,6 +49,12 @@ export interface ReportsFilter {
   referenceWiseContact?: number;
   month?: number | string;
   year?: number | string;
+  leadAgingBucket?: string | null;
+  leadAgingActivityTypes?: string[] | null;
+  checkedOptionsTaskType?: any[];
+  checkedOptionsTaskassignOrNot?: any[];
+  checkedOptionsShowTemplateTask?: any[];
+  labelwiseContactShowAndOrNot?: number;
 }
 
 export const initialState: ReportsFilter = {
@@ -82,6 +88,12 @@ export const initialState: ReportsFilter = {
   referenceWiseContact: undefined,
   month: "",
   year: "",
+  leadAgingBucket: null,
+  leadAgingActivityTypes: [],
+  checkedOptionsTaskType: [],
+  checkedOptionsTaskassignOrNot: [],
+  checkedOptionsShowTemplateTask: [],
+  labelwiseContactShowAndOrNot: 0,
 };
 
 interface ReportsFilterState {
