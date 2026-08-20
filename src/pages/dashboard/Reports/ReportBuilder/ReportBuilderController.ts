@@ -181,6 +181,38 @@ export const deleteReportDefinition = async (id: number): Promise<boolean> => {
   }
 };
 
+export const exportReportExcel = async (id: number): Promise<string | null> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/export/excel`, {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.fileUrl;
+    reportError(data, "Failed to export Excel");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to export Excel");
+    return null;
+  }
+};
+
+export const exportReportPdf = async (
+  id: number,
+  options?: { template_id?: number; disposition?: "inline" | "attachment" },
+): Promise<string | null> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/export/pdf`, {
+      a_application_login_id: loginId(),
+      ...options,
+    });
+    if (data?.ack === 1) return data.data.fileUrl;
+    reportError(data, "Failed to export PDF");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to export PDF");
+    return null;
+  }
+};
+
 export const runReportDefinition = async (
   id: number,
   options?: { limit?: number; offset?: number },

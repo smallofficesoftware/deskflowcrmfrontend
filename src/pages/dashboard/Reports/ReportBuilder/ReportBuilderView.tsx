@@ -4,6 +4,8 @@ import PromptModal from "../../../../components/model/PromptModal";
 import {
   createReportDefinition,
   deleteReportDefinition,
+  exportReportExcel,
+  exportReportPdf,
   getModelRegistry,
   getPluginRegistry,
   IModelRegistryEntry,
@@ -15,6 +17,7 @@ import {
   updateReportDefinition,
   verifyReportPin,
 } from "./ReportBuilderController";
+import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
 // Operator choices per column type — mirrors queryEngine.js's ALLOWED_OPERATORS
@@ -79,6 +82,8 @@ const ReportBuilderView: React.FC = () => {
 
   const [runningId, setRunningId] = useState<number | null>(null);
   const [runResult, setRunResult] = useState<{ definitionId: number; rows: any[]; row_count: number; duration_ms: number } | null>(null);
+  const [exportingId, setExportingId] = useState<number | null>(null);
+  const [templatesForDef, setTemplatesForDef] = useState<IReportDefinition | null>(null);
 
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
@@ -200,6 +205,20 @@ const ReportBuilderView: React.FC = () => {
   };
 
   const runResultColumns = runResult && runResult.rows.length > 0 ? Object.keys(runResult.rows[0]) : [];
+
+  const handleExportExcel = async (definition: IReportDefinition) => {
+    setExportingId(definition.id);
+    const url = await exportReportExcel(definition.id);
+    setExportingId(null);
+    if (url) window.open(url, "_blank");
+  };
+
+  const handleExportPdf = async (definition: IReportDefinition) => {
+    setExportingId(definition.id);
+    const url = await exportReportPdf(definition.id);
+    setExportingId(null);
+    if (url) window.open(url, "_blank");
+  };
 
   return (
     <div style={{ padding: 20 }}>
@@ -471,6 +490,15 @@ const ReportBuilderView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(def)}>
                           Delete
                         </button>
+                        <button className="btn btn-sm btn-outline-success" disabled={exportingId === def.id} onClick={() => handleExportExcel(def)}>
+                          Excel
+                        </button>
+                        <button className="btn btn-sm btn-outline-dark" disabled={exportingId === def.id} onClick={() => handleExportPdf(def)}>
+                          PDF / Print
+                        </button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setTemplatesForDef(def)}>
+                          Manage Templates
+                        </button>
                       </td>
                     </tr>
                     {runResult && runResult.definitionId === def.id && (
@@ -512,6 +540,14 @@ const ReportBuilderView: React.FC = () => {
             </table>
           </div>
         </>
+      )}
+
+      {templatesForDef && (
+        <ReportPdfTemplateDesigner
+          docType={`report_${templatesForDef.id}`}
+          reportName={templatesForDef.name}
+          onClose={() => setTemplatesForDef(null)}
+        />
       )}
     </div>
   );
