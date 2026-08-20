@@ -105,6 +105,10 @@ interface IOrderCreateModal {
   show: boolean;
   onHide: () => void;
   handleSubmit: () => void;
+  /** Called after a conversion succeeds, with the target order type number.
+   *  e.g. Quotation(1) → Proforma(12): onConversionSuccess(12)
+   *  Optional — callers that don't need to redirect can omit it. */
+  onConversionSuccess?: (targetOrderType: number) => void;
   title: string;
   message: string;
   btn1: string;
@@ -133,6 +137,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   show,
   onHide,
   handleSubmit,
+  onConversionSuccess,
   title,
   message,
   btn1,
@@ -386,6 +391,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     selectedTrasactionMode: "",
     selectedMiracleLedger: "",
   });
+  const isApproveSubmittingRef = useRef(false);
   const [conversionType, setConversionType] = useState("");
   const [buttonLoading, setButtonloding] = useState(false);
   const [isEditPageUrlModalOpen, setIsEditPageUrlModalOpen] = useState(false);
@@ -430,6 +436,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   useEffect(() => {
     if (approveData.checkedOptions && approveData.checkedOptions.length > 0) {
+      // Guard: prevent duplicate submissions if approveData is still populated
+      // during a re-render that happens before the state resets.
+      if (isApproveSubmittingRef.current) return;
+      isApproveSubmittingRef.current = true;
+
       const shouldPrint = approveData.checkedOptions.includes("opt2");
       const shouldApprove = approveData.checkedOptions.includes("opt1");
       const approveSeries = approveData.selectedSeries?.value;
@@ -444,6 +455,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       const transaction_mode = approveData.selectedTrasactionMode || "";
       const selectedMiracleLedger_main =
         approveData.selectedMiracleLedger || "";
+
+      // Reset approveData immediately (all closure values are already captured
+      // in local variables above, so this is safe).
+      setApproveData({
+        checkedOptions: [],
+        dropdownValue: undefined,
+        selectedSeries: undefined,
+        customSeriesNumber: "",
+        customSeriesDate: undefined,
+        selectedTrasactionMode: "",
+        selectedMiracleLedger: "",
+      });
 
       if (shouldApprove) {
         onSubmit(
@@ -472,17 +495,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           syncWithMiracle,
         );
       }
-      setTimeout(() => {
-        setApproveData({
-          checkedOptions: [],
-          dropdownValue: undefined,
-          selectedSeries: undefined,
-          customSeriesNumber: "",
-          customSeriesDate: undefined,
-          selectedTrasactionMode: "",
-          selectedMiracleLedger: "",
-        });
-      }, 5000);
+    } else {
+      // Reset the guard once approveData is cleared, ready for next approval.
+      isApproveSubmittingRef.current = false;
     }
   }, [approveData]);
 
@@ -490,57 +505,77 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (isConversionSuccess && isOrderShowNum == 1) {
       if (conversionType === "proforma") {
         setnewOrderShowNumAfterConversion(12); // 1 = quotation => 12 = proforma invoice
+        onConversionSuccess?.(12);
       } else if (conversionType === "invoice") {
         setnewOrderShowNumAfterConversion(3); // 1 = quotation => 3 = sales invoice
+        onConversionSuccess?.(3);
       } else {
         setnewOrderShowNumAfterConversion(2); // 1 = quotation => 2 = sales order
+        onConversionSuccess?.(2);
       }
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3); // 1 = sales order => 3 = sales Invoice
-    } else if (isConversionSuccess && isOrderShowNum == 3) {
+      setnewOrderShowNumAfterConversion(3); // 2 = sales order => 3 = sales Invoice
+      onConversionSuccess?.(3);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum == 3 &&
+      conversionType === "returnSalesInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(6); // 3 = sales invoice => 6 = return sales invoice
-    } else if (isConversionSuccess && isOrderShowNum == 4) {
+      onConversionSuccess?.(6);
+    } else if (
+      isConversionSuccess &&
+      isOrderShowNum == 4 &&
+      conversionType === "returnPurchaseInvoice"
+    ) {
       setnewOrderShowNumAfterConversion(7); // 4 = purchase invoice => 7 = return purchase invoice
+      onConversionSuccess?.(7);
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 5 &&
       conversionType === "purchaseInvoice"
     ) {
-      setnewOrderShowNumAfterConversion(4); // 5 = purchase order =>  4 = purchase invoice
+      setnewOrderShowNumAfterConversion(4); // 5 = purchase order => 4 = purchase invoice
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum == 2 &&
       conversionType === "dispatch"
     ) {
-      setnewOrderShowNumAfterConversion(9); // 1 = sales order => 9 = Dispatch
+      setnewOrderShowNumAfterConversion(9); // 2 = sales order => 9 = Dispatch
+      onConversionSuccess?.(9);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 5 &&
       conversionType === "Inward"
     ) {
       setnewOrderShowNumAfterConversion(8); // 5 = purchase order => 8 = Inward
+      onConversionSuccess?.(8);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 9 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3); // 9 = Dispatch  => 3 = Invoice
+      setnewOrderShowNumAfterConversion(3); // 9 = Dispatch => 3 = Invoice
+      onConversionSuccess?.(3);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 8 &&
       conversionType === "purchaseInvoice"
     ) {
-      setnewOrderShowNumAfterConversion(4); // 8 = Inward  => 4 = purchase invoice
+      setnewOrderShowNumAfterConversion(4); // 8 = Inward => 4 = purchase invoice
+      onConversionSuccess?.(4);
     } else if (
       isConversionSuccess &&
       isOrderShowNum === 12 &&
       conversionType === "invoice"
     ) {
-      setnewOrderShowNumAfterConversion(3);
+      setnewOrderShowNumAfterConversion(3); // 12 = Proforma => 3 = Invoice
+      onConversionSuccess?.(3);
     }
   }, [isConversionSuccess]);
 
@@ -5863,6 +5898,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (true) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnPurchaseInvoice");
       setIsConvertPurchaseIntoReturnPurchaseInvoiceConfirmation(true);
     } else {
       setIsConvertPurchaseIntoReturnPurchaseInvoiceConfirmation(false);
@@ -5877,6 +5913,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (true) {
       setConverCartId(id);
       setConvertCartNumber(number);
+      setConversionType("returnSalesInvoice");
       setIsConvertIntoReturnSalesInvoiceConfirmation(true);
     } else {
       setIsConvertIntoReturnSalesInvoiceConfirmation(false);

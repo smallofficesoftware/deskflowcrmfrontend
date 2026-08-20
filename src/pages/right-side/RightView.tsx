@@ -6008,7 +6008,6 @@ const RightView = ({
                                     zIndex: "1",
                                     margin: "10px",
                                     position: "relative",
-                                    marginLeft: "0px",
                                   }}
                                 >
                                   <span>
@@ -6585,6 +6584,9 @@ const RightView = ({
                     setGetCompanyId,
                   );
                 }}
+                onConversionSuccess={(targetType) => {
+                  setIsOrderShowNum(targetType as ModuleType);
+                }}
               />
             ) : (
               ""
@@ -6850,6 +6852,11 @@ const RightView = ({
               show={isOrderShow}
               onHide={() => setIsOrderShow(false)}
               handleSubmit={() => setIsOrderShow(true)}
+              onConversionSuccess={(targetType) => {
+                setIsOrderShow(false);
+                setIsOrderShowNum(targetType as ModuleType);
+                setRefreshReport(true);
+              }}
               title={"Create"}
               message={"Please Enter Your Order Details"}
               btn1={"CANCEL"}
