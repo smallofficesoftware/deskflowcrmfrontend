@@ -14,15 +14,19 @@ export interface IFilterRow {
 
 interface ReportBuilderFormState {
   editingId: number | null;
-  type: "query" | "plugin";
+  type: "query" | "plugin" | "composite";
   name: string;
   modelKey: string;
   pluginKey: string;
   columns: IColumnPick[];
   filters: IFilterRow[];
   groupBy: string[];
+  // composite-type only — metric keys picked from metricsRegistry.js,
+  // dimension (team members) is fixed server-side, no column/filter/groupBy
+  // pickers apply.
+  metricKeys: string[];
 
-  setType: (type: "query" | "plugin") => void;
+  setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
   setModelKey: (key: string) => void;
   setPluginKey: (key: string) => void;
@@ -33,6 +37,7 @@ interface ReportBuilderFormState {
   updateFilterRow: (index: number, patch: Partial<IFilterRow>) => void;
   removeFilterRow: (index: number) => void;
   setFilterValue: (column: string, value: string) => void;
+  toggleMetric: (metricKey: string) => void;
   loadForEdit: (definition: IReportDefinition) => void;
   reset: () => void;
 }
@@ -53,8 +58,9 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   columns: [],
   filters: [],
   groupBy: [],
+  metricKeys: [],
 
-  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [] }),
+  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [] }),
   setName: (name) => set({ name }),
   setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [] }),
   setPluginKey: (pluginKey) => set({ pluginKey, filters: [] }),
@@ -96,7 +102,30 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
     }
   },
 
+  toggleMetric: (metricKey) =>
+    set((state) => ({
+      metricKeys: state.metricKeys.includes(metricKey) ? state.metricKeys.filter((k) => k !== metricKey) : [...state.metricKeys, metricKey],
+    })),
+
   loadForEdit: (definition) => {
+    // composite-type columns_json is already the metric-keys string array —
+    // no {column,op,value} shape to reconstruct, unlike query/plugin below.
+    if (definition.type === "composite") {
+      const metricKeys = JSON.parse(definition.columns_json || "[]");
+      set({
+        editingId: definition.id,
+        type: "composite",
+        name: definition.name,
+        modelKey: "",
+        pluginKey: "",
+        columns: [],
+        filters: [],
+        groupBy: [],
+        metricKeys,
+      });
+      return;
+    }
+
     const columns = JSON.parse(definition.columns_json || "[]");
     const groupBy = JSON.parse(definition.group_by_json || "[]");
     const rawFilters = JSON.parse(definition.filters_json || (definition.type === "plugin" ? "{}" : "[]"));
@@ -122,6 +151,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       columns,
       filters,
       groupBy,
+      metricKeys: [],
     });
   },
 
@@ -135,5 +165,6 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       columns: [],
       filters: [],
       groupBy: [],
+      metricKeys: [],
     }),
 }));

@@ -44,6 +44,11 @@ export interface IPluginRegistryEntry {
   filterSchema: IPluginFilterField[];
 }
 
+export interface IMetricEntry {
+  key: string;
+  label: string;
+}
+
 export interface IReportDefinition {
   id: number;
   name: string;
@@ -112,6 +117,20 @@ export const getPluginRegistry = async (): Promise<IPluginRegistryEntry[]> => {
   }
 };
 
+export const getMetricsRegistry = async (): Promise<IMetricEntry[]> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/metrics-registry", {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load metrics");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load metrics");
+    return [];
+  }
+};
+
 export const listReportDefinitions = async (): Promise<IReportDefinition[]> => {
   try {
     const { data } = await axiosInstance.post("report-definitions/list", {
@@ -128,9 +147,11 @@ export const listReportDefinitions = async (): Promise<IReportDefinition[]> => {
 
 export interface IReportDefinitionPayload {
   name: string;
-  type?: "query" | "plugin";
+  type?: "query" | "plugin" | "composite";
   model_key?: string;
   plugin_key?: string;
+  // query-type: [{column,aggregate?,alias?}]. plugin-type: {paramKey:value}.
+  // composite-type: string[] of metric keys (see metricsRegistry.js).
   columns_json: any;
   filters_json?: any;
   group_by_json?: any;

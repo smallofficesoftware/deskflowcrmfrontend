@@ -6,8 +6,10 @@ import {
   deleteReportDefinition,
   exportReportExcel,
   exportReportPdf,
+  getMetricsRegistry,
   getModelRegistry,
   getPluginRegistry,
+  IMetricEntry,
   IModelRegistryEntry,
   IPluginRegistryEntry,
   IReportColumn,
@@ -76,6 +78,7 @@ const ReportBuilderView: React.FC = () => {
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
   const [plugins, setPlugins] = useState<IPluginRegistryEntry[]>([]);
+  const [metrics, setMetrics] = useState<IMetricEntry[]>([]);
   const [definitions, setDefinitions] = useState<IReportDefinition[]>([]);
   const [loadingRegistry, setLoadingRegistry] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -90,9 +93,10 @@ const ReportBuilderView: React.FC = () => {
 
   const loadBuildData = async () => {
     setLoadingRegistry(true);
-    const [reg, plg, defs] = await Promise.all([getModelRegistry(), getPluginRegistry(), listReportDefinitions()]);
+    const [reg, plg, mtr, defs] = await Promise.all([getModelRegistry(), getPluginRegistry(), getMetricsRegistry(), listReportDefinitions()]);
     setRegistry(reg);
     setPlugins(plg);
+    setMetrics(mtr);
     setDefinitions(defs);
     setLoadingRegistry(false);
   };
@@ -121,7 +125,23 @@ const ReportBuilderView: React.FC = () => {
     setSaving(true);
 
     let created;
-    if (store.type === "plugin") {
+    if (store.type === "composite") {
+      if (store.metricKeys.length === 0) {
+        setSaving(false);
+        return;
+      }
+      // Dimension (team members) is fixed server-side — no model_key,
+      // filters, or group_by for this type. columns_json IS the metric-keys
+      // array itself, not [{column}] picks (see compositeEngine.js).
+      const payload = {
+        name: store.name.trim(),
+        type: "composite" as const,
+        columns_json: store.metricKeys,
+      };
+      created = store.editingId
+        ? await updateReportDefinition(store.editingId, payload)
+        : await createReportDefinition(payload);
+    } else if (store.type === "plugin") {
       if (!store.pluginKey) {
         setSaving(false);
         return;
@@ -270,6 +290,13 @@ const ReportBuilderView: React.FC = () => {
                   >
                     Plugin
                   </button>
+                  <button
+                    type="button"
+                    className={`btn ${store.type === "composite" ? "btn-primary" : "btn-outline-primary"}`}
+                    onClick={() => store.setType("composite")}
+                  >
+                    Team Metrics
+                  </button>
                 </div>
               </div>
               {store.type === "query" ? (
@@ -288,7 +315,7 @@ const ReportBuilderView: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              ) : (
+              ) : store.type === "plugin" ? (
                 <div className="col-md-4">
                   <select
                     className="form-select form-select-sm"
@@ -303,6 +330,12 @@ const ReportBuilderView: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : (
+                // composite — dimension (team members) is fixed server-side,
+                // no data-source picker needed, just the metric checkboxes below.
+                <div className="col-md-4 text-muted" style={{ fontSize: 12, alignSelf: "center" }}>
+                  One row per team member — pick metrics below.
                 </div>
               )}
             </div>
@@ -467,11 +500,40 @@ const ReportBuilderView: React.FC = () => {
               </div>
             )}
 
-            {((store.type === "query" && selectedModel) || (store.type === "plugin" && selectedPlugin)) && (
+            {store.type === "composite" && (
+              <div className="mb-2">
+                <strong style={{ fontSize: 13 }}>Metrics</strong>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
+                  {metrics.map((m) => (
+                    <label key={m.key} style={{ fontSize: 13, margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={store.metricKeys.includes(m.key)}
+                        onChange={() => store.toggleMetric(m.key)}
+                        style={{ marginRight: 4 }}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
+                <div className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  One row per team member you have rights to see; each picked metric becomes a column.
+                </div>
+              </div>
+            )}
+
+            {((store.type === "query" && selectedModel) ||
+              (store.type === "plugin" && selectedPlugin) ||
+              store.type === "composite") && (
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   className="btn btn-sm btn-primary"
-                  disabled={saving || !store.name.trim() || (store.type === "query" && store.columns.length === 0)}
+                  disabled={
+                    saving ||
+                    !store.name.trim() ||
+                    (store.type === "query" && store.columns.length === 0) ||
+                    (store.type === "composite" && store.metricKeys.length === 0)
+                  }
                   onClick={handleSave}
                 >
                   {saving ? "Saving..." : store.editingId ? "Update Report" : "Save Report"}
@@ -504,7 +566,7 @@ const ReportBuilderView: React.FC = () => {
                     <tr>
                       <td>{def.name}</td>
                       <td>{def.type}</td>
-                      <td>{def.type === "plugin" ? def.plugin_key : def.model_key}</td>
+                      <td>{def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key}</td>
                       <td style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-outline-primary" disabled={runningId === def.id} onClick={() => handleRun(def)}>
                           {runningId === def.id ? "Running..." : "Run"}
