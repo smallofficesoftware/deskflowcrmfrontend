@@ -144,7 +144,12 @@ export enum PAGE_ID {
   TARGET_VS_INCENTIVE_REPORT = 130,
   CUSTOMER_SALES_PURCHASE_REPORT = 131,
   ROUTE_PLANNER = 144,
-  DOCUMENT_DESIGNER_RIGHTS = 145,
+  REPORT_BUILDER = 145,
+  // Was 145 with no matching a_application_pages row at all (dangling
+  // reference — confirmed via DB check, MAX(id) was 144 before Report
+  // Builder's row claimed 145). Renumbered to 146, which needs its own
+  // real a_application_pages row inserted the same way 145 was.
+  DOCUMENT_DESIGNER_RIGHTS = 146,
 
   // Add more pages as needed
 }
