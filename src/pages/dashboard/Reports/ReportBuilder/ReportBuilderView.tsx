@@ -341,6 +341,30 @@ const ReportBuilderView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Whitelisted joins — select/display only, no aggregate,
+                    never appear in the filter/group-by pickers below (those
+                    only iterate selectedModel.columns, not .relations). */}
+                {selectedModel.relations && selectedModel.relations.length > 0 && (
+                  <div className="mb-2">
+                    {selectedModel.relations.map((rel) => (
+                      <div key={rel.key} style={{ marginBottom: 6 }}>
+                        <strong style={{ fontSize: 12, color: "#666" }}>Related: {rel.label}</strong>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
+                          {rel.columns.map((col: IReportColumn) => {
+                            const picked = store.columns.some((c) => c.column === col.key);
+                            return (
+                              <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
+                                <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                                {col.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mb-2">
                   <strong style={{ fontSize: 13 }}>Group by</strong>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>

@@ -14,10 +14,19 @@ export interface IReportColumn {
   aggregatable?: string[];
 }
 
+export interface IModelRelation {
+  key: string; // plain relation key, e.g. "customer" — each column below carries the dotted "customer.person_name" key
+  label: string;
+  columns: IReportColumn[];
+}
+
 export interface IModelRegistryEntry {
   key: string;
   label: string;
   columns: IReportColumn[];
+  // Whitelisted joins — select/display only (no filter/aggregate), see
+  // backend/src/services/report_builder/modelRegistry.js and queryEngine.js.
+  relations?: IModelRelation[];
 }
 
 export interface IPluginFilterField {
