@@ -7,11 +7,14 @@ const loginId = () => localStorage.getItem("UUID");
 export interface IReportColumn {
   key: string;
   label: string;
-  type: "string" | "number" | "currency" | "date" | "lookup";
+  type: "string" | "number" | "currency" | "date" | "lookup" | "csv";
   filterable?: boolean;
   sortable?: boolean;
   groupable?: boolean;
   aggregatable?: string[];
+  // Company-defined custom field (custom_field_form_masters), resolved
+  // fresh per company by the backend — not part of the fixed static schema.
+  dynamic?: boolean;
 }
 
 export interface IModelRelation {

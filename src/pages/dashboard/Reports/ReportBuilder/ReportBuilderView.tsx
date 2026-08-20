@@ -319,6 +319,7 @@ const ReportBuilderView: React.FC = () => {
                           <label style={{ fontSize: 13, margin: 0 }}>
                             <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
                             {col.label}
+                            {col.dynamic && <span className="badge bg-info text-dark ms-1" style={{ fontSize: 10 }}>Custom</span>}
                           </label>
                           {picked && col.aggregatable && col.aggregatable.length > 0 && (
                             <select
