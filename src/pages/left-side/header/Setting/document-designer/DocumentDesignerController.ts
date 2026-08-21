@@ -25,6 +25,20 @@ const handleError = (error: any, fallback: string) => {
   toast.error(error?.response?.data?.developer_msg || fallback);
 };
 
+export const verifyDocumentManagerPin = async (pin: string): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post("document-templates/verify-pin", {
+      pin,
+    });
+    if (data?.ack === 1) return true;
+    toast.error(data?.ack_msg || "Incorrect PIN");
+    return false;
+  } catch (error) {
+    handleError(error, "Incorrect PIN");
+    return false;
+  }
+};
+
 export const listDocumentTemplates = async (
   doc_type: string,
 ): Promise<IDocumentTemplateListItem[]> => {
