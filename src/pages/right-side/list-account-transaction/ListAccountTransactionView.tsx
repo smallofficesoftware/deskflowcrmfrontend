@@ -37,6 +37,7 @@ import {
 import CreateAccountTransactionView from "../create-account-transaction/CreateAccountTransactionView";
 import {
   contactAllTransactionDownloadPDf,
+  fetchAccountPdfmeTemplatesForPicker,
   fetchApiAccountTransitions,
   generateMiracleLedger,
   generateMiracleOutstanding,
@@ -242,13 +243,16 @@ const ListAccountTransactionView = ({
     };
   }, [currentPage, accountTransactionList.length, searchTerm, itemsPerPage]);
   const downloadAllTransactionOfContactPDF = async () => {
-    await contactAllTransactionDownloadPDf(
-      contactData?.id,
-      setIsAllPDFDownloadLoading,
-      filterParams.startSearchDate,
-      filterParams.endSearchDate,
-      filterParams.initialCheckedShowCreditData,
-      filterParams.initialCheckedShowDebitData,
+    await runWithTemplatePicker("accountStatement", (templateId) =>
+      contactAllTransactionDownloadPDf(
+        contactData?.id,
+        setIsAllPDFDownloadLoading,
+        filterParams.startSearchDate,
+        filterParams.endSearchDate,
+        filterParams.initialCheckedShowCreditData,
+        filterParams.initialCheckedShowDebitData,
+        templateId,
+      ),
     );
   };
 
@@ -256,7 +260,7 @@ const ListAccountTransactionView = ({
   // (download) already calls — already flag-aware server-side. Opens the
   // result in a popup and auto-prints instead of downloading.
   const [isStatementPrintLoading, setIsStatementPrintLoading] = useState(false);
-  const printAllTransactionStatement = async () => {
+  const doStatementPrint = async (documentTemplateId?: number) => {
     setIsStatementPrintLoading(true);
     try {
       const getUUID = localStorage.getItem("UUID");
@@ -267,6 +271,7 @@ const ListAccountTransactionView = ({
         endDate: filterParams.endSearchDate,
         creaditFilter: filterParams.initialCheckedShowCreditData,
         debitFilter: filterParams.initialCheckedShowDebitData,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
       if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -285,6 +290,9 @@ const ListAccountTransactionView = ({
     } finally {
       setIsStatementPrintLoading(false);
     }
+  };
+  const printAllTransactionStatement = () => {
+    runWithTemplatePicker("accountStatement", (templateId) => doStatementPrint(templateId));
   };
   const sendAllToWhatsApp = async () => {
     try {
@@ -612,19 +620,47 @@ const ListAccountTransactionView = ({
     }
   };
 
+  // Picker state shared by all 4 actions (print/download x per-record/
+  // statement) — same §7 rule as quotation's picker: only shown when
+  // document_designer is on AND the company has 2+ templates for that
+  // doc_type, otherwise the action just runs directly.
+  const [templateChoices, setTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const pendingActionRef = useRef<((templateId?: number) => void) | null>(null);
+  const runWithTemplatePicker = async (
+    docType: "accountStatement" | "accountTransaction",
+    action: (templateId?: number) => void,
+  ) => {
+    const choices = await fetchAccountPdfmeTemplatesForPicker(docType);
+    if (choices.length > 1) {
+      setTemplateChoices(choices);
+      pendingActionRef.current = action;
+    } else {
+      action(undefined);
+    }
+  };
+  const chooseTemplate = (templateId: number) => {
+    const action = pendingActionRef.current;
+    setTemplateChoices([]);
+    pendingActionRef.current = null;
+    if (action) action(templateId);
+  };
+
   // accountPDFv1 (backend) already switches between pdfme and the legacy
   // EJS renderer based on the document_designer feature flag — same
-  // endpoint PDFaccountv1 (download) already calls, so no separate
-  // flag check is needed here. This just opens the result in a popup and
-  // auto-prints instead of downloading, same UX as quotation print.
+  // endpoint PDFaccountv1 (download) already calls. This opens the result
+  // in a popup and auto-prints instead of downloading, same UX as
+  // quotation print.
   const [isPrintLoading, setIsPrintLoading] = useState(false);
-  const openPrint = async (id: number) => {
+  const doOpenPrint = async (id: number, documentTemplateId?: number) => {
     setIsPrintLoading(true);
     try {
       const getUUID = localStorage.getItem("UUID");
       const { data } = await axiosInstance.post("accountPDFv1", {
         a_application_login_id: Number(getUUID),
         accountTransactionId: id,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
       if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -644,8 +680,13 @@ const ListAccountTransactionView = ({
       setIsPrintLoading(false);
     }
   };
+  const openPrint = (id: number) => {
+    runWithTemplatePicker("accountTransaction", (templateId) => doOpenPrint(id, templateId));
+  };
   const downloadPDF = (id: number) => {
-    PDFaccountv1(id, setIsPDFDownloadLoading);
+    runWithTemplatePicker("accountTransaction", (templateId) =>
+      PDFaccountv1(id, setIsPDFDownloadLoading, templateId),
+    );
   };
   const sendSingleToWhatsApp = async (id: number) => {
     try {
@@ -2294,6 +2335,39 @@ const ListAccountTransactionView = ({
         initialCheckedShowCreditData={1}
         initialCheckedShowDebitData={2}
       />
+
+      {templateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setTemplateChoices([]);
+                  pendingActionRef.current = null;
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {templateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => chooseTemplate(t.id)}
+                >
+                  Select
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 };
