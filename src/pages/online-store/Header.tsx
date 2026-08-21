@@ -1,4 +1,8 @@
-import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from '../../helpers/AppConstants';
+import axios from 'axios';
+import { useState } from 'react';
+import { toast } from 'react-toastify';
+import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT, DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from '../../helpers/AppConstants';
+import { axiosInstance } from '../../services/axiosInstance';
 import { useOnlineStore } from '../../store/onlineStore/useOnlineStore';
 
 interface HeaderProps {
@@ -12,6 +16,34 @@ const Header = ({ qrCode }: HeaderProps) => {
     const cartCount = cart.reduce((t, i) => t + i.quantity, 0);
     const getTrimmedName = (name: string, max = 22) => {
         return name.length > max ? name.substring(0, max) + "..." : name;
+    };
+
+    // Always the company's default account statement template here — no
+    // picker on the customer-facing portal (unlike the staff-side Account
+    // History, which offers one when the company has 2+ templates).
+    const [isStatementLoading, setIsStatementLoading] = useState(false);
+    const printAccountStatement = async () => {
+        if (!customerData?.id) return;
+        setIsStatementLoading(true);
+        try {
+            const { data } = await axiosInstance.post(
+                `/account-statement-pdf-online-store/${customerData.id}/${qrCode}`,
+                {},
+            );
+            if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+                toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+                return;
+            }
+            const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        } catch (error) {
+            console.error(error);
+            toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+            setIsStatementLoading(false);
+        }
     };
     return (
         <>
@@ -54,14 +86,16 @@ const Header = ({ qrCode }: HeaderProps) => {
                                     Customer Support Ticket
                                 </button>
                             </a>
-                            <a href={`/AccountTransactionV1/${customerData?.id}?qr_code=${qrCode}&printFlag=0`} target='_blank' rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                                <button
-                                    className="btn btn-outline-secondary rounded-pill px-2 py-1 account-btn d-flex align-items-center gap-2" style={{ fontSize: "14px" }}
-                                >
-                                    <i className="bi bi-person-circle fs-6"></i>
-                                    Account
-                                </button>
-                            </a>
+                            <button
+                                className="btn btn-outline-secondary rounded-pill px-2 py-1 account-btn d-flex align-items-center gap-2"
+                                style={{ fontSize: "14px" }}
+                                onClick={() => {
+                                    if (!isStatementLoading) printAccountStatement();
+                                }}
+                            >
+                                <i className="bi bi-person-circle fs-6"></i>
+                                {isStatementLoading ? "Preparing..." : "Account Statement"}
+                            </button>
                             <button
                                 className="btn position-relative rounded-pill px-2 py-1 cart-btn"
                                 data-bs-toggle="modal"
