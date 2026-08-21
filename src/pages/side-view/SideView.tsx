@@ -40,10 +40,6 @@ import MiracleConfigurationsView from "../left-side/header/Setting/work-flow-aut
 import ManageWorkspacesModal from "../../components/model/ManageWorkspacesModal";
 import ReviewDialog from "../../components/review/ReviewDialog";
 import { useReviewStore } from "../../store/review/useReviewStore";
-
-// Wait a couple of minutes after app load before ever surfacing the review
-// prompt, so it never competes with the initial login/dashboard load.
-const REVIEW_PROMPT_DELAY_MS = 150000;
 import { IFilterLocationParams } from "../left-side/LeftSideView";
 import {
   fetchCompanyApi,
@@ -53,6 +49,10 @@ import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
+
+// Wait a couple of minutes after app load before ever surfacing the review
+// prompt, so it never competes with the initial login/dashboard load.
+const REVIEW_PROMPT_DELAY_MS = 150000;
 
 interface IProp {
   profileDetail?: ILoginData;

@@ -6,7 +6,9 @@ export interface CompanyReview {
   rating: number | null;
   review_type: "system" | "playstore" | "appstore" | null;
   comment: string | null;
-  platform: "app" | "web" | null;
+  platform: "web" | "android" | "ios" | null;
+  device_id: string | null;
+  ip_address: string | null;
   rating_given_date: string | null;
   modified_date: string | null;
 }

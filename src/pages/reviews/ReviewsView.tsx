@@ -91,7 +91,7 @@ const ReviewsView = () => {
                     <td style={{ maxWidth: "400px", whiteSpace: "normal", wordBreak: "break-word" }}>
                       {review.comment || "-"}
                     </td>
-                    <td>{review.platform === "app" ? "App" : "Web"}</td>
+                    <td>{review.platform === "android" ? "Android" : review.platform === "ios" ? "iOS" : "Web"}</td>
                     <td>{formatDate(review.rating_given_date || review.modified_date)}</td>
                   </tr>
                 ))
