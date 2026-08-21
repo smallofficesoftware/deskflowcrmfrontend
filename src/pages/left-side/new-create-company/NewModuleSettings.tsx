@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { AppContext } from "../../../common/AppContext";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
+import { axiosInstance } from "../../../services/axiosInstance";
 import {
   createCompany,
   fetchCountryApiForCompany,
@@ -53,6 +54,31 @@ const NewModuleSettings = ({
   const [watermarkInPrint, setWatermarkInPrint] = useState(
     companyToEdit?.watermark_in_print || 1,
   );
+
+  // company_feature_flags is a separate table (not a company_masters
+  // column), so this fires its own immediate call on toggle instead of
+  // folding into the big Formik-submitted company-update payload.
+  const [documentDesignerEnabled, setDocumentDesignerEnabled] = useState(false);
+  useEffect(() => {
+    if (!companyToEdit?.id) return;
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyToEdit.id,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setDocumentDesignerEnabled(!!data.data.item.is_enabled);
+      });
+  }, [companyToEdit?.id]);
+
+  const handleDocumentDesignerToggle = async (checked: boolean) => {
+    setDocumentDesignerEnabled(checked);
+    await axiosInstance.post("set-feature-flag", {
+      company_masters_id: companyToEdit?.id,
+      feature_key: "document_designer",
+      is_enabled: checked,
+    });
+  };
   const [isContactValidation, setisContactValidation] = useState(
     companyToEdit?.is_contact_validation || 1,
   );
@@ -307,6 +333,18 @@ const NewModuleSettings = ({
                           );
                           setWatermarkInPrint(e.target.checked ? 2 : 1);
                         }}
+                      />
+                    </div>
+                    <div className="form-check form-switch">
+                      <label htmlFor="document_designer_enabled">
+                        Document Designer (Quotation)
+                      </label>
+                      <input
+                        type="checkbox"
+                        id="document_designer_enabled"
+                        className="form-check-input"
+                        checked={documentDesignerEnabled}
+                        onChange={(e) => handleDocumentDesignerToggle(e.target.checked)}
                       />
                     </div>
                     <div className="form-check form-switch">

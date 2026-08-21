@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import { toast } from "react-toastify";
@@ -28,6 +28,7 @@ import {
 import { PAGE_ID, PERMISSION_TYPE, PRINT_SETTING_TYPE_OBJ } from "../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
+import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType } from "../../order-print-view/orderPrintController";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
   ModuleType,
@@ -127,6 +128,19 @@ const ListOrderView = ({
   const [currency, setCurrency] = useState<ICurrency[]>([]);
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [refreshDownload, setRefreshDownload] = useState(false);
+  // §7 template picker — same rule as the single-order OrderPrintView*.tsx
+  // pages: skip the picker when the company has 0-1 pdfme templates for
+  // this doc type, show it when 2+.
+  const [showDownloadPicker, setShowDownloadPicker] = useState(false);
+  const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingDownloadCartId, setPendingDownloadCartId] = useState<number | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
   const [isPDFSendingToWhatsApp, setIsPDFSendingToWhatsApp] = useState(false);
   const [isConvetIntoOrderConfirmation, setIsConvetIntoOrderConfirmation] =
     useState(false);
@@ -397,13 +411,14 @@ const ListOrderView = ({
     setIsOrderShowNum1(3);
     setIsOrderCreateShow(true);
   };
-  const handleDownload = async (cartId: any) => {
+  const handleDownload = async (cartId: any, documentTemplateId?: number) => {
     try {
       setRefreshDownload(true);
       const token = localStorage.getItem("token");
       const getUUID = localStorage.getItem("UUID");
       const resops = await axiosInstance.post("/order-pdf", {
         cart_id: cartId,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
 
       if (resops.data.ack === 1) {
@@ -439,6 +454,18 @@ const ListOrderView = ({
       setRefreshDownload(false);
     }
   };
+
+  const downloadWithPicker = async (cartId: number) => {
+    const choices = await fetchPdfmeTemplatesForPicker(isOrderShowNum);
+    if (choices.length < 2) {
+      await handleDownload(cartId);
+      return;
+    }
+    setDownloadTemplateChoices(choices);
+    setPendingDownloadCartId(cartId);
+    setShowDownloadPicker(true);
+  };
+
   const handleSendWhatsApp = async (cartId: any) => {
     try {
       setIsPDFSendingToWhatsApp(true);
@@ -1035,7 +1062,15 @@ const ListOrderView = ({
         "width=1000,height=1000",
       );
       // const printWindow = window.open('', '_blank', 'width=1000,height=1000');
-      if (printWindow) {
+      // Same double-print-dialog risk as openPrint() above for a
+      // pdfme-enabled type — window.open() first (popup-blocker safe),
+      // decide whether to force-print after the async flag check. Note:
+      // this URL joins multiple cart ids with a comma for bulk print —
+      // OrderPrintView's own pdfme reroute was only built/verified for a
+      // single id, so multi-select print against a pdfme-enabled company
+      // isn't guaranteed to auto-print anything once skipped here.
+      const skipExternalPrint = await isPdfmeEnabledForType(isOrderShowNum);
+      if (printWindow && !skipExternalPrint) {
         printWindow.document.close();
 
         let isPrinted = false;
@@ -1075,7 +1110,7 @@ const ListOrderView = ({
             printWindow.close();
           }
         }, 10000);
-      } else {
+      } else if (!printWindow) {
         toast.error("Failed to open print window");
       }
     } catch (error: any) {
@@ -1535,536 +1570,155 @@ const ListOrderView = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
-  const openPrint = (id: number) => {
+  // For a pdfme-enabled Quotation/Sales Order, Print now generates the real
+  // PDF and opens/prints it directly from here — same shape as Download
+  // (check flag+template count first, open nothing until we know what to
+  // generate), instead of navigating to OrderPrintView and waiting on its
+  // own delayed auto-print effect to decide. Legacy (non-pdfme) types keep
+  // the old open-then-force-print-the-on-screen-view behavior untouched.
+  const isPdfmeEnabledForType = async (cartTypeId: number): Promise<boolean> => {
+    if (!isPdfmeSupportedCartType(cartTypeId)) return false;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!companyMastersId) return false;
+    try {
+      const { data } = await axiosInstance.post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      });
+      return data?.ack === 1 && !!data.data.item.is_enabled;
+    } catch {
+      return false;
+    }
+  };
+
+  const generateAndPrintPdf = async (cartId: number, documentTemplateId?: number) => {
+    setPrintLoading(true);
+    try {
+      const resops = await axiosInstance.post("/order-pdf", {
+        cart_id: cartId,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (resops.data.ack !== 1) {
+        toast.error(resops.data.ack_msg);
+        return;
+      }
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    if (pendingPrintCartId != null) generateAndPrintPdf(pendingPrintCartId, templateId);
+    setPendingPrintCartId(null);
+  };
+
+  // All 10 cart-shaped doc types, one lookup instead of one near-identical
+  // if-block per type — each entry is just {cart type number, the
+  // company's view-format field name for that type's default print
+  // layout}. isPdfmeSupportedCartType/PDFME_DOC_TYPE_BY_CART_TYPE
+  // (orderPrintController.ts) is the actual source of truth for which
+  // cart types pdfme is wired for; this table only needs to stay in sync
+  // for the view-format field name per type.
+  const PRINT_TYPE_CONFIG: Record<string, { cartTypeId: number; viewFormateKey: string }> = {
+    "1": { cartTypeId: 1, viewFormateKey: "quotation_view_formate" },
+    "2": { cartTypeId: 2, viewFormateKey: "order_view_formate" },
+    "3": { cartTypeId: 3, viewFormateKey: "invoice_view_formate" },
+    "4": { cartTypeId: 4, viewFormateKey: "purchase_view_formate" },
+    "5": { cartTypeId: 5, viewFormateKey: "purchase_order_view_formate" },
+    "6": { cartTypeId: 6, viewFormateKey: "return_sales_invoice_view_formate" },
+    "7": { cartTypeId: 7, viewFormateKey: "return_purchase_invoice_view_formate" },
+    "8": { cartTypeId: 8, viewFormateKey: "inward_view_formate" },
+    "9": { cartTypeId: 9, viewFormateKey: "dispatch_view_formate" },
+    "12": { cartTypeId: 12, viewFormateKey: "proforma_invoice_view_formate" },
+  };
+
+  const openPrint = async (id: number) => {
     const baseURL = window.location.origin;
 
     let printId;
     printId = orderTypesList?.find(
       (option) => Number(option.id) === isOrderShowNum,
     )?.id;
-    if (printId === "1") {
-      const viewId = orderList[0].quotation_view_formate;
+    const config = printId != null ? PRINT_TYPE_CONFIG[printId] : undefined;
+    if (config) {
+      const { cartTypeId, viewFormateKey } = config;
+      const viewId = (orderList[0] as any)?.[viewFormateKey];
       const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
 
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
+      // Check pdfme first, open nothing until we know what to do — same
+      // shape as Download. Falls through to the legacy open-then-force-
+      // print behavior for every non-pdfme type or when the flag is off.
+      const pdfmeOn = await isPdfmeEnabledForType(cartTypeId);
+      if (pdfmeOn) {
+        setPrintLoading(true);
+        const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
+        setPrintLoading(false);
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+          setPendingPrintCartId(id);
+        } else {
+          generateAndPrintPdf(id);
+        }
       } else {
-        console.error("Failed to open print");
-      }
-      // window.open(`${baseURL}/OrderPrintViewV${viewId}/${id}`, "_blank");
-    }
+        const myWindow = window.open(
+          printUrl,
+          "_blank",
+          "width=1000,height=1000",
+        );
 
-    if (printId == "2") {
-      const viewId = orderList[0].order_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
+        if (myWindow) {
+          let isPrinted = false;
 
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
+          myWindow.onload = () => {
+            const checkContent = setInterval(() => {
+              const contentElement = myWindow.document.querySelector("body > *");
+              if (contentElement && myWindow.document.readyState === "complete") {
+                clearInterval(checkContent);
 
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
+                if (!isPrinted && printSetting) {
+                  isPrinted = true;
+                  setTimeout(() => {
+                    myWindow.print();
+                  }, 2000);
+                  myWindow.onafterprint = () => {
+                    myWindow.close();
+                  };
+                  myWindow.addEventListener("afterprint", () => {
+                    myWindow.close();
+                  });
+                }
+              } else {
+                console.log("waiting...");
               }
-            } else {
-              console.log("waiting...");
+            }, 100);
+          };
+
+          myWindow.addEventListener("beforeunload", () => {
+            if (!isPrinted) {
+              isPrinted = true;
             }
-          }, 100);
-        };
+          });
 
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-
-    if (printId == "3") {
-      const viewId = orderList[0].invoice_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
+          setTimeout(() => {
+            if (!isPrinted) {
+              myWindow.close();
             }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
+          }, 10000);
+        } else {
+          console.error("Failed to open print");
+        }
       }
-    }
-    if (printId == "4") {
-      const viewId = orderList[0].purchase_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId == "5") {
-      const viewId = orderList[0].purchase_order_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId == "6") {
-      const viewId = orderList[0].return_sales_invoice_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId == "7") {
-      const viewId = orderList[0].return_purchase_invoice_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId == "8") {
-      const viewId = orderList[0].inward_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId == "9") {
-      const viewId = orderList[0].dispatch_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-    }
-    if (printId === "12") {
-      const viewId = orderList[0].proforma_invoice_view_formate;
-      const printUrl = `${baseURL}/OrderPrintViewV${viewId}/${id}`;
-
-      const myWindow = window.open(
-        printUrl,
-        "_blank",
-        "width=1000,height=1000",
-      );
-
-      if (myWindow) {
-        let isPrinted = false;
-
-        myWindow.onload = () => {
-          const checkContent = setInterval(() => {
-            const contentElement = myWindow.document.querySelector("body > *");
-            if (contentElement && myWindow.document.readyState === "complete") {
-              clearInterval(checkContent);
-
-              if (!isPrinted && printSetting) {
-                isPrinted = true;
-                setTimeout(() => {
-                  myWindow.print();
-                }, 2000);
-                myWindow.onafterprint = () => {
-                  myWindow.close();
-                };
-                myWindow.addEventListener("afterprint", () => {
-                  myWindow.close();
-                });
-              }
-            } else {
-              console.log("waiting...");
-            }
-          }, 100);
-        };
-
-        myWindow.addEventListener("beforeunload", () => {
-          if (!isPrinted) {
-            isPrinted = true;
-          }
-        });
-
-        setTimeout(() => {
-          if (!isPrinted) {
-            myWindow.close();
-          }
-        }, 10000);
-      } else {
-        console.error("Failed to open print");
-      }
-      // window.open(`${baseURL}/OrderPrintViewV${viewId}/${id}`, "_blank");
     }
 
     setOrderDropdownOpen(null);
@@ -3037,9 +2691,11 @@ const ListOrderView = ({
                           <li
                             className="listItem"
                             role="button"
-                            onClick={() => openPrint(item.id)}
+                            onClick={() => {
+                              if (!printLoading) openPrint(item.id);
+                            }}
                           >
-                            Print
+                            {printLoading ? "Preparing..." : "Print"}
                           </li>
                           <li
                             className="listItem"
@@ -3059,7 +2715,7 @@ const ListOrderView = ({
                               };
                               if (!refreshDownload) {
                                 if (permissionMap[isOrderShowNum]) {
-                                  handleDownload(item.id);
+                                  downloadWithPicker(item.id);
                                 } else {
                                   setOrderDropdownOpen(null);
 
@@ -4243,6 +3899,96 @@ const ListOrderView = ({
           cartType={isOrderShowNum}
           title={dynamicName}
         />
+      )}
+      {showDownloadPicker && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setShowDownloadPicker(false);
+                  setDownloadTemplateChoices([]);
+                  setPendingDownloadCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {downloadTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => {
+                    if (pendingDownloadCartId != null) handleDownload(pendingDownloadCartId, t.id);
+                    setShowDownloadPicker(false);
+                    setDownloadTemplateChoices([]);
+                    setPendingDownloadCartId(null);
+                  }}
+                >
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {printTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setPrintTemplateChoices([]);
+                  setPendingPrintCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {printTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {printLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(255,255,255,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
       )}
     </>
   );

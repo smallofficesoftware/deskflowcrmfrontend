@@ -5,10 +5,10 @@
   "homepage": "https://app.smalloffice.in",
   "scripts": {
     "clean": "npm cache clear --force",
-    "dev": "react-scripts start",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "dev": "craco start",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
     "eject": "react-scripts eject"
   },
   "dependencies": {
@@ -20,6 +20,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hello-pangea/dnd": "^18.0.1",
+    "@pdfme/common": "^6.1.12",
+    "@pdfme/schemas": "^6.1.12",
+    "@pdfme/ui": "^6.1.12",
     "@react-google-maps/api": "^2.20.6",
     "@react-oauth/google": "^0.12.1",
     "@tanstack/react-query": "^5.100.14",
@@ -80,6 +83,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@types/crypto-js": "^4.2.2",
     "@types/file-saver": "^2.0.7",
     "@types/jspdf": "^2.0.0",

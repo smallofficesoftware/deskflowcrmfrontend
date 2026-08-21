@@ -12,6 +12,7 @@ import PrintSettingModal from "../../../components/model/PrintSettingModal";
 import RadioButtonModal from "../../../components/model/RadioButtonModal";
 import ReminderModal from "../../../components/model/ReminderModal";
 import WorkFlowModel from "../../../components/model/workflowConformatioModel/workFlowModelView";
+import { fetchPdfmeTemplatesForPicker } from "../../order-print-view/orderPrintController";
 import {
     DEFAULT_MESSAGE_ERROR_PERMISSION,
     MESSAGE_UNKNOWN_ERROR_OCCURRED
@@ -106,6 +107,12 @@ const CommonOrderActions = ({
     const [currency, setCurrency] = useState<ICurrency[]>([]);
     const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
     const [refreshDownload, setRefreshDownload] = useState(false);
+    // §7 template picker — mirrors ListOrderView.tsx's downloadWithPicker.
+    const [showDownloadPicker, setShowDownloadPicker] = useState(false);
+    const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+        { id: number; template_name: string; is_default: number }[]
+    >([]);
+    const [pendingDownloadCartId, setPendingDownloadCartId] = useState<number | null>(null);
     const [isPDFSendingToWhatsApp, setIsPDFSendingToWhatsApp] = useState(false);
     const [isConvetIntoOrderConfirmation, setIsConvetIntoOrderConfirmation] =
         useState(false);
@@ -419,13 +426,14 @@ const CommonOrderActions = ({
             setRefreshCarts(false);
         }
     }, [refreshCarts]);
-    const handleDownload = async (cartId: any) => {
+    const handleDownload = async (cartId: any, documentTemplateId?: number) => {
         try {
             setRefreshDownload(true);
             const token = localStorage.getItem("token");
             const getUUID = localStorage.getItem("UUID");
             const resops = await axiosInstance.post("/order-pdf", {
                 cart_id: cartId,
+                ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
             });
 
             if (resops.data.ack === 1) {
@@ -461,6 +469,18 @@ const CommonOrderActions = ({
             setRefreshDownload(false);
         }
     };
+
+    const downloadWithPicker = async (cartId: number) => {
+        const choices = await fetchPdfmeTemplatesForPicker(isOrderShowNum);
+        if (choices.length < 2) {
+            await handleDownload(cartId);
+            return;
+        }
+        setDownloadTemplateChoices(choices);
+        setPendingDownloadCartId(cartId);
+        setShowDownloadPicker(true);
+    };
+
     const handleSendWhatsApp = async (cartId: any) => {
         try {
             setIsPDFSendingToWhatsApp(true);
@@ -2173,7 +2193,7 @@ const CommonOrderActions = ({
                 isOrderShowNum={isOrderShowNum}
                 handelChangeEdit={handelChangeEdit}
                 openPrint={openPrint}
-                handleDownload={handleDownload}
+                handleDownload={downloadWithPicker}
                 handleSendWhatsApp={handleSendWhatsApp}
                 handleStartWorkFlow={handleStartWorkFlow}
                 handleModalOpenStatusAssign={handleModalOpenStatusAssign}
@@ -2592,6 +2612,44 @@ const CommonOrderActions = ({
                     btn1="CANCEL"
                     btn2="Convert All"
                 />
+            )}
+            {showDownloadPicker && (
+                <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                    <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h5>Choose Template</h5>
+                            <span
+                                className="close"
+                                onClick={() => {
+                                    setShowDownloadPicker(false);
+                                    setDownloadTemplateChoices([]);
+                                    setPendingDownloadCartId(null);
+                                }}
+                            >
+                                &times;
+                            </span>
+                        </div>
+                        {downloadTemplateChoices.map((t) => (
+                            <div
+                                key={t.id}
+                                className="d-flex justify-content-between align-items-center border-bottom py-2"
+                            >
+                                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                                <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => {
+                                        if (pendingDownloadCartId != null) handleDownload(pendingDownloadCartId, t.id);
+                                        setShowDownloadPicker(false);
+                                        setDownloadTemplateChoices([]);
+                                        setPendingDownloadCartId(null);
+                                    }}
+                                >
+                                    Download
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
         </>
     );

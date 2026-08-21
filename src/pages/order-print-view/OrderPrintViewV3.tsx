@@ -1,5 +1,6 @@
 //OrderPrintViewV3.tsx
 
+import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -23,7 +24,7 @@ import {
   TRANSPORT_CHARGE_HSN_CODE,
 } from "../../helpers/AppConstants";
 import { PAGE_ID, PRINT_SETTING_TYPE_OBJ } from "../../helpers/AppEnum";
-import { setUrlParams } from "../../services/axiosInstance";
+import { axiosInstance, setUrlParams } from "../../services/axiosInstance";
 import { numberToWordsCurrency } from "../../utils/numberToWordsCurrency";
 import {
   fetchCustomForm,
@@ -36,7 +37,9 @@ import "./OrderPrintView.css";
 import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
+  fetchPdfmeTemplatesForPicker,
   handleDownload,
+  isPdfmeSupportedCartType,
 } from "./orderPrintController";
 
 interface CustomFormField {
@@ -81,6 +84,16 @@ const OrderPrintViewV3 = () => {
   const [isLoadingAfterUpdate, setIsLoadingAfterUpdate] = useState(false);
   const [whatsappConfigDetail, setWhatsappConfigDetail] = useState<number>(0);
   const [canPdfProfomaInvoice, setcanPdfProfomaInvoice] = useState<boolean>(false);
+  // pdfme Document Designer — opt-in per company, Quotation (cart.type===1)
+  // only for this pilot. Same pattern as OrderPrintViewV1.tsx.
+  const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
+  const [pdfmeFlagChecked, setPdfmeFlagChecked] = useState(false);
+  const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
 
   const { id, MobileToken, getID, printFlag } = useParams();
   const orderIds = useMemo(() => {
@@ -277,6 +290,70 @@ const OrderPrintViewV3 = () => {
   ]);
 
   useEffect(() => {
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
+      setPdfmeFlagChecked(true);
+      return;
+    }
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
+      })
+      .finally(() => setPdfmeFlagChecked(true));
+  }, [orderPrintById?.cart?.type]);
+
+  const printGeneratedPdf = async (documentTemplateId?: number) => {
+    const token = MobileToken || localStorage.getItem("token");
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    try {
+      const resops = await axiosInstance.post(
+        "/order-pdf",
+        { cart_id: id, ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}) },
+        { headers: { Authorization: `${token}`, "x-tenant-id": getID, "x-company-id": companyMastersId } },
+      );
+      if (resops.data.ack !== 1) return;
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    printGeneratedPdf(templateId);
+  };
+
+  // pdfme path: fires as soon as the flag is confirmed true — no reason to
+  // wait for the legacy timer (that delay exists to let this component's
+  // own DOM finish rendering pageText/pageURL extra sections before
+  // window.print(), which doesn't apply here since we fetch a real PDF).
+  useEffect(() => {
+    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened && !printFlag) {
+      (async () => {
+        setPrintDialogOpened(true);
+        const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+        } else {
+          printGeneratedPdf();
+        }
+      })();
+    }
+  }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
+
+  // Legacy path: only for a confirmed-non-pdfme cart — gated on
+  // pdfmeFlagChecked so this can't race ahead of the flag check above.
+  useEffect(() => {
     if (
       !isOrderLoading &&
       !isCustomFormsLoading &&
@@ -284,7 +361,9 @@ const OrderPrintViewV3 = () => {
       orderPrintById &&
       printSetting &&
       !printDialogOpened &&
-      !printFlag
+      !printFlag &&
+      pdfmeFlagChecked &&
+      !pdfmeEnabled
     ) {
       const timeoutDuration = customOrderPdfViewById.some(
         (field) =>
@@ -310,6 +389,8 @@ const OrderPrintViewV3 = () => {
     printDialogOpened,
     printFlag,
     customOrderPdfViewById,
+    pdfmeFlagChecked,
+    pdfmeEnabled,
   ]);
 
   const selectedCurrency =
@@ -749,7 +830,7 @@ const OrderPrintViewV3 = () => {
     );
     setcanPdfProfomaInvoice(response12?.share);
   };
-  const openPdf = () => {
+  const openPdf = async () => {
     const permissionMap: Record<number, boolean> = {
       1: canPdfQuo,
       2: canPdfOrder,
@@ -766,11 +847,21 @@ const OrderPrintViewV3 = () => {
 
     if (orderPrintById?.shareRights == true) {
       // toast.error("rights che");
-      handleDownload(id, MobileToken, getID, "downloadPdf");
+      const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
+      if (choices.length > 1) {
+        setDownloadTemplateChoices(choices);
+      } else {
+        handleDownload(id, MobileToken, getID, "downloadPdf");
+      }
     } else {
       // toast.warning(orderPrintById?.cart?.type)
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
+  };
+
+  const downloadWithTemplate = (templateId: number) => {
+    setDownloadTemplateChoices([]);
+    handleDownload(id, MobileToken, getID, "downloadPdf", templateId);
   };
 
   const shareWhatsapp = () => {
@@ -3672,7 +3763,12 @@ ${printSetting?.setting_details.productImageinColumn &&
 
             <div
               className="print-setting"
-              style={{ position: "absolute", top: "0", right: "0" }}
+              style={{
+                position: "absolute",
+                top: "0",
+                right: "0",
+                display: pdfmeEnabled ? "none" : undefined,
+              }}
             >
               <button
                 className="icons "
@@ -3785,6 +3881,64 @@ ${printSetting?.setting_details.productImageinColumn &&
                 btn2={"Approve"}
                 getID={getID}
               />
+            )}
+            {downloadTemplateChoices.length > 0 && (
+              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5>Choose Template</h5>
+                    <span
+                      className="close"
+                      onClick={() => setDownloadTemplateChoices([])}
+                    >
+                      &times;
+                    </span>
+                  </div>
+                  {downloadTemplateChoices.map((t) => (
+                    <div
+                      key={t.id}
+                      className="d-flex justify-content-between align-items-center border-bottom py-2"
+                    >
+                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => downloadWithTemplate(t.id)}
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {printTemplateChoices.length > 0 && (
+              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5>Choose Template</h5>
+                    <span
+                      className="close"
+                      onClick={() => setPrintTemplateChoices([])}
+                    >
+                      &times;
+                    </span>
+                  </div>
+                  {printTemplateChoices.map((t) => (
+                    <div
+                      key={t.id}
+                      className="d-flex justify-content-between align-items-center border-bottom py-2"
+                    >
+                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => printWithTemplate(t.id)}
+                      >
+                        Print
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
