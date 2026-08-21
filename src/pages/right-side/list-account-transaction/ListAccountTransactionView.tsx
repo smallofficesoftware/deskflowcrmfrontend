@@ -1,8 +1,8 @@
+import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { DateObject } from "react-multi-date-picker";
-import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   convertDateTimeFormat,
@@ -250,6 +250,41 @@ const ListAccountTransactionView = ({
       filterParams.initialCheckedShowCreditData,
       filterParams.initialCheckedShowDebitData,
     );
+  };
+
+  // Same ContactAllAccountTransactionPDF endpoint contactAllTransactionDownloadPDf
+  // (download) already calls — already flag-aware server-side. Opens the
+  // result in a popup and auto-prints instead of downloading.
+  const [isStatementPrintLoading, setIsStatementPrintLoading] = useState(false);
+  const printAllTransactionStatement = async () => {
+    setIsStatementPrintLoading(true);
+    try {
+      const getUUID = localStorage.getItem("UUID");
+      const { data } = await axiosInstance.post("ContactAllAccountTransactionPDF", {
+        a_application_login_id: Number(getUUID),
+        contact_master_id: contactData?.id,
+        startDate: filterParams.startSearchDate,
+        endDate: filterParams.endSearchDate,
+        creaditFilter: filterParams.initialCheckedShowCreditData,
+        debitFilter: filterParams.initialCheckedShowDebitData,
+      });
+      if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsStatementPrintLoading(false);
+    }
   };
   const sendAllToWhatsApp = async () => {
     try {
@@ -577,55 +612,37 @@ const ListAccountTransactionView = ({
     }
   };
 
-  const openPrint = (id: number) => {
-    const baseURL = window.location.origin;
-
-    const printUrl = `${baseURL}/AccountPrintView1/${id}`;
-
-    const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
-
-    if (myWindow) {
-      let isPrinted = false;
-
-      myWindow.onload = () => {
-        const checkContent = setInterval(() => {
-          const contentElement = myWindow.document.querySelector("body > *");
-          if (contentElement && myWindow.document.readyState === "complete") {
-            clearInterval(checkContent);
-
-            if (!isPrinted) {
-              isPrinted = true;
-              setTimeout(() => {
-                myWindow.print();
-              }, 2000);
-              myWindow.onafterprint = () => {
-                myWindow.close();
-              };
-              myWindow.addEventListener("afterprint", () => {
-                myWindow.close();
-              });
-            }
-          } else {
-            console.log("waiting...");
-          }
-        }, 100);
-      };
-
-      myWindow.addEventListener("beforeunload", () => {
-        if (!isPrinted) {
-          isPrinted = true;
-        }
+  // accountPDFv1 (backend) already switches between pdfme and the legacy
+  // EJS renderer based on the document_designer feature flag — same
+  // endpoint PDFaccountv1 (download) already calls, so no separate
+  // flag check is needed here. This just opens the result in a popup and
+  // auto-prints instead of downloading, same UX as quotation print.
+  const [isPrintLoading, setIsPrintLoading] = useState(false);
+  const openPrint = async (id: number) => {
+    setIsPrintLoading(true);
+    try {
+      const getUUID = localStorage.getItem("UUID");
+      const { data } = await axiosInstance.post("accountPDFv1", {
+        a_application_login_id: Number(getUUID),
+        accountTransactionId: id,
       });
-
-      setTimeout(() => {
-        if (!isPrinted) {
-          myWindow.close();
-        }
-      }, 10000);
-    } else {
-      console.error("Failed to open print");
+      if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsPrintLoading(false);
     }
-    // window.open(`${baseURL}/AccountPrintView1/${id}`, "_blank");
   };
   const downloadPDF = (id: number) => {
     PDFaccountv1(id, setIsPDFDownloadLoading);
@@ -965,15 +982,16 @@ const ListAccountTransactionView = ({
                       </span>
                     </li>
 
-                    <Link
-                      to={`/AccountTransactionV1/${contactData.id}?startDate=${filterParams.startSearchDate || ""}&endDate=${filterParams.endSearchDate || ""}&creditFilter=${filterParams.initialCheckedShowCreditData}&debitFilter=${filterParams.initialCheckedShowDebitData}`}
-                      target="_blank"
+                    <li
                       className="listItem text-left"
-                      style={{ textDecoration: "none", textAlign: "left" }}
                       role="button"
+                      onClick={() => {
+                        if (!isStatementPrintLoading) printAllTransactionStatement();
+                      }}
+                      style={{ textDecoration: "none", textAlign: "left" }}
                     >
-                      Print Statement
-                    </Link>
+                      <span>{isStatementPrintLoading ? "Preparing..." : "Print Statement"}</span>
+                    </li>
                     <li
                       className="listItem text-left"
                       role="button"
