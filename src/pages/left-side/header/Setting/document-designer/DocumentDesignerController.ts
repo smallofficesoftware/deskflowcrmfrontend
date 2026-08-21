@@ -18,6 +18,7 @@ export interface IDocumentTemplateFull {
   template_name: string;
   draft_template_json: string;
   published_template_json: string;
+  include_product_pages?: number;
 }
 
 const handleError = (error: any, fallback: string) => {

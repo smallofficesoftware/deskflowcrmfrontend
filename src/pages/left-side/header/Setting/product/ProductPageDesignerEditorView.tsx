@@ -16,18 +16,18 @@ import {
   publishDocumentTemplate,
 } from "../document-designer/DocumentDesignerController";
 
-// Dedicated editor for the "Document Designer Page" custom field type
-// (data_type 14) — reached ONLY from DesignerPageDataSourceView.tsx's "Open
-// Document Designer" / per-source "Edit" actions
-// (/custom-field/designer-page-editor?fieldId=&fieldTitle=&docType=&
-// autoNew=1 or &openTemplateId=&sourceRowId=). Deliberately a separate
-// component/route from DocumentDesignerView.tsx (/document-designer, the
-// normal per-doc-type template manager), not that same component branching
-// on a query param — the two are purely independent code, sharing only the
-// backend API surface (DocumentDesignerController.ts) and the plugin/font
-// mounting mechanics, which is real duplication but keeps each file's
-// control flow readable on its own rather than threaded through "is this
-// pick mode?" branches everywhere.
+// "Product Page Designer" — one Designer-built page per product
+// (products.document_template_id, template_purpose='product_page'),
+// spliced after the main document at print time — one per cart line item,
+// in item order — when the resolved main template's include_product_pages
+// toggle is on (DocumentDesignerView.tsx's toolbar checkbox). Unlike the
+// "Document Designer Page" custom field (multiple named sources per field,
+// its own admin sources-list screen), a product has exactly ONE page, so
+// there's no separate sources-list screen here — this editor opens
+// directly from the product row's own action and saves straight back onto
+// that one product. Reuses CustomFieldDesignerPageEditorView.tsx's proven
+// structure/mechanics verbatim (font/canvas mounting, token chips,
+// deferred-creation-until-save), just pointed at a different save target.
 const plugins = { text, table, image };
 
 async function loadDesignerFonts() {
@@ -43,16 +43,19 @@ async function loadDesignerFonts() {
 }
 
 const BLANK_TEMPLATE = { basePdf: { width: 210, height: 297, padding: [0, 0, 0, 0] }, schemas: [[]] };
+// Dictionary/variable structure is identical across all 7 cart-shaped doc
+// types (dataDictionary.js's CART_DOC_DICTIONARY) — a product's page isn't
+// tied to any one of them, so this is just a fixed anchor for the template
+// row's own doc_type column and the dictionary fetch, not a user choice.
+const PRODUCT_PAGE_DOC_TYPE = "quotation";
 
-const CustomFieldDesignerPageEditorView: React.FC = () => {
+const ProductPageDesignerEditorView: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const fieldId = searchParams.get("fieldId");
-  const fieldTitle = searchParams.get("fieldTitle") || "";
-  const docType = searchParams.get("docType") || "quotation";
-  const autoNew = searchParams.get("autoNew") === "1";
+  const productId = searchParams.get("productId");
+  const productTitle = searchParams.get("productTitle") || "";
   const openTemplateId = searchParams.get("openTemplateId");
-  const sourceRowId = searchParams.get("sourceRowId");
+  const autoNew = !openTemplateId;
   const autoNewFiredRef = useRef(false);
   const [saving, setSaving] = useState(false);
 
@@ -84,10 +87,10 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const dict = await getDataDictionary(docType);
+      const dict = await getDataDictionary(PRODUCT_PAGE_DOC_TYPE);
       setDictionary(dict || []);
     })();
-  }, [docType]);
+  }, []);
 
   const currentDataSource: string | undefined = selectedField?.schema?.dataSource || undefined;
   const isFieldBound = !!currentDataSource;
@@ -118,15 +121,12 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     });
   };
 
-  // Same "live on the draft" header swap as DocumentDesignerView.tsx — works
-  // on a blank canvas too (applyTemplateOptions rebuilds basePdf.staticSchema
-  // fresh from getTemplate(), doesn't require one to already exist). Only
-  // usable once a real row exists (currentTemplateId), same as Save
-  // Draft/Publish here — a fresh autoNew session must be saved via "Use This
-  // Template" first.
+  // Same "live on the draft" header swap as DocumentDesignerView.tsx — see
+  // CustomFieldDesignerPageEditorView.tsx's identical handler for why this
+  // works on a blank canvas too.
   const applyHeaderVariant = async (headerVariant: string) => {
     if (!currentTemplateId || !designerRef.current) return;
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: { headerVariant } });
+    const updated = await applyOptionsToDraft(currentTemplateId, PRODUCT_PAGE_DOC_TYPE, { header: { headerVariant } });
     if (updated) designerRef.current.updateTemplate(updated);
   };
 
@@ -183,13 +183,9 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
 
   const openTemplate = async (id: number) => {
     setLoading(true);
-    const full = await getDocumentTemplate(docType, id);
+    const full = await getDocumentTemplate(PRODUCT_PAGE_DOC_TYPE, id);
     setLoading(false);
     if (!full) {
-      // getDocumentTemplate already toasts the reason (network failure or
-      // ack:0 "Template not found") — a stale/deleted source id reached via
-      // "Edit" in DesignerPageDataSourceView.tsx's list would otherwise
-      // leave this page's canvas silently blank with no way forward.
       navigate(-1);
       return;
     }
@@ -199,33 +195,24 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!fieldId) return;
+    if (!productId) return;
     if (openTemplateId) {
       openTemplate(Number(openTemplateId));
       return;
     }
     if (autoNew && !autoNewFiredRef.current) {
       autoNewFiredRef.current = true;
-      // Deliberately NOT calling createDocumentTemplate here — that would
-      // persist a real row the moment this page opens, before the user has
-      // done anything, so canceling/navigating away without finishing would
-      // leave an orphaned "Untitled Designer Page" cluttering this doc
-      // type's real template list. The blank canvas stays purely in-memory
-      // (currentTemplateId null) until "Use This Template" is clicked,
-      // which creates it then.
+      // Deliberately NOT calling createDocumentTemplate here — see
+      // CustomFieldDesignerPageEditorView.tsx's identical comment: avoids
+      // an orphaned row if the user cancels/navigates away before saving.
       setCurrentTemplateId(null);
       setCurrentTemplateName(null);
       setSelectedField(null);
       mountOrUpdateDesigner(BLANK_TEMPLATE);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldId]);
+  }, [productId]);
 
-  // No setLoading()/full-screen overlay — used both by the manual
-  // "Save Draft" button (which wraps this with the overlay itself, below)
-  // and by updateSelectedFieldSchema's auto-save on every field-panel
-  // change. The overlay on every single radio click read as the whole
-  // page "refreshing".
   const saveDraftSilently = async () => {
     if (!currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
@@ -238,13 +225,10 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     if (ok.data?.ack === 1) setStatus("Draft saved.");
   };
 
-  const handleUseAsDataSource = async () => {
-    // currentTemplateId is null for a fresh autoNew session (nothing
-    // persisted yet) — expected here, not a guard failure; only designerRef
-    // needs to actually be mounted.
-    if (!fieldId || !designerRef.current) return;
+  const handleUseAsProductPage = async () => {
+    if (!productId || !designerRef.current) return;
     askPrompt(
-      "Name this Data Source",
+      "Name this Page",
       async (name) => {
         setSaving(true);
         try {
@@ -252,16 +236,14 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
           let templateId = currentTemplateId;
 
           if (!templateId) {
-            // Never-saved autoNew session — create it now, for real, with
-            // the name the user just gave it.
             const created = await createDocumentTemplate(
-              docType,
-              name || "Untitled Designer Page",
+              PRODUCT_PAGE_DOC_TYPE,
+              name || "Untitled Product Page",
               designerRef.current.getTemplate(),
-              "extra_page",
+              "product_page",
             );
             if (!created) {
-              toast.error("Failed to create template");
+              toast.error("Failed to create page");
               return;
             }
             templateId = created.id;
@@ -275,23 +257,18 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
             });
           }
 
-          // generateDocument.js's buildDesignerPageBytes reads
-          // published_template_json, not the draft — without this, the
-          // page would silently never render (no error, just absent from
-          // the generated PDF).
           if (currentTemplateId) await saveDraftSilently();
           await publishDocumentTemplate(templateId);
-          await axiosInstance.post("createCustomFieldDatavalues", {
-            a_application_login_id: getUUID,
-            custom_field_master_id: fieldId,
-            data_source: String(templateId),
-            editValue: sourceRowId ? Number(sourceRowId) : 0,
+          await axiosInstance.post("product/set-designer-page", {
+            company_masters_id: localStorage.getItem("COMPANY_ID"),
+            product_id: productId,
+            document_template_id: templateId,
           });
-          toast.success("Data source saved");
+          toast.success("Product page saved");
           navigate(-1);
         } catch (e) {
           console.error(e);
-          toast.error("Failed to save source");
+          toast.error("Failed to save product page");
         } finally {
           setSaving(false);
         }
@@ -300,8 +277,8 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     );
   };
 
-  if (!fieldId) {
-    return <div className="p-4">Missing field — open this page via a custom field's "Add Data source" action.</div>;
+  if (!productId) {
+    return <div className="p-4">Missing product — open this page via a product's "Product Page Designer" action.</div>;
   }
 
   if (rights === null) {
@@ -336,24 +313,24 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
         <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => navigate(-1)}>
           &larr; Back
         </button>
-        <h5 style={{ fontSize: 14 }}>{openTemplateId ? "Editing Source" : "New Source"}</h5>
+        <h5 style={{ fontSize: 14 }}>{openTemplateId ? "Editing Product Page" : "New Product Page"}</h5>
         <p style={{ fontSize: 12, color: "#666" }}>
-          Build the page below, then use the "Use This Template" button at the top to name and save it.
+          Build the page below, then use the "Use This Page" button at the top to name and save it.
         </p>
       </div>
 
       <div className="dd-main">
         <div style={{ padding: "8px 12px", background: "#fff3cd", borderBottom: "1px solid #ffe69c", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <strong style={{ fontSize: 12 }}>
-            Picking a Designer Page{fieldTitle ? ` for "${fieldTitle}"` : ""} — open/build a template below, then:
+            Designer Page{productTitle ? ` for "${productTitle}"` : ""} — open/build a page below, then:
           </strong>
           <button
             className="btn btn-sm"
             style={{ background: "#f58634", color: "#fff" }}
-            onClick={handleUseAsDataSource}
+            onClick={handleUseAsProductPage}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Use This Template"}
+            {saving ? "Saving..." : "Use This Page"}
           </button>
           <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>Cancel</button>
           <div style={{ flex: 1 }} />
@@ -363,7 +340,7 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
             onChange={(e) => applyHeaderVariant(e.target.value)}
             defaultValue="details"
             disabled={!currentTemplateId}
-            title={!currentTemplateId ? "Save via \"Use This Template\" first" : "Company header style for this page"}
+            title={!currentTemplateId ? "Save via \"Use This Page\" first" : "Company header style for this page"}
           >
             <option value="details">Header: Details</option>
             <option value="image">Header: Image</option>
@@ -466,4 +443,4 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
   );
 };
 
-export default CustomFieldDesignerPageEditorView;
+export default ProductPageDesignerEditorView;

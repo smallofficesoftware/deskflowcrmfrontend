@@ -523,6 +523,24 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
+  // "Product Page Designer" toggle — per-template (not company-wide, not a
+  // draft/publish concept), applies immediately. When on, generate-time
+  // splices each cart item's own product page (products.document_template_id,
+  // set via Product Master's "Product Page Designer" action) after this
+  // document, one per item in cart order (generateDocument.js).
+  const toggleIncludeProductPages = async (value: boolean) => {
+    if (!requireEdit() || !currentTemplateId) return;
+    const ok = await axiosInstance.post("document-templates/update", {
+      company_masters_id: localStorage.getItem("COMPANY_ID"),
+      a_application_login_id: localStorage.getItem("UUID"),
+      id: currentTemplateId,
+      include_product_pages: value,
+    });
+    if (ok.data?.ack === 1 && currentTemplateFull) {
+      setCurrentTemplateFull({ ...currentTemplateFull, include_product_pages: value ? 1 : 0 });
+    }
+  };
+
   // Generate Preview — real order data whenever it exists, sample data only
   // as an empty-state fallback (§6).
   const openPreviewPicker = async () => {
@@ -709,6 +727,15 @@ const DocumentDesignerView: React.FC = () => {
                   {key.toUpperCase()}
                 </label>
               ))}
+              <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }} title="Splice each cart item's own Product Page Designer page after this document, in item order">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={!!currentTemplateFull?.include_product_pages}
+                  onChange={(e) => toggleIncludeProductPages(e.target.checked)}
+                />
+                Show product-wise pages
+              </label>
             </>
           )}
           <div style={{ flex: 1 }} />

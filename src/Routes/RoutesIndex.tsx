@@ -40,6 +40,7 @@ import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-ad
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
+import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
 import OnlineStore from "../pages/online-store";
 import SupportTicket from "../pages/online-store/store-support-ticket/SupportTicketView";
 import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
@@ -255,6 +256,10 @@ const RoutesIndex = () => {
             <Route
               path="/custom-field/designer-page-editor"
               element={<CustomFieldDesignerPageEditorView />}
+            />
+            <Route
+              path="/product/designer-page-editor"
+              element={<ProductPageDesignerEditorView />}
             />
             <Route path="/logout" element={<LogoutComponent />} />
             <Route path="/OrderPdfViewV1/:id" element={<PdfView />} />
