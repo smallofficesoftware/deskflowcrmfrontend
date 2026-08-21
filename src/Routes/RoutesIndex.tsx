@@ -38,6 +38,8 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
+import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
+import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import OnlineStore from "../pages/online-store";
 import SupportTicket from "../pages/online-store/store-support-ticket/SupportTicketView";
 import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
@@ -245,6 +247,14 @@ const RoutesIndex = () => {
             <Route
               path="/document-designer"
               element={<DocumentDesignerView />}
+            />
+            <Route
+              path="/custom-field/designer-page-sources"
+              element={<DesignerPageDataSourceView />}
+            />
+            <Route
+              path="/custom-field/designer-page-editor"
+              element={<CustomFieldDesignerPageEditorView />}
             />
             <Route path="/logout" element={<LogoutComponent />} />
             <Route path="/OrderPdfViewV1/:id" element={<PdfView />} />

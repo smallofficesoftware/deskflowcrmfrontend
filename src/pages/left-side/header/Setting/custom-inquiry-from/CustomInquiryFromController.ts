@@ -20,6 +20,7 @@ export const orderTypesCustomInquiryList = [
   { id: "11", order_type_display: "Page Text" },
   { id: "12", order_type_display: "Page Url" },
   { id: "13", order_type_display: "Attachments" },
+  { id: "14", order_type_display: "Document Designer Page" },
 ];
 
 export const validationTypeList = [

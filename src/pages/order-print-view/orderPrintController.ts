@@ -270,6 +270,34 @@ export const fetchTemplatesForDocType = async (
   }
 };
 
+// Company-wide, every doc_type — used by the "Document Designer Page"
+// custom field type (data_type 14) picker, which attaches ANY of a
+// company's own saved templates as a static extra page (not scoped to one
+// doc_type like the pickers above, which only show a doc_type's OWN
+// templates and only when it has 2+). No 2+ threshold here — the picker
+// itself decides whether to show, not this fetch.
+export const fetchAllDocumentTemplatesForPicker = async (): Promise<
+  { id: number; doc_type: string; template_name: string; is_default: number }[]
+> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list-all", {
+      company_masters_id: companyMastersId,
+    });
+    return listData?.ack === 1 ? listData.data.item : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
 export const handleDownload = async (
   cartId: string | undefined,
   MobileToken: string | undefined,

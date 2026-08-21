@@ -100,6 +100,7 @@ import {
   ICustomFormList,
 } from "./OrderCreateModelController";
 import PageTextEditModel from "./PageTextEditModel/PageTextEditModel";
+import DesignerPageEditModel from "./PageTextEditModel/DesignerPageEditModel";
 
 interface IOrderCreateModal {
   show: boolean;
@@ -395,6 +396,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [conversionType, setConversionType] = useState("");
   const [buttonLoading, setButtonloding] = useState(false);
   const [isEditPageUrlModalOpen, setIsEditPageUrlModalOpen] = useState(false);
+  const [isEditDesignerPageModalOpen, setIsEditDesignerPageModalOpen] = useState(false);
   const [discountType, setDiscountType] = useState<"percentage" | "flat">(
     "percentage",
   );
@@ -2159,7 +2161,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         new Set(allFields.map((item) => item.id)),
       ).filter((id) => {
         const field = allFields.find((f) => f.id === id);
-        return field && [9, 10, 11, 12].includes(field.data_type);
+        return field && [9, 10, 11, 12, 14].includes(field.data_type);
       });
 
       if (uniqueFieldIds.length === 0) {
@@ -9795,7 +9797,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 5)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -9846,7 +9850,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 6)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -9898,7 +9904,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 7)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -9949,7 +9957,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 8)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -10000,7 +10010,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 9)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -10051,7 +10063,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 10)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -10101,7 +10115,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 12)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -10151,7 +10167,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         .filter((field) => field.form_type === 13)
                         .map((item) => {
                           const shouldHideField =
-                            item.data_type === 12 || item.data_type === 11;
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
 
                           if (shouldHideField) {
                             const dropdownOptions =
@@ -10392,6 +10410,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                               onClick={() => setIsEditPageUrlModalOpen(true)}
                             >
                               Edit Page URL
+                            </button>
+                          )}
+                        {customFormList.some(
+                          (field) => field.data_type === 14,
+                        ) && (
+                            <button
+                              className="modal-button2"
+                              onClick={() => setIsEditDesignerPageModalOpen(true)}
+                            >
+                              Edit Designer Page
                             </button>
                           )}
                       </div>
@@ -11815,6 +11843,32 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             setCartCustomFieldValues((prev) => ({
               ...prev,
               [fieldName]: html,
+            }));
+          }}
+        />
+      )}
+
+      {isEditDesignerPageModalOpen && (
+        <DesignerPageEditModel
+          show={isEditDesignerPageModalOpen}
+          onHide={() => setIsEditDesignerPageModalOpen(false)}
+          designerPageFields={customFormList
+            .filter((f) => f.data_type === 14)
+            .map((field) => {
+              const dropdownOptions = dropdownDataMap[String(field.id)] || [];
+              const __dropdownSources = dropdownOptions.map((opt: any) => opt.data_sorce);
+              const adminDefault = __dropdownSources[0] || "";
+              return {
+                ...field,
+                data_sorce:
+                  cartCustomFieldValues[field.reference_column_name] || adminDefault,
+                __dropdownSources,
+              };
+            })}
+          onLocalDataSourceChange={(fieldName, templateId) => {
+            setCartCustomFieldValues((prev) => ({
+              ...prev,
+              [fieldName]: templateId,
             }));
           }}
         />

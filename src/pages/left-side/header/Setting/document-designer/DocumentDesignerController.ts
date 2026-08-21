@@ -64,7 +64,14 @@ export const getDocumentTemplate = async (
       doc_type,
       id,
     });
-    return data?.ack === 1 ? data.data.item : null;
+    if (data?.ack !== 1) {
+      // The backend responds successfully but ack:0 (e.g. "Template not
+      // found" — a deleted/inaccessible id) previously fell through
+      // silently, leaving the caller's canvas blank with no feedback.
+      toast.error(data?.ack_msg || "Failed to load template");
+      return null;
+    }
+    return data.data.item;
   } catch (error) {
     handleError(error, "Failed to load template");
     return null;
@@ -75,6 +82,12 @@ export const createDocumentTemplate = async (
   doc_type: string,
   template_name: string,
   template_json: any,
+  // 'main' (backend default) unless the "Document Designer Page" custom
+  // field's editor explicitly passes 'extra_page' — see
+  // documentPrintTemplateServices.js's createDocumentTemplate for why that
+  // matters (excluded from /document-designer's list and the real
+  // print-time picker, never auto-set as is_default).
+  template_purpose?: "main" | "extra_page",
 ): Promise<IDocumentTemplateFull | null> => {
   try {
     const { data } = await axiosInstance.post("document-templates/create", {
@@ -83,6 +96,7 @@ export const createDocumentTemplate = async (
       doc_type,
       template_name,
       template_json,
+      template_purpose,
     });
     if (data?.ack === 1) return data.data.item;
     toast.error(data?.ack_msg || "Failed to create template");

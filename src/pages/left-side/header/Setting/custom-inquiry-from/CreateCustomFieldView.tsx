@@ -171,7 +171,7 @@ const CreateCustomFieldView = ({
                 if (option.id == "13") {
                     return attachmentAllowedPages.includes(selectedPageTypeValue);
                 }
-                if (["11", "12"].includes(option.id)) {
+                if (["11", "12", "14"].includes(option.id)) {
                     return isFormType5to9;
                 }
                 return true;
@@ -187,7 +187,7 @@ const CreateCustomFieldView = ({
     const handleOrderDisplayChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedOrderList(selectedOption);
         setDataTypeError(selectedOption ? "" : "Data type is required");
-        if (selectedOption?.value === "11" || selectedOption?.value === "12") {
+        if (selectedOption?.value === "11" || selectedOption?.value === "12" || selectedOption?.value === "14") {
             const noOption = reqTypesCustomInquiryList.find(opt => opt.id === "2");
             setSelectedReqList({
                 value: noOption?.id || "2",

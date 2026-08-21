@@ -193,6 +193,20 @@ const DocumentDesignerView: React.FC = () => {
     });
   };
 
+  // Mail-merge style: append a {{key}} token to the selected field's own
+  // content, independent of dataSource/visibility binding above — a field
+  // stays "Static Text" with a free paragraph that happens to contain
+  // tokens, resolved server-side by orderInputMapper.js's
+  // applyTokenSubstitution at generate time. No cursor-position tracking —
+  // always appends to the end of whatever's already typed on canvas.
+  const insertTokenIntoSelectedField = (key: string) => {
+    updateSelectedFieldSchema((field) => {
+      const current = typeof field.content === "string" ? field.content : "";
+      const separator = current && !/\s$/.test(current) ? " " : "";
+      field.content = `${current}${separator}{{${key}}}`;
+    });
+  };
+
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
   // PromptModal components the rest of the app uses, so these always match
@@ -765,6 +779,23 @@ const DocumentDesignerView: React.FC = () => {
               <option value="always">Always show</option>
               <option value="hideIfEmpty">Hide if empty</option>
             </select>
+          </div>
+        )}
+        {selectedField && selectedField.schema?.type === "text" && (
+          <div style={{ padding: "6px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: "#fff" }}>
+            <strong style={{ fontSize: 11, color: "#666" }}>Insert token:</strong>
+            {dictionary.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: 10, padding: "1px 6px" }}
+                title={`${d.group}: ${d.label}`}
+                onClick={() => insertTokenIntoSelectedField(d.key)}
+              >
+                {`{{${d.key}}}`}
+              </button>
+            ))}
           </div>
         )}
         <div style={{ padding: "4px 12px", fontSize: 12, color: "#666" }}>{status}</div>
