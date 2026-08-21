@@ -33,9 +33,11 @@ import {
 
 // All 10 cart-shaped doc types templates.js's DOC_TYPES / dataDictionary.js's
 // CART_DOC_DICTIONARY / orderServices.js's PDFME_DOC_TYPE_BY_CART_TYPE
-// support. The 5 non-cart-shaped modules (Stock In/Out, Account/Employee
-// Statement, Shipping Label) still need their own engine + dictionary
-// before they can be added here.
+// support, plus 4 non-cart system documents (accountStatement,
+// accountTransaction, taskDueList, shippingLabel) whose canvas is editable
+// here but whose header-variant/column-toggle toolbar and "real data"
+// preview stay cart-only — see CART_SHAPED_DOC_TYPES below. Stock In/Out
+// still needs its own engine + dictionary before it can be added.
 const SUPPORTED_DOC_TYPES = [
   { id: "quotation", label: "Quotation" },
   { id: "salesOrder", label: "Sales Order" },
@@ -47,6 +49,10 @@ const SUPPORTED_DOC_TYPES = [
   { id: "inward", label: "Goods Received Note (GRN)" },
   { id: "dispatch", label: "Dispatch" },
   { id: "proformaInvoice", label: "Proforma Invoice" },
+  { id: "accountStatement", label: "Account Statement" },
+  { id: "accountTransaction", label: "Account Transaction" },
+  { id: "taskDueList", label: "Task Due List" },
+  { id: "shippingLabel", label: "Shipping Label" },
 ];
 // listOrder's own order_type filter — mirrors orderServices.js's
 // PDFME_DOC_TYPE_BY_CART_TYPE (cart.type), just keyed the other direction.
@@ -62,6 +68,12 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
   dispatch: 9,
   proformaInvoice: 12,
 };
+// Header-variant/column-toggle toolbar and "Generate Preview" (real order
+// data or the cart-shaped sample data) only make sense for the 10 cart docs
+// above — the 4 system doc types have their own fixed layout/sample data
+// that applyOptionsToDraft and previewDocumentTemplate don't know how to
+// touch yet (backend guards + rejects both for non-cart-shaped doc_types).
+const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
 const plugins = { text, table, image };
 
 async function loadDesignerFonts() {
@@ -669,23 +681,29 @@ const DocumentDesignerView: React.FC = () => {
 
       <div className="dd-main">
         <div style={{ padding: "8px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select className="form-select form-select-sm" style={{ width: 160 }} onChange={(e) => applyHeaderVariant(e.target.value)} defaultValue="details">
-            <option value="details">Header: Details</option>
-            <option value="image">Header: Image</option>
-            <option value="logoLeft">Header: Logo Left</option>
-            <option value="logoRight">Header: Logo Right</option>
-          </select>
-          {["hsn", "discount", "cgst", "sgst", "igst", "image"].map((key) => (
-            <label key={key} className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input type="checkbox" className="form-check-input" onChange={(e) => applyColumnToggle(key, e.target.checked)} />
-              {key.toUpperCase()}
-            </label>
-          ))}
+          {CART_SHAPED_DOC_TYPES.has(docType) && (
+            <>
+              <select className="form-select form-select-sm" style={{ width: 160 }} onChange={(e) => applyHeaderVariant(e.target.value)} defaultValue="details">
+                <option value="details">Header: Details</option>
+                <option value="image">Header: Image</option>
+                <option value="logoLeft">Header: Logo Left</option>
+                <option value="logoRight">Header: Logo Right</option>
+              </select>
+              {["hsn", "discount", "cgst", "sgst", "igst", "image"].map((key) => (
+                <label key={key} className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
+                  <input type="checkbox" className="form-check-input" onChange={(e) => applyColumnToggle(key, e.target.checked)} />
+                  {key.toUpperCase()}
+                </label>
+              ))}
+            </>
+          )}
           <div style={{ flex: 1 }} />
           <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
           <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
           <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
-          <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+          {CART_SHAPED_DOC_TYPES.has(docType) && (
+            <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+          )}
           <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
             Publish
           </button>
