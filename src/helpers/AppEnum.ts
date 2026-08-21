@@ -145,6 +145,7 @@ export enum PAGE_ID {
   CUSTOMER_SALES_PURCHASE_REPORT = 131,
   ROUTE_PLANNER = 144,
   DOCUMENT_DESIGNER_RIGHTS = 157,
+  REVIEWS_REPORT = 158,
 
   // Add more pages as needed
 }

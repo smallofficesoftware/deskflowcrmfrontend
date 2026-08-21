@@ -1,4 +1,5 @@
 import { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import deshFlow_log_icon from "../../assets/images/deshFlow_log.png";
 import smalll_office_logo from "../../assets/images/smalll_office_logo.png";
 import { AppContext } from "../../common/AppContext";
@@ -33,6 +34,7 @@ const SidebarView = ({
   const [hoveredSubMenu, setHoveredSubMenu] = useState<string | null>(null);
 
   const { permissions } = useContext(AppContext)!;
+  const navigate = useNavigate();
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -559,6 +561,11 @@ const SidebarView = ({
           pageId: PAGE_ID.SUPPORT_TICKET_REPORT,
         },
         {
+          label: "Reviews",
+          value: "reviews_report",
+          pageId: PAGE_ID.REVIEWS_REPORT,
+        },
+        {
           label: "Personal Notes",
           value: "PersonalNotes_Report",
           pageId: PAGE_ID.PERSONAL_NOTE,
@@ -940,7 +947,10 @@ const SidebarView = ({
                       fontWeight: activeReport === sub.value ? "500" : "400",
                     }}
                     onClick={() => {
-                      if (sub.value) {
+                      if (sub.value === "reviews_report") {
+                        // Standalone route — not a NewReportModel report type.
+                        navigate("/reviews");
+                      } else if (sub.value) {
                         // setSelectedSubMenu(sub.value);
                         onReportClick(sub.value);
                       }

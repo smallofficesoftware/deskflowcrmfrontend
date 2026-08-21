@@ -38,6 +38,12 @@ import CustomerSupportFormView from "../customer-support/customer-support-form/C
 import CreateCompanyView from "../left-side/create-company/CreateCompanyView";
 import MiracleConfigurationsView from "../left-side/header/Setting/work-flow-automation/MiracleConfigurationsView";
 import ManageWorkspacesModal from "../../components/model/ManageWorkspacesModal";
+import ReviewDialog from "../../components/review/ReviewDialog";
+import { useReviewStore } from "../../store/review/useReviewStore";
+
+// Wait a couple of minutes after app load before ever surfacing the review
+// prompt, so it never competes with the initial login/dashboard load.
+const REVIEW_PROMPT_DELAY_MS = 150000;
 import { IFilterLocationParams } from "../left-side/LeftSideView";
 import {
   fetchCompanyApi,
@@ -308,6 +314,15 @@ const SideView = ({ profileDetail }: IProp) => {
           setCompanyData(response.data.data.item);
           setPermissions(response.data.data.resultRights);
           setAdvertisement(response.data.data.advertisement);
+
+          const reviewStatus = response?.data?.data?.review;
+          if (reviewStatus?.show && reviewStatus.show !== "none") {
+            // Don't interrupt the app right on load — surface the review
+            // prompt a couple of minutes in, same as the PIN-setup popup below.
+            setTimeout(() => {
+              useReviewStore.getState().setStatus(reviewStatus);
+            }, REVIEW_PROMPT_DELAY_MS);
+          }
 
           setFeatureEnabled(
             response?.data?.data?.MIRACLE_FLAG == 1 ? true : false,
@@ -1347,6 +1362,7 @@ const SideView = ({ profileDetail }: IProp) => {
         show={showManageWorkspaces}
         onHide={() => setShowManageWorkspaces(false)}
       />
+      <ReviewDialog />
       {isExploreNearbyShow && (
         <ExploreNearbyModal
           show={isExploreNearbyShow}

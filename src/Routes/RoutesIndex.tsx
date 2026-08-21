@@ -31,6 +31,7 @@ import LogoutComponent from "../components/LogoutComponent";
 import ContactAddressEnvelopePrintView from "../pages/contact-address-print/ContactAddressEnvelopePrintView";
 import ContactAddressPrintView1 from "../pages/contact-address-print/ContactAddressPrintView1";
 import CustomerSupportView from "../pages/customer-support/CustomerSupportView";
+import ReviewsView from "../pages/reviews/ReviewsView";
 import ProcessAttendanceMonthlySlip from "../pages/dashboard/Reports/Process Attendance Report/ProcessAttendanceMonthlySlip";
 import SalaryRegisterMonthlySlip from "../pages/dashboard/Reports/Salary Register/SalaryRegisterMonthlySlip";
 import EmployeeAccountPrintView1 from "../pages/employee-account-print-view/EmployeeAccountPrintView1";
@@ -231,6 +232,7 @@ const RoutesIndex = () => {
               path="/customer-support/"
               element={<CustomerSupportView />}
             />
+            <Route path="/reviews" element={<ReviewsView />} />
             <Route path="/BomPdfView/:id/:bomId" element={<BomPdfView />} />
             <Route path="/SideView" element={<SideView />} />
             <Route
