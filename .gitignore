@@ -9,7 +9,9 @@
 /coverage
 
 # production
-/build
+# /build is intentionally tracked — scripts/deploy-dev-local-build.sh
+# commits the locally-built output so the server's deploy-dev.sh can just
+# `git reset --hard` it in instead of building on the (low-RAM) server.
 
 # misc
 .DS_Store
@@ -19,6 +21,10 @@ desktop.ini
 .env.development.local
 .env.test.local
 .env.production.local
+# Machine-local, pulled from live servers by scripts/deploy-dev-local-build.sh
+# — may contain real secrets, never commit as-is.
+.env.demo
+.env.production
 
 # IDE & Tooling
 .vscode/
