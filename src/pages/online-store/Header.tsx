@@ -18,14 +18,31 @@ const Header = ({ qrCode }: HeaderProps) => {
         return name.length > max ? name.substring(0, max) + "..." : name;
     };
 
-    // Always the company's default account statement template here — no
-    // picker on the customer-facing portal (unlike the staff-side Account
-    // History, which offers one when the company has 2+ templates).
+    // Flag OFF -> exactly the old behavior (open the legacy
+    // AccountTransactionV1 page, same URL the removed <a href> used). Flag
+    // ON -> new pdfme popup, always the company's default template — no
+    // picker on the customer-facing portal (unlike staff-side Account
+    // History, which offers one when the company has 2+ templates). No
+    // localStorage COMPANY_ID here (public page) — company id comes from
+    // companyData, resolved from the qrCode.
     const [isStatementLoading, setIsStatementLoading] = useState(false);
+    const openLegacyAccountStatement = () => {
+        window.open(`/AccountTransactionV1/${customerData?.id}?qr_code=${qrCode}&printFlag=0`, "_blank");
+    };
     const printAccountStatement = async () => {
         if (!customerData?.id) return;
         setIsStatementLoading(true);
         try {
+            const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+                company_masters_id: companyData?.id,
+                feature_key: "document_designer",
+            });
+            const pdfmeOn = flagData?.ack === 1 && !!flagData.data.item.is_enabled;
+            if (!pdfmeOn) {
+                openLegacyAccountStatement();
+                return;
+            }
+
             const { data } = await axiosInstance.post(
                 `/account-statement-pdf-online-store/${customerData.id}/${qrCode}`,
                 {},

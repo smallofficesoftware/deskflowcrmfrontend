@@ -39,6 +39,7 @@ import {
   contactAllTransactionDownloadPDf,
   fetchAccountPdfmeTemplatesForPicker,
   fetchApiAccountTransitions,
+  isDocumentDesignerEnabled,
   generateMiracleLedger,
   generateMiracleOutstanding,
   IAccountTransaction,
@@ -291,7 +292,20 @@ const ListAccountTransactionView = ({
       setIsStatementPrintLoading(false);
     }
   };
-  const printAllTransactionStatement = () => {
+  // Flag OFF -> exactly the old behavior (open the legacy
+  // AccountTransactionV1 page in a new tab, same URL/params the removed
+  // <Link> used). Flag ON -> new pdfme popup flow, with a template picker
+  // first when the company has 2+.
+  const openLegacyStatementPrint = () => {
+    const url = `/AccountTransactionV1/${contactData?.id}?startDate=${filterParams.startSearchDate || ""}&endDate=${filterParams.endSearchDate || ""}&creditFilter=${filterParams.initialCheckedShowCreditData}&debitFilter=${filterParams.initialCheckedShowDebitData}`;
+    window.open(url, "_blank");
+  };
+  const printAllTransactionStatement = async () => {
+    const pdfmeOn = await isDocumentDesignerEnabled();
+    if (!pdfmeOn) {
+      openLegacyStatementPrint();
+      return;
+    }
     runWithTemplatePicker("accountStatement", (templateId) => doStatementPrint(templateId));
   };
   const sendAllToWhatsApp = async () => {
@@ -680,7 +694,45 @@ const ListAccountTransactionView = ({
       setIsPrintLoading(false);
     }
   };
-  const openPrint = (id: number) => {
+  // Flag OFF -> exactly the old behavior (open the legacy AccountPrintView1
+  // page in a popup and force-print it). Flag ON -> new pdfme popup flow,
+  // with a template picker first when the company has 2+.
+  const openLegacyAccountPrint = (id: number) => {
+    const baseURL = window.location.origin;
+    const printUrl = `${baseURL}/AccountPrintView1/${id}`;
+    const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
+    if (!myWindow) {
+      console.error("Failed to open print");
+      return;
+    }
+    let isPrinted = false;
+    myWindow.onload = () => {
+      const checkContent = setInterval(() => {
+        const contentElement = myWindow.document.querySelector("body > *");
+        if (contentElement && myWindow.document.readyState === "complete") {
+          clearInterval(checkContent);
+          if (!isPrinted) {
+            isPrinted = true;
+            setTimeout(() => myWindow.print(), 2000);
+            myWindow.onafterprint = () => myWindow.close();
+            myWindow.addEventListener("afterprint", () => myWindow.close());
+          }
+        }
+      }, 100);
+    };
+    myWindow.addEventListener("beforeunload", () => {
+      isPrinted = true;
+    });
+    setTimeout(() => {
+      if (!isPrinted) myWindow.close();
+    }, 10000);
+  };
+  const openPrint = async (id: number) => {
+    const pdfmeOn = await isDocumentDesignerEnabled();
+    if (!pdfmeOn) {
+      openLegacyAccountPrint(id);
+      return;
+    }
     runWithTemplatePicker("accountTransaction", (templateId) => doOpenPrint(id, templateId));
   };
   const downloadPDF = (id: number) => {

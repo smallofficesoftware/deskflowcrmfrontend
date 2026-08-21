@@ -7,6 +7,24 @@ import {
 import { TFilterDate } from "../../../helpers/AppInterface";
 import { axiosInstance } from "../../../services/axiosInstance";
 
+// Standalone flag check — separate from fetchAccountPdfmeTemplatesForPicker
+// below, whose empty-array return can't distinguish "flag is off" from
+// "flag is on but only 1 template" and callers need to tell those apart
+// (off -> legacy page/URL, on -> new popup flow either way).
+export const isDocumentDesignerEnabled = async (): Promise<boolean> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return false;
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    return data?.ack === 1 && !!data.data.item.is_enabled;
+  } catch {
+    return false;
+  }
+};
+
 // Same shape/rule as orderPrintController.ts's fetchPdfmeTemplatesForPicker
 // (§7: picker only when document_designer is on AND 2+ templates exist),
 // just keyed by doc_type directly instead of a cart type -> doc_type map —

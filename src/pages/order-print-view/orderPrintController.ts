@@ -243,6 +243,33 @@ export const fetchPdfmeTemplatesForPicker = async (
   }
 };
 
+// Same rule as fetchPdfmeTemplatesForPicker above, keyed by a literal
+// doc_type instead of a cart type -> doc_type map — for non-cart doc types
+// like shippingLabel that don't have their own cart type id.
+export const fetchTemplatesForDocType = async (
+  docType: string,
+): Promise<{ id: number; template_name: string; is_default: number }[]> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list", {
+      company_masters_id: companyMastersId,
+      doc_type: docType,
+    });
+    const templates = listData?.ack === 1 ? listData.data.item : [];
+    return templates.length > 1 ? templates : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
 export const handleDownload = async (
   cartId: string | undefined,
   MobileToken: string | undefined,
