@@ -591,7 +591,7 @@ const DocumentDesignerView: React.FC = () => {
         .dd-layout .btn-primary { background-color: #f58634; border-color: #f58634; }
         .dd-layout .btn-primary:hover, .dd-layout .btn-primary:focus { background-color: #d9701f; border-color: #d9701f; }
         .dd-layout .btn-outline-primary { color: #f58634; border-color: #f58634; }
-        .dd-layout .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; }
+        .dd-layout .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; color: #fff; }
         .dd-layout input[type="checkbox"]:checked,
         .dd-layout input[type="radio"]:checked { background-color: #f58634; border-color: #f58634; }
         .dd-layout .form-select:focus,
