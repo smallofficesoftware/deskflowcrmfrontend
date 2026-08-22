@@ -31,18 +31,86 @@ import {
 const plugins = { text, table, image };
 
 async function loadDesignerFonts() {
-  const files = ["Poppins-Regular.ttf", "Poppins-Bold.ttf", "Poppins-SemiBold.ttf"];
-  const [regular, bold, semiBold] = await Promise.all(
+  // Same Noto Sans Devanagari/Gujarati addition as DocumentDesignerView.tsx
+  // — names must match fonts.js's generate-time set exactly.
+  const files = [
+    "Poppins-Regular.ttf",
+    "Poppins-Bold.ttf",
+    "Poppins-SemiBold.ttf",
+    "NotoSansDevanagari-Regular.ttf",
+    "NotoSansGujarati-Regular.ttf",
+  ];
+  const [regular, bold, semiBold, notoDevanagari, notoGujarati] = await Promise.all(
     files.map((f) => fetch(`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/fonts/${f}`).then((r) => r.arrayBuffer())),
   );
   return {
     Poppins: { data: regular, fallback: true },
     "Poppins Bold": { data: bold },
     "Poppins SemiBold": { data: semiBold },
+    "Noto Sans Devanagari": { data: notoDevanagari },
+    "Noto Sans Gujarati": { data: notoGujarati },
   };
 }
 
-const BLANK_TEMPLATE = { basePdf: { width: 210, height: 297, padding: [0, 0, 0, 0] }, schemas: [[]] };
+// Seeds a fresh page with the SAME "Header: Details" company banner
+// Document Designer's own templates start from (companyName/companyAddress/
+// pageNumber in basePdf.staticSchema) — a truly empty canvas (no staticSchema
+// at all) left this editor showing nothing at all on first open, which read
+// as "the header setting isn't working here." No company-specific data is
+// baked in (content stays pdfme's own "Type Something..." placeholder —
+// real values are injected fresh at generate time via withCompanyHeader,
+// never stored), so this is safe to hardcode: it's byte-identical to what
+// POST document-templates/apply-options {header:{headerVariant:"details"}}
+// itself returns for a blank template (captured directly from that endpoint,
+// not hand-reconstructed). The header-variant dropdown below lets the admin
+// switch to Image/Logo Left/Logo Right once the page is first saved.
+const BLANK_TEMPLATE = {
+  basePdf: {
+    width: 210,
+    height: 297,
+    padding: [25, 10, 15, 10],
+    headerVariant: "details",
+    footerImage: false,
+    headerHeightMM: 18,
+    footerHeightMM: 15,
+    staticSchema: [
+      {
+        name: "companyName", type: "text", content: "Type Something...",
+        position: { x: 10, y: 5 }, width: 190, height: 8, rotate: 0,
+        alignment: "center", verticalAlignment: "middle", fontSize: 14,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "#cfcfcf", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "companyName",
+      },
+      {
+        name: "companyAddress", type: "text", content: "Type Something...",
+        position: { x: 10, y: 13 }, width: 190, height: 10, rotate: 0,
+        alignment: "center", verticalAlignment: "top", fontSize: 8,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1.3, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "companyAddress",
+      },
+      {
+        name: "pageNumber", type: "text", content: "Page {currentPage} of {totalPages}",
+        position: { x: 180, y: 287 }, width: 20, height: 5, rotate: 0,
+        alignment: "right", verticalAlignment: "top", fontSize: 8,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "pageNumber", readOnly: true,
+      },
+    ],
+  },
+  schemas: [[]],
+};
 
 const CustomFieldDesignerPageEditorView: React.FC = () => {
   const navigate = useNavigate();

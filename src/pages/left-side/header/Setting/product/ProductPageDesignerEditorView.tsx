@@ -1,7 +1,7 @@
 import { Designer } from "@pdfme/ui";
 import { image, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
@@ -31,18 +31,78 @@ import {
 const plugins = { text, table, image };
 
 async function loadDesignerFonts() {
-  const files = ["Poppins-Regular.ttf", "Poppins-Bold.ttf", "Poppins-SemiBold.ttf"];
-  const [regular, bold, semiBold] = await Promise.all(
+  // Same Noto Sans Devanagari/Gujarati addition as DocumentDesignerView.tsx
+  // — names must match fonts.js's generate-time set exactly.
+  const files = [
+    "Poppins-Regular.ttf",
+    "Poppins-Bold.ttf",
+    "Poppins-SemiBold.ttf",
+    "NotoSansDevanagari-Regular.ttf",
+    "NotoSansGujarati-Regular.ttf",
+  ];
+  const [regular, bold, semiBold, notoDevanagari, notoGujarati] = await Promise.all(
     files.map((f) => fetch(`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/fonts/${f}`).then((r) => r.arrayBuffer())),
   );
   return {
     Poppins: { data: regular, fallback: true },
     "Poppins Bold": { data: bold },
     "Poppins SemiBold": { data: semiBold },
+    "Noto Sans Devanagari": { data: notoDevanagari },
+    "Noto Sans Gujarati": { data: notoGujarati },
   };
 }
 
-const BLANK_TEMPLATE = { basePdf: { width: 210, height: 297, padding: [0, 0, 0, 0] }, schemas: [[]] };
+// Same seeded "Header: Details" starting point as
+// CustomFieldDesignerPageEditorView.tsx — see its identical constant's
+// comment for why this is hardcoded (byte-identical apply-options output,
+// no company-specific data baked in).
+const BLANK_TEMPLATE = {
+  basePdf: {
+    width: 210,
+    height: 297,
+    padding: [25, 10, 15, 10],
+    headerVariant: "details",
+    footerImage: false,
+    headerHeightMM: 18,
+    footerHeightMM: 15,
+    staticSchema: [
+      {
+        name: "companyName", type: "text", content: "Type Something...",
+        position: { x: 10, y: 5 }, width: 190, height: 8, rotate: 0,
+        alignment: "center", verticalAlignment: "middle", fontSize: 14,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "#cfcfcf", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "companyName",
+      },
+      {
+        name: "companyAddress", type: "text", content: "Type Something...",
+        position: { x: 10, y: 13 }, width: 190, height: 10, rotate: 0,
+        alignment: "center", verticalAlignment: "top", fontSize: 8,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1.3, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "companyAddress",
+      },
+      {
+        name: "pageNumber", type: "text", content: "Page {currentPage} of {totalPages}",
+        position: { x: 180, y: 287 }, width: 20, height: 5, rotate: 0,
+        alignment: "right", verticalAlignment: "top", fontSize: 8,
+        textFormat: "plain", overflow: "visible", fontVariantFallback: "synthetic",
+        lineHeight: 1, characterSpacing: 0, fontColor: "#000000",
+        backgroundColor: "", borderColor: "#000000",
+        borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        opacity: 1, strikethrough: false, underline: false, dataSource: "pageNumber", readOnly: true,
+      },
+    ],
+  },
+  schemas: [[]],
+};
 // Dictionary/variable structure is identical across all 7 cart-shaped doc
 // types (dataDictionary.js's CART_DOC_DICTIONARY) — a product's page isn't
 // tied to any one of them, so this is just a fixed anchor for the template
@@ -50,7 +110,6 @@ const BLANK_TEMPLATE = { basePdf: { width: 210, height: 297, padding: [0, 0, 0, 
 const PRODUCT_PAGE_DOC_TYPE = "quotation";
 
 const ProductPageDesignerEditorView: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const productId = searchParams.get("productId");
   const productTitle = searchParams.get("productTitle") || "";
@@ -186,7 +245,7 @@ const ProductPageDesignerEditorView: React.FC = () => {
     const full = await getDocumentTemplate(PRODUCT_PAGE_DOC_TYPE, id);
     setLoading(false);
     if (!full) {
-      navigate(-1);
+      window.close();
       return;
     }
     setCurrentTemplateId(full.id);
@@ -265,7 +324,7 @@ const ProductPageDesignerEditorView: React.FC = () => {
             document_template_id: templateId,
           });
           toast.success("Product page saved");
-          navigate(-1);
+          window.close();
         } catch (e) {
           console.error(e);
           toast.error("Failed to save product page");
@@ -310,8 +369,8 @@ const ProductPageDesignerEditorView: React.FC = () => {
         .dd-layout input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
       `}</style>
       <div className="dd-sidebar">
-        <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => navigate(-1)}>
-          &larr; Back
+        <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => window.close()}>
+          Close Tab
         </button>
         <h5 style={{ fontSize: 14 }}>{openTemplateId ? "Editing Product Page" : "New Product Page"}</h5>
         <p style={{ fontSize: 12, color: "#666" }}>
@@ -332,7 +391,7 @@ const ProductPageDesignerEditorView: React.FC = () => {
           >
             {saving ? "Saving..." : "Use This Page"}
           </button>
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>Cancel</button>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => window.close()}>Cancel</button>
           <div style={{ flex: 1 }} />
           <select
             className="form-select form-select-sm"
