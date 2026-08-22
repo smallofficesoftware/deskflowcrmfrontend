@@ -50,9 +50,8 @@ import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
 
-// Wait a couple of minutes after app load before ever surfacing the review
-// prompt, so it never competes with the initial login/dashboard load.
-const REVIEW_PROMPT_DELAY_MS = 150000;
+// Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
+const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
 
 interface IProp {
   profileDetail?: ILoginData;
@@ -317,11 +316,12 @@ const SideView = ({ profileDetail }: IProp) => {
 
           const reviewStatus = response?.data?.data?.review;
           if (reviewStatus?.show && reviewStatus.show !== "none") {
-            // Don't interrupt the app right on load — surface the review
-            // prompt a couple of minutes in, same as the PIN-setup popup below.
+            // Don't interrupt the app right on load — server tells us how
+            // long to wait (REVIEW_PROMPT_DELAY_SECONDS env var).
+            const delayMs = (reviewStatus.delaySeconds ?? DEFAULT_REVIEW_PROMPT_DELAY_MS / 1000) * 1000;
             setTimeout(() => {
               useReviewStore.getState().setStatus(reviewStatus);
-            }, REVIEW_PROMPT_DELAY_MS);
+            }, delayMs);
           }
 
           setFeatureEnabled(
