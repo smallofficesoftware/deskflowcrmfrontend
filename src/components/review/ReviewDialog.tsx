@@ -103,16 +103,20 @@ const ReviewDialog = () => {
           ))}
         </div>
 
-        {commentRequired && (
+        {!!rating && (
           <div className="mb-3">
             <textarea
               className="form-control"
               rows={4}
-              placeholder={`Tell us what went wrong (min ${MIN_COMMENT_LENGTH} characters)...`}
+              placeholder={
+                commentRequired
+                  ? `Tell us what went wrong (min ${MIN_COMMENT_LENGTH} characters)...`
+                  : "Anything you'd like to add? (optional)"
+              }
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
-            {!commentValid && (
+            {commentRequired && !commentValid && (
               <small className="text-danger">
                 Please enter at least {MIN_COMMENT_LENGTH} characters ({comment.trim().length}/{MIN_COMMENT_LENGTH}).
               </small>
