@@ -48,9 +48,9 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
     ...styles,
     control: (provided: any, state: any) => ({
       ...provided,
-      ...(styles?.control ? styles.control(provided, state) : {}),
       minHeight: "10px",
       fontSize: "16px",
+      ...(styles?.control ? styles.control(provided, state) : {}),
     }),
     menuPortal: (base: any) => ({ ...base, zIndex: 100000 }),
     menu: (provided: any) => ({ ...provided, zIndex: 100000 }),
