@@ -4,8 +4,8 @@ import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import { fetchAllDocumentTemplatesForPicker } from "../../../../order-print-view/orderPrintController";
 
-// pageTypesCustomFieldList's form_type ids (5-11, the only ones "Document
-// Designer Page" is allowed on, per CustomInquiryFromView.tsx/
+// pageTypesCustomFieldList's form_type ids (5-11 and 16, the only ones
+// "Document Designer Page" is allowed on, per CustomInquiryFromView.tsx/
 // CreateCustomFieldView.tsx's isFormType5to9 gate) mapped onto
 // DocumentDesignerView.tsx's SUPPORTED_DOC_TYPES ids — so "Open Document
 // Designer" can open the right doc type directly instead of making the user
@@ -18,6 +18,7 @@ const FORM_TYPE_TO_DOC_TYPE: Record<string, string> = {
   "9": "purchaseOrder",
   "10": "returnSalesInvoice",
   "11": "returnPurchaseInvoice",
+  "16": "proformaInvoice",
 };
 
 // Admin-side "Add Data source" for the "Document Designer Page" custom field

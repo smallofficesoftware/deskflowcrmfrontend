@@ -164,7 +164,7 @@ const CreateCustomFieldView = ({
         const selectedPageTypeValue: any = selectedPageType?.value?.toString();
         const isFormType5to9 =
             selectedPageTypeValue &&
-            ["5", "6", "7", "8", "9", "10", "11"].includes(selectedPageTypeValue);
+            ["5", "6", "7", "8", "9", "10", "11", "16"].includes(selectedPageTypeValue);
         const attachmentAllowedPages = ["3", "14", "15"];
         return orderTypesCustomInquiryList
             .filter((option) => {
@@ -475,7 +475,7 @@ const CreateCustomFieldView = ({
                 setSelectedApplicableModules(initialMods);
             } else if (Number(productToEdit.form_type) === 4) {
                 if (Number(productToEdit.product_feild_row_column) === 2) {
-                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13"].includes(String(opt.value)));
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13","16"].includes(String(opt.value)));
                     setSelectedApplicableModules(initialMods);
                 } else {
                     const initialMods = applicableModulesDisplayOptions.filter(opt => String(opt.value) === "4");

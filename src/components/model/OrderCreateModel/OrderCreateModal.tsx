@@ -165,7 +165,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
+  // Set only when the picker is opened for a cart_id that isn't yet reflected
+  // in `cartId` state (e.g. right after Approve creates a brand-new cart) —
+  // printWithTemplate/the download picker's click handler read this instead
+  // of falling back to stale `cartId`.
+  const [pendingDownloadCartId, setPendingDownloadCartId] = useState<number | undefined>(undefined);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | undefined>(undefined);
   const [printLoading, setPrintLoading] = useState(false);
+  // Covers the fetchPdfmeTemplatesForPicker gap in downloadWithPicker — same
+  // spinner overlay as printLoading, download had none before.
+  const [downloadLoading, setDownloadLoading] = useState(false);
   // Which action opened the template picker — "print" (flag 2, auto-print
   // after generating) or "view" (flag 1, "Open Print View": just display
   // the real PDF, no print dialog).
@@ -807,6 +816,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         7: 11,
         8: 12,
         9: 13,
+        12: 16,
       };
       const formType =
         formTypeMap[newOrderShowNumAfterConversion || isOrderShowNum];
@@ -3472,6 +3482,77 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                 default:
                   break;
               }
+            } else if (item.required_or_not === 1 && item.form_type === 16) {
+              switch (item.data_type) {
+                case 1: // Number
+                  acc[item.reference_column_name] = Yup.number()
+                    .typeError(`${item.title} must be a number`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 2: // Text
+                  acc[item.reference_column_name] = Yup.string()
+                    .trim()
+                    .min(1, `${item.title} cannot be empty`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 3: // Textarea
+                  acc[item.reference_column_name] = Yup.string()
+                    .trim()
+                    .min(1, `${item.title} cannot be empty`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 4: // Date
+                  acc[item.reference_column_name] = Yup.string()
+                    .matches(
+                      /^\d{4}-\d{2}-\d{2}$/,
+                      `${item.title} must be a valid date`,
+                    )
+                    .required(`${item.title} is required`);
+                  break;
+                case 5: // DateTime
+                  acc[item.reference_column_name] = Yup.string()
+                    .matches(
+                      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/,
+                      `${item.title} must be a valid date and time`,
+                    )
+                    .required(`${item.title} is required`);
+                  break;
+                case 6: // Time
+                  acc[item.reference_column_name] = Yup.string()
+                    .min(1, `${item.title} cannot be empty`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 7: // Switch (Boolean)
+                  acc[item.reference_column_name] = Yup.mixed()
+                    .test(
+                      "is-boolean-or-number",
+                      `${item.title} must be a valid boolean or number`,
+                      (value) =>
+                        value === 0 ||
+                        value === 1 ||
+                        value === true ||
+                        value === false,
+                    )
+                    .required(`${item.title} is required`);
+                  break;
+                case 8: // Decimal
+                  acc[item.reference_column_name] = Yup.number()
+                    .typeError(`${item.title} must be a valid decimal`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 9: // Dropdown
+                  acc[item.reference_column_name] = Yup.string()
+                    .min(1, `${item.title} cannot be empty`)
+                    .required(`${item.title} is required`);
+                  break;
+                case 10: // Radio
+                  acc[item.reference_column_name] = Yup.string()
+                    .min(1, `${item.title} cannot be empty`)
+                    .required(`${item.title} is required`);
+                  break;
+                default:
+                  break;
+              }
             }
             return acc;
           },
@@ -4198,7 +4279,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
     // 2. Order-level custom fields (cartCustomFieldValues)
     for (const field of customFormList) {
-      if (![5, 6, 7, 8, 9, 10, 11, 12, 13].includes(field.form_type)) continue;
+      if (![5, 6, 7, 8, 9, 10, 11, 12, 13, 16].includes(field.form_type)) continue;
 
       const fieldName = field.reference_column_name;
       const rawValue = cartCustomFieldValues[fieldName];
@@ -4611,42 +4692,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           orderbyidList?.cart?.referance_cart_id,
       };
 
-      // **HELPER FUNCTION FOR PDF DOWNLOAD**
-      const handleDownloadPdf = async (currentCartId: number) => {
-        try {
-          setRefreshDownload(true);
-          const resops = await axiosInstance.post("/order-pdf", {
-            cart_id: currentCartId,
-          });
-
-          if (resops.data.ack === 1) {
-            const fileUrl = resops.data.data.path;
-            const response = await axios.get(fileUrl, { responseType: "blob" });
-            const fileName = resops.data.data.title;
-            const blob = new Blob([response.data], {
-              type: response.headers["content-type"],
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", fileName);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            setRefreshDownload(false);
-          } else {
-            toast.error(resops.data.ack_msg);
-            setRefreshDownload(false);
-          }
-        } catch (error: any) {
-          toast.error(
-            error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
-          );
-          setRefreshDownload(false);
-        }
-      };
-
       // **HELPER FUNCTION FOR WHATSAPP SHARE**
       const handleShareWhatsapp = async (currentCartId: number) => {
         try {
@@ -4672,77 +4717,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         }
       };
 
-      // **HELPER FUNCTION TO HANDLE PRINT**
-      const handlePrintForOrderType = (
-        orderType: number,
-        currentCartId: number,
-        companyDetail: any[],
-      ) => {
-        const viewFormateMap: Record<number, string> = {
-          1: companyDetail[0]?.quotation_view_formate,
-          2: companyDetail[0]?.order_view_formate,
-          3: companyDetail[0]?.invoice_view_formate,
-          4: companyDetail[0]?.purchase_view_formate,
-          5: companyDetail[0]?.purchase_order_view_formate,
-          6: companyDetail[0]?.return_sales_invoice_view_formate,
-          7: companyDetail[0]?.return_purchase_invoice_view_formate,
-          8: companyDetail[0]?.inward_view_formate,
-          9: companyDetail[0]?.dispatch_view_formate,
-        };
-
-        const viewFormate = viewFormateMap[orderType];
-        if (!viewFormate) return;
-
-        const baseURL = window.location.origin;
-        const printUrl = `${baseURL}/OrderPrintViewV${viewFormate}/${currentCartId}`;
-        const myWindow = window.open(
-          printUrl,
-          "_blank",
-          "width=1000,height=1000",
-        );
-
-        if (myWindow) {
-          let isPrinted = false;
-          myWindow.onload = () => {
-            const checkContent = setInterval(() => {
-              const contentElement =
-                myWindow.document.querySelector("body > *");
-              if (
-                contentElement &&
-                myWindow.document.readyState === "complete"
-              ) {
-                clearInterval(checkContent);
-
-                if (!isPrinted && printSetting) {
-                  isPrinted = true;
-                  setTimeout(() => {
-                    myWindow.print();
-                  }, 2000);
-                  myWindow.onafterprint = () => {
-                    myWindow.close();
-                  };
-                  myWindow.addEventListener("afterprint", () => {
-                    myWindow.close();
-                  });
-                }
-              }
-            }, 100);
-          };
-          myWindow.addEventListener("beforeunload", () => {
-            if (!isPrinted) {
-              isPrinted = true;
-            }
-          });
-          setTimeout(() => {
-            if (!isPrinted) {
-              myWindow.close();
-            }
-          }, 10000);
-        } else {
-          console.error("Failed to open print");
-        }
-      };
-
       try {
         if ((orderById && orderById.cart) || converCartId || orderId) {
           // **UPDATE ORDER**
@@ -4759,32 +4733,28 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
             // **Execute actions with correct cart_id**
             if (shareInwhatsapp) {
-              setTimeout(() => {
-                if (platformType == 1) {
-                  handleShareWhatsapp(updatedCartId);
-                } else if (platformType == 2) {
-                  whatsappTemplateCloudeSend(
-                    {
-                      orderId: updatedCartId,
-                      appId: localStorage.getItem("UUID"),
-                    },
-                    `carts_${isOrderShowNum}`,
-                    {
-                      customer_mobile_number: String(
-                        cartPayload?.to_customer_phone,
-                      ),
-                    },
-                  );
-                }
-              }, 2000);
+              if (platformType == 1) {
+                handleShareWhatsapp(updatedCartId);
+              } else if (platformType == 2) {
+                whatsappTemplateCloudeSend(
+                  {
+                    orderId: updatedCartId,
+                    appId: localStorage.getItem("UUID"),
+                  },
+                  `carts_${isOrderShowNum}`,
+                  {
+                    customer_mobile_number: String(
+                      cartPayload?.to_customer_phone,
+                    ),
+                  },
+                );
+              }
             }
             if (syncWithMiracle) {
               syncMiracleInvoice(updatedCartId);
             }
             if (downloadPdf) {
-              setTimeout(() => {
-                handleDownloadPdf(updatedCartId);
-              }, 2000);
+              downloadWithPicker(updatedCartId, type);
             }
             if (startWorkFlow) {
               startWorkflow(
@@ -4795,11 +4765,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
               );
             }
             if (shouldPrint) {
-              handlePrintForOrderType(
-                type,
-                updatedCartId,
-                data.data.companyDetail,
-              );
+              openPrint(2, updatedCartId, type);
             }
 
             handleSubmit();
@@ -4871,28 +4837,26 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
             // **Execute actions with correct cart_id**
             if (shareInwhatsapp) {
-              setTimeout(() => {
-                if (platformType == 1) {
-                  handleShareWhatsapp(newCartId);
-                } else if (platformType == 2) {
-                  whatsappTemplateCloudeSend(
-                    { orderId: newCartId, appId: localStorage.getItem("UUID") },
-                    `carts_${isOrderShowNum}`,
-                    {
-                      customer_mobile_number: String(
-                        cartPayload?.to_customer_phone,
-                      ),
-                    },
-                  );
-                }
-              }, 2000);
+              if (platformType == 1) {
+                handleShareWhatsapp(newCartId);
+              } else if (platformType == 2) {
+                whatsappTemplateCloudeSend(
+                  { orderId: newCartId, appId: localStorage.getItem("UUID") },
+                  `carts_${isOrderShowNum}`,
+                  {
+                    customer_mobile_number: String(
+                      cartPayload?.to_customer_phone,
+                    ),
+                  },
+                );
+              }
             }
             if (syncWithMiracle) {
               syncMiracleInvoice(newCartId);
             }
             if (downloadPdf) {
               setTimeout(() => {
-                handleDownloadPdf(newCartId);
+                downloadWithPicker(newCartId, orderType);
               }, 2000);
             }
 
@@ -4906,11 +4870,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             }
 
             if (shouldPrint) {
-              handlePrintForOrderType(
-                orderType,
-                newCartId,
-                data.data.companyDetail,
-              );
+              openPrint(2, newCartId, orderType);
             }
 
             if (flag === "quick") {
@@ -4941,10 +4901,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     documentTitle: "AwesomeFileName",
   });
 
-  const openInNewTabPrint = (path: string) => {
+  const openInNewTabPrint = (path: string, overrideCartId?: number) => {
     const baseURL = window.location.origin;
     // window.open(`${baseURL}${path}/${cartId}`, "_blank");
-    const printUrl = `${baseURL}${path}/${cartId}`;
+    const printUrl = `${baseURL}${path}/${overrideCartId ?? cartId}`;
     const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
     if (myWindow) {
       let isPrinted = false;
@@ -5012,11 +4972,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   // stale on-screen layout instead (printFlag suppresses all auto-print
   // effects on that route), which never reflected the actual Designer
   // template for a pdfme-enabled type.
-  const generatePdfWindow = async (documentTemplateId: number | undefined, autoPrint: boolean) => {
+  const generatePdfWindow = async (documentTemplateId: number | undefined, autoPrint: boolean, overrideCartId?: number) => {
     setPrintLoading(true);
     try {
       const resops = await axiosInstance.post("/order-pdf", {
-        cart_id: cartId,
+        cart_id: overrideCartId ?? cartId,
         ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
       if (resops.data.ack !== 1) {
@@ -5038,25 +4998,27 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
   };
 
-  const generateAndPrintPdf = (documentTemplateId?: number) => generatePdfWindow(documentTemplateId, true);
-  const generateAndViewPdf = (documentTemplateId?: number) => generatePdfWindow(documentTemplateId, false);
+  const generateAndPrintPdf = (documentTemplateId?: number, overrideCartId?: number) => generatePdfWindow(documentTemplateId, true, overrideCartId);
+  const generateAndViewPdf = (documentTemplateId?: number, overrideCartId?: number) => generatePdfWindow(documentTemplateId, false, overrideCartId);
 
   const printWithTemplate = (templateId: number) => {
     setPrintTemplateChoices([]);
+    const overrideCartId = pendingPrintCartId;
+    setPendingPrintCartId(undefined);
     if (printMode === "view") {
-      generateAndViewPdf(templateId);
+      generateAndViewPdf(templateId, overrideCartId);
     } else {
-      generateAndPrintPdf(templateId);
+      generateAndPrintPdf(templateId, overrideCartId);
     }
   };
 
-  const handleDownload = async (documentTemplateId?: number) => {
+  const handleDownload = async (documentTemplateId?: number, overrideCartId?: number) => {
     try {
       setRefreshDownload(true);
       const token = localStorage.getItem("token");
       const getUUID = localStorage.getItem("UUID");
       const resops = await axiosInstance.post("/order-pdf", {
-        cart_id: cartId,
+        cart_id: overrideCartId ?? cartId,
         ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       });
 
@@ -5134,13 +5096,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   // §7 picker — check flag+template count first, same rule as Download
   // everywhere else in the app: skip below 2 templates.
-  const downloadWithPicker = async () => {
-    const cartTypeId = newOrderShowNumAfterConversion || isOrderShowNum;
+  const downloadWithPicker = async (overrideCartId?: number, overrideCartType?: number) => {
+    const cartTypeId = overrideCartType ?? (newOrderShowNumAfterConversion || isOrderShowNum);
+    setDownloadLoading(true);
     const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
+    setDownloadLoading(false);
     if (choices.length < 2) {
-      await handleDownload();
+      await handleDownload(undefined, overrideCartId);
       return;
     }
+    setPendingDownloadCartId(overrideCartId);
     setDownloadTemplateChoices(choices);
     setShowDownloadPicker(true);
   };
@@ -5177,7 +5142,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     }
   };
 
-  const openPrint = async (flag: number) => {
+  const openPrint = async (flag: number, overrideCartId?: number, overrideCartType?: number) => {
     const permissionMap: Record<number, boolean> = {
       1: canPrintQuo,
       2: canPrintOrder,
@@ -5190,7 +5155,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       9: canPrintDispatch,
       12: canPrintProfomaInovice,
     };
-    const cartTypeId = newOrderShowNumAfterConversion || isOrderShowNum;
+    const cartTypeId = overrideCartType ?? (newOrderShowNumAfterConversion || isOrderShowNum);
     if (permissionMap[cartTypeId]) {
       // Intercept BOTH flag=2 ("print now") and flag=1 ("Open Print
       // View") for pdfme-supported+enabled types — flag=1 used to open
@@ -5207,11 +5172,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
         setPrintLoading(false);
         if (choices.length > 1) {
+          setPendingPrintCartId(overrideCartId);
           setPrintTemplateChoices(choices);
         } else if (flag == 2) {
-          generateAndPrintPdf();
+          generateAndPrintPdf(undefined, overrideCartId);
         } else {
-          generateAndViewPdf();
+          generateAndViewPdf(undefined, overrideCartId);
         }
         return;
       }
@@ -5220,11 +5186,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.quotation_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5232,11 +5198,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       if (orderTypesNameFind == "Sales Order" && printDate) {
         const printID = printDate.map((item, index) => item.order_view_formate);
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5246,11 +5212,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.invoice_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5260,11 +5226,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.purchase_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5274,11 +5240,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.purchase_order_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5288,11 +5254,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.return_sales_invoice_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5302,11 +5268,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.return_purchase_invoice_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5316,11 +5282,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.inward_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5330,11 +5296,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.dispatch_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -5344,11 +5310,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           (item, index) => item.proforma_invoice_view_formate,
         );
         if (flag == 2) {
-          openInNewTabPrint(`/OrderPrintViewV${printID}`);
+          openInNewTabPrint(`/OrderPrintViewV${printID}`, overrideCartId);
         } else {
           const baseURL = window.location.origin;
           window.open(
-            `${baseURL}/OrderPrintViewV${printID}/${cartId}/1`,
+            `${baseURL}/OrderPrintViewV${printID}/${overrideCartId ?? cartId}/1`,
             "_blank",
           );
         }
@@ -10215,6 +10181,58 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                             </React.Fragment>
                           );
                         })}
+                      {customFormList
+                        .filter((field) => field.form_type === 16)
+                        .map((item) => {
+                          const shouldHideField =
+                            item.data_type === 12 ||
+                            item.data_type === 11 ||
+                            item.data_type === 14;
+
+                          if (shouldHideField) {
+                            const dropdownOptions =
+                              dropdownDataMap[item.id] || [];
+                            const options = dropdownOptions.map((opt: any) => ({
+                              value: opt.data_sorce,
+                              label: opt.data_sorce,
+                            }));
+
+                            const selectedValue =
+                              options.find(
+                                (opt) =>
+                                  opt.value ===
+                                  cartCustomFieldValues[
+                                    item.reference_column_name
+                                  ]?.toString(),
+                              ) || options[0];
+
+                            if (
+                              !cartCustomFieldValues[
+                              item.reference_column_name
+                              ] &&
+                              selectedValue?.value
+                            ) {
+                              handleCartCustomFieldChange(
+                                item.reference_column_name,
+                                selectedValue.value,
+                                item.data_type,
+                              );
+                            }
+                            return null;
+                          }
+
+                          return (
+                            <React.Fragment key={item.reference_column_name}>
+                              {renderInputField(
+                                item,
+                                item.title,
+                                item.reference_column_name,
+                                null,
+                                true,
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
                     </div>
                     <div className="row">
                       <div
@@ -10616,7 +10634,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                 // 2. Order-level custom fields (cartCustomFieldValues)
                                 for (const field of customFormList) {
                                   if (
-                                    ![5, 6, 7, 8, 9, 10, 11, 12, 13].includes(
+                                    ![5, 6, 7, 8, 9, 10, 11, 12, 13, 16].includes(
                                       field.form_type,
                                     )
                                   )
@@ -12034,7 +12052,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                 <button
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => {
-                    handleDownload(t.id);
+                    handleDownload(t.id, pendingDownloadCartId);
+                    setPendingDownloadCartId(undefined);
                     setShowDownloadPicker(false);
                     setDownloadTemplateChoices([]);
                   }}
@@ -12075,7 +12094,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           </div>
         </div>
       )}
-      {printLoading && (
+      {(printLoading || downloadLoading) && (
         <div
           style={{
             position: "fixed",

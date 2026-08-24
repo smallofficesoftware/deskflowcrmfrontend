@@ -139,7 +139,7 @@ const CustomInquiryFromView = ({
 
     const isFormType5to9 =
       selectedPageTypeValue &&
-      ["5", "6", "7", "8", "9", "10", "11"].includes(selectedPageTypeValue);
+      ["5", "6", "7", "8", "9", "10", "11", "16"].includes(selectedPageTypeValue);
 
     const attachmentAllowedPages = ["3", "14", "15"];
 
