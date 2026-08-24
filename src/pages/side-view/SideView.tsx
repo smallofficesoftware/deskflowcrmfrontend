@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -86,6 +86,7 @@ const DraggableWidget = ({
 
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const UUID = localStorage.getItem("UUID");
@@ -95,7 +96,9 @@ const SideView = ({ profileDetail }: IProp) => {
     }
   }, [navigate]);
 
-  const [activeView, setActiveView] = useState("dashboard");
+  const [activeView, setActiveView] = useState(() =>
+    searchParams.get("view") === "reports" ? "reports_home" : "dashboard",
+  );
 
   const [isOpen, setIsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string[]>([
@@ -1206,6 +1209,10 @@ const SideView = ({ profileDetail }: IProp) => {
       >
         <SidebarView
           onReportClick={handleSingleReportShow}
+          onInsightsClick={() => {
+            setActiveView("dashboard");
+            setAppliedReportType("");
+          }}
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           activeReport={appliedReportType}
@@ -1239,6 +1246,7 @@ const SideView = ({ profileDetail }: IProp) => {
             reportType={reportType}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
+            onReportClick={handleSingleReportShow}
           />
         </div>
         <TaskStickyIcon

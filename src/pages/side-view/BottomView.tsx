@@ -96,6 +96,7 @@ import {
   fetchCompanyTeamApi,
   ICompanyTeam,
 } from "../left-side/LeftSideController";
+import ReportsTileView from "./ReportsTileView";
 
 const BottomView = ({
   activeView,
@@ -105,6 +106,7 @@ const BottomView = ({
   reportType,
   setActiveView,
   setAppliedReportType,
+  onReportClick,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
@@ -234,6 +236,12 @@ const BottomView = ({
             insightsSideView={insightsSideView}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
+          />
+        )}
+
+        {activeView === "reports_home" && (
+          <ReportsTileView
+            onReportClick={(value: string) => onReportClick?.(value)}
           />
         )}
 

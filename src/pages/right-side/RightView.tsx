@@ -281,8 +281,6 @@ const RightView = ({
   const [moveForMsgId, setMoveForMsgId] = useState<number>();
 
   const [isClearConfirmation, setIsClearConfirmation] = useState(false);
-  const [isOrderCreateFromContactShow, setIsOrderCreateFromContactShow] =
-    useState(false);
   const [isOrderShow, setIsOrderShow] = useState(false);
 
   const [optionConfirmation, setOptionConfirmation] = useState(false);
@@ -742,7 +740,7 @@ const RightView = ({
       text: "View Insights",
       action: () => {
         canViewInsight
-          ? showDashboard()
+          ? window.open("/SideView", "_blank")
           : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
       },
     },
@@ -759,16 +757,9 @@ const RightView = ({
     {
       Number: "4",
       text: "All Reports",
-      action: () => handelChangeShowModelReport(),
+      action: () => window.open("/SideView?view=reports", "_blank"),
     },
     { Number: "5", text: "My Task", action: () => showMyTask() },
-    {
-      Number: "6",
-      text: "Side View",
-      action: () => {
-        window.open("/SideView", "_blank");
-      },
-    },
     {
       Number: "7",
       text: "Explore in google map",
@@ -2031,10 +2022,6 @@ const RightView = ({
       prevId === id ? null : id,
     );
     setDropdownOpenMsg(null);
-  };
-
-  const handelChangeShowModelReport = () => {
-    setIsOrderCreateFromContactShow(true);
   };
 
   const handelChangeShowModelExploreNearby = () => {
@@ -5626,7 +5613,7 @@ const RightView = ({
                             className="icons "
                             onClick={() =>
                               canViewInsight
-                                ? showDashboard()
+                                ? window.open("/SideView", "_blank")
                                 : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
                             }
                           >
@@ -5695,7 +5682,9 @@ const RightView = ({
                           <button
                             style={{ marginRight: "10px" }}
                             className="icons "
-                            onClick={() => handelChangeShowModelReport()}
+                            onClick={() =>
+                              window.open("/SideView?view=reports", "_blank")
+                            }
                           >
                             <span title="View Reports">
                               <svg
@@ -5943,29 +5932,6 @@ const RightView = ({
                                   ></div>
                                 )}
                               </button>
-                              <button
-                                className="icons right-icons"
-                                style={{
-                                  borderRadius: "50%",
-                                  padding: "10px",
-                                }}
-                                onClick={() =>
-                                  window.open("/SideView", "_blank")
-                                }
-                              >
-                                <span title="Side View">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="#1f1f1f"
-                                  >
-                                    <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h160v-560H200v560Zm240 0h320v-560H440v560Z" />
-                                  </svg>
-                                </span>
-                              </button>
-
                               <button
                                 className="icons right-icons"
                                 style={{
@@ -6631,17 +6597,6 @@ const RightView = ({
               opt1={"8 Hours"}
               opt2={"1 Week"}
               opt3={"Always"}
-            />
-          )}
-          {isOrderCreateFromContactShow && (
-            <ReportModal
-              show={isOrderCreateFromContactShow}
-              onHide={() => setIsOrderCreateFromContactShow(false)}
-              handleSubmit={() => setIsOrderCreateFromContactShow(false)}
-              titles={"Create"}
-              message={"Please Enter Your Order Details"}
-              btn1={"CANCEL"}
-              btn2={"Approve"}
             />
           )}
           {isReportShow && (
