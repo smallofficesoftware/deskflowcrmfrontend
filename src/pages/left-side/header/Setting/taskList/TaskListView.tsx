@@ -27,6 +27,7 @@ import {
   ITEMS_PER_PAGE,
   MIN_WIDTH_FOR_TEXT,
 } from "../../../../../helpers/AppConstants";
+import useSocketEvent from "../../../../../hooks/useSocketEvent";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import {
   IFilterData,
@@ -116,6 +117,8 @@ const TaskListView = ({
   const labelDropdownRef = useRef<HTMLButtonElement>(null);
   const categoryDropdownRef = useRef<HTMLButtonElement>(null);
   const [refreshTaskBothSide, setRefreshTaskBothSide] = useState(false);
+  // Live sync: any teammate adding/editing/moving a task refreshes this list too.
+  useSocketEvent("task-changed", () => setRefreshTaskBothSide(true));
   // const [isKanbanViewDisplay, setIsKanbanViewDisplay] =
   //   useState<boolean>(false);
   const [isKanbanNewViewDisplay, setIsKanbanNewViewDisplay] =

@@ -6,6 +6,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { FilterParams } from "../../../../pages/left-side/header/Setting/taskList/TaskListView";
+import useSocketEvent from "../../../../hooks/useSocketEvent";
 import { fetchAutoRefreshConfig } from "../api/kanbanApi";
 import { useKanbanColumns } from "../hooks/useKanbanColumns";
 import "../styles/kanban.css";
@@ -188,6 +189,10 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     refreshAllTasks();
     setTimeout(() => setIsRefreshing(false), 600);
   }, [refreshAllTasks]);
+
+  // Live sync: any teammate adding/editing/moving a task (including via the
+  // drag-to-move commonUpdate path) refreshes every board open for the company.
+  useSocketEvent("task-changed", refreshAllTasks);
 
   // Feature 4: task edit handler — converts Task to ITaskView shape
   const handleTaskEdit = useCallback(
