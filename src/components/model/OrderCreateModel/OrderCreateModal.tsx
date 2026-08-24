@@ -1093,6 +1093,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       setCashDiscountType(
         Number(orderById.cart.cash_discount_type) == 1 ? "percentage" : "flat",
       );
+      // Carts saved before item_discount_type existed have it NULL — default
+      // those to "percentage" (item_discount_pct is what print always showed
+      // pre-fix), not "flat" like cash_discount_type's own default.
+      setDiscountType(
+        Number(orderById.cart.item_discount_type) == 2 ? "flat" : "percentage",
+      );
       setIsTcsActive(!!orderById.cart.tcs_amt);
       setTcsAmount(orderById.cart.tcs_amt ?? 0);
       setIsGstActive(
@@ -1335,6 +1341,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         Number(orderbyidList.cart.cash_discount_type) == 1
           ? "percentage"
           : "flat",
+      );
+      setDiscountType(
+        Number(orderbyidList.cart.item_discount_type) == 2 ? "flat" : "percentage",
       );
       setTransportChargeTitle(
         orderbyidList.cart.transport_charge_title ?? "Transport charge",
@@ -1798,6 +1807,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setGrandTotal(0);
     setCashDiscount(0);
     setCashDiscountType("percentage");
+    setDiscountType("percentage");
     setRoundOffAmount(0);
     setCartItemDelete([]);
     setIsTcsActive(false);
@@ -1834,6 +1844,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setGrandTotal(0);
     setCashDiscount(0);
     setCashDiscountType("percentage");
+    setDiscountType("percentage");
     setRoundOffAmount(0);
     setCartItemDelete([]);
     setIsTcsActive(false);
@@ -4528,6 +4539,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         taxable_amt: taxAbleAmount,
         cash_discount: Number(cashDiscount) || 0,
         cash_discount_type: cashDiscountType == "percentage" ? 1 : 2,
+        item_discount_type: discountType == "percentage" ? 1 : 2,
         tcs_amt: tcsAmount,
         gst_amt: gstAmount,
         round_off: roundOffAmount,
