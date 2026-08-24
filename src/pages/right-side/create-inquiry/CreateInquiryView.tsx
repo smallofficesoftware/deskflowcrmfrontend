@@ -1003,6 +1003,9 @@ const CreateInquiryView = ({
                                   value={newRowProduct}
                                   onChange={(opt: IOption | null) => setNewRowProduct(opt)}
                                   placeholder="Select product"
+                                  styles={{
+                                    control: (base: any) => ({ ...base, minHeight: "45px" }),
+                                  }}
                                 />
                               </div>
                               <div style={{ maxWidth: "110px" }}>
@@ -1010,6 +1013,13 @@ const CreateInquiryView = ({
                                 <input
                                   type="text"
                                   className="form-control"
+                                  style={{
+                                    height: "45px",
+                                    marginBottom: 0,
+                                    paddingTop: 0,
+                                    paddingBottom: 0,
+                                    lineHeight: "43px",
+                                  }}
                                   placeholder="Qty"
                                   maxLength={MINI_TEXT_LENGTH}
                                   value={newRowQty}
