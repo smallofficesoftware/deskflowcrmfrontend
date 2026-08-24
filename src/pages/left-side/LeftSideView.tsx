@@ -32,6 +32,7 @@ import ImportExcelForContactModal from "../../components/model/ImportExcelForCon
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
 import WorkFlowModel from "../../components/model/workflowConformatioModel/workFlowModelView";
+import ReviewDialog from "../../components/review/ReviewDialog";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   DEFAULT_STATUS_CODE_SUCCESS,
@@ -52,6 +53,7 @@ import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntSto
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
 import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
+import { useReviewStore } from "../../store/review/useReviewStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import useWhatsappPlatformStore from "../../store/whatsapp/useWhatsappPlateformFlagStore";
 import NewDashboardView from "../dashboard/new-dashboard/NewDashboardView";
@@ -139,6 +141,9 @@ import ListReminderView from "./header/list-reminder/ListReminderView";
 import { fetchDepartmentsApi } from "./list-company/EditTeamMemberController";
 import ListCompanyView from "./list-company/ListCompanyView";
 import ListMyCompanyView from "./list-company/MyCompanyList";
+
+// Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
+const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
 
 // ── Optional: custom CRM fields to map variables to ──────────────────────────
 const MY_CRM_FIELDS = [
@@ -621,6 +626,16 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           setCompanyData(response.data.data.item);
           setPermissions(response.data.data.resultRights);
           setAdvertisement(response.data.data.advertisement);
+
+          const reviewStatus = response?.data?.data?.review;
+          if (reviewStatus?.show && reviewStatus.show !== "none") {
+            // Don't interrupt the app right on load — server tells us how
+            // long to wait (REVIEW_PROMPT_DELAY_SECONDS env var).
+            const delayMs = (reviewStatus.delaySeconds ?? DEFAULT_REVIEW_PROMPT_DELAY_MS / 1000) * 1000;
+            setTimeout(() => {
+              useReviewStore.getState().setStatus(reviewStatus);
+            }, delayMs);
+          }
 
           setFeatureEnabled(
             response?.data?.data?.MIRACLE_FLAG == 1 ? true : false,
@@ -3079,6 +3094,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
         <>
           <div style={{ zIndex: "999" }}>
             {showPinSetModel && <PinSetModel />}
+            <ReviewDialog />
           </div>
 
           {isVisible ? (
