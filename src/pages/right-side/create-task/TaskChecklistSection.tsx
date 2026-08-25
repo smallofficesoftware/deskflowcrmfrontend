@@ -24,38 +24,80 @@ const ChecklistRow: React.FC<{
   dragHandleProps?: any;
   onToggle?: () => void;
   onDelete: () => void;
-}> = ({ title, done, dragHandleProps, onToggle, onDelete }) => (
-  <div
-    className="d-flex align-items-center mb-2 px-2 py-1"
-    style={{ background: "#f8f9fa", borderRadius: "6px", border: "1px solid #e9ecef" }}
-  >
-    {dragHandleProps && (
-      <span {...dragHandleProps} style={{ cursor: "grab", color: "#999", marginRight: "8px" }}>
-        <i className="pi pi-bars" style={{ fontSize: "12px" }} />
+  onRename: (newTitle: string) => void;
+}> = ({ title, done, dragHandleProps, onToggle, onDelete, onRename }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(title);
+
+  const startEdit = () => {
+    setEditValue(title);
+    setIsEditing(true);
+  };
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim();
+    setIsEditing(false);
+    if (trimmed && trimmed !== title) {
+      onRename(trimmed);
+    }
+  };
+
+  return (
+    <div
+      className="d-flex align-items-center mb-2 px-2 py-1"
+      style={{ background: "#f8f9fa", borderRadius: "6px", border: "1px solid #e9ecef" }}
+    >
+      {dragHandleProps && (
+        <span {...dragHandleProps} style={{ cursor: "grab", color: "#999", marginRight: "8px" }}>
+          <i className="pi pi-bars" style={{ fontSize: "12px" }} />
+        </span>
+      )}
+      {onToggle && (
+        <input type="checkbox" checked={done} onChange={onToggle} style={{ marginRight: "8px" }} />
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          autoFocus
+          className="form-control form-control-sm"
+          style={{ flex: 1, marginRight: "8px" }}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitEdit();
+            } else if (e.key === "Escape") {
+              setIsEditing(false);
+            }
+          }}
+        />
+      ) : (
+        <span
+          onClick={startEdit}
+          title="Click to edit"
+          style={{
+            flex: 1,
+            cursor: "text",
+            textDecoration: done ? "line-through" : "none",
+            color: done ? "#999" : "inherit",
+          }}
+        >
+          {title}
+        </span>
+      )}
+      <span
+        className="text-danger"
+        style={{ cursor: "pointer", fontSize: "0.9rem", marginLeft: "6px" }}
+        title="Remove"
+        onClick={onDelete}
+      >
+        🗑
       </span>
-    )}
-    {onToggle && (
-      <input type="checkbox" checked={done} onChange={onToggle} style={{ marginRight: "8px" }} />
-    )}
-    <span
-      style={{
-        flex: 1,
-        textDecoration: done ? "line-through" : "none",
-        color: done ? "#999" : "inherit",
-      }}
-    >
-      {title}
-    </span>
-    <span
-      className="text-danger"
-      style={{ cursor: "pointer", fontSize: "0.9rem" }}
-      title="Remove"
-      onClick={onDelete}
-    >
-      🗑
-    </span>
-  </div>
-);
+    </div>
+  );
+};
 
 const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
   taskId,
@@ -93,6 +135,10 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
       onPendingItemsChange?.(pending.filter((_, i) => i !== index));
     };
 
+    const handlePendingRename = (index: number, newTitle: string) => {
+      onPendingItemsChange?.(pending.map((t, i) => (i === index ? newTitle : t)));
+    };
+
     return (
       <div className="col-12">
         <div className="d-flex justify-content-between align-items-center pb-2 mb-1">
@@ -110,6 +156,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
             title={title}
             done={false}
             onDelete={() => handlePendingDelete(index)}
+            onRename={(newTitle) => handlePendingRename(index, newTitle)}
           />
         ))}
 
@@ -172,6 +219,19 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
     }
   };
 
+  const handleRename = async (item: IChecklistItem, newTitle: string) => {
+    const prevTitle = item.title;
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, title: newTitle } : i)),
+    );
+    const ok = await updateChecklistItem(item.id, { title: newTitle });
+    if (!ok) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, title: prevTitle } : i)),
+      );
+    }
+  };
+
   const handleDelete = async (item: IChecklistItem) => {
     const prevItems = items;
     setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -227,6 +287,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
                           dragHandleProps={dragProvided.dragHandleProps}
                           onToggle={() => handleToggle(item)}
                           onDelete={() => handleDelete(item)}
+                          onRename={(newTitle) => handleRename(item, newTitle)}
                         />
                       </div>
                     )}
