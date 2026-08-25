@@ -29,6 +29,10 @@ import { PAGE_ID, PERMISSION_TYPE, PRINT_SETTING_TYPE_OBJ } from "../../../helpe
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
 import { fetchPdfmeTemplatesForPicker, fetchTemplatesForDocType, isPdfmeSupportedCartType } from "../../order-print-view/orderPrintController";
+import {
+  generateAndPrintPendingPdf,
+  tryPendingPdfmePrint,
+} from "../../dashboard/Reports/Quotations/QuotationController";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
   ModuleType,
@@ -141,6 +145,14 @@ const ListOrderView = ({
     { id: number; template_name: string; is_default: number }[]
   >([]);
   const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
+  // Pending Order/Purchase print template picker -- distinct state from
+  // printTemplateChoices/pendingPrintCartId above (those are the confirmed-
+  // order print flow's own picker). See tryPendingPdfmePrint's click-time-
+  // check comment (QuotationController.ts).
+  const [pendingOrderPrintChoices, setPendingOrderPrintChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingOrderPrintCartId, setPendingOrderPrintCartId] = useState<number | null>(null);
   const [isPDFSendingToWhatsApp, setIsPDFSendingToWhatsApp] = useState(false);
   const [isConvetIntoOrderConfirmation, setIsConvetIntoOrderConfirmation] =
     useState(false);
@@ -1724,15 +1736,28 @@ const ListOrderView = ({
     setOrderDropdownOpen(null);
   };
 
-  const openPendingPrint = (id: number, type: number) => {
+  const openPendingPrintLegacy = (id: number, type: number) => {
     const baseURL = window.location.origin;
-
-    let printId;
-
-    printId = orderTypesList?.find(
-      (option) => Number(option.id) === isOrderShowNum,
-    )?.id;
     window.open(`${baseURL}/PendingPrintViewV1/${id}/${type}`, "_blank");
+  };
+
+  const printWithPendingOrderTemplate = (templateId: number) => {
+    setPendingOrderPrintChoices([]);
+    if (pendingOrderPrintCartId != null) generateAndPrintPendingPdf(pendingOrderPrintCartId, templateId);
+    setPendingOrderPrintCartId(null);
+  };
+
+  const openPendingPrint = async (id: number, type: number) => {
+    console.log("[pendingPrint] ListOrderView openPendingPrint called", { id, type });
+    const result = await tryPendingPdfmePrint(id, type);
+    console.log("[pendingPrint] tryPendingPdfmePrint result", result);
+    if (result.status === "picker") {
+      setPendingOrderPrintChoices(result.choices);
+      setPendingOrderPrintCartId(id);
+      return;
+    }
+    if (result.status === "handled") return;
+    openPendingPrintLegacy(id, type);
   };
   const openShippingAddressPrint = (id: number, type: number) => {
     const baseURL = window.location.origin;
@@ -4038,6 +4063,38 @@ const ListOrderView = ({
                 <button
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {pendingOrderPrintChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setPendingOrderPrintChoices([]);
+                  setPendingOrderPrintCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {pendingOrderPrintChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithPendingOrderTemplate(t.id)}
                 >
                   Print
                 </button>
