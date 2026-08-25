@@ -13,11 +13,17 @@ import {
 
 const DEFAULT_PAGE_SIZE = 30;
 
+// columnId is always normalized to a string here — @hello-pangea/dnd's
+// droppableId is inherently a string, while KanbanColumnDef["id"] may be a
+// number (e.g. straight off a JSON API response) depending on the board.
+// Without this, a fetch keyed by the number 5 and a drag-time lookup keyed
+// by the string "5" silently miss each other (different cache keys), so a
+// drop looks like it does nothing — no error, no persist, no revert.
 export const kanbanItemsQueryKey = (
   boardKey: string,
   columnId: KanbanColumnDef["id"],
   searchTerm: string,
-) => ["shared-kanban-items", boardKey, columnId, searchTerm];
+) => ["shared-kanban-items", boardKey, String(columnId), searchTerm];
 
 export const useKanbanItems = <T extends KanbanItem>(
   config: KanbanBoardConfig<T>,
