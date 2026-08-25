@@ -12,6 +12,7 @@ import {
 import { PAGE_ID, PERMISSION_TYPE } from "../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../helpers/AppInterface";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
+import useSocketEvent from "../../../hooks/useSocketEvent";
 import CreateContactView from "../../../pages/left-side/create-contact/CreateContactView";
 import { fetchDataUser } from "../../../pages/left-side/LeftSideController";
 import { axiosInstance } from "../../../services/axiosInstance";
@@ -297,6 +298,10 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
         queryClient.invalidateQueries({ queryKey: ["shared-kanban-columns", BOARD_KEY] });
         queryClient.invalidateQueries({ queryKey: ["shared-kanban-items", BOARD_KEY] });
     }, [queryClient]);
+
+    // Live sync: any teammate adding/editing/moving a contact (including via
+    // the drag-to-move commonUpdate path) refreshes this board too.
+    useSocketEvent("contact-changed", refreshBoard, show);
 
     const handleModalClose = () => {
         setIsModalFilterVisible(false);

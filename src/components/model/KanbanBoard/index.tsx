@@ -33,13 +33,23 @@ interface KanbanTaskItem {
   id: number;
   title: string;
   position: number | null;
+  dueDate: string | null;
 }
 
 const mapTaskToKanbanItem = (task: ITaskView): KanbanTaskItem => ({
   id: task.id,
   title: task.task_title ?? "",
   position: (task as any).position ?? null,
+  dueDate: task.task_enddate ?? null,
 });
+
+const columnSummary = (items: KanbanTaskItem[]): string => {
+  const now = Date.now();
+  const overdue = items.filter(
+    (item) => item.dueDate && new Date(item.dueDate).getTime() < now,
+  ).length;
+  return overdue > 0 ? `${overdue} overdue` : "";
+};
 
 const KanbanBoard: React.FC<KanbanBoardModal> = ({
   show,
@@ -199,6 +209,7 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
       renderCard,
       pageSize: ITEMS_PER_PAGE,
       emptyStateLabel: "Drop tasks here",
+      columnSummary,
     }),
     [fetchColumns, fetchItems, updateItemPosition, renderCard],
   );
