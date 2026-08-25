@@ -1,7 +1,9 @@
+import axios from "axios";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../services/axiosInstance";
+import { fetchTemplatesForDocType } from "../../../order-print-view/orderPrintController";
 
 export interface ICartItem {
   id: number;
@@ -268,6 +270,74 @@ export const openPendingPrint = (
 
   // openInNewTabPrint(`/PendingPrintViewV1`, id);
   // /PendingPrintViewV1/:id/:type
+};
+
+const PENDING_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+  2: "pendingSalesOrder",
+  5: "pendingPurchaseOrder",
+};
+
+export const generateAndPrintPendingPdf = async (cartId: number, documentTemplateId?: number) => {
+  try {
+    const resops = await axiosInstance.post("/order-pdf", {
+      cart_id: cartId,
+      print_variant: "pending",
+      ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+    });
+    if (resops.data.ack !== 1) {
+      toast.error(resops.data.ack_msg);
+      return;
+    }
+    const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const pdfWindow = window.open(url, "_blank");
+    if (pdfWindow) {
+      pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
+// Click-time check (same shape as ListOrderView.tsx's isPdfmeEnabledForType/
+// openPrint) -- called BEFORE opening any window, so only one print path
+// ever fires. This is a plain module, not a component, so it can't own the
+// picker's React state itself: returns a result the caller (a page
+// component) acts on, instead of the old always-navigate-to-the-legacy-
+// page behavior openPendingPrint above still has for its other callers.
+export type PendingPdfmePrintResult =
+  | { status: "handled" }
+  | { status: "picker"; choices: { id: number; template_name: string; is_default: number }[] }
+  | { status: "legacy" };
+
+export const tryPendingPdfmePrint = async (
+  id: number,
+  cartType: number,
+): Promise<PendingPdfmePrintResult> => {
+  const docType = PENDING_DOC_TYPE_BY_CART_TYPE[cartType];
+  if (!docType) return { status: "legacy" };
+
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return { status: "legacy" };
+
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (data?.ack !== 1 || !data.data.item.is_enabled) return { status: "legacy" };
+  } catch {
+    return { status: "legacy" };
+  }
+
+  const choices = await fetchTemplatesForDocType(docType);
+  if (choices.length > 1) {
+    return { status: "picker", choices };
+  }
+  await generateAndPrintPendingPdf(id);
+  return { status: "handled" };
 };
 
 export const handleDownload = async (id: number, handleHide: () => void) => {

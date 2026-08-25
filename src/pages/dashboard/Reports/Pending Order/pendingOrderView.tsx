@@ -29,7 +29,12 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
-import { openPendingPrint, openPrint } from "../Quotations/QuotationController";
+import {
+  generateAndPrintPendingPdf,
+  openPendingPrint,
+  openPrint,
+  tryPendingPdfmePrint,
+} from "../Quotations/QuotationController";
 import {
   exportAllOrderData,
   fetchCartReport,
@@ -113,6 +118,27 @@ const PendingOrderView = ({
 }: ITeamcartDataReports) => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
+  // Pending print template picker -- see tryPendingPdfmePrint's own
+  // click-time-check comment (QuotationController.ts).
+  const [pendingPrintChoices, setPendingPrintChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
+  const handlePendingPrint = async (rowId: number) => {
+    const result = await tryPendingPdfmePrint(rowId, 2);
+    if (result.status === "picker") {
+      setPendingPrintChoices(result.choices);
+      setPendingPrintCartId(rowId);
+      return;
+    }
+    if (result.status === "handled") return;
+    openPendingPrint(rowId, 2);
+  };
+  const printWithPendingTemplate = (templateId: number) => {
+    setPendingPrintChoices([]);
+    if (pendingPrintCartId != null) generateAndPrintPendingPdf(pendingPrintCartId, templateId);
+    setPendingPrintCartId(null);
+  };
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<any[]>([]);
@@ -1688,7 +1714,7 @@ const PendingOrderView = ({
                       // style={{ marginRight: "15px" }}
                       onClick={() => {
                         if (canPrintPurchaseInvoice) {
-                          openPendingPrint(rowData.id, 2);
+                          handlePendingPrint(rowData.id);
                         } else {
                           toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
                         }
@@ -1812,6 +1838,38 @@ const PendingOrderView = ({
           />
         )}
       </div>
+      {pendingPrintChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setPendingPrintChoices([]);
+                  setPendingPrintCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {pendingPrintChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithPendingTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 };
