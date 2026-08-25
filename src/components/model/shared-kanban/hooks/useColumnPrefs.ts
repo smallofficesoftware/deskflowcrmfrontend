@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fetchColumnPreference,
+  saveColumnPreference,
+} from "../../../../services/columnPreferenceService";
 import { KanbanColumnDef } from "../types";
 
 interface StoredPrefs {
@@ -6,44 +10,55 @@ interface StoredPrefs {
   hidden: string[]; // column ids, as strings
 }
 
-const storageKey = (boardKey: string) => `kanban-prefs-${boardKey}`;
-
-const readPrefs = (boardKey: string): StoredPrefs => {
-  try {
-    const raw = localStorage.getItem(storageKey(boardKey));
-    if (!raw) return { order: [], hidden: [] };
-    const parsed = JSON.parse(raw);
-    return {
-      order: Array.isArray(parsed.order) ? parsed.order : [],
-      hidden: Array.isArray(parsed.hidden) ? parsed.hidden : [],
-    };
-  } catch {
-    return { order: [], hidden: [] };
-  }
-};
-
-const writePrefs = (boardKey: string, prefs: StoredPrefs) => {
-  try {
-    localStorage.setItem(storageKey(boardKey), JSON.stringify(prefs));
-  } catch {
-    // localStorage unavailable (private mode, quota) — preference just won't persist.
-  }
-};
+const EMPTY_PREFS: StoredPrefs = { order: [], hidden: [] };
+const SAVE_DEBOUNCE_MS = 600;
 
 /**
- * Per-user, per-browser column order and visibility, layered on top of
- * whatever columns the backend returns. New columns the user has never seen
- * are appended in the order the API returns them, and default to visible.
+ * Per-user, server-persisted column order and visibility (same
+ * user_column_preferences table/endpoints the report grids use, keyed by
+ * boardKey instead of reportKey), layered on top of whatever columns the
+ * backend returns. New columns the user has never seen are appended in the
+ * order the API returns them, and default to visible.
  */
 export const useColumnPrefs = (
   boardKey: string,
   columns: KanbanColumnDef[],
 ) => {
-  const [prefs, setPrefs] = useState<StoredPrefs>(() => readPrefs(boardKey));
+  const [prefs, setPrefs] = useState<StoredPrefs>(EMPTY_PREFS);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    setPrefs(readPrefs(boardKey));
+    let cancelled = false;
+    setPrefs(EMPTY_PREFS);
+
+    fetchColumnPreference(boardKey).then((pref) => {
+      if (cancelled) return;
+      setPrefs({
+        order: pref?.column_order ?? [],
+        hidden: pref?.hidden_columns ?? [],
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [boardKey]);
+
+  const persist = useCallback(
+    (next: StoredPrefs) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        saveColumnPreference(boardKey, next.order, next.hidden);
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [boardKey],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   const orderedColumns = useMemo(() => {
     const byId = new Map(columns.map((c) => [String(c.id), c]));
@@ -75,11 +90,11 @@ export const useColumnPrefs = (
           ? prev.hidden.filter((h) => h !== id)
           : [...prev.hidden, id];
         const next = { ...prev, hidden };
-        writePrefs(boardKey, next);
+        persist(next);
         return next;
       });
     },
-    [boardKey],
+    [persist],
   );
 
   const reorderColumns = useCallback(
@@ -89,11 +104,11 @@ export const useColumnPrefs = (
         const [moved] = currentOrder.splice(fromIndex, 1);
         currentOrder.splice(toIndex, 0, moved);
         const next = { ...prev, order: currentOrder };
-        writePrefs(boardKey, next);
+        persist(next);
         return next;
       });
     },
-    [boardKey, orderedColumns],
+    [persist, orderedColumns],
   );
 
   return {
