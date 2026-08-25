@@ -125,9 +125,7 @@ const PendingOrderView = ({
   >([]);
   const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
   const handlePendingPrint = async (rowId: number) => {
-    console.log("[pendingPrint] pendingOrderView handlePendingPrint called", { rowId });
     const result = await tryPendingPdfmePrint(rowId, 2);
-    console.log("[pendingPrint] tryPendingPdfmePrint result", result);
     if (result.status === "picker") {
       setPendingPrintChoices(result.choices);
       setPendingPrintCartId(rowId);

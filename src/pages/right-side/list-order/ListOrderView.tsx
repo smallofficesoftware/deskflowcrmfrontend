@@ -1748,9 +1748,7 @@ const ListOrderView = ({
   };
 
   const openPendingPrint = async (id: number, type: number) => {
-    console.log("[pendingPrint] ListOrderView openPendingPrint called", { id, type });
     const result = await tryPendingPdfmePrint(id, type);
-    console.log("[pendingPrint] tryPendingPdfmePrint result", result);
     if (result.status === "picker") {
       setPendingOrderPrintChoices(result.choices);
       setPendingOrderPrintCartId(id);

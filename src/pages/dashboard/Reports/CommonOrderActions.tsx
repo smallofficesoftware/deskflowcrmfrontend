@@ -1944,37 +1944,27 @@ const CommonOrderActions = ({
     // actually fires (never navigate to the legacy PendingPrintViewV1 page
     // at all when pdfme is enabled, avoiding the old double-print risk).
     const isPendingPdfmeEnabledForType = async (cartTypeId: number): Promise<boolean> => {
-        if (!PENDING_DOC_TYPE_BY_CART_TYPE[cartTypeId]) {
-            console.log("[pendingPrint] no docType for cartType", { cartTypeId });
-            return false;
-        }
+        if (!PENDING_DOC_TYPE_BY_CART_TYPE[cartTypeId]) return false;
         const companyMastersId = localStorage.getItem("COMPANY_ID");
-        if (!companyMastersId) {
-            console.log("[pendingPrint] COMPANY_ID missing in localStorage");
-            return false;
-        }
+        if (!companyMastersId) return false;
         try {
             const { data } = await axiosInstance.post("get-feature-flag", {
                 company_masters_id: companyMastersId,
                 feature_key: "document_designer",
             });
-            console.log("[pendingPrint] get-feature-flag response", data);
             return data?.ack === 1 && !!data.data.item.is_enabled;
-        } catch (error) {
-            console.log("[pendingPrint] get-feature-flag call failed", error);
+        } catch {
             return false;
         }
     };
 
     const generateAndPrintPendingPdf = async (cartId: number, documentTemplateId?: number) => {
-        console.log("[pendingPrint] generateAndPrintPendingPdf called", { cartId, documentTemplateId });
         try {
             const resops = await axiosInstance.post("/order-pdf", {
                 cart_id: cartId,
                 print_variant: "pending",
                 ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
             });
-            console.log("[pendingPrint] /order-pdf response", resops.data);
             if (resops.data.ack !== 1) {
                 toast.error(resops.data.ack_msg);
                 return;
@@ -1982,15 +1972,12 @@ const CommonOrderActions = ({
             const response = await axios.get(resops.data.data.path, { responseType: "blob" });
             const blob = new Blob([response.data], { type: "application/pdf" });
             const url = URL.createObjectURL(blob);
-            console.log("[pendingPrint] opening pdf window", { url });
             const pdfWindow = window.open(url, "_blank");
             if (pdfWindow) {
                 pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
-            } else {
-                console.log("[pendingPrint] window.open returned null -- popup likely blocked");
             }
         } catch (error) {
-            console.log("[pendingPrint] generateAndPrintPendingPdf failed", error);
+            console.error(error);
             toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
         }
     };
@@ -2003,12 +1990,9 @@ const CommonOrderActions = ({
     };
 
     const openPendingPrint = async (id: number, type: number) => {
-        console.log("[pendingPrint] openPendingPrint called", { id, type });
         const pendingOn = await isPendingPdfmeEnabledForType(type);
-        console.log("[pendingPrint] pendingOn", pendingOn);
         if (pendingOn) {
             const choices = await fetchTemplatesForDocType(PENDING_DOC_TYPE_BY_CART_TYPE[type]);
-            console.log("[pendingPrint] template choices", choices);
             if (choices.length > 1) {
                 setPendingPrintTemplateChoices(choices);
                 setPendingPrintCartId(id);
@@ -2019,7 +2003,6 @@ const CommonOrderActions = ({
             return;
         }
 
-        console.log("[pendingPrint] falling back to legacy PendingPrintViewV1");
         const baseURL = window.location.origin;
         window.open(`${baseURL}/PendingPrintViewV1/${id}/${type}`, "_blank");
     };

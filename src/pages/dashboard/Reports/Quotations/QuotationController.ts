@@ -278,14 +278,12 @@ const PENDING_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
 };
 
 export const generateAndPrintPendingPdf = async (cartId: number, documentTemplateId?: number) => {
-  console.log("[pendingPrint] generateAndPrintPendingPdf called", { cartId, documentTemplateId });
   try {
     const resops = await axiosInstance.post("/order-pdf", {
       cart_id: cartId,
       print_variant: "pending",
       ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
     });
-    console.log("[pendingPrint] /order-pdf response", resops.data);
     if (resops.data.ack !== 1) {
       toast.error(resops.data.ack_msg);
       return;
@@ -293,15 +291,12 @@ export const generateAndPrintPendingPdf = async (cartId: number, documentTemplat
     const response = await axios.get(resops.data.data.path, { responseType: "blob" });
     const blob = new Blob([response.data], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    console.log("[pendingPrint] opening pdf window", { url });
     const pdfWindow = window.open(url, "_blank");
     if (pdfWindow) {
       pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
-    } else {
-      console.log("[pendingPrint] window.open returned null -- popup likely blocked");
     }
   } catch (error) {
-    console.log("[pendingPrint] generateAndPrintPendingPdf failed", error);
+    console.error(error);
     toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }
 };
@@ -321,42 +316,26 @@ export const tryPendingPdfmePrint = async (
   id: number,
   cartType: number,
 ): Promise<PendingPdfmePrintResult> => {
-  console.log("[pendingPrint] tryPendingPdfmePrint called", { id, cartType });
-
   const docType = PENDING_DOC_TYPE_BY_CART_TYPE[cartType];
-  if (!docType) {
-    console.log("[pendingPrint] no docType for cartType, using legacy", { cartType });
-    return { status: "legacy" };
-  }
+  if (!docType) return { status: "legacy" };
 
   const companyMastersId = localStorage.getItem("COMPANY_ID");
-  if (!companyMastersId) {
-    console.log("[pendingPrint] COMPANY_ID missing in localStorage, using legacy");
-    return { status: "legacy" };
-  }
+  if (!companyMastersId) return { status: "legacy" };
 
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
       feature_key: "document_designer",
     });
-    console.log("[pendingPrint] get-feature-flag response", data);
-    if (data?.ack !== 1 || !data.data.item.is_enabled) {
-      console.log("[pendingPrint] flag disabled, using legacy");
-      return { status: "legacy" };
-    }
-  } catch (error) {
-    console.log("[pendingPrint] get-feature-flag call failed, using legacy", error);
+    if (data?.ack !== 1 || !data.data.item.is_enabled) return { status: "legacy" };
+  } catch {
     return { status: "legacy" };
   }
 
   const choices = await fetchTemplatesForDocType(docType);
-  console.log("[pendingPrint] template choices", { docType, choices });
   if (choices.length > 1) {
-    console.log("[pendingPrint] showing picker");
     return { status: "picker", choices };
   }
-  console.log("[pendingPrint] generating directly");
   await generateAndPrintPendingPdf(id);
   return { status: "handled" };
 };
