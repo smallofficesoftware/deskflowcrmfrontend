@@ -72,7 +72,7 @@ const PendingPrintViewV1 = () => {
   // Document Designer (pdfme) — mirrors OrderPrintViewV1's pattern, scoped
   // to the pendingSalesOrder/pendingPurchaseOrder doc types.
   const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
-  const [pdfmeFlagChecked, setPdfmeFlagChecked] = useState(false);
+  const [, setPdfmeFlagChecked] = useState(false);
   const [printTemplateChoices, setPrintTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
@@ -488,19 +488,7 @@ const PendingPrintViewV1 = () => {
 
   const symbolCurrency = "₹";
 
-  // Only one print path should ever actually fire — showing the legacy DOM
-  // AND letting the pdfme popup's own window print at the same time means
-  // openPendingPrint's caller (a blind window.print() ~4s after open, same
-  // as OrderPrintViewV1's own polling) can end up printing this stale
-  // legacy content too. Once the flag check resolves to pdfme-enabled, this
-  // component doesn't render the legacy DOM at all — just a placeholder
-  // (still real content, so the caller's polling for `body > *` is happy)
-  // while the pdfme effect above generates and opens the real PDF.
-  const showLegacyView = !(pdfmeFlagChecked && pdfmeEnabled);
-
   return orderPrintById ? (
-    <>
-    {showLegacyView ? (
     <div style={{ position: "relative", height: "100%", minHeight: "100vh" }}>
       {orderPrintById?.companyDetail.company_logo && (
         <img
@@ -1226,40 +1214,37 @@ const PendingPrintViewV1 = () => {
           getID={getID}
         />
       )}
-    </div>
-    ) : (
-      <p className="text-center">Preparing document...</p>
-    )}
-    {printTemplateChoices.length > 0 && (
-      <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-        <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h5>Choose Template</h5>
-            <span
-              className="close"
-              onClick={() => setPrintTemplateChoices([])}
-            >
-              &times;
-            </span>
-          </div>
-          {printTemplateChoices.map((t) => (
-            <div
-              key={t.id}
-              className="d-flex justify-content-between align-items-center border-bottom py-2"
-            >
-              <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
-              <button
-                className="btn btn-sm btn-outline-primary"
-                onClick={() => printWithTemplate(t.id)}
+
+      {printTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => setPrintTemplateChoices([])}
               >
-                Print
-              </button>
+                &times;
+              </span>
             </div>
-          ))}
+            {printTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    )}
-    </>
+      )}
+    </div>
   ) : (
     <p className="text-center">Loading...</p>
   );
