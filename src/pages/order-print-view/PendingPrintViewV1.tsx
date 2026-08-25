@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -11,7 +12,7 @@ import PrintSettingModal from "../../components/model/PrintSettingModal";
 import SafeHtml from "../../components/SafeHtml";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../helpers/AppConstants";
 import { PAGE_ID, PRINT_SETTING_TYPE_OBJ } from "../../helpers/AppEnum";
-import { setUrlParams } from "../../services/axiosInstance";
+import { axiosInstance, setUrlParams } from "../../services/axiosInstance";
 import { numberToWordsCurrency } from "../../utils/numberToWordsCurrency";
 import {
   fetchCustomForm,
@@ -24,6 +25,16 @@ import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
 } from "./pendingPrintController";
+import { fetchTemplatesForDocType } from "./orderPrintController";
+
+// Pending Order / Pending Purchase Order — distinct doc types from the
+// regular sales/purchase order (see backend orderServices.js's pdfOrder,
+// PENDING_PDFME_DOC_TYPE_BY_CART_TYPE), keyed by cart.type same as the
+// confirmed-order picker.
+const PENDING_PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+  2: "pendingSalesOrder",
+  5: "pendingPurchaseOrder",
+};
 
 // Define interface for custom form fields based on console output
 interface CustomFormField {
@@ -57,6 +68,15 @@ const PendingPrintViewV1 = () => {
   const [printSetting, setPrintSetting] = useState<IprintSetting>();
   const [dynamicViewFormate, setDynamicViewFormate] = useState(1);
   const [isPrintSettingShow, setIsPrintSettingShow] = useState(false);
+
+  // Document Designer (pdfme) — mirrors OrderPrintViewV1's pattern, scoped
+  // to the pendingSalesOrder/pendingPurchaseOrder doc types.
+  const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
+  const [, setPdfmeFlagChecked] = useState(false);
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [printDialogOpened, setPrintDialogOpened] = useState(false);
 
   const { id, MobileToken, getID, type } = useParams();
 
@@ -104,6 +124,76 @@ const PendingPrintViewV1 = () => {
       setProductCustomOrderPdfViewById([]);
     }
   };
+
+  const pendingDocType = orderPrintById?.cart?.type
+    ? PENDING_PDFME_DOC_TYPE_BY_CART_TYPE[Number(orderPrintById.cart.type)]
+    : undefined;
+
+  useEffect(() => {
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!pendingDocType || !companyMastersId) {
+      setPdfmeFlagChecked(true);
+      return;
+    }
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
+      })
+      .finally(() => setPdfmeFlagChecked(true));
+  }, [pendingDocType]);
+
+  // Fetches the backend-generated pdfme PDF (print_variant=pending) and
+  // triggers the browser print dialog on it — same pattern as
+  // OrderPrintViewV1's printGeneratedPdf.
+  const printGeneratedPdf = async (documentTemplateId?: number) => {
+    const token = MobileToken || localStorage.getItem("token");
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    try {
+      const resops = await axiosInstance.post(
+        "/order-pdf",
+        {
+          cart_id: id,
+          print_variant: "pending",
+          ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+        },
+        { headers: { Authorization: `${token}`, "x-tenant-id": getID, "x-company-id": companyMastersId } },
+      );
+      if (resops.data.ack !== 1) return;
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    printGeneratedPdf(templateId);
+  };
+
+  useEffect(() => {
+    if (pdfmeEnabled && pendingDocType && orderPrintById && !printDialogOpened) {
+      (async () => {
+        setPrintDialogOpened(true);
+        const choices = await fetchTemplatesForDocType(pendingDocType);
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+        } else {
+          printGeneratedPdf();
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfmeEnabled, pendingDocType, orderPrintById, printDialogOpened]);
 
   useEffect(() => {
     let print_flag = 1;
@@ -1116,6 +1206,36 @@ const PendingPrintViewV1 = () => {
           btn2={"Approve"}
           getID={getID}
         />
+      )}
+
+      {printTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => setPrintTemplateChoices([])}
+              >
+                &times;
+              </span>
+            </div>
+            {printTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   ) : (
