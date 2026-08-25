@@ -39,6 +39,7 @@ import {
 } from "../../left-side/header/Setting/task-template/TaskTemplateController";
 import { ITaskView } from "../../left-side/header/Setting/taskList/TaskListController";
 import {
+  createChecklistItem,
   createTask,
   createTaskInitialValues,
   createTaskValidationSchema,
@@ -129,6 +130,9 @@ const CreateTaskView = ({
   const [isOpenCreateContact, setIsOpenCreateContact] =
     useState<boolean>(false);
   const isSubmittingRef = useRef(false);
+  // Add-mode checklist items, held locally until the task is actually saved
+  // and gets a real task_id (see TaskChecklistSection's pendingItems mode).
+  const [pendingChecklistItems, setPendingChecklistItems] = useState<string[]>([]);
   // const [stagesStatusOptions, setStagesStatusOptions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -491,6 +495,7 @@ const CreateTaskView = ({
       });
       setSelectedUsers([]);
       setSelectedDays([]);
+      setPendingChecklistItems([]);
     }
   }, [
     taskData,
@@ -639,6 +644,12 @@ const CreateTaskView = ({
           customFormList,
           onTaskCreated,
           setIsLoadedMessage,
+          async (newTaskId: number) => {
+            for (const title of pendingChecklistItems) {
+              await createChecklistItem(newTaskId, title);
+            }
+            setPendingChecklistItems([]);
+          },
         );
       }
     } finally {
@@ -1207,7 +1218,11 @@ const CreateTaskView = ({
                                   </div>
                                 </div>
                                 <div className="w-100 mb-3">
-                                  <TaskChecklistSection taskId={productToEdit} />
+                                  <TaskChecklistSection
+                                    taskId={productToEdit}
+                                    pendingItems={pendingChecklistItems}
+                                    onPendingItemsChange={setPendingChecklistItems}
+                                  />
                                 </div>
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">

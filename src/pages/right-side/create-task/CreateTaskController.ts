@@ -700,6 +700,7 @@ export const createTask = async (
   customFormList: ICustomFromList[],
   onTaskCreated?: () => void,
   setIsLoadedMessage?: any,
+  onChecklistFlush?: (newTaskId: number) => void,
 ) => {
   const getUUID = await localStorage.getItem("UUID");
   const token = await localStorage.getItem("token");
@@ -818,6 +819,10 @@ export const createTask = async (
 
     if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
       toast.success(data.ack_msg || "Task created successfully!");
+      const newTaskId = data.data?.item?.[0]?.id;
+      if (newTaskId) {
+        onChecklistFlush?.(newTaskId);
+      }
       clearFormCallback();
       onTaskCreated?.();
       setIsLoadedMessage?.((prev: boolean) => !prev);
