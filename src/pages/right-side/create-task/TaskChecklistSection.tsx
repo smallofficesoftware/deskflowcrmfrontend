@@ -11,15 +11,56 @@ import {
 
 interface TaskChecklistSectionProps {
   taskId?: number;
+  // Add-mode support: while the task doesn't exist yet (no taskId), items are
+  // held here as plain titles and only get created via the API once the
+  // parent form submits successfully and hands back the new task_id.
+  pendingItems?: string[];
+  onPendingItemsChange?: (items: string[]) => void;
 }
 
-// Checklist ("subtask") items live entirely on their own -- fetched/mutated
-// independently of the surrounding CreateTaskView form's own Save button,
-// same as task comments already work. Edit-mode only: an item needs an
-// existing task_id, so this renders a hint instead of the list until the
-// task has been saved once.
+const ChecklistRow: React.FC<{
+  title: string;
+  done: boolean;
+  dragHandleProps?: any;
+  onToggle?: () => void;
+  onDelete: () => void;
+}> = ({ title, done, dragHandleProps, onToggle, onDelete }) => (
+  <div
+    className="d-flex align-items-center mb-2 px-2 py-1"
+    style={{ background: "#f8f9fa", borderRadius: "6px", border: "1px solid #e9ecef" }}
+  >
+    {dragHandleProps && (
+      <span {...dragHandleProps} style={{ cursor: "grab", color: "#999", marginRight: "8px" }}>
+        <i className="pi pi-bars" style={{ fontSize: "12px" }} />
+      </span>
+    )}
+    {onToggle && (
+      <input type="checkbox" checked={done} onChange={onToggle} style={{ marginRight: "8px" }} />
+    )}
+    <span
+      style={{
+        flex: 1,
+        textDecoration: done ? "line-through" : "none",
+        color: done ? "#999" : "inherit",
+      }}
+    >
+      {title}
+    </span>
+    <span
+      className="text-danger"
+      style={{ cursor: "pointer", fontSize: "0.9rem" }}
+      title="Remove"
+      onClick={onDelete}
+    >
+      🗑
+    </span>
+  </div>
+);
+
 const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
   taskId,
+  pendingItems,
+  onPendingItemsChange,
 }) => {
   const [items, setItems] = useState<IChecklistItem[]>([]);
   const [newTitle, setNewTitle] = useState("");
@@ -37,11 +78,67 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
       .finally(() => setIsLoading(false));
   }, [taskId]);
 
+  // ── Add mode: task not saved yet, work off the pendingItems prop ──────────
   if (!taskId) {
+    const pending = pendingItems ?? [];
+
+    const handlePendingAdd = () => {
+      const title = newTitle.trim();
+      if (!title) return;
+      onPendingItemsChange?.([...pending, title]);
+      setNewTitle("");
+    };
+
+    const handlePendingDelete = (index: number) => {
+      onPendingItemsChange?.(pending.filter((_, i) => i !== index));
+    };
+
     return (
       <div className="col-12">
-        <p className="text-muted" style={{ fontSize: "13px" }}>
-          Save the task first to add a checklist.
+        <div className="d-flex justify-content-between align-items-center pb-2 mb-1">
+          <label className="form_label mb-0">Checklist</label>
+          {pending.length > 0 && (
+            <span className="text-muted" style={{ fontSize: "12px" }}>
+              {pending.length} item{pending.length > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+
+        {pending.map((title, index) => (
+          <ChecklistRow
+            key={index}
+            title={title}
+            done={false}
+            onDelete={() => handlePendingDelete(index)}
+          />
+        ))}
+
+        <div className="d-flex gap-2 mt-1">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Add checklist item"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handlePendingAdd();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-outline-primary"
+            style={{ whiteSpace: "nowrap" }}
+            disabled={!newTitle.trim()}
+            onClick={handlePendingAdd}
+          >
+            + Add
+          </button>
+        </div>
+        <p className="text-muted mt-1" style={{ fontSize: "12px" }}>
+          Saved once you save the task.
         </p>
       </div>
     );
@@ -123,46 +220,14 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
                     index={index}
                   >
                     {(dragProvided) => (
-                      <div
-                        ref={dragProvided.innerRef}
-                        {...dragProvided.draggableProps}
-                        className="d-flex align-items-center mb-2 px-2 py-1"
-                        style={{
-                          ...dragProvided.draggableProps.style,
-                          background: "#f8f9fa",
-                          borderRadius: "6px",
-                          border: "1px solid #e9ecef",
-                        }}
-                      >
-                        <span
-                          {...dragProvided.dragHandleProps}
-                          style={{ cursor: "grab", color: "#999", marginRight: "8px" }}
-                        >
-                          <i className="pi pi-bars" style={{ fontSize: "12px" }} />
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={!!item.is_done}
-                          onChange={() => handleToggle(item)}
-                          style={{ marginRight: "8px" }}
+                      <div ref={dragProvided.innerRef} {...dragProvided.draggableProps}>
+                        <ChecklistRow
+                          title={item.title}
+                          done={!!item.is_done}
+                          dragHandleProps={dragProvided.dragHandleProps}
+                          onToggle={() => handleToggle(item)}
+                          onDelete={() => handleDelete(item)}
                         />
-                        <span
-                          style={{
-                            flex: 1,
-                            textDecoration: item.is_done ? "line-through" : "none",
-                            color: item.is_done ? "#999" : "inherit",
-                          }}
-                        >
-                          {item.title}
-                        </span>
-                        <span
-                          className="text-danger"
-                          style={{ cursor: "pointer", fontSize: "0.9rem" }}
-                          title="Remove"
-                          onClick={() => handleDelete(item)}
-                        >
-                          🗑
-                        </span>
                       </div>
                     )}
                   </Draggable>
