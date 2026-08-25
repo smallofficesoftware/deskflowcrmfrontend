@@ -36,6 +36,7 @@ export const DEFAULT_FILTER_PARAMS: FilterParams = {
 export type Priority = "High" | "Medium" | "Low" | "Critical";
 
 export interface Task {
+  id: number; // alias of task_id — the shared Kanban engine's drag/card mechanics operate on `.id` generically
   task_id: number; // mapped from raw.id
   task_name: string; // mapped from raw.task_title
   contact_name?: string;
