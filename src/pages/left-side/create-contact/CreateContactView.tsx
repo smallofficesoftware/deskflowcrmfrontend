@@ -2484,6 +2484,8 @@ const CreateContactView = ({
                                         + Add
                                       </button>
                                     </div>
+                                  </div>
+                                  <div className="col-12">
                                     {productRows.map((row, index) => {
                                       const label =
                                         productNameCache[row.product_id] ||
