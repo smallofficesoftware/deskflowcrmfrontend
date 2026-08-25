@@ -457,6 +457,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
                                                 isColumnsLoading={isColumnsLoading}
                                                 searchTerm={searchTerm}
                                                 onError={(msg) => toast.error(msg)}
+                                                onSuccess={(msg) => toast.success(msg)}
                                             />
                                         </div>
                                     </BsCard.Body>

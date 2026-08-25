@@ -451,6 +451,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
             isColumnsLoading={isColumnsLoading}
             searchTerm={debouncedSearch}
             onError={(msg) => addToast(msg, "error")}
+            onSuccess={(msg) => addToast(msg, "success")}
           />
         </div>
       </div>

@@ -368,6 +368,7 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
                         isColumnsLoading={isColumnsLoading}
                         searchTerm={searchTerm}
                         onError={(msg) => toast.error(msg)}
+                        onSuccess={(msg) => toast.success(msg)}
                       />
                     </div>
                   </BsCard.Body>

@@ -8,6 +8,7 @@ interface UseKanbanDragOptions<T extends KanbanItem> {
   config: KanbanBoardConfig<T>;
   searchTerm: string;
   onError?: (message: string) => void;
+  onSuccess?: (message: string) => void;
 }
 
 // Computes a new `position` for an item dropped at `destIndex` among
@@ -40,6 +41,7 @@ export const useKanbanDrag = <T extends KanbanItem>({
   config,
   searchTerm,
   onError,
+  onSuccess,
 }: UseKanbanDragOptions<T>) => {
   const queryClient = useQueryClient();
   const snapshotRef = useRef<{
@@ -148,6 +150,9 @@ export const useKanbanDrag = <T extends KanbanItem>({
       try {
         await config.updateItemPosition(item.id, destColumnId, newPosition);
         snapshotRef.current = null;
+        onSuccess?.(
+          sourceColumnId !== destColumnId ? "Moved successfully" : "Order updated",
+        );
       } catch {
         const snap = snapshotRef.current;
         if (!snap) return;
@@ -189,7 +194,7 @@ export const useKanbanDrag = <T extends KanbanItem>({
         snapshotRef.current = null;
       }
     },
-    [config, queryClient, searchTerm, onError],
+    [config, queryClient, searchTerm, onError, onSuccess],
   );
 
   return { onDragEnd };

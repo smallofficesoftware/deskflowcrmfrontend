@@ -12,6 +12,7 @@ interface KanbanBoardProps<T extends KanbanItem> {
   isColumnsLoading: boolean;
   searchTerm: string;
   onError?: (message: string) => void;
+  onSuccess?: (message: string) => void;
 }
 
 export function KanbanBoard<T extends KanbanItem>({
@@ -20,6 +21,7 @@ export function KanbanBoard<T extends KanbanItem>({
   isColumnsLoading,
   searchTerm,
   onError,
+  onSuccess,
 }: KanbanBoardProps<T>) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
@@ -36,6 +38,7 @@ export function KanbanBoard<T extends KanbanItem>({
     config,
     searchTerm,
     onError,
+    onSuccess,
   });
 
   const handleDragEnd = useCallback(
