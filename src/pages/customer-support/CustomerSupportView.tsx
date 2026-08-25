@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AutoTabRefresh from "../../helpers/AutoTabRefresh";
+import useSocketEvent from "../../hooks/useSocketEvent";
 import CustomerSupportFormView from "./customer-support-form/CustomerSupportFormView";
 import {
   getSupportTickets,
@@ -54,6 +55,13 @@ const CustomerSupportView = () => {
   useEffect(() => {
     fetchTickets(0);
   }, []);
+
+  // Live sync: any teammate creating/converting/updating a support ticket refreshes this list too.
+  useSocketEvent("support-ticket-changed", () => {
+    setCurrentPage(0);
+    setHasMore(true);
+    fetchTickets(0);
+  });
 
   return (
     <div
