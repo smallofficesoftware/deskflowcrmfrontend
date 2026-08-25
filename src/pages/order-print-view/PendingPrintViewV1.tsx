@@ -129,8 +129,16 @@ const PendingPrintViewV1 = () => {
     ? PENDING_PDFME_DOC_TYPE_BY_CART_TYPE[Number(orderPrintById.cart.type)]
     : undefined;
 
+  // orderPrintById.cart.company_masters_id is server-fetched and always
+  // present once the cart loads — COMPANY_ID in localStorage isn't reliably
+  // set by every login flow, so it's only a fallback, not the primary source
+  // (same gotcha as socketClient.ts's registerSession).
+  const companyMastersId =
+    orderPrintById?.cart?.company_masters_id?.toString() ||
+    localStorage.getItem("COMPANY_ID") ||
+    undefined;
+
   useEffect(() => {
-    const companyMastersId = localStorage.getItem("COMPANY_ID");
     if (!pendingDocType || !companyMastersId) {
       setPdfmeFlagChecked(true);
       return;
@@ -144,14 +152,13 @@ const PendingPrintViewV1 = () => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
       })
       .finally(() => setPdfmeFlagChecked(true));
-  }, [pendingDocType]);
+  }, [pendingDocType, companyMastersId]);
 
   // Fetches the backend-generated pdfme PDF (print_variant=pending) and
   // triggers the browser print dialog on it — same pattern as
   // OrderPrintViewV1's printGeneratedPdf.
   const printGeneratedPdf = async (documentTemplateId?: number) => {
     const token = MobileToken || localStorage.getItem("token");
-    const companyMastersId = localStorage.getItem("COMPANY_ID");
     try {
       const resops = await axiosInstance.post(
         "/order-pdf",
