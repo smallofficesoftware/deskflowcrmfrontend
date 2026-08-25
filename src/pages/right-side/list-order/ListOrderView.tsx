@@ -28,7 +28,7 @@ import {
 import { PAGE_ID, PERMISSION_TYPE, PRINT_SETTING_TYPE_OBJ } from "../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
-import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType } from "../../order-print-view/orderPrintController";
+import { fetchPdfmeTemplatesForPicker, fetchTemplatesForDocType, isPdfmeSupportedCartType } from "../../order-print-view/orderPrintController";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
   ModuleType,
@@ -1789,6 +1789,83 @@ const ListOrderView = ({
     }
   };
 
+  const [shippingLabelLoading, setShippingLabelLoading] = useState(false);
+  const [shippingLabelTemplateChoices, setShippingLabelTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingShippingLabelCart, setPendingShippingLabelCart] = useState<
+    { cartId: number; cartType: number } | null
+  >(null);
+
+  const generateAndPrintShippingLabel = async (cartId: number, cartType: number, documentTemplateId?: number) => {
+    setShippingLabelLoading(true);
+    try {
+      const resops = await axiosInstance.post("/shipping-label-pdf", {
+        cart_id: cartId,
+        cart_type: cartType,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (resops.data.ack !== 1) {
+        toast.error(resops.data.ack_msg);
+        return;
+      }
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setShippingLabelLoading(false);
+    }
+  };
+
+  const printWithShippingLabelTemplate = (templateId: number) => {
+    setShippingLabelTemplateChoices([]);
+    if (pendingShippingLabelCart) {
+      generateAndPrintShippingLabel(pendingShippingLabelCart.cartId, pendingShippingLabelCart.cartType, templateId);
+    }
+    setPendingShippingLabelCart(null);
+  };
+
+  // pdfme path when document_designer is on (same flag/pattern openPrint()
+  // uses for cart docs) — picker first when the company has 2+ shippingLabel
+  // templates, same as quotation. Falls back to the legacy
+  // ShippingAddressPrint React page entirely when the flag is off.
+  const printShippingLabel = async (cartId: number, cartType: number) => {
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    let pdfmeOn = false;
+    if (companyMastersId) {
+      try {
+        const { data } = await axiosInstance.post("get-feature-flag", {
+          company_masters_id: companyMastersId,
+          feature_key: "document_designer",
+        });
+        pdfmeOn = data?.ack === 1 && !!data.data.item.is_enabled;
+      } catch {
+        pdfmeOn = false;
+      }
+    }
+
+    if (!pdfmeOn) {
+      openShippingAddressPrint(cartId, cartType);
+      return;
+    }
+
+    const choices = await fetchTemplatesForDocType("shippingLabel");
+    if (choices.length > 1) {
+      setShippingLabelTemplateChoices(choices);
+      setPendingShippingLabelCart({ cartId, cartType });
+      return;
+    }
+
+    generateAndPrintShippingLabel(cartId, cartType);
+  };
+
   let printId;
   printId =
     orderTypesList?.find((option) => Number(option.id) === isOrderShowNum)
@@ -3082,12 +3159,11 @@ const ListOrderView = ({
                               style={{ height: "auto" }}
                               className="listItem"
                               role="button"
-                              onClick={() =>
-                                openShippingAddressPrint(item.id, item.type)
-                              }
+                              onClick={() => {
+                                if (!shippingLabelLoading) printShippingLabel(item.id, item.type);
+                              }}
                             >
-                              {/* Pending {dynamicOrder} Print */}
-                              Shipping Label Print
+                              {shippingLabelLoading ? "Preparing..." : "Shipping Label Print"}
                             </li>
                           ) : (
                             <span></span>
@@ -3962,6 +4038,38 @@ const ListOrderView = ({
                 <button
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {shippingLabelTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setShippingLabelTemplateChoices([]);
+                  setPendingShippingLabelCart(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {shippingLabelTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithShippingLabelTemplate(t.id)}
                 >
                   Print
                 </button>

@@ -1,0 +1,40 @@
+{
+  "files": {
+    "main.css": "/static/css/main.0255b5a0.css",
+    "main.js": "/static/js/main.c02af671.js",
+    "static/js/52.bf0677d6.chunk.js": "/static/js/52.bf0677d6.chunk.js",
+    "static/js/911.0b3b8103.chunk.js": "/static/js/911.0b3b8103.chunk.js",
+    "static/js/239.353c4fd9.chunk.js": "/static/js/239.353c4fd9.chunk.js",
+    "static/js/117.ae60372a.chunk.js": "/static/js/117.ae60372a.chunk.js",
+    "static/media/emoji-sprite.png": "/static/media/emoji-sprite.d308250dd499641a89fa.png",
+    "static/media/InterVariable-Italic.woff2": "/static/media/InterVariable-Italic.e295f70fe3e2df296c7b.woff2",
+    "static/media/background_chat.png": "/static/media/background_chat.87015689c9af900b6d1c.png",
+    "static/media/InterVariable.woff2": "/static/media/InterVariable.a0e477f2f1f9d2376fde.woff2",
+    "static/media/primeicons.svg": "/static/media/primeicons.6ed59f962963a4a73af2.svg",
+    "static/media/animated-doodle.png": "/static/media/animated-doodle.8996d5cfe438b40ea288.png",
+    "static/media/Avatar-1.png": "/static/media/Avatar-1.d9db4b986bd1415e6654.png",
+    "static/media/primeicons.eot": "/static/media/primeicons.ff0c4cd79b2ffca2de54.eot",
+    "static/media/primeicons.woff": "/static/media/primeicons.8931fda1930c3bd21e96.woff",
+    "static/media/primeicons.ttf": "/static/media/primeicons.a5c2a53d1ff7a9ff5933.ttf",
+    "static/media/Avatar-2.png": "/static/media/Avatar-2.9ff2a46e9e15ff7bbd58.png",
+    "static/media/avatar-3.png": "/static/media/avatar-3.c27bd25f4af76290a035.png",
+    "static/media/smalll_office_logo.png": "/static/media/smalll_office_logo.09e69131decf76b6039a.png",
+    "static/media/create_company.png": "/static/media/create_company.1dbd9585dab35fb29be1.png",
+    "static/media/google-map-logo.png": "/static/media/google-map-logo.46af1fc140db56e39e26.png",
+    "static/media/primeicons.woff2": "/static/media/primeicons.024b32cc7bf399b1a847.woff2",
+    "static/media/smalll_office_log1.png": "/static/media/smalll_office_log1.92c8222a28df6d06d88e.png",
+    "static/media/tradindia.jpg": "/static/media/tradindia.6fe68cd582c5d9f5624d.jpg",
+    "static/media/deshFlow_log.png": "/static/media/deshFlow_log.3e176fb932d1ac9eff79.png",
+    "static/media/justdial.jpg": "/static/media/justdial.e562c1d0e34219e9e538.jpg",
+    "static/media/android.png": "/static/media/android.15103ebeb06a36cab87c.png",
+    "static/media/indiamart-logo.jpg": "/static/media/indiamart-logo.d4cd4aff13891a4051b9.jpg",
+    "static/media/appleIos.png": "/static/media/appleIos.3081f49f7f14d1792728.png",
+    "static/media/whatsapp.png": "/static/media/whatsapp.0aec16834c4b040636eb.png",
+    "static/media/serp_api.jpg": "/static/media/serp_api.d953f5dda94317d4fb9f.jpg",
+    "index.html": "/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.0255b5a0.css",
+    "static/js/main.c02af671.js"
+  ]
+}

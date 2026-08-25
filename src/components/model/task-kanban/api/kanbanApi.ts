@@ -137,18 +137,19 @@ export const getTaskList = async ({
   return { tasks, total, hasMore: page * limit < total, unread_count };
 };
 
-// ─── Update Task Column (Drag & Drop) ─────────────────────────────────────────
-export const updateTaskColumn = async (
-  boardType: BoardType,
+// ─── Update Task Column + Position (Drag & Drop) ──────────────────────────────
+// Status-board-only (the only BoardType actually used anywhere in the app —
+// the other entries in BOARD_CONFIG_MAP are unexercised scaffolding).
+export const updateTaskColumnAndPosition = async (
   taskId: number,
   columnId: number,
+  position: number,
 ): Promise<void> => {
-  const config = getBoardConfig(boardType);
-  const payload = config.updatePayloadBuilder(taskId, columnId);
-  await axiosInstance.post(
-    config.updateEndpoint,
-    JSON.stringify(payload, null, 2),
-  );
+  await axiosInstance.post("commonUpdate", {
+    table: "task_managements",
+    where: JSON.stringify({ id: taskId }),
+    data: JSON.stringify({ status: columnId, position }),
+  });
 };
 
 // ─── Auto Refresh Config ──────────────────────────────────────────────────────

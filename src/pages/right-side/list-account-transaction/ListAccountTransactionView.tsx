@@ -1,8 +1,8 @@
+import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { DateObject } from "react-multi-date-picker";
-import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   convertDateTimeFormat,
@@ -37,7 +37,9 @@ import {
 import CreateAccountTransactionView from "../create-account-transaction/CreateAccountTransactionView";
 import {
   contactAllTransactionDownloadPDf,
+  fetchAccountPdfmeTemplatesForPicker,
   fetchApiAccountTransitions,
+  isDocumentDesignerEnabled,
   generateMiracleLedger,
   generateMiracleOutstanding,
   IAccountTransaction,
@@ -242,14 +244,69 @@ const ListAccountTransactionView = ({
     };
   }, [currentPage, accountTransactionList.length, searchTerm, itemsPerPage]);
   const downloadAllTransactionOfContactPDF = async () => {
-    await contactAllTransactionDownloadPDf(
-      contactData?.id,
-      setIsAllPDFDownloadLoading,
-      filterParams.startSearchDate,
-      filterParams.endSearchDate,
-      filterParams.initialCheckedShowCreditData,
-      filterParams.initialCheckedShowDebitData,
+    await runWithTemplatePicker("accountStatement", (templateId) =>
+      contactAllTransactionDownloadPDf(
+        contactData?.id,
+        setIsAllPDFDownloadLoading,
+        filterParams.startSearchDate,
+        filterParams.endSearchDate,
+        filterParams.initialCheckedShowCreditData,
+        filterParams.initialCheckedShowDebitData,
+        templateId,
+      ),
     );
+  };
+
+  // Same ContactAllAccountTransactionPDF endpoint contactAllTransactionDownloadPDf
+  // (download) already calls — already flag-aware server-side. Opens the
+  // result in a popup and auto-prints instead of downloading.
+  const [isStatementPrintLoading, setIsStatementPrintLoading] = useState(false);
+  const doStatementPrint = async (documentTemplateId?: number) => {
+    setIsStatementPrintLoading(true);
+    try {
+      const getUUID = localStorage.getItem("UUID");
+      const { data } = await axiosInstance.post("ContactAllAccountTransactionPDF", {
+        a_application_login_id: Number(getUUID),
+        contact_master_id: contactData?.id,
+        startDate: filterParams.startSearchDate,
+        endDate: filterParams.endSearchDate,
+        creaditFilter: filterParams.initialCheckedShowCreditData,
+        debitFilter: filterParams.initialCheckedShowDebitData,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsStatementPrintLoading(false);
+    }
+  };
+  // Flag OFF -> exactly the old behavior (open the legacy
+  // AccountTransactionV1 page in a new tab, same URL/params the removed
+  // <Link> used). Flag ON -> new pdfme popup flow, with a template picker
+  // first when the company has 2+.
+  const openLegacyStatementPrint = () => {
+    const url = `/AccountTransactionV1/${contactData?.id}?startDate=${filterParams.startSearchDate || ""}&endDate=${filterParams.endSearchDate || ""}&creditFilter=${filterParams.initialCheckedShowCreditData}&debitFilter=${filterParams.initialCheckedShowDebitData}`;
+    window.open(url, "_blank");
+  };
+  const printAllTransactionStatement = async () => {
+    const pdfmeOn = await isDocumentDesignerEnabled();
+    if (!pdfmeOn) {
+      openLegacyStatementPrint();
+      return;
+    }
+    runWithTemplatePicker("accountStatement", (templateId) => doStatementPrint(templateId));
   };
   const sendAllToWhatsApp = async () => {
     try {
@@ -577,58 +634,111 @@ const ListAccountTransactionView = ({
     }
   };
 
-  const openPrint = (id: number) => {
-    const baseURL = window.location.origin;
-
-    const printUrl = `${baseURL}/AccountPrintView1/${id}`;
-
-    const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
-
-    if (myWindow) {
-      let isPrinted = false;
-
-      myWindow.onload = () => {
-        const checkContent = setInterval(() => {
-          const contentElement = myWindow.document.querySelector("body > *");
-          if (contentElement && myWindow.document.readyState === "complete") {
-            clearInterval(checkContent);
-
-            if (!isPrinted) {
-              isPrinted = true;
-              setTimeout(() => {
-                myWindow.print();
-              }, 2000);
-              myWindow.onafterprint = () => {
-                myWindow.close();
-              };
-              myWindow.addEventListener("afterprint", () => {
-                myWindow.close();
-              });
-            }
-          } else {
-            console.log("waiting...");
-          }
-        }, 100);
-      };
-
-      myWindow.addEventListener("beforeunload", () => {
-        if (!isPrinted) {
-          isPrinted = true;
-        }
-      });
-
-      setTimeout(() => {
-        if (!isPrinted) {
-          myWindow.close();
-        }
-      }, 10000);
+  // Picker state shared by all 4 actions (print/download x per-record/
+  // statement) — same §7 rule as quotation's picker: only shown when
+  // document_designer is on AND the company has 2+ templates for that
+  // doc_type, otherwise the action just runs directly.
+  const [templateChoices, setTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const pendingActionRef = useRef<((templateId?: number) => void) | null>(null);
+  const runWithTemplatePicker = async (
+    docType: "accountStatement" | "accountTransaction",
+    action: (templateId?: number) => void,
+  ) => {
+    const choices = await fetchAccountPdfmeTemplatesForPicker(docType);
+    if (choices.length > 1) {
+      setTemplateChoices(choices);
+      pendingActionRef.current = action;
     } else {
-      console.error("Failed to open print");
+      action(undefined);
     }
-    // window.open(`${baseURL}/AccountPrintView1/${id}`, "_blank");
+  };
+  const chooseTemplate = (templateId: number) => {
+    const action = pendingActionRef.current;
+    setTemplateChoices([]);
+    pendingActionRef.current = null;
+    if (action) action(templateId);
+  };
+
+  // accountPDFv1 (backend) already switches between pdfme and the legacy
+  // EJS renderer based on the document_designer feature flag — same
+  // endpoint PDFaccountv1 (download) already calls. This opens the result
+  // in a popup and auto-prints instead of downloading, same UX as
+  // quotation print.
+  const [isPrintLoading, setIsPrintLoading] = useState(false);
+  const doOpenPrint = async (id: number, documentTemplateId?: number) => {
+    setIsPrintLoading(true);
+    try {
+      const getUUID = localStorage.getItem("UUID");
+      const { data } = await axiosInstance.post("accountPDFv1", {
+        a_application_login_id: Number(getUUID),
+        accountTransactionId: id,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (data.code !== 200 || data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setIsPrintLoading(false);
+    }
+  };
+  // Flag OFF -> exactly the old behavior (open the legacy AccountPrintView1
+  // page in a popup and force-print it). Flag ON -> new pdfme popup flow,
+  // with a template picker first when the company has 2+.
+  const openLegacyAccountPrint = (id: number) => {
+    const baseURL = window.location.origin;
+    const printUrl = `${baseURL}/AccountPrintView1/${id}`;
+    const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
+    if (!myWindow) {
+      console.error("Failed to open print");
+      return;
+    }
+    let isPrinted = false;
+    myWindow.onload = () => {
+      const checkContent = setInterval(() => {
+        const contentElement = myWindow.document.querySelector("body > *");
+        if (contentElement && myWindow.document.readyState === "complete") {
+          clearInterval(checkContent);
+          if (!isPrinted) {
+            isPrinted = true;
+            setTimeout(() => myWindow.print(), 2000);
+            myWindow.onafterprint = () => myWindow.close();
+            myWindow.addEventListener("afterprint", () => myWindow.close());
+          }
+        }
+      }, 100);
+    };
+    myWindow.addEventListener("beforeunload", () => {
+      isPrinted = true;
+    });
+    setTimeout(() => {
+      if (!isPrinted) myWindow.close();
+    }, 10000);
+  };
+  const openPrint = async (id: number) => {
+    const pdfmeOn = await isDocumentDesignerEnabled();
+    if (!pdfmeOn) {
+      openLegacyAccountPrint(id);
+      return;
+    }
+    runWithTemplatePicker("accountTransaction", (templateId) => doOpenPrint(id, templateId));
   };
   const downloadPDF = (id: number) => {
-    PDFaccountv1(id, setIsPDFDownloadLoading);
+    runWithTemplatePicker("accountTransaction", (templateId) =>
+      PDFaccountv1(id, setIsPDFDownloadLoading, templateId),
+    );
   };
   const sendSingleToWhatsApp = async (id: number) => {
     try {
@@ -965,15 +1075,16 @@ const ListAccountTransactionView = ({
                       </span>
                     </li>
 
-                    <Link
-                      to={`/AccountTransactionV1/${contactData.id}?startDate=${filterParams.startSearchDate || ""}&endDate=${filterParams.endSearchDate || ""}&creditFilter=${filterParams.initialCheckedShowCreditData}&debitFilter=${filterParams.initialCheckedShowDebitData}`}
-                      target="_blank"
+                    <li
                       className="listItem text-left"
-                      style={{ textDecoration: "none", textAlign: "left" }}
                       role="button"
+                      onClick={() => {
+                        if (!isStatementPrintLoading) printAllTransactionStatement();
+                      }}
+                      style={{ textDecoration: "none", textAlign: "left" }}
                     >
-                      Print Statement
-                    </Link>
+                      <span>{isStatementPrintLoading ? "Preparing..." : "Print Statement"}</span>
+                    </li>
                     <li
                       className="listItem text-left"
                       role="button"
@@ -2276,6 +2387,39 @@ const ListAccountTransactionView = ({
         initialCheckedShowCreditData={1}
         initialCheckedShowDebitData={2}
       />
+
+      {templateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setTemplateChoices([]);
+                  pendingActionRef.current = null;
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {templateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => chooseTemplate(t.id)}
+                >
+                  Select
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 };

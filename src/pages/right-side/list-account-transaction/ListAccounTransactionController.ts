@@ -6,6 +6,53 @@ import {
 } from "../../../helpers/AppConstants";
 import { TFilterDate } from "../../../helpers/AppInterface";
 import { axiosInstance } from "../../../services/axiosInstance";
+
+// Standalone flag check — separate from fetchAccountPdfmeTemplatesForPicker
+// below, whose empty-array return can't distinguish "flag is off" from
+// "flag is on but only 1 template" and callers need to tell those apart
+// (off -> legacy page/URL, on -> new popup flow either way).
+export const isDocumentDesignerEnabled = async (): Promise<boolean> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return false;
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    return data?.ack === 1 && !!data.data.item.is_enabled;
+  } catch {
+    return false;
+  }
+};
+
+// Same shape/rule as orderPrintController.ts's fetchPdfmeTemplatesForPicker
+// (§7: picker only when document_designer is on AND 2+ templates exist),
+// just keyed by doc_type directly instead of a cart type -> doc_type map —
+// accountStatement/accountTransaction aren't cart types.
+export const fetchAccountPdfmeTemplatesForPicker = async (
+  docType: "accountStatement" | "accountTransaction",
+): Promise<{ id: number; template_name: string; is_default: number }[]> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list", {
+      company_masters_id: companyMastersId,
+      doc_type: docType,
+    });
+    const templates = listData?.ack === 1 ? listData.data.item : [];
+    return templates.length > 1 ? templates : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
 export interface IAccountTransaction {
   id: number;
   miracle_account_ledger: string;
@@ -145,6 +192,7 @@ export const fetchApiAccountTransitionsBankStatement = async (
 export const PDFaccountv1 = async (
   id: number,
   setIsPDFDownloadLoading: any,
+  documentTemplateId?: number,
 ) => {
   const getUUID = await localStorage.getItem("UUID");
   const token = await localStorage.getItem("token");
@@ -153,6 +201,7 @@ export const PDFaccountv1 = async (
     const { data } = await axiosInstance.post("accountPDFv1", {
       a_application_login_id: Number(getUUID),
       accountTransactionId: id,
+      ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
     });
 
     if (data.code === 200) {
@@ -192,6 +241,7 @@ export const contactAllTransactionDownloadPDf = async (
   endSearchDate: TFilterDate,
   creaditFilter: number | undefined,
   debitFilter: number | undefined,
+  documentTemplateId?: number,
 ) => {
   const getUUID = await localStorage.getItem("UUID");
   const token = await localStorage.getItem("token");
@@ -206,6 +256,7 @@ export const contactAllTransactionDownloadPDf = async (
         endDate: endSearchDate,
         creaditFilter: creaditFilter,
         debitFilter: debitFilter,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
       },
     );
     if (data.code === 200) {

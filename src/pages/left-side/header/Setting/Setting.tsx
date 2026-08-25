@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import noImage from "../../../../assets/images/no_image.jpeg";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import DocumentManagerPinModal from "../../../../components/model/DocumentManagerPinModal";
 import ReportModal from "../../../../components/model/ReportsModel";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -145,9 +146,10 @@ const Setting = ({
     PAGE_ID.DOCUMENT_DESIGNER_RIGHTS,
     PERMISSION_TYPE.VIEW,
   );
+  const [showDocumentManagerPin, setShowDocumentManagerPin] = useState(false);
   function openDocumentDesigner() {
     if (canViewDocumentDesigner) {
-      navigate("/document-designer");
+      setShowDocumentManagerPin(true);
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
@@ -753,7 +755,6 @@ const Setting = ({
                           title="Product Category"
                         >
                           <svg
-                            enable-background="new 0 0 20 20"
                             height="24px"
                             viewBox="0 0 20 20"
                             width="24px"
@@ -2156,6 +2157,16 @@ const Setting = ({
           opt1={"Light"}
           opt2={"Dark"}
           opt3={"System default"}
+        />
+      )}
+      {showDocumentManagerPin && (
+        <DocumentManagerPinModal
+          show={showDocumentManagerPin}
+          onHide={() => setShowDocumentManagerPin(false)}
+          onVerified={() => {
+            setShowDocumentManagerPin(false);
+            navigate("/document-designer");
+          }}
         />
       )}
     </>

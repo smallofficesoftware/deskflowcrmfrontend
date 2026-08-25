@@ -33,9 +33,11 @@ import {
 
 // All 10 cart-shaped doc types templates.js's DOC_TYPES / dataDictionary.js's
 // CART_DOC_DICTIONARY / orderServices.js's PDFME_DOC_TYPE_BY_CART_TYPE
-// support. The 5 non-cart-shaped modules (Stock In/Out, Account/Employee
-// Statement, Shipping Label) still need their own engine + dictionary
-// before they can be added here.
+// support, plus 4 non-cart system documents (accountStatement,
+// accountTransaction, taskDueList, shippingLabel) whose canvas is editable
+// here but whose header-variant/column-toggle toolbar and "real data"
+// preview stay cart-only — see CART_SHAPED_DOC_TYPES below. Stock In/Out
+// still needs its own engine + dictionary before it can be added.
 const SUPPORTED_DOC_TYPES = [
   { id: "quotation", label: "Quotation" },
   { id: "salesOrder", label: "Sales Order" },
@@ -47,6 +49,10 @@ const SUPPORTED_DOC_TYPES = [
   { id: "inward", label: "Goods Received Note (GRN)" },
   { id: "dispatch", label: "Dispatch" },
   { id: "proformaInvoice", label: "Proforma Invoice" },
+  { id: "accountStatement", label: "Account Statement" },
+  { id: "accountTransaction", label: "Account Transaction" },
+  { id: "taskDueList", label: "Task Due List" },
+  { id: "shippingLabel", label: "Shipping Label" },
 ];
 // listOrder's own order_type filter — mirrors orderServices.js's
 // PDFME_DOC_TYPE_BY_CART_TYPE (cart.type), just keyed the other direction.
@@ -62,17 +68,35 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
   dispatch: 9,
   proformaInvoice: 12,
 };
+// Header-variant/column-toggle toolbar and "Generate Preview" (real order
+// data or the cart-shaped sample data) only make sense for the 10 cart docs
+// above — the 4 system doc types have their own fixed layout/sample data
+// that applyOptionsToDraft and previewDocumentTemplate don't know how to
+// touch yet (backend guards + rejects both for non-cart-shaped doc_types).
+const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
 const plugins = { text, table, image };
 
 async function loadDesignerFonts() {
-  const files = ["Poppins-Regular.ttf", "Poppins-Bold.ttf", "Poppins-SemiBold.ttf"];
-  const [regular, bold, semiBold] = await Promise.all(
+  // Noto Sans Devanagari/Gujarati (Hindi/Gujarati script support — Poppins
+  // has no glyphs for either) must match fonts.js's generate-time font
+  // names exactly, or a field picking one by name here would render fine on
+  // canvas but fall back to Poppins (tofu boxes) in the actual generated PDF.
+  const files = [
+    "Poppins-Regular.ttf",
+    "Poppins-Bold.ttf",
+    "Poppins-SemiBold.ttf",
+    "NotoSansDevanagari-Regular.ttf",
+    "NotoSansGujarati-Regular.ttf",
+  ];
+  const [regular, bold, semiBold, notoDevanagari, notoGujarati] = await Promise.all(
     files.map((f) => fetch(`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/fonts/${f}`).then((r) => r.arrayBuffer())),
   );
   return {
     Poppins: { data: regular, fallback: true },
     "Poppins Bold": { data: bold },
     "Poppins SemiBold": { data: semiBold },
+    "Noto Sans Devanagari": { data: notoDevanagari },
+    "Noto Sans Gujarati": { data: notoGujarati },
   };
 }
 
@@ -178,6 +202,20 @@ const DocumentDesignerView: React.FC = () => {
     updateSelectedFieldSchema((field) => {
       if (mode === "hideIfEmpty") field.visibilityCondition = { mode: "hideIfEmpty" };
       else delete field.visibilityCondition;
+    });
+  };
+
+  // Mail-merge style: append a {{key}} token to the selected field's own
+  // content, independent of dataSource/visibility binding above — a field
+  // stays "Static Text" with a free paragraph that happens to contain
+  // tokens, resolved server-side by orderInputMapper.js's
+  // applyTokenSubstitution at generate time. No cursor-position tracking —
+  // always appends to the end of whatever's already typed on canvas.
+  const insertTokenIntoSelectedField = (key: string) => {
+    updateSelectedFieldSchema((field) => {
+      const current = typeof field.content === "string" ? field.content : "";
+      const separator = current && !/\s$/.test(current) ? " " : "";
+      field.content = `${current}${separator}{{${key}}}`;
     });
   };
 
@@ -497,6 +535,24 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
+  // "Product Page Designer" toggle — per-template (not company-wide, not a
+  // draft/publish concept), applies immediately. When on, generate-time
+  // splices each cart item's own product page (products.document_template_id,
+  // set via Product Master's "Product Page Designer" action) after this
+  // document, one per item in cart order (generateDocument.js).
+  const toggleIncludeProductPages = async (value: boolean) => {
+    if (!requireEdit() || !currentTemplateId) return;
+    const ok = await axiosInstance.post("document-templates/update", {
+      company_masters_id: localStorage.getItem("COMPANY_ID"),
+      a_application_login_id: localStorage.getItem("UUID"),
+      id: currentTemplateId,
+      include_product_pages: value,
+    });
+    if (ok.data?.ack === 1 && currentTemplateFull) {
+      setCurrentTemplateFull({ ...currentTemplateFull, include_product_pages: value ? 1 : 0 });
+    }
+  };
+
   // Generate Preview — real order data whenever it exists, sample data only
   // as an empty-state fallback (§6).
   const openPreviewPicker = async () => {
@@ -579,7 +635,7 @@ const DocumentDesignerView: React.FC = () => {
         .dd-layout .btn-primary { background-color: #f58634; border-color: #f58634; }
         .dd-layout .btn-primary:hover, .dd-layout .btn-primary:focus { background-color: #d9701f; border-color: #d9701f; }
         .dd-layout .btn-outline-primary { color: #f58634; border-color: #f58634; }
-        .dd-layout .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; }
+        .dd-layout .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; color: #fff; }
         .dd-layout input[type="checkbox"]:checked,
         .dd-layout input[type="radio"]:checked { background-color: #f58634; border-color: #f58634; }
         .dd-layout .form-select:focus,
@@ -669,23 +725,38 @@ const DocumentDesignerView: React.FC = () => {
 
       <div className="dd-main">
         <div style={{ padding: "8px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select className="form-select form-select-sm" style={{ width: 160 }} onChange={(e) => applyHeaderVariant(e.target.value)} defaultValue="details">
-            <option value="details">Header: Details</option>
-            <option value="image">Header: Image</option>
-            <option value="logoLeft">Header: Logo Left</option>
-            <option value="logoRight">Header: Logo Right</option>
-          </select>
-          {["hsn", "discount", "cgst", "sgst", "igst", "image"].map((key) => (
-            <label key={key} className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input type="checkbox" className="form-check-input" onChange={(e) => applyColumnToggle(key, e.target.checked)} />
-              {key.toUpperCase()}
-            </label>
-          ))}
+          {CART_SHAPED_DOC_TYPES.has(docType) && (
+            <>
+              <select className="form-select form-select-sm" style={{ width: 160 }} onChange={(e) => applyHeaderVariant(e.target.value)} defaultValue="details">
+                <option value="details">Header: Details</option>
+                <option value="image">Header: Image</option>
+                <option value="logoLeft">Header: Logo Left</option>
+                <option value="logoRight">Header: Logo Right</option>
+              </select>
+              {["hsn", "discount", "cgst", "sgst", "igst", "image"].map((key) => (
+                <label key={key} className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
+                  <input type="checkbox" className="form-check-input" onChange={(e) => applyColumnToggle(key, e.target.checked)} />
+                  {key.toUpperCase()}
+                </label>
+              ))}
+              <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }} title="Splice each cart item's own Product Page Designer page after this document, in item order">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={!!currentTemplateFull?.include_product_pages}
+                  onChange={(e) => toggleIncludeProductPages(e.target.checked)}
+                />
+                Show product-wise pages
+              </label>
+            </>
+          )}
           <div style={{ flex: 1 }} />
           <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
           <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
           <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
-          <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+          {CART_SHAPED_DOC_TYPES.has(docType) && (
+            <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+          )}
           <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
             Publish
           </button>
@@ -747,6 +818,23 @@ const DocumentDesignerView: React.FC = () => {
               <option value="always">Always show</option>
               <option value="hideIfEmpty">Hide if empty</option>
             </select>
+          </div>
+        )}
+        {selectedField && selectedField.schema?.type === "text" && (
+          <div style={{ padding: "6px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: "#fff" }}>
+            <strong style={{ fontSize: 11, color: "#666" }}>Insert token:</strong>
+            {dictionary.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: 10, padding: "1px 6px" }}
+                title={`${d.group}: ${d.label}`}
+                onClick={() => insertTokenIntoSelectedField(d.key)}
+              >
+                {`{{${d.key}}}`}
+              </button>
+            ))}
           </div>
         )}
         <div style={{ padding: "4px 12px", fontSize: 12, color: "#666" }}>{status}</div>

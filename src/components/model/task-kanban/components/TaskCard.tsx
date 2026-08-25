@@ -1,4 +1,3 @@
-import { Draggable } from "@hello-pangea/dnd";
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Priority, Task } from "../types/kanban.types";
 import { formatDueDate, getInitials } from "../utils/taskMapper";
@@ -6,7 +5,6 @@ import { TaskDetailPopup } from "./TaskDetailPopup";
 
 interface TaskCardProps {
   task: Task;
-  index: number;
   onClick?: (task: Task) => void;
   onEdit?: (task: Task) => void;
   onChangeStatus?: (task: Task) => void;
@@ -132,9 +130,8 @@ const ActionBtn: React.FC<{
 );
 
 export const TaskCard: React.FC<TaskCardProps> = memo(
-  ({ task, index, onClick, onEdit, onChangeStatus, onAssignLabel, onAssignTeamMember, onTimeline, onArchive, onDelete }) => {
+  ({ task, onClick, onEdit, onChangeStatus, onAssignLabel, onAssignTeamMember, onTimeline, onArchive, onDelete }) => {
     const dueDateInfo = task.due_date ? formatDueDate(task.due_date) : null;
-    const didDragRef = useRef(false);
     const [showDetail, setShowDetail] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -155,29 +152,11 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
 
     return (
       <>
-        <Draggable draggableId={String(task.task_id)} index={index}>
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-              className={`task-card${snapshot.isDragging ? " is-dragging" : ""}${isUnread ? " is-unread" : ""}`}
-              style={{
-                ...provided.draggableProps.style,
-                willChange: snapshot.isDragging ? "transform" : "auto",
-              }}
-              onMouseDown={() => {
-                didDragRef.current = false;
-              }}
-              onMouseMove={() => {
-                didDragRef.current = true;
-              }}
-              onClick={() => {
-                if (!didDragRef.current) onClick?.(task);
-                didDragRef.current = false;
-              }}
-            >
-              {/* ── Header row: task# + title + actions ── */}
+        <div
+          className={`task-card${isUnread ? " is-unread" : ""}`}
+          onClick={() => onClick?.(task)}
+        >
+          {/* ── Header row: task# + title + actions ── */}
               <div
                 className="card-header-row"
                 style={{ alignItems: "flex-start", gap: 6 }}
@@ -485,11 +464,9 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
                   </div>
                 )}
               </div>
-            </div>
-          )}
-        </Draggable>
+        </div>
 
-        {/* Detail popup — portal, outside Draggable */}
+        {/* Detail popup — portal, outside the card */}
         {showDetail && (
           <TaskDetailPopup task={task} onClose={() => setShowDetail(false)} />
         )}

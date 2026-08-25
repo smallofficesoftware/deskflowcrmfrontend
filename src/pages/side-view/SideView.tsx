@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -38,6 +38,8 @@ import CustomerSupportFormView from "../customer-support/customer-support-form/C
 import CreateCompanyView from "../left-side/create-company/CreateCompanyView";
 import MiracleConfigurationsView from "../left-side/header/Setting/work-flow-automation/MiracleConfigurationsView";
 import ManageWorkspacesModal from "../../components/model/ManageWorkspacesModal";
+import ReviewDialog from "../../components/review/ReviewDialog";
+import { useReviewStore } from "../../store/review/useReviewStore";
 import { IFilterLocationParams } from "../left-side/LeftSideView";
 import {
   fetchCompanyApi,
@@ -47,6 +49,9 @@ import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
+
+// Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
+const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
 
 interface IProp {
   profileDetail?: ILoginData;
@@ -81,6 +86,7 @@ const DraggableWidget = ({
 
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const UUID = localStorage.getItem("UUID");
@@ -90,7 +96,9 @@ const SideView = ({ profileDetail }: IProp) => {
     }
   }, [navigate]);
 
-  const [activeView, setActiveView] = useState("dashboard");
+  const [activeView, setActiveView] = useState(() =>
+    searchParams.get("view") === "reports" ? "reports_home" : "dashboard",
+  );
 
   const [isOpen, setIsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string[]>([
@@ -308,6 +316,16 @@ const SideView = ({ profileDetail }: IProp) => {
           setCompanyData(response.data.data.item);
           setPermissions(response.data.data.resultRights);
           setAdvertisement(response.data.data.advertisement);
+
+          const reviewStatus = response?.data?.data?.review;
+          if (reviewStatus?.show && reviewStatus.show !== "none") {
+            // Don't interrupt the app right on load — server tells us how
+            // long to wait (REVIEW_PROMPT_DELAY_SECONDS env var).
+            const delayMs = (reviewStatus.delaySeconds ?? DEFAULT_REVIEW_PROMPT_DELAY_MS / 1000) * 1000;
+            setTimeout(() => {
+              useReviewStore.getState().setStatus(reviewStatus);
+            }, delayMs);
+          }
 
           setFeatureEnabled(
             response?.data?.data?.MIRACLE_FLAG == 1 ? true : false,
@@ -1191,6 +1209,10 @@ const SideView = ({ profileDetail }: IProp) => {
       >
         <SidebarView
           onReportClick={handleSingleReportShow}
+          onInsightsClick={() => {
+            setActiveView("dashboard");
+            setAppliedReportType("");
+          }}
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           activeReport={appliedReportType}
@@ -1224,6 +1246,7 @@ const SideView = ({ profileDetail }: IProp) => {
             reportType={reportType}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
+            onReportClick={handleSingleReportShow}
           />
         </div>
         <TaskStickyIcon
@@ -1347,6 +1370,7 @@ const SideView = ({ profileDetail }: IProp) => {
         show={showManageWorkspaces}
         onHide={() => setShowManageWorkspaces(false)}
       />
+      <ReviewDialog />
       {isExploreNearbyShow && (
         <ExploreNearbyModal
           show={isExploreNearbyShow}

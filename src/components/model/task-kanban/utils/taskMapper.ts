@@ -3,6 +3,7 @@ import { Task, Priority } from "../types/kanban.types";
 // Map raw API response to Task interface
 export const mapApiResponseToTask = (raw: Record<string, unknown>): Task => {
   return {
+    id: Number(raw.id ?? raw.task_id ?? 0),
     task_id: Number(raw.id ?? raw.task_id ?? 0),
     task_name: String(
       raw.task_title ?? raw.task_name ?? raw.name ?? "Untitled Task",

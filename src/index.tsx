@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { toast } from 'react-toastify';
 import App from "./App";
 
@@ -43,12 +44,19 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
 
+// App-wide QueryClient for react-query hooks (shared Kanban engine, etc.).
+// task-kanban's own modal still wraps its subtree in a second, local
+// QueryClientProvider - that inner one just shadows this one for its
+// subtree, so it keeps its existing isolated cache untouched.
+const queryClient = new QueryClient();
+
 root.render(
   <GoogleOAuthProvider clientId="449326108551-pcrq0vdakp3ccbl19n8c498s0f7buplr.apps.googleusercontent.com">
-    {/* <React.StrictMode>
-         
-    </React.StrictMode> */}
-    <App />
-  
+    <QueryClientProvider client={queryClient}>
+      {/* <React.StrictMode>
+
+      </React.StrictMode> */}
+      <App />
+    </QueryClientProvider>
   </GoogleOAuthProvider>
 );

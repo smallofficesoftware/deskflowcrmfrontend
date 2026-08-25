@@ -789,6 +789,7 @@ export const fetchPriceListApiForContact = async (
 
 export const checkContactNumberDuplication = async (
   mobile_number: number | string,
+  person_name?: string,
 ) => {
   const token = await localStorage.getItem("token");
   const getUUID = await localStorage.getItem("UUID");
@@ -801,6 +802,7 @@ export const checkContactNumberDuplication = async (
 
   const requestData = {
     mobile_number: mobile_number,
+    person_name: person_name,
     a_application_login_id: getUUID,
   };
 

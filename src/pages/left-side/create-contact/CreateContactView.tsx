@@ -1534,7 +1534,10 @@ const CreateContactView = ({
 
                                   // Only call API if mobile number has enough digits (e.g., 7 or more digits)
                                   if (mobileValue.length >= 7) {
-                                    checkContactNumberDuplication(mobileValue);
+                                    checkContactNumberDuplication(
+                                      mobileValue,
+                                      values?.person_name,
+                                    );
                                   }
                                 }}
                               />

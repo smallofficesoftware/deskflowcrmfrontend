@@ -310,6 +310,28 @@ const CreateCompanyView = ({
   const [showModalWorkOrder, setShowModalWorkOrder] = useState(false);
   const [indiaMartApiResponse, setIndiaMartApiResponse] = useState<any>(null); // State for API response
   const [showModalDispatch, setShowModalDispatch] = useState(false);
+  // pdfme Document Designer makes every legacy "<Type> View Format" picker
+  // moot — the real template is chosen from the Designer's own template
+  // list instead. Hide them once the company's flag is on, same
+  // isPdfmeEnabledForType pattern used in ListOrderView.tsx/
+  // OrderCreateModal.tsx. workorder_view_formate is left alone — pdfme has
+  // no Work Order doc type yet.
+  const [pdfmeDesignerEnabled, setPdfmeDesignerEnabled] = useState(false);
+  useEffect(() => {
+    if (!companyToEdit?.id) {
+      setPdfmeDesignerEnabled(false);
+      return;
+    }
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyToEdit.id,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        setPdfmeDesignerEnabled(data?.ack === 1 && !!data.data.item.is_enabled);
+      })
+      .catch(() => setPdfmeDesignerEnabled(false));
+  }, [companyToEdit?.id]);
 
   interface ICurrency {
     id: number;
@@ -3963,6 +3985,7 @@ const CreateCompanyView = ({
                                       </div>
                                     </div>
                                     {/* Quotation View Format */}
+                                    {!pdfmeDesignerEnabled ? (
                                     <div className="col-12 col-md-3">
                                       <div className="form-group">
                                         <label
@@ -3986,6 +4009,9 @@ const CreateCompanyView = ({
                                         />
                                       </div>
                                     </div>
+                                    ) : (
+                                      <div className="col-12 col-md-3" />
+                                    )}
                                     {/* Three Dots Button */}
                                     <div className="col-12 col-md-1 d-flex align-items-center">
                                       <button
@@ -4103,6 +4129,7 @@ const CreateCompanyView = ({
                                       </div>
                                     </div>
                                     {/* profoma Invoice View Format */}
+                                    {!pdfmeDesignerEnabled ? (
                                     <div className="col-12 col-md-3">
                                       <div className="form-group">
                                         <label
@@ -4126,6 +4153,9 @@ const CreateCompanyView = ({
                                         />
                                       </div>
                                     </div>
+                                    ) : (
+                                      <div className="col-12 col-md-3" />
+                                    )}
                                     {/* Three Dots Button */}
                                     <div className="col-12 col-md-1 d-flex align-items-center">
                                       <button
@@ -4241,6 +4271,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4264,6 +4295,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
                                       type="button"
@@ -4389,6 +4423,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4412,6 +4447,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
                                       type="button"
@@ -4540,6 +4578,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4567,6 +4606,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
 
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -4683,6 +4725,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4706,6 +4749,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   {/* three dote */}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -4822,6 +4868,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4845,6 +4892,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   {/* three dote */}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -4962,6 +5012,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4989,6 +5040,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   {/* three dote */}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -5106,6 +5160,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -5133,6 +5188,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   {/* three dote */}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -5248,6 +5306,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
+                                  {!pdfmeDesignerEnabled ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -5275,6 +5334,9 @@ const CreateCompanyView = ({
                                       />
                                     </div>{" "}
                                   </div>
+                                  ) : (
+                                    <div className="col-12 col-md-3 " />
+                                  )}
                                   {/* three dote */}
                                   <div className="col-12 col-md-1 d-flex align-items-center">
                                     <button
@@ -6143,9 +6205,11 @@ const CreateCompanyView = ({
                                         <div className="form-check form-switch">
                                           <label htmlFor="is_contact_validation">
                                             <code>
-                                              Off = Contact Number Duplication
-                                              Not Allowed | On = Contact Number
-                                              Duplication Allowed
+                                              Off = Block any contact with a
+                                              number already in use | On =
+                                              Allow it only if the name is
+                                              also different (same name + same
+                                              number is still blocked)
                                             </code>
                                           </label>
                                           <Field

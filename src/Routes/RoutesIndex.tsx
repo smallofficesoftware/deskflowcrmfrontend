@@ -31,6 +31,7 @@ import LogoutComponent from "../components/LogoutComponent";
 import ContactAddressEnvelopePrintView from "../pages/contact-address-print/ContactAddressEnvelopePrintView";
 import ContactAddressPrintView1 from "../pages/contact-address-print/ContactAddressPrintView1";
 import CustomerSupportView from "../pages/customer-support/CustomerSupportView";
+import ReviewsView from "../pages/reviews/ReviewsView";
 import ProcessAttendanceMonthlySlip from "../pages/dashboard/Reports/Process Attendance Report/ProcessAttendanceMonthlySlip";
 import SalaryRegisterMonthlySlip from "../pages/dashboard/Reports/Salary Register/SalaryRegisterMonthlySlip";
 import EmployeeAccountPrintView1 from "../pages/employee-account-print-view/EmployeeAccountPrintView1";
@@ -39,6 +40,9 @@ import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/Bom
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
+import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
+import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
 import OnlineStore from "../pages/online-store";
 import SupportTicket from "../pages/online-store/store-support-ticket/SupportTicketView";
 import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
@@ -229,6 +233,7 @@ const RoutesIndex = () => {
               path="/customer-support/"
               element={<CustomerSupportView />}
             />
+            <Route path="/reviews" element={<ReviewsView />} />
             <Route path="/BomPdfView/:id/:bomId" element={<BomPdfView />} />
             <Route path="/SideView" element={<SideView />} />
             <Route
@@ -250,6 +255,18 @@ const RoutesIndex = () => {
             <Route
               path="/report-builder"
               element={<ReportBuilderView />}
+            />
+            <Route
+              path="/custom-field/designer-page-sources"
+              element={<DesignerPageDataSourceView />}
+            />
+            <Route
+              path="/custom-field/designer-page-editor"
+              element={<CustomFieldDesignerPageEditorView />}
+            />
+            <Route
+              path="/product/designer-page-editor"
+              element={<ProductPageDesignerEditorView />}
             />
             <Route path="/logout" element={<LogoutComponent />} />
             <Route path="/OrderPdfViewV1/:id" element={<PdfView />} />

@@ -3,11 +3,23 @@ import {
   QueryClientProvider,
   useQueryClient,
 } from "@tanstack/react-query";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { FilterParams } from "../../../../pages/left-side/header/Setting/taskList/TaskListView";
-import { fetchAutoRefreshConfig } from "../api/kanbanApi";
-import { useKanbanColumns } from "../hooks/useKanbanColumns";
+import useSocketEvent from "../../../../hooks/useSocketEvent";
+import { KanbanBoard as SharedKanbanBoard } from "../../shared-kanban/components/KanbanBoard";
+import { useKanbanColumns } from "../../shared-kanban/hooks/useKanbanColumns";
+import {
+  KanbanBoardConfig,
+  KanbanColumnDef,
+  KanbanFetchResult,
+} from "../../shared-kanban/types";
+import {
+  fetchAutoRefreshConfig,
+  fetchBoardColumns,
+  getTaskList,
+  updateTaskColumnAndPosition,
+} from "../api/kanbanApi";
 import "../styles/kanban.css";
 import {
   BoardType,
@@ -17,8 +29,8 @@ import {
   TaskKanbanModalProps,
 } from "../types/kanban.types";
 import { parseRefreshTimeout } from "../utils/taskMapper";
-import { KanbanBoard } from "./KanbanBoard";
 import { SearchBar } from "./SearchBar";
+import { TaskCard } from "./TaskCard";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 interface Toast {
@@ -130,8 +142,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTask, setEditTask] = useState<ITaskView | null>(null);
 
-  const { data: columns = [], isLoading: isColumnsLoading } =
-    useKanbanColumns(boardType);
+  const BOARD_KEY = `task-kanban-${boardType}`;
 
   // Debounce search
   useEffect(() => {
@@ -143,32 +154,6 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  // Auto refresh
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const setup = async () => {
-      try {
-        const config = await fetchAutoRefreshConfig();
-        if (config.TASK_AUTO_REFRESH_ON === "true") {
-          const timeout = parseRefreshTimeout(
-            config.TASK_AUTO_REFRESH_TIMEOUT ?? "30s",
-          );
-          interval = setInterval(() => {
-            queryClient.invalidateQueries({
-              queryKey: ["kanban-tasks", boardType],
-            });
-          }, timeout);
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    setup();
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [boardType, queryClient]);
-
   const addToast = useCallback((message: string, type: Toast["type"]) => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -177,17 +162,6 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
-
-  // Refresh all task queries for this board
-  const refreshAllTasks = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["kanban-tasks", boardType] });
-  }, [queryClient, boardType]);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    refreshAllTasks();
-    setTimeout(() => setIsRefreshing(false), 600);
-  }, [refreshAllTasks]);
 
   // Feature 4: task edit handler — converts Task to ITaskView shape
   const handleTaskEdit = useCallback(
@@ -226,6 +200,130 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     },
     [canEdit, renderEditTaskModal],
   );
+
+  const onTaskEdit = canEdit && renderEditTaskModal ? handleTaskEdit : undefined;
+
+  const renderCard = useCallback(
+    (task: Task) => (
+      <TaskCard
+        task={task}
+        onClick={onTaskClick}
+        onEdit={onTaskEdit}
+        onChangeStatus={onChangeStatus}
+        onAssignLabel={onAssignLabel}
+        onAssignTeamMember={onAssignTeamMember}
+        onTimeline={onTimeline}
+        onArchive={onArchive}
+        onDelete={onDelete}
+      />
+    ),
+    [
+      onTaskClick,
+      onTaskEdit,
+      onChangeStatus,
+      onAssignLabel,
+      onAssignTeamMember,
+      onTimeline,
+      onArchive,
+      onDelete,
+    ],
+  );
+
+  const config: KanbanBoardConfig<Task> = useMemo(
+    () => ({
+      boardKey: BOARD_KEY,
+      fetchColumns: (): Promise<KanbanColumnDef[]> =>
+        fetchBoardColumns(boardType).then((cols) =>
+          cols.map((c) => ({
+            id: c.id,
+            name: c.name,
+            color: c.color,
+            unreadCount: c.unread_count,
+          })),
+        ),
+      fetchItems: (params): Promise<KanbanFetchResult<Task>> =>
+        getTaskList({
+          page: params.page,
+          limit: params.limit,
+          search: params.searchTerm,
+          columnId: Number(params.columnId),
+          boardType,
+          filterParams: filterParams ?? DEFAULT_FILTER_PARAMS,
+          supportTicketFlag,
+        }).then((res) => ({
+          items: res.tasks,
+          total: res.total,
+          hasMore: res.hasMore,
+        })),
+      itemPosition: (task) => {
+        const raw = (task.raw ?? {}) as Record<string, unknown>;
+        const position = raw.position;
+        return position === null || position === undefined
+          ? null
+          : Number(position);
+      },
+      updateItemPosition: (taskId, columnId, position) =>
+        updateTaskColumnAndPosition(Number(taskId), Number(columnId), position),
+      renderCard,
+      sortOptions: [
+        {
+          label: "Due date",
+          compare: (a, b) =>
+            (a.due_date ?? "").localeCompare(b.due_date ?? ""),
+        },
+        {
+          label: "Priority",
+          compare: (a, b) => (b.priority_id ?? 0) - (a.priority_id ?? 0),
+        },
+      ],
+    }),
+    [BOARD_KEY, boardType, filterParams, supportTicketFlag, renderCard],
+  );
+
+  const { data: columns = [], isLoading: isColumnsLoading } =
+    useKanbanColumns(config);
+
+  // Auto refresh
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const setup = async () => {
+      try {
+        const autoRefreshConfig = await fetchAutoRefreshConfig();
+        if (autoRefreshConfig.TASK_AUTO_REFRESH_ON === "true") {
+          const timeout = parseRefreshTimeout(
+            autoRefreshConfig.TASK_AUTO_REFRESH_TIMEOUT ?? "30s",
+          );
+          interval = setInterval(() => {
+            queryClient.invalidateQueries({
+              queryKey: ["shared-kanban-items", BOARD_KEY],
+            });
+          }, timeout);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    setup();
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [BOARD_KEY, queryClient]);
+
+  // Refresh all task queries for this board
+  const refreshAllTasks = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["shared-kanban-columns", BOARD_KEY] });
+    queryClient.invalidateQueries({ queryKey: ["shared-kanban-items", BOARD_KEY] });
+  }, [queryClient, BOARD_KEY]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    refreshAllTasks();
+    setTimeout(() => setIsRefreshing(false), 600);
+  }, [refreshAllTasks]);
+
+  // Live sync: any teammate adding/editing/moving a task (including via the
+  // drag-to-move commonUpdate path) refreshes every board open for the company.
+  useSocketEvent("task-changed", refreshAllTasks);
 
   const boardTypeLabelMap: Record<BoardType, string> = {
     status: "Status",
@@ -346,26 +444,16 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
           isRefreshing={isRefreshing}
         />
 
-        <KanbanBoard
-          columns={columns}
-          isColumnsLoading={isColumnsLoading}
-          boardType={boardType}
-          searchTerm={debouncedSearch}
-          filterParams={filterParams ?? DEFAULT_FILTER_PARAMS}
-          onTaskClick={onTaskClick}
-          onTaskEdit={
-            canEdit && renderEditTaskModal ? handleTaskEdit : undefined
-          }
-          onChangeStatus={onChangeStatus}
-          onAssignLabel={onAssignLabel}
-          onAssignTeamMember={onAssignTeamMember}
-          onTimeline={onTimeline}
-          onArchive={onArchive}
-          onDelete={onDelete}
-          onError={(msg) => addToast(msg, "error")}
-          onSuccess={(msg) => addToast(msg, "success")}
-          supportTicketFlag={supportTicketFlag}
-        />
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <SharedKanbanBoard
+            config={config}
+            columns={columns}
+            isColumnsLoading={isColumnsLoading}
+            searchTerm={debouncedSearch}
+            onError={(msg) => addToast(msg, "error")}
+            onSuccess={(msg) => addToast(msg, "success")}
+          />
+        </div>
       </div>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -164,14 +164,14 @@ const CreateCustomFieldView = ({
         const selectedPageTypeValue: any = selectedPageType?.value?.toString();
         const isFormType5to9 =
             selectedPageTypeValue &&
-            ["5", "6", "7", "8", "9", "10", "11"].includes(selectedPageTypeValue);
+            ["5", "6", "7", "8", "9", "10", "11", "16"].includes(selectedPageTypeValue);
         const attachmentAllowedPages = ["3", "14", "15"];
         return orderTypesCustomInquiryList
             .filter((option) => {
                 if (option.id == "13") {
                     return attachmentAllowedPages.includes(selectedPageTypeValue);
                 }
-                if (["11", "12"].includes(option.id)) {
+                if (["11", "12", "14"].includes(option.id)) {
                     return isFormType5to9;
                 }
                 return true;
@@ -187,7 +187,7 @@ const CreateCustomFieldView = ({
     const handleOrderDisplayChange = (selectedOption: SingleValue<IOption>) => {
         setSelectedOrderList(selectedOption);
         setDataTypeError(selectedOption ? "" : "Data type is required");
-        if (selectedOption?.value === "11" || selectedOption?.value === "12") {
+        if (selectedOption?.value === "11" || selectedOption?.value === "12" || selectedOption?.value === "14") {
             const noOption = reqTypesCustomInquiryList.find(opt => opt.id === "2");
             setSelectedReqList({
                 value: noOption?.id || "2",
@@ -475,7 +475,7 @@ const CreateCustomFieldView = ({
                 setSelectedApplicableModules(initialMods);
             } else if (Number(productToEdit.form_type) === 4) {
                 if (Number(productToEdit.product_feild_row_column) === 2) {
-                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13"].includes(String(opt.value)));
+                    const initialMods = applicableModulesDisplayOptions.filter(opt => ["5","6","7","8","9","10","11","12","13","16"].includes(String(opt.value)));
                     setSelectedApplicableModules(initialMods);
                 } else {
                     const initialMods = applicableModulesDisplayOptions.filter(opt => String(opt.value) === "4");

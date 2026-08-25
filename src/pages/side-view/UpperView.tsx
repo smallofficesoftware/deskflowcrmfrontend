@@ -261,7 +261,8 @@ const UpperView = ({ profileDetail }: IProp) => {
             <div
                 style={{
                     height: "8vh",
-                    background: "#ffffff",
+                    background: "linear-gradient(90deg, #fff3eb 0%, #ffe0c2 100%)",
+                    borderBottom: "1px solid #f3c99b",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -278,12 +279,24 @@ const UpperView = ({ profileDetail }: IProp) => {
                         gap: "16px",
                     }}
                 >
+                    <style>{`
+                        .sideview-add-contact-btn.contact-btn-search {
+                            background: linear-gradient(135deg, #F58634, #F5A623) !important;
+                            border-color: transparent !important;
+                        }
+                        .sideview-add-contact-btn.contact-btn-search:hover {
+                            background: linear-gradient(135deg, #e5762a, #e39515) !important;
+                        }
+                        .sideview-add-contact-btn .contact-btn-search-text {
+                            color: #fff !important;
+                        }
+                    `}</style>
                     <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
+                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
                         onClick={() => addReminder()}
                     >
                         <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#fff">
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
                             <span className="contact-btn-search-text">
@@ -294,11 +307,11 @@ const UpperView = ({ profileDetail }: IProp) => {
 
                     </button>
                     <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
+                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
                         onClick={() => handleChangeAddContact()}
                     >
                         <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#fff">
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
                             <span className="contact-btn-search-text">
@@ -308,7 +321,7 @@ const UpperView = ({ profileDetail }: IProp) => {
                         </span>
                     </button>
                     <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
+                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
                         onClick={() => openCreateTask(0)}
                     >
                         <span>
@@ -317,7 +330,7 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 height="20px"
                                 viewBox="0 -960 960 960"
                                 width="20px"
-                                fill="#6f6f6f"
+                                fill="#fff"
                             >
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
@@ -327,7 +340,7 @@ const UpperView = ({ profileDetail }: IProp) => {
                     </button>
 
                     <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
+                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
                         onClick={() => openCreateTask(1)}
                     >
                         <span>
@@ -336,7 +349,7 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 height="20px"
                                 viewBox="0 -960 960 960"
                                 width="20px"
-                                fill="#6f6f6f"
+                                fill="#fff"
                             >
                                 <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
                             </svg>
