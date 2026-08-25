@@ -18,6 +18,7 @@ import {
   getCustomFieldDatavalues,
   useEscapeKey,
 } from "../../../common/SharedFunction";
+import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import MultiSelect from "../../../components/MultiSelect";
@@ -117,6 +118,16 @@ const CreateContactView = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     number | undefined
   >();
+  // Multi-product rows for the inline "Create Inquiry" section — collapse
+  // to Formik's category_id/product_id/qty as comma-separated,
+  // positionally-paired strings, matching CreateInquiryView.tsx's pattern
+  // and the same inquiries table columns directly (no new field names).
+  const [productRows, setProductRows] = useState<
+    { category_id: string; product_id: string; qty: string }[]
+  >([]);
+  const [newRowProduct, setNewRowProduct] = useState<IOption | null>(null);
+  const [newRowQty, setNewRowQty] = useState("");
+  const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
   const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
   const [areaList, setAreaList] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(contactData ? true : false);
@@ -518,6 +529,69 @@ const CreateContactView = ({
       setSelectedCategoryId(undefined);
       setProductList([]);
     }
+    // Category only narrows which products the "+ Add" picker offers below
+    // (an inquiry can hold products from several categories) — already-
+    // added rows are left untouched on category switch.
+    setNewRowProduct(null);
+  };
+
+  const syncProductRowsToFormik = (
+    rows: { category_id: string; product_id: string; qty: string }[],
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
+    setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
+    setFieldValue("qty", rows.map((r) => r.qty).join(","));
+  };
+
+  const sanitizeQtyInput = (value: string) => {
+    let next = value;
+    if (!/^\d*\.?\d*$/.test(next)) {
+      next = next.replace(/[^0-9.]/g, "");
+    }
+    const decimalCount = (next.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      next = next.slice(0, -1);
+    }
+    return next;
+  };
+
+  const addProductRow = (
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    if (!newRowProduct || !newRowQty) {
+      toast.error("Select a product and enter its quantity");
+      return;
+    }
+    if (productRows.some((r) => r.product_id === String(newRowProduct.value))) {
+      toast.error("That product is already added");
+      return;
+    }
+    const nextRows = [
+      ...productRows,
+      {
+        category_id: selectedCategoryId ? String(selectedCategoryId) : "",
+        product_id: String(newRowProduct.value),
+        qty: newRowQty,
+      },
+    ];
+    setProductRows(nextRows);
+    syncProductRowsToFormik(nextRows, setFieldValue);
+    setProductNameCache((prev) => ({
+      ...prev,
+      [String(newRowProduct.value)]: newRowProduct.label,
+    }));
+    setNewRowProduct(null);
+    setNewRowQty("");
+  };
+
+  const removeProductRow = (
+    index: number,
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    const nextRows = productRows.filter((_, i) => i !== index);
+    setProductRows(nextRows);
+    syncProductRowsToFormik(nextRows, setFieldValue);
   };
 
   const canAddCategory = useCheckUserPermission(
@@ -782,6 +856,16 @@ const CreateContactView = ({
 
   useEffect(() => {
     fetchCustomInqFromApiForContact(setCustomFromList);
+  }, [show]);
+
+  // This inline inquiry section is always for a NEW inquiry (contactData
+  // carries the contact's own fields, not any existing inquiry's
+  // product_id/qty/category_id) — just reset the rows whenever the modal
+  // opens/closes rather than reconstructing from stored values.
+  useEffect(() => {
+    setProductRows([]);
+    setNewRowProduct(null);
+    setNewRowQty("");
   }, [show]);
 
   useEffect(() => {
@@ -2343,46 +2427,114 @@ const CreateContactView = ({
                                       />
                                     </div>
                                   </div>
-                                  <div className="col-12 col-md-4">
-                                    <div className="form-group">
-                                      <label
-                                        htmlFor="product_id"
-                                        className="pb-2 form_label"
+                                  <div className="col-12 col-md-8">
+                                    <div
+                                      className="d-flex align-items-end gap-2 flex-wrap"
+                                      style={{ marginBottom: "8px" }}
+                                    >
+                                      <div style={{ flex: "1 1 200px" }}>
+                                        <label className="pb-2 mb-1 form_label">
+                                          Product Name
+                                        </label>
+                                        <CustomSearchDropdown
+                                          options={productOptions}
+                                          value={newRowProduct}
+                                          onChange={(opt: IOption | null) =>
+                                            setNewRowProduct(opt)
+                                          }
+                                          placeholder="Select product"
+                                          styles={{
+                                            control: (base: any) => ({
+                                              ...base,
+                                              minHeight: "45px",
+                                            }),
+                                          }}
+                                        />
+                                      </div>
+                                      <div style={{ maxWidth: "110px" }}>
+                                        <label className="pb-2 mb-1 form_label">
+                                          Qty
+                                        </label>
+                                        <input
+                                          type="text"
+                                          className="form-control"
+                                          style={{
+                                            height: "45px",
+                                            marginBottom: 0,
+                                            paddingTop: 0,
+                                            paddingBottom: 0,
+                                            lineHeight: "43px",
+                                          }}
+                                          placeholder="Qty"
+                                          maxLength={MINI_TEXT_LENGTH}
+                                          value={newRowQty}
+                                          onChange={(e) =>
+                                            setNewRowQty(
+                                              sanitizeQtyInput(e.target.value),
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-outline-primary"
+                                        style={{ whiteSpace: "nowrap" }}
+                                        onClick={() => addProductRow(setFieldValue)}
                                       >
-                                        Product Name
-                                      </label>
-                                      <FormikCustomSearchDropdown
-                                        name="product_id"
-                                        options={productOptions}
-                                        className={` ${errors.product_id &&
-                                          touched.product_id &&
-                                          "is-invalid input-box-error"
-                                          }`}
-                                      />
-                                      <ErrorMessage
-                                        name="product_id"
-                                        component="div"
-                                        className="field-error text-danger"
-                                      />
+                                        + Add
+                                      </button>
                                     </div>
-                                  </div>
-                                  <div className="col-12 col-md-4">
-                                    <div className="form-group">
-                                      <label
-                                        htmlFor="qty"
-                                        className="pb-2 form_label"
-                                      >
-                                        Required Quantity
-                                      </label>
-                                      <Field
-                                        type="number"
-                                        name="qty"
-                                        className={`form-control font-size-15 rounded-1 ${errors.qty &&
-                                          touched.qty &&
-                                          "is-invalid input-box-error"
-                                          }`}
-                                      />
-                                    </div>
+                                    {productRows.map((row, index) => {
+                                      const label =
+                                        productNameCache[row.product_id] ||
+                                        productOptions.find(
+                                          (o: IOption) =>
+                                            String(o.value) === row.product_id,
+                                        )?.label ||
+                                        row.product_id;
+                                      const categoryLabel = categoryOptions.find(
+                                        (o: IOption) =>
+                                          String(o.value) === row.category_id,
+                                      )?.label;
+                                      return (
+                                        <div
+                                          key={`${row.product_id}-${index}`}
+                                          className="d-flex justify-content-between align-items-center mb-2 px-3 py-2"
+                                          style={{
+                                            background: "#f8f9fa",
+                                            borderRadius: "8px",
+                                            border: "1px solid #e9ecef",
+                                          }}
+                                        >
+                                          <div>
+                                            <span style={{ fontWeight: 500 }}>
+                                              {label}
+                                            </span>
+                                            {categoryLabel && (
+                                              <span className="badge bg-light text-secondary border ms-2">
+                                                {categoryLabel}
+                                              </span>
+                                            )}
+                                            <span className="text-muted ms-2">
+                                              Qty: {row.qty}
+                                            </span>
+                                          </div>
+                                          <span
+                                            style={{
+                                              cursor: "pointer",
+                                              fontSize: "1rem",
+                                            }}
+                                            className="text-danger"
+                                            title="Remove"
+                                            onClick={() =>
+                                              removeProductRow(index, setFieldValue)
+                                            }
+                                          >
+                                            🗑
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                   <div className="col-12 col-md-6">
                                     <div className="form-group">
