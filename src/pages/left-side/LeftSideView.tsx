@@ -3803,7 +3803,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                         {/* <button className="icons" onClick={openDashBoard}>
                           <span title="View Insight">
                             <svg
-                              enable-background="new 0 0 20 20"
                               height="25"
                               viewBox="0 0 20 20"
                               width="25"

@@ -5619,7 +5619,6 @@ const RightView = ({
                           >
                             <span title="View Insights">
                               <svg
-                                enable-background="new 0 0 20 20"
                                 height="30"
                                 viewBox="0 0 20 20"
                                 width="30"

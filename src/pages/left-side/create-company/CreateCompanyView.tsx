@@ -6205,9 +6205,11 @@ const CreateCompanyView = ({
                                         <div className="form-check form-switch">
                                           <label htmlFor="is_contact_validation">
                                             <code>
-                                              Off = Contact Number Duplication
-                                              Not Allowed | On = Contact Number
-                                              Duplication Allowed
+                                              Off = Block any contact with a
+                                              number already in use | On =
+                                              Allow it only if the name is
+                                              also different (same name + same
+                                              number is still blocked)
                                             </code>
                                           </label>
                                           <Field

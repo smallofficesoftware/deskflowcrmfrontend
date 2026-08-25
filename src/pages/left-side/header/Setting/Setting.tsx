@@ -719,7 +719,6 @@ const Setting = ({
                           title="Product Category"
                         >
                           <svg
-                            enable-background="new 0 0 20 20"
                             height="24px"
                             viewBox="0 0 20 20"
                             width="24px"
