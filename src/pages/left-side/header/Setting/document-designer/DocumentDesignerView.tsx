@@ -49,6 +49,8 @@ const SUPPORTED_DOC_TYPES = [
   { id: "inward", label: "Goods Received Note (GRN)" },
   { id: "dispatch", label: "Dispatch" },
   { id: "proformaInvoice", label: "Proforma Invoice" },
+  { id: "pendingSalesOrder", label: "Pending Sales Order" },
+  { id: "pendingPurchaseOrder", label: "Pending Purchase Order" },
   { id: "accountStatement", label: "Account Statement" },
   { id: "accountTransaction", label: "Account Transaction" },
   { id: "taskDueList", label: "Task Due List" },
@@ -67,6 +69,12 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
   inward: 8,
   dispatch: 9,
   proformaInvoice: 12,
+  // Pending Sales/Purchase Order are a distinct doc_type from their
+  // confirmed-order counterpart, but render off the same cart shape/type —
+  // real-data preview and the header-variant/column toolbar work the same
+  // way as salesOrder/purchaseOrder.
+  pendingSalesOrder: 2,
+  pendingPurchaseOrder: 5,
 };
 // Header-variant/column-toggle toolbar and "Generate Preview" (real order
 // data or the cart-shaped sample data) only make sense for the 10 cart docs
