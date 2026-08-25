@@ -446,6 +446,16 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
                   </span>
                 )}
 
+                {(task.checklist_total ?? 0) > 0 && (
+                  <span
+                    className="badge-pill"
+                    title="Checklist progress"
+                    style={{ background: "#f3f4f6", color: "#6b7280" }}
+                  >
+                    ☑ {task.checklist_done ?? 0}/{task.checklist_total}
+                  </span>
+                )}
+
                 {task.assigned_to && (
                   <div className="assignee" style={{ marginLeft: "auto" }}>
                     <div

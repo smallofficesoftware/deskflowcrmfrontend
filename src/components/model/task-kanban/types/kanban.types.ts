@@ -70,6 +70,10 @@ export interface Task {
   label_name?: string; // raw.label_name
   label_color?: string; // raw.label_color
 
+  // ── Checklist (subtasks) progress badge ────────────────────────────────
+  checklist_total?: number; // raw.checklist_total
+  checklist_done?: number; // raw.checklist_done
+
   // ── Feature 4: edit needs ITaskView shape ──────────────────────────────
   raw?: Record<string, unknown>; // full raw API object for edit modal
 }

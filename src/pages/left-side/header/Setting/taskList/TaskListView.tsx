@@ -3675,6 +3675,22 @@ const TaskListView = ({
                                         ))
                                       : ""}
                                   </div>
+                                  {(item.checklist_total ?? 0) > 0 && (
+                                    <div className="text-end">
+                                      <span
+                                        style={{
+                                          backgroundColor: "#eeeeee",
+                                          color: "#54656f",
+                                          fontWeight: "normal",
+                                        }}
+                                        className="badge rounded-pill"
+                                        title="Checklist progress"
+                                      >
+                                        ☑ {item.checklist_done ?? 0}/
+                                        {item.checklist_total}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div
                                     className="d-flex"
                                     style={{

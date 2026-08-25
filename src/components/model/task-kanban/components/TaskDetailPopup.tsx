@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { Task } from "../types/kanban.types";
 import { formatDisplayDate, getInitials } from "../utils/taskMapper";
+import {
+  fetchTaskChecklist,
+  IChecklistItem,
+  updateChecklistItem,
+} from "../../../../pages/right-side/create-task/CreateTaskController";
 
 interface TaskDetailPopupProps {
   task: Task | null;
@@ -63,6 +68,24 @@ export const TaskDetailPopup: React.FC<TaskDetailPopupProps> = ({ task, onClose 
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [task, handleKey]);
+
+  const [checklist, setChecklist] = useState<IChecklistItem[]>([]);
+  useEffect(() => {
+    if (!task?.task_id) {
+      setChecklist([]);
+      return;
+    }
+    fetchTaskChecklist(task.task_id).then(setChecklist);
+  }, [task?.task_id]);
+
+  const handleChecklistToggle = async (item: IChecklistItem) => {
+    const nextDone = !item.is_done;
+    setChecklist((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_done: nextDone ? 1 : 0 } : i)));
+    const ok = await updateChecklistItem(item.id, { is_done: nextDone });
+    if (!ok) {
+      setChecklist((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_done: item.is_done } : i)));
+    }
+  };
 
   if (!task) return null;
 
@@ -165,6 +188,22 @@ export const TaskDetailPopup: React.FC<TaskDetailPopupProps> = ({ task, onClose 
             <DetailRow icon={I.desc} label="Description">
               <div style={{ fontSize: "0.875rem", color: "#374151", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {task.task_remark}
+              </div>
+            </DetailRow>
+          )}
+
+          {/* Checklist */}
+          {checklist.length > 0 && (
+            <DetailRow icon={I.status} label={`Checklist (${checklist.filter((i) => i.is_done).length}/${checklist.length})`}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {checklist.map((item) => (
+                  <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.875rem" }}>
+                    <input type="checkbox" checked={!!item.is_done} onChange={() => handleChecklistToggle(item)} />
+                    <span style={{ textDecoration: item.is_done ? "line-through" : "none", color: item.is_done ? "#9ca3af" : "#374151" }}>
+                      {item.title}
+                    </span>
+                  </label>
+                ))}
               </div>
             </DetailRow>
           )}

@@ -73,6 +73,16 @@ export const mapApiResponseToTask = (raw: Record<string, unknown>): Task => {
     label_name: raw.label_name ? String(raw.label_name) : undefined,
     label_color: raw.label_color ? String(raw.label_color) : undefined,
 
+    // ── Checklist (subtasks) progress badge ────────────────────────────────
+    checklist_total:
+      raw.checklist_total !== undefined && raw.checklist_total !== null
+        ? Number(raw.checklist_total)
+        : undefined,
+    checklist_done:
+      raw.checklist_done !== undefined && raw.checklist_done !== null
+        ? Number(raw.checklist_done)
+        : undefined,
+
     // Keep full raw for edit modal (Feature 4)
     raw,
   };
