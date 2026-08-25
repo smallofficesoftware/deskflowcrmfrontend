@@ -48,6 +48,7 @@ import {
   TFilterDate,
 } from "../../helpers/AppInterface";
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
+import useSocketEvent from "../../hooks/useSocketEvent";
 import { axiosInstance } from "../../services/axiosInstance";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
@@ -745,6 +746,8 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [loginById, setLoginById] = useState<ILoginData>();
   const [isLoadContact, setIsLoadContact] = useState(true);
   const [refreshContact, setRefreshContact] = useState(false);
+  // Live sync: any teammate adding/editing/deleting a contact refreshes this sidebar list too.
+  useSocketEvent("contact-changed", () => setRefreshContact(true));
   const [isRefers, setIsRefers] = useState(true);
   // In LeftSide component
   const [hasOneData, setHasOneData] = useState<number | null>(null);
