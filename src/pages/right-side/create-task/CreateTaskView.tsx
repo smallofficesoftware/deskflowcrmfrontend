@@ -11,6 +11,7 @@ import DatePicker, { DateObject } from "react-multi-date-picker";
 import TimePicker from "react-multi-date-picker/plugins/time_picker";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
+import TaskChecklistSection from "./TaskChecklistSection";
 import {
   formatDateAndTime,
   getCustomFieldDatavalues,
@@ -1204,6 +1205,9 @@ const CreateTaskView = ({
                                       className="field-error text-danger"
                                     />
                                   </div>
+                                </div>
+                                <div className="w-100 mb-3">
+                                  <TaskChecklistSection taskId={productToEdit} />
                                 </div>
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">

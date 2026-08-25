@@ -1,0 +1,205 @@
+import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
+import React, { useEffect, useState } from "react";
+import {
+  createChecklistItem,
+  deleteChecklistItem,
+  fetchTaskChecklist,
+  IChecklistItem,
+  reorderChecklistItems,
+  updateChecklistItem,
+} from "./CreateTaskController";
+
+interface TaskChecklistSectionProps {
+  taskId?: number;
+}
+
+// Checklist ("subtask") items live entirely on their own -- fetched/mutated
+// independently of the surrounding CreateTaskView form's own Save button,
+// same as task comments already work. Edit-mode only: an item needs an
+// existing task_id, so this renders a hint instead of the list until the
+// task has been saved once.
+const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
+  taskId,
+}) => {
+  const [items, setItems] = useState<IChecklistItem[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+
+  useEffect(() => {
+    if (!taskId) {
+      setItems([]);
+      return;
+    }
+    setIsLoading(true);
+    fetchTaskChecklist(taskId)
+      .then((result) => setItems(result))
+      .finally(() => setIsLoading(false));
+  }, [taskId]);
+
+  if (!taskId) {
+    return (
+      <div className="col-12">
+        <p className="text-muted" style={{ fontSize: "13px" }}>
+          Save the task first to add a checklist.
+        </p>
+      </div>
+    );
+  }
+
+  const doneCount = items.filter((i) => i.is_done).length;
+
+  const handleAdd = async () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    setIsAdding(true);
+    const created = await createChecklistItem(taskId, title);
+    setIsAdding(false);
+    if (created) {
+      setItems((prev) => [...prev, created]);
+      setNewTitle("");
+    }
+  };
+
+  const handleToggle = async (item: IChecklistItem) => {
+    const nextDone = !item.is_done;
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, is_done: nextDone ? 1 : 0 } : i)),
+    );
+    const ok = await updateChecklistItem(item.id, { is_done: nextDone });
+    if (!ok) {
+      // revert on failure
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, is_done: item.is_done } : i)),
+      );
+    }
+  };
+
+  const handleDelete = async (item: IChecklistItem) => {
+    const prevItems = items;
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    const ok = await deleteChecklistItem(item.id);
+    if (!ok) {
+      setItems(prevItems);
+    }
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const reordered = Array.from(items);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    setItems(reordered);
+    reorderChecklistItems(
+      taskId,
+      reordered.map((i) => i.id),
+    );
+  };
+
+  return (
+    <div className="col-12">
+      <div className="d-flex justify-content-between align-items-center pb-2 mb-1">
+        <label className="form_label mb-0">Checklist</label>
+        {items.length > 0 && (
+          <span className="text-muted" style={{ fontSize: "12px" }}>
+            {doneCount}/{items.length} done
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <p className="text-muted" style={{ fontSize: "13px" }}>
+          Loading…
+        </p>
+      ) : (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="task-checklist-items">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps}>
+                {items.map((item, index) => (
+                  <Draggable
+                    key={item.id}
+                    draggableId={`checklist-${item.id}`}
+                    index={index}
+                  >
+                    {(dragProvided) => (
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        className="d-flex align-items-center mb-2 px-2 py-1"
+                        style={{
+                          ...dragProvided.draggableProps.style,
+                          background: "#f8f9fa",
+                          borderRadius: "6px",
+                          border: "1px solid #e9ecef",
+                        }}
+                      >
+                        <span
+                          {...dragProvided.dragHandleProps}
+                          style={{ cursor: "grab", color: "#999", marginRight: "8px" }}
+                        >
+                          <i className="pi pi-bars" style={{ fontSize: "12px" }} />
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={!!item.is_done}
+                          onChange={() => handleToggle(item)}
+                          style={{ marginRight: "8px" }}
+                        />
+                        <span
+                          style={{
+                            flex: 1,
+                            textDecoration: item.is_done ? "line-through" : "none",
+                            color: item.is_done ? "#999" : "inherit",
+                          }}
+                        >
+                          {item.title}
+                        </span>
+                        <span
+                          className="text-danger"
+                          style={{ cursor: "pointer", fontSize: "0.9rem" }}
+                          title="Remove"
+                          onClick={() => handleDelete(item)}
+                        >
+                          🗑
+                        </span>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+      )}
+
+      <div className="d-flex gap-2 mt-1">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Add checklist item"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-outline-primary"
+          style={{ whiteSpace: "nowrap" }}
+          disabled={isAdding || !newTitle.trim()}
+          onClick={handleAdd}
+        >
+          + Add
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default TaskChecklistSection;
