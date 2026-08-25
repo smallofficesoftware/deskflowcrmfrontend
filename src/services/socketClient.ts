@@ -8,8 +8,14 @@ let socket: Socket | null = null;
 
 const registerSession = (activeSocket: Socket) => {
   const uuid = localStorage.getItem("UUID");
+  if (!uuid) return;
+
+  // Company room join resolved server-side from login id — COMPANY_ID in
+  // localStorage is only set by some login flows, so it can't be relied on.
+  activeSocket.emit("joinCompanyRoom", { a_application_login_id: uuid });
+
   const companyId = localStorage.getItem("COMPANY_ID");
-  if (!uuid || !companyId) return;
+  if (!companyId) return;
 
   // Matches the backend's parseSession format: `a<login_id>_c<company_id>`.
   activeSocket.emit("storeSocketID", {

@@ -57,7 +57,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
     const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
     const [hasData, setHasData] = useState(false);
     const [isCreateContact, setIsCreateContact] = useState(false);
-    const [user1, setUsers1] = useState(false);
+    const [, setUsers1] = useState(false);
     const [searchInput, setSearchInput] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [viewContactId, setViewContactId] = useState<number | null>(null);
