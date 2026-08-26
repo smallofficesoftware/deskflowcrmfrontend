@@ -55,6 +55,8 @@ const SUPPORTED_DOC_TYPES = [
   { id: "accountTransaction", label: "Account Transaction" },
   { id: "taskDueList", label: "Task Due List" },
   { id: "shippingLabel", label: "Shipping Label" },
+  { id: "contactAddress", label: "Contact Address Label" },
+  { id: "contactEnvelope", label: "Contact Envelope" },
 ];
 // listOrder's own order_type filter — mirrors orderServices.js's
 // PDFME_DOC_TYPE_BY_CART_TYPE (cart.type), just keyed the other direction.
