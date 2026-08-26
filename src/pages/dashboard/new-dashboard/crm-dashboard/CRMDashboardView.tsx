@@ -652,52 +652,58 @@ const CRMDashboardView = ({
             }}
           >
             <Container fluid className="mt-2">
-              {/* <div className="d-flex justify-content-between align-items-center pb-2"> */}
-              {/* <h2 className="modal-title1 form_header_text mb-0">
-                    My Insights
-                  </h2> */}
-              {/* <div className="ICON">
-                  <button className="icons" onClick={handelRefreshDashboard}>
-                    <svg width="30" height="30" viewBox="0 0 50 50">
-                      <path
-                        fill="currentColor"
-                        d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M34.7 33.7l-1.5-1.3c1.8-2 2.8-4.6 2.8-7.3 0-6.1-4.9-11-11-11-1.6 0-3.1.3-4.6 1l-.8-1.8c1.7-.8 3.5-1.2 5.4-1.2 7.2 0 13 5.8 13 13 0 3.1-1.2 6.2-3.3 8.6z"
-                      />
-                      <path fill="currentColor" d="M18 24h-2v-6h-6v-2h8z" />
-                      <path fill="currentColor" d="M40 34h-8v-8h2v6h6z" />
-                    </svg>
-                  </button> */}
-              {/* <button className="icons" onClick={closeCRMDashboard}>
-                      <span>
-                        <svg
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                          width="24"
-                          height="24"
-                          className=""
-                        >
-                          <path d="m19.1 17.2-5.3-5.3 5.3-5.3-1.8-1.8-5.3 5.4-5.3-5.3-1.8 1.7 5.3 5.3-5.3 5.3L6.7 19l5.3-5.3 5.3 5.3 1.8-1.8z"></path>
-                        </svg>
-                      </span>
-                    </button> */}
-              {/* </div>
-              </div> */}
+              <style>{`
+                .crm-stat-card {
+                  transition: box-shadow 0.15s ease, transform 0.15s ease;
+                }
+                .crm-stat-card:hover {
+                  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+                  transform: translateY(-2px);
+                }
+              `}</style>
+              <div style={{ marginBottom: "18px" }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                    fontWeight: 700,
+                    color: "#1a1a1a",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  My Insights
+                </h2>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "13px",
+                    color: "#8a8a8a",
+                  }}
+                >
+                  A snapshot of your business activity for the selected period.
+                </p>
+              </div>
               <div
-                className="d-flex align-items-center gap-2"
+                className="d-flex align-items-end gap-3 flex-wrap"
                 style={{
-                  fontSize: "14px",
-                  paddingBottom: "10px",
+                  background: "#fff",
+                  border: "1px solid #eef0f3",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  marginBottom: "24px",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 }}
               >
                 <div
-                  style={{ flex: 1, maxWidth: "300px", marginBottom: "10px" }}
+                  style={{ flex: 1, minWidth: "220px", maxWidth: "300px" }}
                   ref={datePickerRef}
                 >
-                  <label className="fw-bold mb-1">Date Range</label><br />
+                  <label
+                    className="mb-1 d-block"
+                    style={{ fontSize: "12px", fontWeight: 600, color: "#555" }}
+                  >
+                    Date Range
+                  </label>
                   <DateTimeRangePicker
                     value={selectedDates || getCurrentMonthDateRange()}
                     onChange={handelSearchDateChange}
@@ -726,8 +732,13 @@ const CRMDashboardView = ({
                     </svg>
                   </span>
                 </div>
-                <div style={{ flex: 1, maxWidth: "300px", marginBottom: "10px" }}>
-                  <label className="fw-bold mb-1">Team Members</label>
+                <div style={{ flex: 1, minWidth: "220px", maxWidth: "300px" }}>
+                  <label
+                    className="mb-1 d-block"
+                    style={{ fontSize: "12px", fontWeight: 600, color: "#555" }}
+                  >
+                    Team Members
+                  </label>
                   {teamLoading ? (
                     <Skeleton width="100%" height={42} />
                   ) : (
@@ -749,9 +760,23 @@ const CRMDashboardView = ({
                     />
                   )}
                 </div>
-                <div className="d-flex align-items-center gap-2 ms-auto">
-                  <button className="icons" onClick={handelRefreshDashboard}>
-                    <svg width="30" height="30" viewBox="0 0 50 50">
+                <div className="d-flex align-items-center ms-auto">
+                  <button
+                    className="icons"
+                    onClick={handelRefreshDashboard}
+                    title="Refresh"
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "10px",
+                      border: "1px solid #eef0f3",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#5f6368",
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 50 50">
                       <path
                         fill="currentColor"
                         d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"
@@ -1219,32 +1244,91 @@ const CRMDashboardView = ({
                           ].map((item, idx) => (
                             <Col md={4} key={idx}>
                               <Card
-                                className="text-end h-100"
-                                style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer" }}
+                                className="h-100 crm-stat-card"
+                                style={{
+                                  borderRadius: "12px",
+                                  border: "1px solid #eef0f3",
+                                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                                  cursor: "pointer",
+                                }}
                                 onClick={item.onClick}
                               >
-                                <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
-                                  <div>
-                                    <div className="d-flex text-end justify-content-end align-items-center gap-1">
-                                      <small className="text-muted fw-bold">
-                                        Total:
-                                      </small>
-                                      <h4 className="dash-board-text-count">
+                                <Card.Body style={{ padding: "18px" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "flex-start",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        width: "44px",
+                                        height: "44px",
+                                        borderRadius: "12px",
+                                        background: "#f3f4f6",
+                                        color: "#5f6368",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {item.svg}
+                                    </span>
+                                    <div style={{ textAlign: "right" }}>
+                                      <h3
+                                        className="dash-board-text-count"
+                                        style={{
+                                          margin: 0,
+                                          fontSize: "26px",
+                                          fontWeight: 700,
+                                          lineHeight: 1,
+                                          color: "#1a1a1a",
+                                        }}
+                                      >
                                         {item.count}
-                                      </h4>
+                                      </h3>
+                                      <small
+                                        className="text-muted"
+                                        style={{ fontSize: "11px" }}
+                                      >
+                                        Total
+                                      </small>
                                     </div>
-                                    <small className="text-muted">
-                                      Appr. {item.approvedCount ?? 0.0}
-                                    </small>
-                                    <br />
-                                    <span>{item.svg}</span>
                                   </div>
+
                                   <h4
                                     className="dash-board-text"
-                                    style={{ maxWidth: "100%" }}
+                                    style={{
+                                      maxWidth: "100%",
+                                      marginTop: "16px",
+                                      marginBottom:
+                                        item.approvedCount !== undefined ? "8px" : 0,
+                                      fontSize: "14px",
+                                      fontWeight: 600,
+                                      color: "#333",
+                                      textAlign: "left",
+                                    }}
                                   >
                                     {item.title}
                                   </h4>
+
+                                  {item.approvedCount !== undefined && (
+                                    <span
+                                      style={{
+                                        display: "inline-block",
+                                        padding: "3px 10px",
+                                        borderRadius: "12px",
+                                        background: "#f3f4f6",
+                                        color: "#555",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Appr. {item.approvedCount ?? 0.0}
+                                    </span>
+                                  )}
                                 </Card.Body>
                               </Card>
                             </Col>
