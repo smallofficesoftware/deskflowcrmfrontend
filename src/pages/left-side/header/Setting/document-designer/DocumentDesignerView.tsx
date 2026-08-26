@@ -63,6 +63,8 @@ const SUPPORTED_DOC_TYPES = [
   { id: "shippingLabel", label: "Shipping Label" },
   { id: "contactAddress", label: "Contact Address Label" },
   { id: "contactEnvelope", label: "Contact Envelope" },
+  { id: "employeeAccountStatement", label: "Team Account Statement" },
+  { id: "employeeAccountTransaction", label: "Team Account Transaction" },
 ];
 // Page-size toolbar presets, in mm (pdfme's basePdf unit) — A4/A5 portrait.
 // "Custom" reveals two number inputs instead of a fixed width/height.

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import { DateObject } from "react-multi-date-picker";
-import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { convertDateTimeFormat, formatDate, formatDateTimeSendDataBase, sendToWhatsApp } from "../../../../../common/SharedFunction";
 import SafeHtml from "../../../../../components/SafeHtml";
@@ -15,8 +14,9 @@ import { IFilterPayload, TFilterDate } from "../../../../../helpers/AppInterface
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import { fetchprintSetting, IprintSetting } from "../../../../order-pdf-view/OrderPdfController";
+import { fetchTemplatesForDocType } from "../../../../order-print-view/orderPrintController";
 import { ICompanyTeam } from "../../../LeftSideController";
-import { empAllTransactionDownloadPDf, fetchApiAccountTransitions, IEmpAccountTransaction, PDFaccountv1 } from "./EmpAccountTransactionController";
+import { empAllTransactionDownloadPDf, fetchApiAccountTransitions, IEmpAccountTransaction, PDFaccountv1, printAllTransactionOfEmployeePDF, printEmployeeAccountPDFv1 } from "./EmpAccountTransactionController";
 import CreateEmpAccountTransactionView from "./create-employee-account-transaction/CreateEmployeeAccountView";
 
 
@@ -85,6 +85,14 @@ const ListEmpAccountTransactionView = ({
         useState<number>();
     const [isAllSendingToWhatsApp, setIsAllSendingToWhatsApp] = useState(false)
     const [isAllPDFDownloadLoading, setIsAllPDFDownloadLoading] = useState<boolean>(false);
+    // Real pdfme print (Team's own employeeAccountStatement/
+    // employeeAccountTransaction doc types) — a single reusable "Choose
+    // Template" popup for both "Print Statement" and per-row "Print",
+    // same shape as ListOrderView.tsx's shippingLabelTemplateChoices modal.
+    const [templatePicker, setTemplatePicker] = useState<{
+        choices: { id: number; template_name: string; is_default: number }[];
+        onPick: (templateId: number) => void;
+    } | null>(null);
     const [accountTransactionItemId, setAccountTransactionItemId] =
         useState<IEmpAccountTransaction>();
 
@@ -218,6 +226,27 @@ const ListEmpAccountTransactionView = ({
     const downloadAllTransactionOfEmployeePDF = async () => {
         await empAllTransactionDownloadPDf(teamId, setIsAllPDFDownloadLoading, filterParams.startSearchDate,
             filterParams.endSearchDate, filterParams.initialCheckedShowCreditData, filterParams.initialCheckedShowDebitData);
+    }
+    // "Print Statement" — real pdfme print instead of window.print() on the
+    // old EmpAccountTransactionV1 page. fetchTemplatesForDocType already
+    // checks the document_designer flag itself and returns [] unless the
+    // company has 2+ published employeeAccountStatement templates, so no
+    // separate flag check is needed here.
+    const printStatementFlow = async () => {
+        const choices = await fetchTemplatesForDocType("employeeAccountStatement");
+        if (choices.length > 1) {
+            setTemplatePicker({
+                choices,
+                onPick: (templateId) => {
+                    setTemplatePicker(null);
+                    printAllTransactionOfEmployeePDF(teamId, filterParams.startSearchDate, filterParams.endSearchDate,
+                        filterParams.initialCheckedShowCreditData, filterParams.initialCheckedShowDebitData, templateId);
+                },
+            });
+            return;
+        }
+        await printAllTransactionOfEmployeePDF(teamId, filterParams.startSearchDate, filterParams.endSearchDate,
+            filterParams.initialCheckedShowCreditData, filterParams.initialCheckedShowDebitData);
     }
     const sendAllToWhatsApp = async () => {
         try {
@@ -549,54 +578,23 @@ const ListEmpAccountTransactionView = ({
         }
     };
 
-    const openPrint = (id: number) => {
-        const baseURL = window.location.origin;
-
-        const printUrl = `${baseURL}/EmployeeAccountPrintView1/${id}`;
-
-        const myWindow = window.open(printUrl, "_blank", "width=1000,height=1000");
-
-        if (myWindow) {
-            let isPrinted = false;
-
-            myWindow.onload = () => {
-                const checkContent = setInterval(() => {
-                    const contentElement = myWindow.document.querySelector("body > *");
-                    if (contentElement && myWindow.document.readyState === "complete") {
-                        clearInterval(checkContent);
-
-                        if (!isPrinted) {
-                            isPrinted = true;
-                            setTimeout(() => {
-                                myWindow.print();
-                            }, 2000);
-                            myWindow.onafterprint = () => {
-                                myWindow.close();
-                            };
-                            myWindow.addEventListener("afterprint", () => {
-                                myWindow.close();
-                            });
-                        }
-                    } else {
-                        console.log("waiting...");
-                    }
-                }, 100);
-            };
-
-            myWindow.addEventListener("beforeunload", () => {
-                if (!isPrinted) {
-                    isPrinted = true;
-                }
+    // Per-row "Print" — real pdfme print instead of window.open()+poll+
+    // window.print() on the old EmployeeAccountPrintView1 page. Same
+    // template-picker shape as printStatementFlow above, against Team's
+    // own "employeeAccountTransaction" doc type.
+    const openPrint = async (id: number) => {
+        const choices = await fetchTemplatesForDocType("employeeAccountTransaction");
+        if (choices.length > 1) {
+            setTemplatePicker({
+                choices,
+                onPick: (templateId) => {
+                    setTemplatePicker(null);
+                    printEmployeeAccountPDFv1(id, templateId);
+                },
             });
-
-            setTimeout(() => {
-                if (!isPrinted) {
-                    myWindow.close();
-                }
-            }, 10000);
-        } else {
-            console.error("Failed to open print");
+            return;
         }
+        await printEmployeeAccountPDFv1(id);
     };
     const downloadPDF = (id: number) => {
         PDFaccountv1(id, setIsPDFDownloadLoading);
@@ -920,15 +918,13 @@ const ListEmpAccountTransactionView = ({
                                         ><span>{isAllPDFDownloadLoading ? "Downloading..." : "Download PDF"}</span>
                                         </li>
 
-                                        <Link
-                                            to={`/EmpAccountTransactionV1/${teamId}?startDate=${filterParams.startSearchDate || ""}&endDate=${filterParams.endSearchDate || ""}&creditFilter=${filterParams.initialCheckedShowCreditData}&debitFilter=${filterParams.initialCheckedShowDebitData}`}
-                                            target="_blank"
+                                        <li
                                             className="listItem text-left"
-                                            style={{ textDecoration: "none", textAlign: "left" }}
                                             role="button"
-                                        >
-                                            Print Statement
-                                        </Link>
+                                            onClick={() => { printStatementFlow() }}
+                                            style={{ textDecoration: "none", textAlign: "left" }}
+                                        ><span>Print Statement</span>
+                                        </li>
 
                                         <li
                                             className="listItem text-left"
@@ -1946,6 +1942,25 @@ const ListEmpAccountTransactionView = ({
                     btn1={"CANCEL"}
                     btn2={"Approve"}
                 />
+            )}
+
+            {templatePicker && (
+                <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                    <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h5>Choose Template</h5>
+                            <span className="close" onClick={() => setTemplatePicker(null)}>&times;</span>
+                        </div>
+                        {templatePicker.choices.map((t) => (
+                            <div key={t.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                                <button className="btn btn-sm btn-outline-primary" onClick={() => templatePicker.onPick(t.id)}>
+                                    Print
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
             <CheckBoxFilterModal
