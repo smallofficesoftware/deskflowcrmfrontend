@@ -583,6 +583,52 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
+  // pdfme's own page-thumbnail right-click menu ships "Add Page After" /
+  // "Remove Page" (confirmed via its i18n dictionary — no "addPageBefore"
+  // key exists there at all) and its component reads a fixed, hardcoded set
+  // of named props — there's no plugin-style extension point for it the way
+  // field propPanels have, and pageCursor (which page is "current") is that
+  // component's own internal state, never exposed by Designer's public API.
+  // So none of these three can be driven through pdfme's actual menu from
+  // outside; all three live as our own topbar controls instead, mirroring
+  // pdfme's own splice logic (insert/remove an empty schema array entry,
+  // keep basePdf) using the currently-selected field's page as a stand-in
+  // for "current page" (falls back to the first/last page when nothing's
+  // selected).
+  const addPageBefore = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const insertAt = selectedField ? selectedField.pageIndex : 0;
+    const schemas = [...template.schemas];
+    schemas.splice(insertAt, 0, []);
+    designerRef.current.updateTemplate({ ...template, schemas });
+  };
+
+  const addPageAfter = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const insertAt = (selectedField ? selectedField.pageIndex : 0) + 1;
+    const schemas = [...template.schemas];
+    schemas.splice(insertAt, 0, []);
+    designerRef.current.updateTemplate({ ...template, schemas });
+  };
+
+  const removeCurrentPage = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    if (template.schemas.length <= 1) {
+      toast.error("Can't remove the only page");
+      return;
+    }
+    const removeAt = selectedField ? selectedField.pageIndex : template.schemas.length - 1;
+    askConfirm(`Remove page ${removeAt + 1}? Any fields on it will be deleted.`, () => {
+      const schemas = [...template.schemas];
+      schemas.splice(removeAt, 1);
+      designerRef.current?.updateTemplate({ ...template, schemas });
+      setSelectedField(null);
+    });
+  };
+
   useEffect(() => {
     (async () => {
       const list = await refreshTemplates();
@@ -981,6 +1027,12 @@ const DocumentDesignerView: React.FC = () => {
         .dd-page input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
         .dd-accordion-panel .accordion-button:not(.collapsed) { background-color: #fff5ec; color: #d9701f; box-shadow: none; }
         .dd-accordion-panel .accordion-button:focus { box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); border-color: #f58634; }
+        /* pdfme's own "..." control-bar button opens its native Add Page
+           After/Remove Page dropdown — hidden here since Page Before/After/
+           Remove Page now live as our own topbar buttons above, and pdfme
+           has no option to disable just this button (UI_CLASSNAME + "context-menu",
+           confirmed in its bundled source: node_modules/@pdfme/ui/dist/index.js). */
+        .dd-canvas-area .pdfme-ui-context-menu { display: none !important; }
       `}</style>
       <div className="dd-topbar">
         <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
@@ -990,6 +1042,30 @@ const DocumentDesignerView: React.FC = () => {
           {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
         </strong>
         <div style={{ flex: 1 }} />
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={addPageBefore}
+          disabled={!currentTemplateId}
+          title="Inserts a blank page before the selected field's page (or the first page if nothing's selected)"
+        >
+          + Page Before
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={addPageAfter}
+          disabled={!currentTemplateId}
+          title="Inserts a blank page after the selected field's page (or the first page if nothing's selected)"
+        >
+          + Page After
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={removeCurrentPage}
+          disabled={!currentTemplateId}
+          title="Removes the selected field's page (or the last page if nothing's selected)"
+        >
+          Remove Page
+        </button>
         <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
         <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
         <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
