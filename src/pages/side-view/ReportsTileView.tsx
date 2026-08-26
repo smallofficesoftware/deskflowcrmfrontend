@@ -1,24 +1,15 @@
 import { useContext, useState } from "react";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import { ReportIcon } from "./reportIcons";
 import { reportsMenuData } from "./reportsMenuData";
+
+const THEME_COLOR = "#F58634";
+const THEME_TINT = "#fff3eb";
 
 interface IProps {
   onReportClick: (value: string) => void;
 }
-
-const CATEGORY_COLORS = [
-  "#F58634", // CRM
-  "#4C6EF5", // HRMS
-  "#12B886", // Production
-  "#E64980", // Account
-  "#7048E8", // Inventory
-  "#15AABF", // Settings
-  "#FA5252", // Masters
-  "#F59F00", // Product Settings
-  "#40C057", // Other Tools
-  "#5C7CFA", // All New Reports
-];
 
 const ReportsTileView = ({ onReportClick }: IProps) => {
   const [searchValue, setSearchValue] = useState("");
@@ -71,11 +62,11 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
     <div>
       <style>{`
         .report-tile {
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .report-tile:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+          border-color: #d1d5db !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
       `}</style>
 
@@ -120,77 +111,86 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
         <div className="text-muted">No reports match your search.</div>
       )}
 
-      {filteredMenus.map((menu, menuIndex) => {
-        const color = CATEGORY_COLORS[menuIndex % CATEGORY_COLORS.length];
-
-        return (
-          <div key={menu.key} style={{ marginBottom: "28px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "12px",
-              }}
-            >
-              <div
+      {filteredMenus.map((menu) => (
+        <div key={menu.key} style={{ marginBottom: "32px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              color: "#8a8a8a",
+              textTransform: "uppercase",
+              marginBottom: "12px",
+            }}
+          >
+            {menu.menu}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: "16px",
+            }}
+          >
+            {menu.subMenus.map((sub) => (
+              <button
+                key={sub.value}
+                type="button"
+                className="report-tile"
+                onClick={() => onReportClick(sub.value)}
                 style={{
-                  width: "34px",
-                  height: "34px",
-                  borderRadius: "50%",
-                  background: color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  flexShrink: 0,
+                  textAlign: "left",
+                  padding: "16px",
+                  borderRadius: "10px",
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                  cursor: "pointer",
                 }}
               >
-                <span style={{ display: "flex", filter: "brightness(0) invert(1)" }}>
-                  {menu.icon}
-                </span>
-              </div>
-              <span style={{ fontWeight: "bold", fontSize: "15px", color: "#333" }}>
-                {menu.menu}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "12px",
-              }}
-            >
-              {menu.subMenus.map((sub) => (
-                <button
-                  key={sub.value}
-                  type="button"
-                  className="report-tile"
-                  onClick={() => onReportClick(sub.value)}
+                <div
                   style={{
-                    minWidth: "160px",
-                    flex: "1 1 180px",
-                    maxWidth: "220px",
-                    textAlign: "left",
-                    padding: "14px",
-                    borderRadius: "10px",
-                    border: "1px solid #eee",
-                    borderLeft: `4px solid ${color}`,
-                    background: "#fff",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    color: "#333",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: sub.description ? "8px" : 0,
                   }}
                 >
-                  {sub.label}
-                </button>
-              ))}
-            </div>
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      background: THEME_TINT,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <ReportIcon name={sub.icon || "report"} size={16} color={THEME_COLOR} />
+                  </div>
+                  <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
+                    {sub.label}
+                  </span>
+                </div>
+                {sub.description && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "12px",
+                      lineHeight: 1.5,
+                      color: "#8a8a8a",
+                    }}
+                  >
+                    {sub.description}
+                  </p>
+                )}
+              </button>
+            ))}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 };

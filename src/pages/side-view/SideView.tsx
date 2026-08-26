@@ -1213,6 +1213,10 @@ const SideView = ({ profileDetail }: IProp) => {
             setActiveView("dashboard");
             setAppliedReportType("");
           }}
+          onSmartReportsClick={() => {
+            setActiveView("reports_home");
+            setAppliedReportType("");
+          }}
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           activeReport={appliedReportType}
