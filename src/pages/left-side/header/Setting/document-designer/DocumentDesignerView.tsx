@@ -1,6 +1,7 @@
 import { Designer } from "@pdfme/ui";
 import { image, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
+import { Accordion } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
@@ -58,6 +59,12 @@ const SUPPORTED_DOC_TYPES = [
   { id: "contactAddress", label: "Contact Address Label" },
   { id: "contactEnvelope", label: "Contact Envelope" },
 ];
+// Page-size toolbar presets, in mm (pdfme's basePdf unit) — A4/A5 portrait.
+// "Custom" reveals two number inputs instead of a fixed width/height.
+const PAGE_SIZE_PRESETS: Record<"A4" | "A5", { width: number; height: number }> = {
+  A4: { width: 210, height: 297 },
+  A5: { width: 148, height: 210 },
+};
 // listOrder's own order_type filter — mirrors orderServices.js's
 // PDFME_DOC_TYPE_BY_CART_TYPE (cart.type), just keyed the other direction.
 const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
@@ -84,7 +91,288 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // that applyOptionsToDraft and previewDocumentTemplate don't know how to
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
-const plugins = { text, table, image };
+
+// Column-toggle checkboxes (HSN/Discount/CGST/SGST/IGST/Image) merged into
+// the itemsTable field's OWN pdfme sidebar panel, instead of a generic
+// always-visible toolbar row — these values are conceptually properties of
+// that one field. The actual toggle logic (applyColumnToggle, unchanged)
+// lives inside the component and closes over changing React state
+// (currentTemplateId/docType), but this plugin object is only ever built
+// once at module scope — `columnToggleBridge` is the stable indirection that
+// lets the widget always call whatever the LATEST applyColumnToggle closure
+// is, synced from inside the component on every render (same pattern this
+// file already uses for designerRef/fontsPromiseRef to bridge pdfme's
+// imperative API with React state).
+const columnToggleBridge = {
+  current: (_columnOptions: Record<string, boolean>, _changeSchemas: any, _schemaId: string) => {},
+};
+const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "cgst", "sgst", "igst", "image"];
+
+// Vanilla-DOM propPanel widget — pdfme's own `select` plugin extends `text`'s
+// propPanel with a custom widget the exact same way (addOptions), confirmed
+// via @pdfme/schemas' own source. `rootElement` is where we mount plain DOM;
+// pdfme doesn't run this through React.
+const itemsTableColumnsWidget = (props: any) => {
+  const { rootElement, activeSchema, changeSchemas } = props;
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.flexWrap = "wrap";
+  container.style.gap = "10px";
+  // Built up front, then wired with change listeners below — each listener
+  // reads every sibling checkbox's LIVE checked state at click time (not
+  // `activeSchema.columnOptions` from whenever this widget happened to be
+  // mounted). pdfme doesn't reliably re-invoke this mount function on every
+  // value change, so a listener closing over `activeSchema` would keep
+  // merging against a stale snapshot from first mount — confirmed bug: only
+  // the most recently clicked column ever stuck, because every toggle after
+  // the first was merging against that same stale (mostly-empty) base
+  // instead of the previous click's real result.
+  const inputs: Record<string, HTMLInputElement> = {};
+  ITEMS_TABLE_COLUMN_KEYS.forEach((key) => {
+    const label = document.createElement("label");
+    label.style.display = "flex";
+    label.style.alignItems = "center";
+    label.style.gap = "4px";
+    label.style.fontSize = "12px";
+    label.style.cursor = "pointer";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !!activeSchema?.columnOptions?.[key];
+    inputs[key] = input;
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(key.toUpperCase()));
+    container.appendChild(label);
+  });
+  ITEMS_TABLE_COLUMN_KEYS.forEach((key) => {
+    inputs[key].addEventListener("change", () => {
+      const mergedColumnOptions: Record<string, boolean> = {};
+      ITEMS_TABLE_COLUMN_KEYS.forEach((k) => {
+        mergedColumnOptions[k] = inputs[k].checked;
+      });
+      columnToggleBridge.current(mergedColumnOptions, changeSchemas, activeSchema.id);
+    });
+  });
+  rootElement.appendChild(container);
+};
+
+const extendedTable: any = {
+  ...(table as any),
+  propPanel: {
+    ...(table as any).propPanel,
+    widgets: { ...(table as any).propPanel.widgets, itemsTableColumns: itemsTableColumnsWidget },
+    schema: (propPanelProps: any) => {
+      const base =
+        typeof (table as any).propPanel.schema === "function"
+          ? (table as any).propPanel.schema(propPanelProps)
+          : (table as any).propPanel.schema;
+      // Only the invoice items table gets these — not every table field
+      // anyone might drag onto canvas.
+      if (propPanelProps?.activeSchema?.name !== "itemsTable") return base;
+      return {
+        ...base,
+        itemsTableColumnsCard: {
+          title: "Columns (HSN / Discount / GST / Image)",
+          type: "string",
+          widget: "Card",
+          span: 24,
+          properties: {
+            columnsToggle: { type: "void", widget: "itemsTableColumns", span: 24 },
+          },
+        },
+      };
+    },
+  },
+};
+
+// Field data-binding/visibility/insert-token controls, merged into pdfme's
+// own per-field sidebar the same way as the column toggles above — a
+// separate custom accordion section for this used designerRef.current
+// .updateTemplate() to write a field's dataSource/visibilityCondition/
+// content, but updateTemplate() ALWAYS swaps the whole template object,
+// which unconditionally clears pdfme's internal selection on the next
+// render (confirmed by reading pdfme's own bundled source: TemplateEditor
+// compares template ref identity and calls onEditEnd() whenever it
+// differs) — closing the very panel you're editing from. changeSchemas()
+// (only reachable from inside a propPanel widget) patches the field in
+// place without ever touching the template reference, so selection never
+// clears — the same fix already proven for the column-toggle checkboxes.
+const dictionaryBridge: { current: { key: string; label: string; group: string }[] } = { current: [] };
+const designerRefBridge: { current: Designer | null } = { current: null };
+
+function getLiveField(schemaId: string): any {
+  const template = designerRefBridge.current?.getTemplate?.();
+  if (!template) return null;
+  for (const page of template.schemas || []) {
+    const found = page.find((f: any) => f.id === schemaId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function buildFieldSettingsWidget(includeTokenInsert: boolean) {
+  return (props: any) => {
+    const { rootElement, activeSchema, changeSchemas } = props;
+    const schemaId = activeSchema.id;
+    const dictionary = dictionaryBridge.current;
+
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "column";
+    wrapper.style.gap = "8px";
+
+    // Bound-to-data toggle sits above the rest — flip it on to reveal the
+    // data-dictionary select, off to go back to plain static text.
+    const toggleLabel = document.createElement("label");
+    toggleLabel.style.display = "flex";
+    toggleLabel.style.alignItems = "center";
+    toggleLabel.style.gap = "6px";
+    toggleLabel.style.fontSize = "12px";
+    toggleLabel.style.fontWeight = "600";
+    toggleLabel.style.cursor = "pointer";
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    const initialDataSource = typeof activeSchema.dataSource === "string" ? activeSchema.dataSource : "";
+    toggle.checked = !!initialDataSource;
+    toggleLabel.appendChild(toggle);
+    toggleLabel.appendChild(document.createTextNode("Bound to Data"));
+
+    const select = document.createElement("select");
+    select.style.fontSize = "12px";
+    select.style.width = "100%";
+    select.style.display = toggle.checked ? "" : "none";
+    const groups: Record<string, typeof dictionary> = {};
+    dictionary.forEach((d) => {
+      (groups[d.group] = groups[d.group] || []).push(d);
+    });
+    Object.entries(groups).forEach(([group, items]) => {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = group;
+      items.forEach((d) => {
+        const opt = document.createElement("option");
+        opt.value = d.key;
+        opt.textContent = d.label;
+        optgroup.appendChild(opt);
+      });
+      select.appendChild(optgroup);
+    });
+    select.value = initialDataSource || dictionary[0]?.key || "";
+
+    toggle.addEventListener("change", () => {
+      if (toggle.checked) {
+        select.style.display = "";
+        changeSchemas([{ key: "dataSource", value: select.value || dictionary[0]?.key || "", schemaId }]);
+      } else {
+        select.style.display = "none";
+        changeSchemas([{ key: "dataSource", value: undefined, schemaId }]);
+      }
+    });
+    select.addEventListener("change", () => {
+      changeSchemas([{ key: "dataSource", value: select.value, schemaId }]);
+    });
+
+    const visLabel = document.createElement("label");
+    visLabel.style.display = "flex";
+    visLabel.style.alignItems = "center";
+    visLabel.style.gap = "6px";
+    visLabel.style.fontSize = "12px";
+    visLabel.style.cursor = "pointer";
+    const visToggle = document.createElement("input");
+    visToggle.type = "checkbox";
+    visToggle.checked = activeSchema.visibilityCondition?.mode === "hideIfEmpty";
+    visLabel.appendChild(visToggle);
+    visLabel.appendChild(document.createTextNode("Hide if empty"));
+    visToggle.addEventListener("change", () => {
+      changeSchemas([
+        { key: "visibilityCondition", value: visToggle.checked ? { mode: "hideIfEmpty" } : undefined, schemaId },
+      ]);
+    });
+
+    wrapper.appendChild(toggleLabel);
+    wrapper.appendChild(select);
+    wrapper.appendChild(visLabel);
+
+    if (includeTokenInsert) {
+      const tokenLabel = document.createElement("div");
+      tokenLabel.style.fontSize = "11px";
+      tokenLabel.style.color = "#666";
+      tokenLabel.textContent = "Insert token:";
+      const tokenRow = document.createElement("div");
+      tokenRow.style.display = "flex";
+      tokenRow.style.flexWrap = "wrap";
+      tokenRow.style.gap = "4px";
+      dictionary.forEach((d) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = `{{${d.key}}}`;
+        btn.title = `${d.group}: ${d.label}`;
+        btn.style.fontSize = "10px";
+        btn.style.padding = "1px 6px";
+        btn.style.border = "1px solid #f58634";
+        btn.style.color = "#f58634";
+        btn.style.background = "#fff";
+        btn.style.borderRadius = "4px";
+        btn.style.cursor = "pointer";
+        // Reads the field's LIVE content off the designer (not the
+        // `activeSchema` this widget mounted with) — canvas text typed
+        // directly by the user can make that snapshot stale.
+        btn.addEventListener("click", () => {
+          const live = getLiveField(schemaId);
+          const current =
+            typeof live?.content === "string" ? live.content : typeof activeSchema.content === "string" ? activeSchema.content : "";
+          const separator = current && !/\s$/.test(current) ? " " : "";
+          changeSchemas([{ key: "content", value: `${current}${separator}{{${d.key}}}`, schemaId }]);
+        });
+        tokenRow.appendChild(btn);
+      });
+      wrapper.appendChild(tokenLabel);
+      wrapper.appendChild(tokenRow);
+
+      const helpNote = document.createElement("p");
+      helpNote.style.fontSize = "10px";
+      helpNote.style.color = "#888";
+      helpNote.style.marginTop = "6px";
+      helpNote.textContent =
+        "Bold/underline apply to the whole field — to bold only part of a line, split it into two adjacent fields.";
+      wrapper.appendChild(helpNote);
+    }
+
+    rootElement.appendChild(wrapper);
+  };
+}
+
+function extendPluginWithFieldSettings(basePlugin: any, widgetName: string, includeTokenInsert: boolean) {
+  const widgetFn = buildFieldSettingsWidget(includeTokenInsert);
+  return {
+    ...basePlugin,
+    propPanel: {
+      ...basePlugin.propPanel,
+      widgets: { ...basePlugin.propPanel.widgets, [widgetName]: widgetFn },
+      schema: (propPanelProps: any) => {
+        const base =
+          typeof basePlugin.propPanel.schema === "function"
+            ? basePlugin.propPanel.schema(propPanelProps)
+            : basePlugin.propPanel.schema;
+        return {
+          ...base,
+          fieldSettingsCard: {
+            title: "Data Binding & Visibility",
+            type: "string",
+            widget: "Card",
+            span: 24,
+            properties: {
+              fieldSettingsWidget: { type: "void", widget: widgetName, span: 24 },
+            },
+          },
+        };
+      },
+    },
+  };
+}
+
+const extendedText: any = extendPluginWithFieldSettings(text, "textFieldSettings", true);
+const extendedImage: any = extendPluginWithFieldSettings(image, "imageFieldSettings", false);
+
+const plugins = { text: extendedText, table: extendedTable, image: extendedImage };
 
 async function loadDesignerFonts() {
   // Noto Sans Devanagari/Gujarati (Hindi/Gujarati script support — Poppins
@@ -134,6 +422,7 @@ const DocumentDesignerView: React.FC = () => {
   const designerContainerRef = useRef<HTMLDivElement>(null);
   const designerRef = useRef<Designer | null>(null);
   const fontsPromiseRef = useRef<Promise<any> | null>(null);
+  designerRefBridge.current = designerRef.current;
 
   const [docType, setDocType] = useState<string>("quotation");
   const [templates, setTemplates] = useState<IDocumentTemplateListItem[]>([]);
@@ -141,6 +430,19 @@ const DocumentDesignerView: React.FC = () => {
   const [currentTemplateFull, setCurrentTemplateFull] = useState<IDocumentTemplateFull | null>(null);
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  // Whole right-side accordion panel (Templates/Header/Page) — collapses to
+  // give the canvas full width, independent of each section's own
+  // collapse/expand (that's react-bootstrap Accordion's own per-item
+  // behavior, unaffected by this).
+  const [showAccordionPanel, setShowAccordionPanel] = useState(true);
+
+  // Page size toolbar (A4/A5/Custom) — a plain basePdf.width/height edit on
+  // whatever's currently mounted, same "live canvas edit, persisted on Save
+  // Draft" contract as dragging/resizing a field. Kept outside
+  // CART_SHAPED_DOC_TYPES since page size is universal, not cart-specific.
+  const [pageSizeMode, setPageSizeMode] = useState<"A4" | "A5" | "custom">("A4");
+  const [customPageWidth, setCustomPageWidth] = useState(210);
+  const [customPageHeight, setCustomPageHeight] = useState(297);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -171,63 +473,7 @@ const DocumentDesignerView: React.FC = () => {
       setDictionary(dict || []);
     })();
   }, [docType]);
-
-  const currentDataSource: string | undefined = selectedField?.schema?.dataSource || undefined;
-  const isFieldBound = !!currentDataSource;
-  const visibilityMode: "always" | "hideIfEmpty" =
-    selectedField?.schema?.visibilityCondition?.mode === "hideIfEmpty" ? "hideIfEmpty" : "always";
-
-  const updateSelectedFieldSchema = async (mutate: (field: any) => void) => {
-    if (!selectedField || !designerRef.current) return;
-    const cloned = structuredClone(designerRef.current.getTemplate());
-    const field = cloned.schemas[selectedField.pageIndex][selectedField.schemaIndex];
-    mutate(field);
-    designerRef.current.updateTemplate(cloned);
-    // Our panel's visibility/values are driven by our OWN selectedField
-    // state, not pdfme's internal selection — deliberately not calling
-    // designer.selectSchemas() here to re-highlight the field on canvas.
-    // Chaining that immediately after updateTemplate() raced pdfme's own
-    // internal React tree (it bundles its own separate React copy) into a
-    // "Maximum update depth exceeded" loop (React error #185). The field
-    // stays selected in OUR panel regardless; it just may not stay visually
-    // highlighted on the canvas itself after a change.
-    setSelectedField({ ...selectedField, schema: field });
-    // Generate Preview/Publish read draft_template_json back FROM THE
-    // SERVER — they never see designer.getTemplate()'s in-memory state.
-    // A binding/visibility change that only lives on the canvas until
-    // someone remembers to click Save Draft looks like it silently does
-    // nothing the moment you hit Preview. Persist immediately instead —
-    // silently, no full-screen overlay (this fires on every radio click).
-    await saveDraftSilently();
-  };
-
-  const setFieldDataSource = (value: string | null) => {
-    updateSelectedFieldSchema((field) => {
-      if (value) field.dataSource = value;
-      else delete field.dataSource;
-    });
-  };
-
-  const setFieldVisibility = (mode: "always" | "hideIfEmpty") => {
-    updateSelectedFieldSchema((field) => {
-      if (mode === "hideIfEmpty") field.visibilityCondition = { mode: "hideIfEmpty" };
-      else delete field.visibilityCondition;
-    });
-  };
-
-  // Mail-merge style: append a {{key}} token to the selected field's own
-  // content, independent of dataSource/visibility binding above — a field
-  // stays "Static Text" with a free paragraph that happens to contain
-  // tokens, resolved server-side by orderInputMapper.js's
-  // applyTokenSubstitution at generate time. No cursor-position tracking —
-  // always appends to the end of whatever's already typed on canvas.
-  const insertTokenIntoSelectedField = (key: string) => {
-    updateSelectedFieldSchema((field) => {
-      const current = typeof field.content === "string" ? field.content : "";
-      const separator = current && !/\s$/.test(current) ? " " : "";
-      field.content = `${current}${separator}{{${key}}}`;
-    });
-  };
+  dictionaryBridge.current = dictionary;
 
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
@@ -268,7 +514,28 @@ const DocumentDesignerView: React.FC = () => {
     mountOrUpdateDesigner(JSON.parse(full.draft_template_json));
   };
 
+  // Reflects whatever's actually mounted into the page-size toolbar — a
+  // template whose basePdf doesn't match either preset (most fixed-layout
+  // system templates like shippingLabel/contactEnvelope) shows as "Custom"
+  // with its real dimensions, rather than silently defaulting to A4.
+  const syncPageSizeFromTemplate = (template: any) => {
+    const width = template?.basePdf?.width;
+    const height = template?.basePdf?.height;
+    if (typeof width !== "number" || typeof height !== "number") return;
+    const presetMatch = (Object.keys(PAGE_SIZE_PRESETS) as ("A4" | "A5")[]).find(
+      (key) => PAGE_SIZE_PRESETS[key].width === width && PAGE_SIZE_PRESETS[key].height === height,
+    );
+    if (presetMatch) {
+      setPageSizeMode(presetMatch);
+    } else {
+      setPageSizeMode("custom");
+    }
+    setCustomPageWidth(width);
+    setCustomPageHeight(height);
+  };
+
   const mountOrUpdateDesigner = async (template: any) => {
+    syncPageSizeFromTemplate(template);
     if (designerRef.current) {
       designerRef.current.updateTemplate(template);
       return;
@@ -294,6 +561,71 @@ const DocumentDesignerView: React.FC = () => {
           ? { name: schemas[0].name, pageIndex: schemas[0].pageIndex, schemaIndex: schemas[0].schemaIndex, schema: schemas[0].schema }
           : null,
       );
+    });
+  };
+
+  // Applies a new page size to whatever's currently on the canvas and
+  // persists it immediately (same "apply now" feel as header-variant/column
+  // toggles), rather than waiting for a manual Save Draft click.
+  const applyPageSize = async (width: number, height: number) => {
+    if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
+    if (!width || !height) return;
+    const template = designerRef.current.getTemplate();
+    const updated = { ...template, basePdf: { ...template.basePdf, width, height } };
+    designerRef.current.updateTemplate(updated);
+    await saveDraftSilently();
+  };
+
+  const handlePageSizeModeChange = (mode: "A4" | "A5" | "custom") => {
+    setPageSizeMode(mode);
+    if (mode === "A4" || mode === "A5") {
+      applyPageSize(PAGE_SIZE_PRESETS[mode].width, PAGE_SIZE_PRESETS[mode].height);
+    }
+  };
+
+  // pdfme's own page-thumbnail right-click menu ships "Add Page After" /
+  // "Remove Page" (confirmed via its i18n dictionary — no "addPageBefore"
+  // key exists there at all) and its component reads a fixed, hardcoded set
+  // of named props — there's no plugin-style extension point for it the way
+  // field propPanels have, and pageCursor (which page is "current") is that
+  // component's own internal state, never exposed by Designer's public API.
+  // So none of these three can be driven through pdfme's actual menu from
+  // outside; all three live as our own topbar controls instead, mirroring
+  // pdfme's own splice logic (insert/remove an empty schema array entry,
+  // keep basePdf) using the currently-selected field's page as a stand-in
+  // for "current page" (falls back to the first/last page when nothing's
+  // selected).
+  const addPageBefore = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const insertAt = selectedField ? selectedField.pageIndex : 0;
+    const schemas = [...template.schemas];
+    schemas.splice(insertAt, 0, []);
+    designerRef.current.updateTemplate({ ...template, schemas });
+  };
+
+  const addPageAfter = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const insertAt = (selectedField ? selectedField.pageIndex : 0) + 1;
+    const schemas = [...template.schemas];
+    schemas.splice(insertAt, 0, []);
+    designerRef.current.updateTemplate({ ...template, schemas });
+  };
+
+  const removeCurrentPage = () => {
+    if (!requireEdit() || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    if (template.schemas.length <= 1) {
+      toast.error("Can't remove the only page");
+      return;
+    }
+    const removeAt = selectedField ? selectedField.pageIndex : template.schemas.length - 1;
+    askConfirm(`Remove page ${removeAt + 1}? Any fields on it will be deleted.`, () => {
+      const schemas = [...template.schemas];
+      schemas.splice(removeAt, 1);
+      designerRef.current?.updateTemplate({ ...template, schemas });
+      setSelectedField(null);
     });
   };
 
@@ -347,11 +679,8 @@ const DocumentDesignerView: React.FC = () => {
     });
   };
 
-  // No setLoading()/full-screen overlay here — used both by the manual
-  // "Save Draft" button (which wraps this with the overlay itself, below)
-  // and by updateSelectedFieldSchema's auto-save on every field-panel
-  // change. The overlay on every single radio click read as the whole
-  // page "refreshing".
+  // No setLoading()/full-screen overlay here — used by the manual "Save
+  // Draft" button, which wraps this with the overlay itself, below.
   const saveDraftSilently = async () => {
     if (!currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
@@ -525,25 +854,68 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  // Header-variant / column-toggle toolbar — applied live to the draft via
-  // apply-options, not deferred to Save Draft.
+  // Header-variant toolbar — applied live to the draft via apply-options,
+  // not deferred to Save Draft.
   const applyHeaderVariant = async (headerVariant: string) => {
     if (!requireEdit() || !currentTemplateId) return;
+    // Header rebuilds can add/remove/rename header-block fields entirely
+    // (e.g. "Details" -> "Image" swaps text fields for an image field), so
+    // re-selecting by name is a best-effort match, not guaranteed — if the
+    // named field no longer exists, selectSchemas() just selects nothing
+    // rather than throwing.
+    const target = selectedField ? { name: selectedField.name, pageIndex: selectedField.pageIndex } : null;
     const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: { headerVariant } });
     if (updated && designerRef.current) {
       designerRef.current.updateTemplate(updated);
+      // updateTemplate() always clears pdfme's internal selection (confirmed
+      // via source-reading — it swaps the template object reference, which
+      // pdfme's own TemplateEditor treats as a signal to reset selection).
+      // Header-variant changes rebuild multiple fields at once so they can't
+      // go through changeSchemas() the way per-field edits now do — this
+      // best-effort deferred re-select is what's left; worst case the user
+      // re-clicks the field.
+      if (target) {
+        setTimeout(() => {
+          designerRef.current?.selectSchemas(target);
+        }, 0);
+      }
     }
   };
 
-  const applyColumnToggle = async (key: string, value: boolean) => {
+  // Patches only the itemsTable field in place via pdfme's own changeSchemas
+  // API, instead of designerRef.current.updateTemplate(wholeNewTemplate)
+  // (what applyHeaderVariant does) — updateTemplate() swaps the entire
+  // template object, which clears pdfme's internal field selection and
+  // closes this very sidebar panel the checkbox lives in (confirmed bug:
+  // toggling a checkbox deselected the items table and hid the panel).
+  // changeSchemas() patches just this field's structural props, so the
+  // selection — and this panel — stays open. The backend call itself is
+  // unchanged (applyOptionsToDraft already persists the new draft as a side
+  // effect; tableColumns.js stays the single source of truth for columns).
+  const applyColumnToggle = async (
+    columnOptions: Record<string, boolean>,
+    changeSchemas: (objs: { key: string; value: unknown; schemaId: string }[]) => void,
+    schemaId: string,
+  ) => {
     if (!requireEdit() || !currentTemplateId) return;
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, {
-      columnOptions: { [key]: value },
-    });
-    if (updated && designerRef.current) {
-      designerRef.current.updateTemplate(updated);
-    }
+    // Send the FULL column state (not just the one key that changed) — the
+    // backend rebuild treats whatever it receives as the complete desired
+    // set, so a partial patch here would silently drop other already-on
+    // columns.
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, { columnOptions });
+    if (!updated) return;
+    const freshTable = (updated.schemas?.[0] || []).find((f: any) => f.name === "itemsTable");
+    if (!freshTable) return;
+    changeSchemas([
+      { key: "head", value: freshTable.head, schemaId },
+      { key: "content", value: freshTable.content, schemaId },
+      { key: "headWidthPercentages", value: freshTable.headWidthPercentages, schemaId },
+      { key: "columnStyles", value: freshTable.columnStyles, schemaId },
+      { key: "columnOptions", value: freshTable.columnOptions, schemaId },
+    ]);
   };
+  // Keep the merged-into-pdfme's-sidebar widget calling the latest closure.
+  columnToggleBridge.current = applyColumnToggle;
 
   // "Product Page Designer" toggle — per-template (not company-wide, not a
   // draft/publish concept), applies immediately. When on, generate-time
@@ -630,225 +1002,259 @@ const DocumentDesignerView: React.FC = () => {
   }
 
   return (
-    <div className="dd-layout">
+    <div className="dd-page">
       <style>{`
-        .dd-layout { display: flex; height: 100vh; }
-        .dd-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid #ddd; padding: 12px; overflow-y: auto; }
-        .dd-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        @media (max-width: 768px) {
-          .dd-layout { flex-direction: column; height: auto; min-height: unset; }
-          .dd-sidebar { width: 100%; max-height: 260px; border-right: none; border-bottom: 1px solid #ddd; }
+        .dd-page { display: flex; flex-direction: column; height: 100vh; }
+        .dd-topbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #ddd; flex-wrap: wrap; flex-shrink: 0; }
+        .dd-body { flex: 1; min-height: 0; display: flex; }
+        .dd-canvas-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .dd-accordion-panel { width: 340px; flex-shrink: 0; border-left: 1px solid #ddd; overflow-y: auto; }
+        @media (max-width: 900px) {
+          .dd-body { flex-direction: column; }
+          .dd-accordion-panel { width: 100%; border-left: none; border-top: 1px solid #ddd; max-height: 45vh; }
         }
         /* Accent color: orange (#f58634), not bootstrap's default blue —
            scoped to this page only, doesn't touch shared bootstrap classes
            used elsewhere in the app. */
-        .dd-layout .btn-primary { background-color: #f58634; border-color: #f58634; }
-        .dd-layout .btn-primary:hover, .dd-layout .btn-primary:focus { background-color: #d9701f; border-color: #d9701f; }
-        .dd-layout .btn-outline-primary { color: #f58634; border-color: #f58634; }
-        .dd-layout .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; color: #fff; }
-        .dd-layout input[type="checkbox"]:checked,
-        .dd-layout input[type="radio"]:checked { background-color: #f58634; border-color: #f58634; }
-        .dd-layout .form-select:focus,
-        .dd-layout .form-control:focus,
-        .dd-layout input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
+        .dd-page .btn-primary { background-color: #f58634; border-color: #f58634; }
+        .dd-page .btn-primary:hover, .dd-page .btn-primary:focus { background-color: #d9701f; border-color: #d9701f; }
+        .dd-page .btn-outline-primary { color: #f58634; border-color: #f58634; }
+        .dd-page .btn-outline-primary:hover { background-color: #f58634; border-color: #f58634; color: #fff; }
+        .dd-page input[type="checkbox"]:checked,
+        .dd-page input[type="radio"]:checked { background-color: #f58634; border-color: #f58634; }
+        .dd-page .form-select:focus,
+        .dd-page .form-control:focus,
+        .dd-page input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
+        .dd-accordion-panel .accordion-button:not(.collapsed) { background-color: #fff5ec; color: #d9701f; box-shadow: none; }
+        .dd-accordion-panel .accordion-button:focus { box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); border-color: #f58634; }
+        /* pdfme's own "..." control-bar button opens its native Add Page
+           After/Remove Page dropdown — hidden here since Page Before/After/
+           Remove Page now live as our own topbar buttons above, and pdfme
+           has no option to disable just this button (UI_CLASSNAME + "context-menu",
+           confirmed in its bundled source: node_modules/@pdfme/ui/dist/index.js). */
+        .dd-canvas-area .pdfme-ui-context-menu { display: none !important; }
       `}</style>
-      <div className="dd-sidebar">
-        <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => navigate(-1)}>
+      <div className="dd-topbar">
+        <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
           &larr; Back
         </button>
-        <select
-          className="form-select form-select-sm mb-2"
-          value={docType}
-          onChange={(e) => setDocType(e.target.value)}
+        <strong style={{ fontSize: 14 }}>
+          {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
+        </strong>
+        <div style={{ flex: 1 }} />
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={addPageBefore}
+          disabled={!currentTemplateId}
+          title="Inserts a blank page before the selected field's page (or the first page if nothing's selected)"
         >
-          {SUPPORTED_DOC_TYPES.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-        <h5>{SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} Templates</h5>
-        <div className="d-flex flex-column gap-2 mb-3">
-          <button className="btn btn-sm btn-primary" onClick={handleNewTemplate} disabled={!canAdd && !canEdit}>
-            + New Template
-          </button>
-          <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
-            Browse Gallery
-          </button>
-          <label className="btn btn-sm btn-outline-secondary mb-0">
-            Import
-            <input
-              type="file"
-              accept="application/json"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImportFile(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
-        </div>
-
-        {templates.map((t, index) => (
-          <div
-            key={t.id}
-            style={{
-              border: currentTemplateId === t.id ? "2px solid #f58634" : "1px solid #ddd",
-              borderRadius: 4,
-              padding: 8,
-              marginBottom: 8,
-              cursor: "pointer",
-            }}
-            onClick={() => openTemplate(t.id)}
-          >
-            <div style={{ fontWeight: 600, fontSize: 13 }}>
-              {t.is_default ? "★ " : ""}
-              {t.template_name}
-              {t.has_unpublished_changes ? (
-                <span className="badge bg-warning text-dark ms-1" style={{ fontSize: 9 }}>
-                  unpublished changes
-                </span>
-              ) : null}
-            </div>
-            <div className="d-flex flex-wrap gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
-              <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, -1)} disabled={index === 0}>▲</button>
-              <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, 1)} disabled={index === templates.length - 1}>▼</button>
-              <button className="btn btn-sm btn-link p-0" onClick={() => handleRename(t.id, t.template_name)}>Rename</button>
-              <button className="btn btn-sm btn-link p-0" onClick={() => handleDuplicate(t.id)}>Duplicate</button>
-              <button className="btn btn-sm btn-link p-0" onClick={() => handleExport(t.id, t.template_name)}>Export</button>
-              {!t.is_default ? (
-                <button className="btn btn-sm btn-link p-0" onClick={() => handleSetDefault(t.id)}>Set Default</button>
-              ) : null}
-              <button
-                className="btn btn-sm btn-link p-0 text-danger"
-                onClick={() => handleDelete(t.id)}
-                disabled={templates.length <= 1}
-                title={templates.length <= 1 ? "Can't delete the only remaining template" : ""}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+          + Page Before
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={addPageAfter}
+          disabled={!currentTemplateId}
+          title="Inserts a blank page after the selected field's page (or the first page if nothing's selected)"
+        >
+          + Page After
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={removeCurrentPage}
+          disabled={!currentTemplateId}
+          title="Removes the selected field's page (or the last page if nothing's selected)"
+        >
+          Remove Page
+        </button>
+        <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
+        <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
+        <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
+        {CART_SHAPED_DOC_TYPES.has(docType) && (
+          <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+        )}
+        <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
+          Publish
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => setShowAccordionPanel((v) => !v)}
+          title={showAccordionPanel ? "Hide side panel" : "Show side panel"}
+        >
+          {showAccordionPanel ? "Hide Panel ▶" : "Show Panel ◀"}
+        </button>
       </div>
 
-      <div className="dd-main">
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {CART_SHAPED_DOC_TYPES.has(docType) && (
-            <>
-              <select className="form-select form-select-sm" style={{ width: 160 }} onChange={(e) => applyHeaderVariant(e.target.value)} defaultValue="details">
-                <option value="details">Header: Details</option>
-                <option value="image">Header: Image</option>
-                <option value="logoLeft">Header: Logo Left</option>
-                <option value="logoRight">Header: Logo Right</option>
-              </select>
-              {["hsn", "discount", "cgst", "sgst", "igst", "image"].map((key) => (
-                <label key={key} className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-                  <input type="checkbox" className="form-check-input" onChange={(e) => applyColumnToggle(key, e.target.checked)} />
-                  {key.toUpperCase()}
-                </label>
-              ))}
-              <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }} title="Splice each cart item's own Product Page Designer page after this document, in item order">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={!!currentTemplateFull?.include_product_pages}
-                  onChange={(e) => toggleIncludeProductPages(e.target.checked)}
-                />
-                Show product-wise pages
-              </label>
-            </>
-          )}
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
-          <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
-          <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
-          {CART_SHAPED_DOC_TYPES.has(docType) && (
-            <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
-          )}
-          <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
-            Publish
-          </button>
+      <div className="dd-body">
+        <div className="dd-canvas-area">
+          <div style={{ padding: "4px 12px", fontSize: 12, color: "#666" }}>{status}</div>
+          <div ref={designerContainerRef} style={{ flex: 1, minHeight: 480 }} />
         </div>
-        {selectedField && (
-          <div style={{ padding: "8px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: "#f8f9fa" }}>
-            <strong style={{ fontSize: 12 }}>Field: {selectedField.name}</strong>
-            <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input
-                type="radio"
-                name="bindMode"
-                checked={!isFieldBound}
-                onChange={() => setFieldDataSource(null)}
-              />
-              Static Text
-            </label>
-            <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input
-                type="radio"
-                name="bindMode"
-                checked={isFieldBound}
-                onChange={() => {
-                  if (dictionary.length > 0) setFieldDataSource(dictionary[0].key);
-                }}
-              />
-              Bound to Data
-            </label>
-            {isFieldBound && (
-              <select
-                className="form-select form-select-sm"
-                style={{ width: 220 }}
-                value={currentDataSource || ""}
-                onChange={(e) => setFieldDataSource(e.target.value)}
-              >
-                {Object.entries(
-                  dictionary.reduce((groups: Record<string, typeof dictionary>, d) => {
-                    (groups[d.group] = groups[d.group] || []).push(d);
-                    return groups;
-                  }, {}),
-                ).map(([group, items]) => (
-                  <optgroup key={group} label={group}>
-                    {items.map((d) => (
-                      <option key={d.key} value={d.key}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </optgroup>
+
+        {showAccordionPanel && (
+        <div className="dd-accordion-panel">
+          <Accordion defaultActiveKey={["templates", "header", "page"]} alwaysOpen>
+            <Accordion.Item eventKey="templates">
+              <Accordion.Header>Templates</Accordion.Header>
+              <Accordion.Body>
+                <select
+                  className="form-select form-select-sm mb-2"
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                >
+                  {SUPPORTED_DOC_TYPES.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="d-flex flex-column gap-2 mb-3">
+                  <button className="btn btn-sm btn-primary" onClick={handleNewTemplate} disabled={!canAdd && !canEdit}>
+                    + New Template
+                  </button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
+                    Browse Gallery
+                  </button>
+                  <label className="btn btn-sm btn-outline-secondary mb-0">
+                    Import
+                    <input
+                      type="file"
+                      accept="application/json"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImportFile(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {templates.map((t, index) => (
+                  <div
+                    key={t.id}
+                    style={{
+                      border: currentTemplateId === t.id ? "2px solid #f58634" : "1px solid #ddd",
+                      borderRadius: 4,
+                      padding: 8,
+                      marginBottom: 8,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => openTemplate(t.id)}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      {t.is_default ? "★ " : ""}
+                      {t.template_name}
+                      {t.has_unpublished_changes ? (
+                        <span className="badge bg-warning text-dark ms-1" style={{ fontSize: 9 }}>
+                          unpublished changes
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="d-flex flex-wrap gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, -1)} disabled={index === 0}>▲</button>
+                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, 1)} disabled={index === templates.length - 1}>▼</button>
+                      <button className="btn btn-sm btn-link p-0" onClick={() => handleRename(t.id, t.template_name)}>Rename</button>
+                      <button className="btn btn-sm btn-link p-0" onClick={() => handleDuplicate(t.id)}>Duplicate</button>
+                      <button className="btn btn-sm btn-link p-0" onClick={() => handleExport(t.id, t.template_name)}>Export</button>
+                      {!t.is_default ? (
+                        <button className="btn btn-sm btn-link p-0" onClick={() => handleSetDefault(t.id)}>Set Default</button>
+                      ) : null}
+                      <button
+                        className="btn btn-sm btn-link p-0 text-danger"
+                        onClick={() => handleDelete(t.id)}
+                        disabled={templates.length <= 1}
+                        title={templates.length <= 1 ? "Can't delete the only remaining template" : ""}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </Accordion.Body>
+            </Accordion.Item>
+
+            {CART_SHAPED_DOC_TYPES.has(docType) && (
+              <Accordion.Item eventKey="header">
+                <Accordion.Header>Header</Accordion.Header>
+                <Accordion.Body>
+                  <select
+                    className="form-select form-select-sm mb-2"
+                    onChange={(e) => applyHeaderVariant(e.target.value)}
+                    defaultValue="details"
+                  >
+                    <option value="details">Header: Details</option>
+                    <option value="image">Header: Image</option>
+                    <option value="logoLeft">Header: Logo Left</option>
+                    <option value="logoRight">Header: Logo Right</option>
+                  </select>
+                  <p style={{ fontSize: 11, color: "#888", margin: "4px 0 8px" }}>
+                    Column toggles (HSN/Discount/GST/Image) and each field's Data Binding /
+                    Visibility live in that field's own properties now — click it on the canvas
+                    to edit them.
+                  </p>
+                  <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }} title="Splice each cart item's own Product Page Designer page after this document, in item order">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={!!currentTemplateFull?.include_product_pages}
+                      onChange={(e) => toggleIncludeProductPages(e.target.checked)}
+                    />
+                    Show product-wise pages
+                  </label>
+                </Accordion.Body>
+              </Accordion.Item>
             )}
-            <div style={{ flex: 1 }} />
-            <strong style={{ fontSize: 12 }}>Visibility:</strong>
-            <select
-              className="form-select form-select-sm"
-              style={{ width: 160 }}
-              value={visibilityMode}
-              onChange={(e) => setFieldVisibility(e.target.value as "always" | "hideIfEmpty")}
-            >
-              <option value="always">Always show</option>
-              <option value="hideIfEmpty">Hide if empty</option>
-            </select>
-          </div>
+
+            <Accordion.Item eventKey="page">
+              <Accordion.Header>Page</Accordion.Header>
+              <Accordion.Body>
+                <select
+                  className="form-select form-select-sm mb-2"
+                  value={pageSizeMode}
+                  onChange={(e) => handlePageSizeModeChange(e.target.value as "A4" | "A5" | "custom")}
+                  disabled={!currentTemplateId}
+                >
+                  <option value="A4">Page: A4</option>
+                  <option value="A5">Page: A5</option>
+                  <option value="custom">Page: Custom</option>
+                </select>
+                {pageSizeMode === "custom" && (
+                  <div className="d-flex align-items-center gap-2">
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 70 }}
+                      min={1}
+                      value={customPageWidth}
+                      onChange={(e) => setCustomPageWidth(Number(e.target.value))}
+                      placeholder="W mm"
+                      disabled={!currentTemplateId}
+                    />
+                    <span style={{ fontSize: 12 }}>×</span>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 70 }}
+                      min={1}
+                      value={customPageHeight}
+                      onChange={(e) => setCustomPageHeight(Number(e.target.value))}
+                      placeholder="H mm"
+                      disabled={!currentTemplateId}
+                    />
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={() => applyPageSize(customPageWidth, customPageHeight)}
+                      disabled={!currentTemplateId}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
+        </div>
         )}
-        {selectedField && selectedField.schema?.type === "text" && (
-          <div style={{ padding: "6px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: "#fff" }}>
-            <strong style={{ fontSize: 11, color: "#666" }}>Insert token:</strong>
-            {dictionary.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: 10, padding: "1px 6px" }}
-                title={`${d.group}: ${d.label}`}
-                onClick={() => insertTokenIntoSelectedField(d.key)}
-              >
-                {`{{${d.key}}}`}
-              </button>
-            ))}
-          </div>
-        )}
-        <div style={{ padding: "4px 12px", fontSize: 12, color: "#666" }}>{status}</div>
-        <div ref={designerContainerRef} style={{ flex: 1, minHeight: 480 }} />
       </div>
 
       {showVersions && (
