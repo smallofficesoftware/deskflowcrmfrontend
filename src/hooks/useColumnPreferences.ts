@@ -37,6 +37,22 @@ const reconcileOrder = (
   return [...validSaved, ...missing];
 };
 
+// Locked columns (e.g. "action") must always sit at the position the code
+// defines for them - a saved order from before they existed, or from a
+// reconcile that only appends new keys at the end, can otherwise strand
+// them anywhere. Non-locked keys keep whatever relative order was saved.
+const enforceLockedPositions = <T extends ColumnDef>(
+  order: string[],
+  defaultColumns: T[],
+): string[] => {
+  const lockedKeys = new Set(defaultColumns.filter((c) => c.locked).map((c) => c.key));
+  if (lockedKeys.size === 0) return order;
+
+  const draggableInOrder = order.filter((key) => !lockedKeys.has(key));
+  let i = 0;
+  return defaultColumns.map((c) => (lockedKeys.has(c.key) ? c.key : draggableInOrder[i++]));
+};
+
 export const useColumnPreferences = <T extends ColumnDef>(
   reportKey: string,
   defaultColumns: T[],
@@ -153,7 +169,7 @@ export const useColumnPreferences = <T extends ColumnDef>(
 
   const orderedColumns = useMemo(
     () =>
-      order
+      enforceLockedPositions(order, defaultColumns)
         .map((key) => defaultColumns.find((c) => c.key === key))
         .filter((c): c is T => Boolean(c)),
     [order, defaultColumns],
