@@ -126,6 +126,71 @@ export const PDFaccountv1 = async (id: number, setIsPDFDownloadLoading: any) => 
     }
 };
 
+// Real pdfme print — same "generate, blob-fetch, open in new tab, print"
+// shape as ListOrderView.tsx's generateAndPrintShippingLabel, reusing the
+// SAME endpoints/payload as PDFaccountv1/empAllTransactionDownloadPDf below
+// (those stay untouched, still used by "Download PDF") — just open+print
+// instead of download. Both employeeAccountPDFv1/employeeAllAccountTransactionPDF
+// already branch on the company's document_designer flag server-side and
+// honor an explicit document_template_id, so no separate flag check is
+// needed here.
+export const printEmployeeAccountPDFv1 = async (id: number, documentTemplateId?: number) => {
+    const getUUID = await localStorage.getItem("UUID");
+    try {
+        const { data } = await axiosInstance.post(
+            "employeeAccountPDFv1",
+            {
+                a_application_login_id: Number(getUUID),
+                accountTransactionId: id,
+                ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+            }
+        );
+        if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            const url = window.URL.createObjectURL(blob);
+            const pdfWindow = window.open(url, "_blank");
+            if (pdfWindow) pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+        } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        }
+    } catch (error: any) {
+        toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+};
+
+export const printAllTransactionOfEmployeePDF = async (
+    teamId: any, startSearchDate: TFilterDate, endSearchDate: TFilterDate,
+    creaditFilter: number | undefined, debitFilter: number | undefined, documentTemplateId?: number,
+) => {
+    const getUUID = await localStorage.getItem("UUID");
+    try {
+        const { data } = await axiosInstance.post(
+            "employeeAllAccountTransactionPDF",
+            {
+                a_application_login_id: Number(getUUID),
+                team_id: teamId,
+                startDate: startSearchDate,
+                endDate: endSearchDate,
+                creaditFilter: creaditFilter,
+                debitFilter: debitFilter,
+                ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+            }
+        );
+        if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const response = await axios.get(data.data.fileLinkPath, { responseType: "blob" });
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            const url = window.URL.createObjectURL(blob);
+            const pdfWindow = window.open(url, "_blank");
+            if (pdfWindow) pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+        } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        }
+    } catch (error: any) {
+        toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+};
+
 export const empAllTransactionDownloadPDf = async (teamId: any, setIsAllPDFDownloadLoading: any, startSearchDate: TFilterDate,
     endSearchDate: TFilterDate, creaditFilter: number | undefined, debitFilter: number | undefined,) => {
     const getUUID = await localStorage.getItem("UUID");
