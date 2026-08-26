@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { AppContext } from "../../common/AppContext";
@@ -9,6 +10,7 @@ import { axiosInstance } from "../../services/axiosInstance";
 import { IUserList } from "../left-side/LeftSideController";
 import { fetchCustomInqFromApiForContact } from "../left-side/create-contact/CreateContactController";
 import CreateContactView from "../left-side/create-contact/CreateContactView";
+import { fetchTemplatesForDocType } from "../order-print-view/orderPrintController";
 import { deleteMessages } from "./RightViewController";
 import { ICustomFromList } from "./create-inquiry/CreateInquiryController";
 
@@ -102,7 +104,7 @@ const RightSideProfile = ({
     }
   }
 
-  const openPrint = (id: number | undefined) => {
+  const openContactAddressPrintLegacy = (id: number | undefined) => {
     const baseURL = window.location.origin;
 
     const printUrl = `${baseURL}/ContactAddressPrintView1/${id}`;
@@ -153,7 +155,7 @@ const RightSideProfile = ({
     // window.open(`${baseURL}/AccountPrintView1/${id}`, "_blank");
   };
 
-  const openEnvelopePrint = (id: number | undefined) => {
+  const openContactEnvelopePrintLegacy = (id: number | undefined) => {
     const baseURL = window.location.origin;
 
     const printUrl = `${baseURL}/ContactAddressEnvelopePrintView/${id}`;
@@ -202,6 +204,118 @@ const RightSideProfile = ({
       console.error("Failed to open print");
     }
     // window.open(`${baseURL}/AccountPrintView1/${id}`, "_blank");
+  };
+
+  const [contactPrintTemplateChoices, setContactPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingContactPrint, setPendingContactPrint] = useState<
+    { id: number; variant: "address" | "envelope" } | null
+  >(null);
+
+  const generateAndPrintContactPdf = async (
+    id: number,
+    variant: "address" | "envelope",
+    documentTemplateId?: number,
+  ) => {
+    try {
+      const endpoint = variant === "address" ? "/contact-address-pdf" : "/contact-envelope-pdf";
+      const getUUID = localStorage.getItem("UUID");
+      const resops = await axiosInstance.post(endpoint, {
+        id,
+        a_application_login_id: getUUID,
+        ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+      });
+      if (resops.data.ack !== 1) {
+        toast.error(resops.data.ack_msg);
+        return;
+      }
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, "_blank");
+      if (pdfWindow) {
+        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  };
+
+  const printWithContactTemplate = (templateId: number) => {
+    setContactPrintTemplateChoices([]);
+    if (pendingContactPrint) {
+      generateAndPrintContactPdf(pendingContactPrint.id, pendingContactPrint.variant, templateId);
+    }
+    setPendingContactPrint(null);
+  };
+
+  // pdfme path when document_designer is on (same flag/pattern the cart-doc
+  // print flows use) — picker first when the company has 2+ templates for
+  // this doc type, same as shippingLabel. Falls back to the legacy
+  // ContactAddressPrintView1/ContactAddressEnvelopePrintView pages entirely
+  // when the flag is off.
+  const openPrint = async (id: number | undefined) => {
+    if (!id) return;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    let pdfmeOn = false;
+    if (companyMastersId) {
+      try {
+        const { data } = await axiosInstance.post("get-feature-flag", {
+          company_masters_id: companyMastersId,
+          feature_key: "document_designer",
+        });
+        pdfmeOn = data?.ack === 1 && !!data.data.item.is_enabled;
+      } catch {
+        pdfmeOn = false;
+      }
+    }
+
+    if (!pdfmeOn) {
+      openContactAddressPrintLegacy(id);
+      return;
+    }
+
+    const choices = await fetchTemplatesForDocType("contactAddress");
+    if (choices.length > 1) {
+      setContactPrintTemplateChoices(choices);
+      setPendingContactPrint({ id, variant: "address" });
+      return;
+    }
+
+    generateAndPrintContactPdf(id, "address");
+  };
+
+  const openEnvelopePrint = async (id: number | undefined) => {
+    if (!id) return;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    let pdfmeOn = false;
+    if (companyMastersId) {
+      try {
+        const { data } = await axiosInstance.post("get-feature-flag", {
+          company_masters_id: companyMastersId,
+          feature_key: "document_designer",
+        });
+        pdfmeOn = data?.ack === 1 && !!data.data.item.is_enabled;
+      } catch {
+        pdfmeOn = false;
+      }
+    }
+
+    if (!pdfmeOn) {
+      openContactEnvelopePrintLegacy(id);
+      return;
+    }
+
+    const choices = await fetchTemplatesForDocType("contactEnvelope");
+    if (choices.length > 1) {
+      setContactPrintTemplateChoices(choices);
+      setPendingContactPrint({ id, variant: "envelope" });
+      return;
+    }
+
+    generateAndPrintContactPdf(id, "envelope");
   };
 
   const handleChangeDeleteContact = () => {
@@ -530,6 +644,38 @@ const RightSideProfile = ({
           btn1="CANCEL"
           btn2="CLEAR CHATS"
         />
+      )}
+      {contactPrintTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setContactPrintTemplateChoices([]);
+                  setPendingContactPrint(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {contactPrintTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithContactTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </>
   );
