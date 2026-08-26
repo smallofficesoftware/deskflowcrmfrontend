@@ -1,13 +1,18 @@
-import { Designer } from "@pdfme/ui";
 import { image, table, text } from "@pdfme/schemas";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Accordion } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
+import {
+  extendPluginWithFieldSettings,
+  setFieldSettingsDictionary,
+} from "../../../../../common/pdfmeDesigner/pdfmeFieldSettingsPlugin";
+import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesigner/pdfmeStyles";
+import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
+import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../../../../helpers/AppConstants";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
 import {
@@ -100,9 +105,9 @@ const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
 // (currentTemplateId/docType), but this plugin object is only ever built
 // once at module scope — `columnToggleBridge` is the stable indirection that
 // lets the widget always call whatever the LATEST applyColumnToggle closure
-// is, synced from inside the component on every render (same pattern this
-// file already uses for designerRef/fontsPromiseRef to bridge pdfme's
-// imperative API with React state).
+// is, synced from inside the component on every render (same "bridge"
+// pattern src/common/pdfmeDesigner/pdfmeFieldSettingsPlugin.ts uses to
+// connect its own module-scope plugin objects to React state).
 const columnToggleBridge = {
   current: (_columnOptions: Record<string, boolean>, _changeSchemas: any, _schemaId: string) => {},
 };
@@ -185,218 +190,15 @@ const extendedTable: any = {
 };
 
 // Field data-binding/visibility/insert-token controls, merged into pdfme's
-// own per-field sidebar the same way as the column toggles above — a
-// separate custom accordion section for this used designerRef.current
-// .updateTemplate() to write a field's dataSource/visibilityCondition/
-// content, but updateTemplate() ALWAYS swaps the whole template object,
-// which unconditionally clears pdfme's internal selection on the next
-// render (confirmed by reading pdfme's own bundled source: TemplateEditor
-// compares template ref identity and calls onEditEnd() whenever it
-// differs) — closing the very panel you're editing from. changeSchemas()
-// (only reachable from inside a propPanel widget) patches the field in
-// place without ever touching the template reference, so selection never
-// clears — the same fix already proven for the column-toggle checkboxes.
-const dictionaryBridge: { current: { key: string; label: string; group: string }[] } = { current: [] };
-const designerRefBridge: { current: Designer | null } = { current: null };
-
-function getLiveField(schemaId: string): any {
-  const template = designerRefBridge.current?.getTemplate?.();
-  if (!template) return null;
-  for (const page of template.schemas || []) {
-    const found = page.find((f: any) => f.id === schemaId);
-    if (found) return found;
-  }
-  return null;
-}
-
-function buildFieldSettingsWidget(includeTokenInsert: boolean) {
-  return (props: any) => {
-    const { rootElement, activeSchema, changeSchemas } = props;
-    const schemaId = activeSchema.id;
-    const dictionary = dictionaryBridge.current;
-
-    const wrapper = document.createElement("div");
-    wrapper.style.display = "flex";
-    wrapper.style.flexDirection = "column";
-    wrapper.style.gap = "8px";
-
-    // Bound-to-data toggle sits above the rest — flip it on to reveal the
-    // data-dictionary select, off to go back to plain static text.
-    const toggleLabel = document.createElement("label");
-    toggleLabel.style.display = "flex";
-    toggleLabel.style.alignItems = "center";
-    toggleLabel.style.gap = "6px";
-    toggleLabel.style.fontSize = "12px";
-    toggleLabel.style.fontWeight = "600";
-    toggleLabel.style.cursor = "pointer";
-    const toggle = document.createElement("input");
-    toggle.type = "checkbox";
-    const initialDataSource = typeof activeSchema.dataSource === "string" ? activeSchema.dataSource : "";
-    toggle.checked = !!initialDataSource;
-    toggleLabel.appendChild(toggle);
-    toggleLabel.appendChild(document.createTextNode("Bound to Data"));
-
-    const select = document.createElement("select");
-    select.style.fontSize = "12px";
-    select.style.width = "100%";
-    select.style.display = toggle.checked ? "" : "none";
-    const groups: Record<string, typeof dictionary> = {};
-    dictionary.forEach((d) => {
-      (groups[d.group] = groups[d.group] || []).push(d);
-    });
-    Object.entries(groups).forEach(([group, items]) => {
-      const optgroup = document.createElement("optgroup");
-      optgroup.label = group;
-      items.forEach((d) => {
-        const opt = document.createElement("option");
-        opt.value = d.key;
-        opt.textContent = d.label;
-        optgroup.appendChild(opt);
-      });
-      select.appendChild(optgroup);
-    });
-    select.value = initialDataSource || dictionary[0]?.key || "";
-
-    toggle.addEventListener("change", () => {
-      if (toggle.checked) {
-        select.style.display = "";
-        changeSchemas([{ key: "dataSource", value: select.value || dictionary[0]?.key || "", schemaId }]);
-      } else {
-        select.style.display = "none";
-        changeSchemas([{ key: "dataSource", value: undefined, schemaId }]);
-      }
-    });
-    select.addEventListener("change", () => {
-      changeSchemas([{ key: "dataSource", value: select.value, schemaId }]);
-    });
-
-    const visLabel = document.createElement("label");
-    visLabel.style.display = "flex";
-    visLabel.style.alignItems = "center";
-    visLabel.style.gap = "6px";
-    visLabel.style.fontSize = "12px";
-    visLabel.style.cursor = "pointer";
-    const visToggle = document.createElement("input");
-    visToggle.type = "checkbox";
-    visToggle.checked = activeSchema.visibilityCondition?.mode === "hideIfEmpty";
-    visLabel.appendChild(visToggle);
-    visLabel.appendChild(document.createTextNode("Hide if empty"));
-    visToggle.addEventListener("change", () => {
-      changeSchemas([
-        { key: "visibilityCondition", value: visToggle.checked ? { mode: "hideIfEmpty" } : undefined, schemaId },
-      ]);
-    });
-
-    wrapper.appendChild(toggleLabel);
-    wrapper.appendChild(select);
-    wrapper.appendChild(visLabel);
-
-    if (includeTokenInsert) {
-      const tokenLabel = document.createElement("div");
-      tokenLabel.style.fontSize = "11px";
-      tokenLabel.style.color = "#666";
-      tokenLabel.textContent = "Insert token:";
-      const tokenRow = document.createElement("div");
-      tokenRow.style.display = "flex";
-      tokenRow.style.flexWrap = "wrap";
-      tokenRow.style.gap = "4px";
-      dictionary.forEach((d) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = `{{${d.key}}}`;
-        btn.title = `${d.group}: ${d.label}`;
-        btn.style.fontSize = "10px";
-        btn.style.padding = "1px 6px";
-        btn.style.border = "1px solid #f58634";
-        btn.style.color = "#f58634";
-        btn.style.background = "#fff";
-        btn.style.borderRadius = "4px";
-        btn.style.cursor = "pointer";
-        // Reads the field's LIVE content off the designer (not the
-        // `activeSchema` this widget mounted with) — canvas text typed
-        // directly by the user can make that snapshot stale.
-        btn.addEventListener("click", () => {
-          const live = getLiveField(schemaId);
-          const current =
-            typeof live?.content === "string" ? live.content : typeof activeSchema.content === "string" ? activeSchema.content : "";
-          const separator = current && !/\s$/.test(current) ? " " : "";
-          changeSchemas([{ key: "content", value: `${current}${separator}{{${d.key}}}`, schemaId }]);
-        });
-        tokenRow.appendChild(btn);
-      });
-      wrapper.appendChild(tokenLabel);
-      wrapper.appendChild(tokenRow);
-
-      const helpNote = document.createElement("p");
-      helpNote.style.fontSize = "10px";
-      helpNote.style.color = "#888";
-      helpNote.style.marginTop = "6px";
-      helpNote.textContent =
-        "Bold/underline apply to the whole field — to bold only part of a line, split it into two adjacent fields.";
-      wrapper.appendChild(helpNote);
-    }
-
-    rootElement.appendChild(wrapper);
-  };
-}
-
-function extendPluginWithFieldSettings(basePlugin: any, widgetName: string, includeTokenInsert: boolean) {
-  const widgetFn = buildFieldSettingsWidget(includeTokenInsert);
-  return {
-    ...basePlugin,
-    propPanel: {
-      ...basePlugin.propPanel,
-      widgets: { ...basePlugin.propPanel.widgets, [widgetName]: widgetFn },
-      schema: (propPanelProps: any) => {
-        const base =
-          typeof basePlugin.propPanel.schema === "function"
-            ? basePlugin.propPanel.schema(propPanelProps)
-            : basePlugin.propPanel.schema;
-        return {
-          ...base,
-          fieldSettingsCard: {
-            title: "Data Binding & Visibility",
-            type: "string",
-            widget: "Card",
-            span: 24,
-            properties: {
-              fieldSettingsWidget: { type: "void", widget: widgetName, span: 24 },
-            },
-          },
-        };
-      },
-    },
-  };
-}
-
-const extendedText: any = extendPluginWithFieldSettings(text, "textFieldSettings", true);
-const extendedImage: any = extendPluginWithFieldSettings(image, "imageFieldSettings", false);
-
-const plugins = { text: extendedText, table: extendedTable, image: extendedImage };
-
-async function loadDesignerFonts() {
-  // Noto Sans Devanagari/Gujarati (Hindi/Gujarati script support — Poppins
-  // has no glyphs for either) must match fonts.js's generate-time font
-  // names exactly, or a field picking one by name here would render fine on
-  // canvas but fall back to Poppins (tofu boxes) in the actual generated PDF.
-  const files = [
-    "Poppins-Regular.ttf",
-    "Poppins-Bold.ttf",
-    "Poppins-SemiBold.ttf",
-    "NotoSansDevanagari-Regular.ttf",
-    "NotoSansGujarati-Regular.ttf",
-  ];
-  const [regular, bold, semiBold, notoDevanagari, notoGujarati] = await Promise.all(
-    files.map((f) => fetch(`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/fonts/${f}`).then((r) => r.arrayBuffer())),
-  );
-  return {
-    Poppins: { data: regular, fallback: true },
-    "Poppins Bold": { data: bold },
-    "Poppins SemiBold": { data: semiBold },
-    "Noto Sans Devanagari": { data: notoDevanagari },
-    "Noto Sans Gujarati": { data: notoGujarati },
-  };
-}
+// own per-field sidebar the same way as the column toggles above —
+// extendPluginWithFieldSettings lives in src/common/pdfmeDesigner/ now,
+// shared with CustomFieldDesignerPageEditorView.tsx and
+// ProductPageDesignerEditorView.tsx.
+const plugins = {
+  text: extendPluginWithFieldSettings(text, "textFieldSettings", true),
+  table: extendedTable,
+  image: extendPluginWithFieldSettings(image, "imageFieldSettings", false),
+};
 
 const DocumentDesignerView: React.FC = () => {
   const navigate = useNavigate();
@@ -418,11 +220,6 @@ const DocumentDesignerView: React.FC = () => {
   const canView = rights?.view === 1;
   const canEdit = rights?.edit === 1;
   const canAdd = rights?.add === 1;
-
-  const designerContainerRef = useRef<HTMLDivElement>(null);
-  const designerRef = useRef<Designer | null>(null);
-  const fontsPromiseRef = useRef<Promise<any> | null>(null);
-  designerRefBridge.current = designerRef.current;
 
   const [docType, setDocType] = useState<string>("quotation");
   const [templates, setTemplates] = useState<IDocumentTemplateListItem[]>([]);
@@ -473,7 +270,19 @@ const DocumentDesignerView: React.FC = () => {
       setDictionary(dict || []);
     })();
   }, [docType]);
-  dictionaryBridge.current = dictionary;
+  setFieldSettingsDictionary(dictionary);
+
+  const { designerContainerRef, designerRef, designerMounted, mountOrUpdateDesigner: mountDesignerRaw } = useDesignerInstance(
+    plugins,
+    setSelectedField,
+  );
+  // Page-size toolbar needs to reflect whatever's actually mounted — wrap
+  // the shared hook's mount function so every call also syncs it, same as
+  // this file did before extracting the shared mount routine.
+  const mountOrUpdateDesigner = (template: any) => {
+    syncPageSizeFromTemplate(template);
+    return mountDesignerRaw(template);
+  };
 
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
@@ -493,10 +302,6 @@ const DocumentDesignerView: React.FC = () => {
   const askPrompt = (title: string, onSubmit: (value: string) => void, defaultValue?: string) => {
     setPromptDialog({ title, onSubmit, defaultValue });
   };
-
-  if (!fontsPromiseRef.current) {
-    fontsPromiseRef.current = loadDesignerFonts();
-  }
 
   const refreshTemplates = async () => {
     const list = await listDocumentTemplates(docType);
@@ -534,36 +339,6 @@ const DocumentDesignerView: React.FC = () => {
     setCustomPageHeight(height);
   };
 
-  const mountOrUpdateDesigner = async (template: any) => {
-    syncPageSizeFromTemplate(template);
-    if (designerRef.current) {
-      designerRef.current.updateTemplate(template);
-      return;
-    }
-    const font = await fontsPromiseRef.current;
-    if (!designerContainerRef.current) return;
-    designerRef.current = new Designer({
-      domContainer: designerContainerRef.current,
-      template,
-      plugins,
-      options: {
-        zoomLevel: 1,
-        maxZoom: 500,
-        font,
-        sidebarOpen: true,
-        theme: { token: { colorPrimary: "#f58634" } },
-      },
-    });
-    designerRef.current.onChangeSelection((selection) => {
-      const schemas = selection.schemas;
-      setSelectedField(
-        schemas.length === 1
-          ? { name: schemas[0].name, pageIndex: schemas[0].pageIndex, schemaIndex: schemas[0].schemaIndex, schema: schemas[0].schema }
-          : null,
-      );
-    });
-  };
-
   // Applies a new page size to whatever's currently on the canvas and
   // persists it immediately (same "apply now" feel as header-variant/column
   // toggles), rather than waiting for a manual Save Draft click.
@@ -583,51 +358,18 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  // pdfme's own page-thumbnail right-click menu ships "Add Page After" /
-  // "Remove Page" (confirmed via its i18n dictionary — no "addPageBefore"
-  // key exists there at all) and its component reads a fixed, hardcoded set
-  // of named props — there's no plugin-style extension point for it the way
-  // field propPanels have, and pageCursor (which page is "current") is that
-  // component's own internal state, never exposed by Designer's public API.
-  // So none of these three can be driven through pdfme's actual menu from
-  // outside; all three live as our own topbar controls instead, mirroring
-  // pdfme's own splice logic (insert/remove an empty schema array entry,
-  // keep basePdf) using the currently-selected field's page as a stand-in
-  // for "current page" (falls back to the first/last page when nothing's
-  // selected).
-  const addPageBefore = () => {
-    if (!requireEdit() || !designerRef.current) return;
-    const template = designerRef.current.getTemplate();
-    const insertAt = selectedField ? selectedField.pageIndex : 0;
-    const schemas = [...template.schemas];
-    schemas.splice(insertAt, 0, []);
-    designerRef.current.updateTemplate({ ...template, schemas });
-  };
-
-  const addPageAfter = () => {
-    if (!requireEdit() || !designerRef.current) return;
-    const template = designerRef.current.getTemplate();
-    const insertAt = (selectedField ? selectedField.pageIndex : 0) + 1;
-    const schemas = [...template.schemas];
-    schemas.splice(insertAt, 0, []);
-    designerRef.current.updateTemplate({ ...template, schemas });
-  };
-
-  const removeCurrentPage = () => {
-    if (!requireEdit() || !designerRef.current) return;
-    const template = designerRef.current.getTemplate();
-    if (template.schemas.length <= 1) {
-      toast.error("Can't remove the only page");
-      return;
-    }
-    const removeAt = selectedField ? selectedField.pageIndex : template.schemas.length - 1;
-    askConfirm(`Remove page ${removeAt + 1}? Any fields on it will be deleted.`, () => {
-      const schemas = [...template.schemas];
-      schemas.splice(removeAt, 1);
-      designerRef.current?.updateTemplate({ ...template, schemas });
-      setSelectedField(null);
-    });
-  };
+  // Page Before/After/Remove Page — shared with CustomFieldDesignerPageEditorView.tsx
+  // and ProductPageDesignerEditorView.tsx (src/common/pdfmeDesigner/
+  // usePageManipulation.ts); requireEdit is referenced lazily (only called
+  // once these buttons are actually clicked, by which point it's already
+  // defined further down this same component) so it doesn't need to be
+  // declared before this hook call.
+  const { targetPageNumber, setTargetPageNumber, addPageBefore, addPageAfter, removeCurrentPage } = usePageManipulation(
+    designerRef,
+    selectedField,
+    askConfirm,
+    () => requireEdit(),
+  );
 
   useEffect(() => {
     (async () => {
@@ -1027,12 +769,7 @@ const DocumentDesignerView: React.FC = () => {
         .dd-page input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
         .dd-accordion-panel .accordion-button:not(.collapsed) { background-color: #fff5ec; color: #d9701f; box-shadow: none; }
         .dd-accordion-panel .accordion-button:focus { box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); border-color: #f58634; }
-        /* pdfme's own "..." control-bar button opens its native Add Page
-           After/Remove Page dropdown — hidden here since Page Before/After/
-           Remove Page now live as our own topbar buttons above, and pdfme
-           has no option to disable just this button (UI_CLASSNAME + "context-menu",
-           confirmed in its bundled source: node_modules/@pdfme/ui/dist/index.js). */
-        .dd-canvas-area .pdfme-ui-context-menu { display: none !important; }
+        ${PDFME_HIDE_NATIVE_PAGE_MENU_CSS}
       `}</style>
       <div className="dd-topbar">
         <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
@@ -1042,27 +779,39 @@ const DocumentDesignerView: React.FC = () => {
           {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
         </strong>
         <div style={{ flex: 1 }} />
+        <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }} title="Page these buttons act on">
+          Page
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: 55 }}
+            min={1}
+            value={targetPageNumber}
+            onChange={(e) => setTargetPageNumber(Number(e.target.value))}
+            disabled={!designerMounted}
+          />
+        </label>
         <button
           className="btn btn-sm btn-outline-secondary"
           onClick={addPageBefore}
-          disabled={!currentTemplateId}
-          title="Inserts a blank page before the selected field's page (or the first page if nothing's selected)"
+          disabled={!designerMounted}
+          title="Inserts a blank page before the page number above"
         >
           + Page Before
         </button>
         <button
           className="btn btn-sm btn-outline-secondary"
           onClick={addPageAfter}
-          disabled={!currentTemplateId}
-          title="Inserts a blank page after the selected field's page (or the first page if nothing's selected)"
+          disabled={!designerMounted}
+          title="Inserts a blank page after the page number above"
         >
           + Page After
         </button>
         <button
           className="btn btn-sm btn-outline-secondary"
           onClick={removeCurrentPage}
-          disabled={!currentTemplateId}
-          title="Removes the selected field's page (or the last page if nothing's selected)"
+          disabled={!designerMounted}
+          title="Removes the page number above"
         >
           Remove Page
         </button>

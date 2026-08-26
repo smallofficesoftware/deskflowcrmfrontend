@@ -1,12 +1,15 @@
-import { Designer } from "@pdfme/ui";
 import { image, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
+import { extendPluginWithFieldSettings, setFieldSettingsDictionary } from "../../../../../common/pdfmeDesigner/pdfmeFieldSettingsPlugin";
+import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesigner/pdfmeStyles";
+import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
+import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../../../../helpers/AppConstants";
+import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
 import {
   applyOptionsToDraft,
@@ -24,33 +27,17 @@ import {
 // component/route from DocumentDesignerView.tsx (/document-designer, the
 // normal per-doc-type template manager), not that same component branching
 // on a query param — the two are purely independent code, sharing only the
-// backend API surface (DocumentDesignerController.ts) and the plugin/font
-// mounting mechanics, which is real duplication but keeps each file's
-// control flow readable on its own rather than threaded through "is this
-// pick mode?" branches everywhere.
-const plugins = { text, table, image };
-
-async function loadDesignerFonts() {
-  // Same Noto Sans Devanagari/Gujarati addition as DocumentDesignerView.tsx
-  // — names must match fonts.js's generate-time set exactly.
-  const files = [
-    "Poppins-Regular.ttf",
-    "Poppins-Bold.ttf",
-    "Poppins-SemiBold.ttf",
-    "NotoSansDevanagari-Regular.ttf",
-    "NotoSansGujarati-Regular.ttf",
-  ];
-  const [regular, bold, semiBold, notoDevanagari, notoGujarati] = await Promise.all(
-    files.map((f) => fetch(`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/fonts/${f}`).then((r) => r.arrayBuffer())),
-  );
-  return {
-    Poppins: { data: regular, fallback: true },
-    "Poppins Bold": { data: bold },
-    "Poppins SemiBold": { data: semiBold },
-    "Noto Sans Devanagari": { data: notoDevanagari },
-    "Noto Sans Gujarati": { data: notoGujarati },
-  };
-}
+// backend API surface (DocumentDesignerController.ts).
+//
+// Font loading, the field-settings propPanel merge, the Designer mount
+// routine, and Page Before/After/Remove Page all live in
+// src/common/pdfmeDesigner/ now — shared with DocumentDesignerView.tsx and
+// ProductPageDesignerEditorView.tsx, so a fix there fixes it here too.
+const plugins = {
+  text: extendPluginWithFieldSettings(text, "textFieldSettings", true),
+  table,
+  image: extendPluginWithFieldSettings(image, "imageFieldSettings", false),
+};
 
 // Seeds a fresh page with the SAME "Header: Details" company banner
 // Document Designer's own templates start from (companyName/companyAddress/
@@ -133,10 +120,6 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
   }, []);
   const canView = rights?.view === 1;
 
-  const designerContainerRef = useRef<HTMLDivElement>(null);
-  const designerRef = useRef<Designer | null>(null);
-  const fontsPromiseRef = useRef<Promise<any> | null>(null);
-
   const [currentTemplateId, setCurrentTemplateId] = useState<number | null>(null);
   const [currentTemplateName, setCurrentTemplateName] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
@@ -149,6 +132,10 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     schemaIndex: number;
     schema: any;
   } | null>(null);
+  const { designerContainerRef, designerRef, designerMounted, mountOrUpdateDesigner } = useDesignerInstance(
+    plugins,
+    setSelectedField,
+  );
 
   useEffect(() => {
     (async () => {
@@ -156,35 +143,7 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
       setDictionary(dict || []);
     })();
   }, [docType]);
-
-  const currentDataSource: string | undefined = selectedField?.schema?.dataSource || undefined;
-  const isFieldBound = !!currentDataSource;
-  const visibilityMode: "always" | "hideIfEmpty" =
-    selectedField?.schema?.visibilityCondition?.mode === "hideIfEmpty" ? "hideIfEmpty" : "always";
-
-  const updateSelectedFieldSchema = async (mutate: (field: any) => void) => {
-    if (!selectedField || !designerRef.current) return;
-    const cloned = structuredClone(designerRef.current.getTemplate());
-    const field = cloned.schemas[selectedField.pageIndex][selectedField.schemaIndex];
-    mutate(field);
-    designerRef.current.updateTemplate(cloned);
-    setSelectedField({ ...selectedField, schema: field });
-    await saveDraftSilently();
-  };
-
-  const setFieldDataSource = (value: string | null) => {
-    updateSelectedFieldSchema((field) => {
-      if (value) field.dataSource = value;
-      else delete field.dataSource;
-    });
-  };
-
-  const setFieldVisibility = (mode: "always" | "hideIfEmpty") => {
-    updateSelectedFieldSchema((field) => {
-      if (mode === "hideIfEmpty") field.visibilityCondition = { mode: "hideIfEmpty" };
-      else delete field.visibilityCondition;
-    });
-  };
+  setFieldSettingsDictionary(dictionary);
 
   // Same "live on the draft" header swap as DocumentDesignerView.tsx — works
   // on a blank canvas too (applyTemplateOptions rebuilds basePdf.staticSchema
@@ -198,14 +157,6 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     if (updated) designerRef.current.updateTemplate(updated);
   };
 
-  const insertTokenIntoSelectedField = (key: string) => {
-    updateSelectedFieldSchema((field) => {
-      const current = typeof field.content === "string" ? field.content : "";
-      const separator = current && !/\s$/.test(current) ? " " : "";
-      field.content = `${current}${separator}{{${key}}}`;
-    });
-  };
-
   const [promptDialog, setPromptDialog] = useState<{
     title: string;
     defaultValue?: string;
@@ -216,38 +167,16 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     setPromptDialog({ title, onSubmit, defaultValue });
   };
 
-  if (!fontsPromiseRef.current) {
-    fontsPromiseRef.current = loadDesignerFonts();
-  }
-
-  const mountOrUpdateDesigner = async (template: any) => {
-    if (designerRef.current) {
-      designerRef.current.updateTemplate(template);
-      return;
-    }
-    const font = await fontsPromiseRef.current;
-    if (!designerContainerRef.current) return;
-    designerRef.current = new Designer({
-      domContainer: designerContainerRef.current,
-      template,
-      plugins,
-      options: {
-        zoomLevel: 1,
-        maxZoom: 500,
-        font,
-        sidebarOpen: true,
-        theme: { token: { colorPrimary: "#f58634" } },
-      },
-    });
-    designerRef.current.onChangeSelection((selection) => {
-      const schemas = selection.schemas;
-      setSelectedField(
-        schemas.length === 1
-          ? { name: schemas[0].name, pageIndex: schemas[0].pageIndex, schemaIndex: schemas[0].schemaIndex, schema: schemas[0].schema }
-          : null,
-      );
-    });
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmDialog({ message, onConfirm });
   };
+
+  const { targetPageNumber, setTargetPageNumber, addPageBefore, addPageAfter, removeCurrentPage } = usePageManipulation(
+    designerRef,
+    selectedField,
+    askConfirm,
+  );
 
   const openTemplate = async (id: number) => {
     setLoading(true);
@@ -289,11 +218,6 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fieldId]);
 
-  // No setLoading()/full-screen overlay — used both by the manual
-  // "Save Draft" button (which wraps this with the overlay itself, below)
-  // and by updateSelectedFieldSchema's auto-save on every field-panel
-  // change. The overlay on every single radio click read as the whole
-  // page "refreshing".
   const saveDraftSilently = async () => {
     if (!currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
@@ -384,11 +308,9 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     <div className="dd-layout">
       <style>{`
         .dd-layout { display: flex; height: 100vh; }
-        .dd-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid #ddd; padding: 12px; overflow-y: auto; }
         .dd-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         @media (max-width: 768px) {
           .dd-layout { flex-direction: column; height: auto; min-height: unset; }
-          .dd-sidebar { width: 100%; max-height: 260px; border-right: none; border-bottom: 1px solid #ddd; }
         }
         .dd-layout .btn-primary { background-color: #f58634; border-color: #f58634; }
         .dd-layout .btn-primary:hover, .dd-layout .btn-primary:focus { background-color: #d9701f; border-color: #d9701f; }
@@ -399,19 +321,13 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
         .dd-layout .form-select:focus,
         .dd-layout .form-control:focus,
         .dd-layout input:focus { border-color: #f58634; box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); }
+        ${PDFME_HIDE_NATIVE_PAGE_MENU_CSS}
       `}</style>
-      <div className="dd-sidebar">
-        <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => navigate(-1)}>
-          &larr; Back
-        </button>
-        <h5 style={{ fontSize: 14 }}>{openTemplateId ? "Editing Source" : "New Source"}</h5>
-        <p style={{ fontSize: 12, color: "#666" }}>
-          Build the page below, then use the "Use This Template" button at the top to name and save it.
-        </p>
-      </div>
-
       <div className="dd-main">
         <div style={{ padding: "8px 12px", background: "#fff3cd", borderBottom: "1px solid #ffe69c", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
+            &larr; Back
+          </button>
           <strong style={{ fontSize: 12 }}>
             Picking a Designer Page{fieldTitle ? ` for "${fieldTitle}"` : ""} — open/build a template below, then:
           </strong>
@@ -425,6 +341,42 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
           </button>
           <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>Cancel</button>
           <div style={{ flex: 1 }} />
+          <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }} title="Page these buttons act on">
+            Page
+            <input
+              type="number"
+              className="form-control form-control-sm"
+              style={{ width: 55 }}
+              min={1}
+              value={targetPageNumber}
+              onChange={(e) => setTargetPageNumber(Number(e.target.value))}
+              disabled={!designerMounted}
+            />
+          </label>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={addPageBefore}
+            disabled={!designerMounted}
+            title="Inserts a blank page before the page number above"
+          >
+            + Page Before
+          </button>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={addPageAfter}
+            disabled={!designerMounted}
+            title="Inserts a blank page after the page number above"
+          >
+            + Page After
+          </button>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={removeCurrentPage}
+            disabled={!designerMounted}
+            title="Removes the page number above"
+          >
+            Remove Page
+          </button>
           <select
             className="form-select form-select-sm"
             style={{ width: 160 }}
@@ -439,80 +391,22 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
             <option value="logoRight">Header: Logo Right</option>
           </select>
         </div>
-        {selectedField && (
-          <div style={{ padding: "8px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: "#f8f9fa" }}>
-            <strong style={{ fontSize: 12 }}>Field: {selectedField.name}</strong>
-            <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input type="radio" name="bindMode" checked={!isFieldBound} onChange={() => setFieldDataSource(null)} />
-              Static Text
-            </label>
-            <label className="form-check-label d-flex align-items-center gap-1" style={{ fontSize: 12 }}>
-              <input
-                type="radio"
-                name="bindMode"
-                checked={isFieldBound}
-                onChange={() => {
-                  if (dictionary.length > 0) setFieldDataSource(dictionary[0].key);
-                }}
-              />
-              Bound to Data
-            </label>
-            {isFieldBound && (
-              <select
-                className="form-select form-select-sm"
-                style={{ width: 220 }}
-                value={currentDataSource || ""}
-                onChange={(e) => setFieldDataSource(e.target.value)}
-              >
-                {Object.entries(
-                  dictionary.reduce((groups: Record<string, typeof dictionary>, d) => {
-                    (groups[d.group] = groups[d.group] || []).push(d);
-                    return groups;
-                  }, {}),
-                ).map(([group, items]) => (
-                  <optgroup key={group} label={group}>
-                    {items.map((d) => (
-                      <option key={d.key} value={d.key}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            )}
-            <div style={{ flex: 1 }} />
-            <strong style={{ fontSize: 12 }}>Visibility:</strong>
-            <select
-              className="form-select form-select-sm"
-              style={{ width: 160 }}
-              value={visibilityMode}
-              onChange={(e) => setFieldVisibility(e.target.value as "always" | "hideIfEmpty")}
-            >
-              <option value="always">Always show</option>
-              <option value="hideIfEmpty">Hide if empty</option>
-            </select>
-          </div>
-        )}
-        {selectedField && selectedField.schema?.type === "text" && (
-          <div style={{ padding: "6px 12px", borderBottom: "1px solid #ddd", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: "#fff" }}>
-            <strong style={{ fontSize: 11, color: "#666" }}>Insert token:</strong>
-            {dictionary.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: 10, padding: "1px 6px" }}
-                title={`${d.group}: ${d.label}`}
-                onClick={() => insertTokenIntoSelectedField(d.key)}
-              >
-                {`{{${d.key}}}`}
-              </button>
-            ))}
-          </div>
-        )}
         <div style={{ padding: "4px 12px", fontSize: 12, color: "#666" }}>{status}</div>
         <div ref={designerContainerRef} style={{ flex: 1, minHeight: 480 }} />
       </div>
+
+      <ConfirmationModal
+        show={!!confirmDialog}
+        onHide={() => setConfirmDialog(null)}
+        handleSubmit={() => {
+          confirmDialog?.onConfirm();
+          setConfirmDialog(null);
+        }}
+        title="Please Confirm"
+        message={confirmDialog?.message}
+        btn1="Cancel"
+        btn2="Confirm"
+      />
 
       <PromptModal
         show={!!promptDialog}
