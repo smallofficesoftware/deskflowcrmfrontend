@@ -34,19 +34,6 @@ import {
   TeamInsightType,
 } from "./CRMDashboardController";
 
-const DASHBOARD_CARD_COLORS = [
-  "#F58634",
-  "#4C6EF5",
-  "#12B886",
-  "#E64980",
-  "#7048E8",
-  "#15AABF",
-  "#FA5252",
-  "#F59F00",
-  "#40C057",
-  "#5C7CFA",
-];
-
 ChartJS.register(
   ArcElement,
   Tooltip,
@@ -1229,120 +1216,39 @@ const CRMDashboardView = ({
                             //     </svg>
                             //   ),
                             // },
-                          ].map((item, idx) => {
-                            const cardColor =
-                              DASHBOARD_CARD_COLORS[idx % DASHBOARD_CARD_COLORS.length];
-                            return (
-                              <Col md={4} key={idx}>
-                                <Card
-                                  className="dashboard-stat-card h-100"
-                                  style={{
-                                    borderRadius: "12px",
-                                    border: "1px solid #eef0f3",
-                                    borderTop: `4px solid ${cardColor}`,
-                                    boxShadow: "0 1px 4px rgba(0, 0, 0, 0.05)",
-                                    background: "#fff",
-                                    cursor: "pointer",
-                                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                                  }}
-                                  onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-                                    e.currentTarget.style.transform = "translateY(-3px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 20px rgba(0,0,0,0.1)";
-                                  }}
-                                  onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-                                    e.currentTarget.style.transform = "translateY(0)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 1px 4px rgba(0,0,0,0.05)";
-                                  }}
-                                  onClick={item.onClick}
-                                >
-                                  <Card.Body style={{ padding: "18px" }}>
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "flex-start",
-                                      }}
-                                    >
-                                      <span
-                                        style={{
-                                          display: "inline-flex",
-                                          width: "44px",
-                                          height: "44px",
-                                          borderRadius: "12px",
-                                          background: cardColor,
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        <span
-                                          style={{
-                                            display: "flex",
-                                            filter: "brightness(0) invert(1)",
-                                          }}
-                                        >
-                                          {item.svg}
-                                        </span>
-                                      </span>
-                                      <div style={{ textAlign: "right" }}>
-                                        <h3
-                                          className="dash-board-text-count"
-                                          style={{
-                                            color: cardColor,
-                                            margin: 0,
-                                            fontSize: "26px",
-                                            fontWeight: 700,
-                                            lineHeight: 1,
-                                          }}
-                                        >
-                                          {item.count}
-                                        </h3>
-                                        <small
-                                          className="text-muted"
-                                          style={{ fontSize: "11px" }}
-                                        >
-                                          Total
-                                        </small>
-                                      </div>
+                          ].map((item, idx) => (
+                            <Col md={4} key={idx}>
+                              <Card
+                                className="text-end h-100"
+                                style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer" }}
+                                onClick={item.onClick}
+                              >
+                                <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
+                                  <div>
+                                    <div className="d-flex text-end justify-content-end align-items-center gap-1">
+                                      <small className="text-muted fw-bold">
+                                        Total:
+                                      </small>
+                                      <h4 className="dash-board-text-count">
+                                        {item.count}
+                                      </h4>
                                     </div>
-
-                                    <h4
-                                      className="dash-board-text"
-                                      style={{
-                                        maxWidth: "100%",
-                                        marginTop: "16px",
-                                        marginBottom: item.approvedCount !== undefined ? "8px" : 0,
-                                        fontSize: "14px",
-                                        fontWeight: 600,
-                                        color: "#333",
-                                        textAlign: "left",
-                                      }}
-                                    >
-                                      {item.title}
-                                    </h4>
-
-                                    {item.approvedCount !== undefined && (
-                                      <span
-                                        style={{
-                                          display: "inline-block",
-                                          padding: "3px 10px",
-                                          borderRadius: "12px",
-                                          background: `${cardColor}1f`,
-                                          color: cardColor,
-                                          fontSize: "12px",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        Appr. {item.approvedCount ?? 0.0}
-                                      </span>
-                                    )}
-                                  </Card.Body>
-                                </Card>
-                              </Col>
-                            );
-                          })}
+                                    <small className="text-muted">
+                                      Appr. {item.approvedCount ?? 0.0}
+                                    </small>
+                                    <br />
+                                    <span>{item.svg}</span>
+                                  </div>
+                                  <h4
+                                    className="dash-board-text"
+                                    style={{ maxWidth: "100%" }}
+                                  >
+                                    {item.title}
+                                  </h4>
+                                </Card.Body>
+                              </Card>
+                            </Col>
+                          ))}
                         </Row>
                       </div>
                     </Col>

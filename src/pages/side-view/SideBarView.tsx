@@ -9,6 +9,7 @@ import { reportsMenuData } from "./reportsMenuData";
 const SidebarView = ({
   onReportClick,
   onInsightsClick,
+  onSmartReportsClick,
   isOpen,
   setIsOpen,
   activeReport,
@@ -327,6 +328,57 @@ const SidebarView = ({
         {isOpen && (
           <span style={{ fontWeight: "bold", color: "#d9631a" }}>
             Insights
+          </span>
+        )}
+      </div>
+
+      <div
+        onClick={() => onSmartReportsClick && onSmartReportsClick()}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          justifyContent: isOpen ? "flex-start" : "center",
+          padding: "10px 15px",
+          margin: "4px 8px",
+          borderRadius: "10px",
+          cursor: "pointer",
+          transition: "background 0.15s ease",
+        }}
+        title="Smart Reports"
+      >
+        <div
+          style={{
+            width: "30px",
+            height: "30px",
+            minWidth: "30px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #F58634, #F5A623)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 6px rgba(245,134,52,0.4)",
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            height="16px"
+            viewBox="0 -960 960 960"
+            width="16px"
+            fill="#fff"
+          >
+            <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm80-80h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z" />
+          </svg>
+        </div>
+        {isOpen && (
+          <span style={{ fontWeight: "bold", color: "#d9631a" }}>
+            Smart Reports
           </span>
         )}
       </div>
