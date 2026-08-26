@@ -1218,13 +1218,6 @@ const CreateTaskView = ({
                                   </div>
                                 </div>
                                 <div className="w-100 mb-3">
-                                  <TaskChecklistSection
-                                    taskId={productToEdit}
-                                    pendingItems={pendingChecklistItems}
-                                    onPendingItemsChange={setPendingChecklistItems}
-                                  />
-                                </div>
-                                <div className="w-100 mb-3">
                                   <div className="form-group text-start">
                                     <label
                                       htmlFor="task_attechment"
@@ -1341,211 +1334,11 @@ const CreateTaskView = ({
                               </div>
                             </div>)} */}
                                 <div className="w-100 mb-3">
-                                  <div className="form-group text-start">
-                                    <label className="pb-2 form_label">
-                                      Task for customer and send notfication via
-                                    </label>
-                                    <div className="d-flex gap-4 flex-wrap">
-                                      {/* WhatsApp Checkbox */}
-                                      <label className="d-flex align-items-center cursor-pointer">
-                                        <Field name="is_notification_sand_wp">
-                                          {({ field, form }: any) => (
-                                            <input
-                                              disabled={
-                                                taskData?.id ? true : false
-                                              }
-                                              type="checkbox"
-                                              checked={field.value === 1} // <-- default false means value=0
-                                              onChange={(e) => {
-                                                form.setFieldValue(
-                                                  "is_notification_sand_wp",
-                                                  e.target.checked ? 1 : 0, // <-- checked => 1, unchecked => 0
-                                                );
-
-                                                setIsTeamListAllowSingle(
-                                                  e.target.checked
-                                                    ? true
-                                                    : false,
-                                                );
-                                                setAssignmentTypeSelectedOption(
-                                                  e.target.checked ? "2" : "1",
-                                                );
-                                              }}
-                                              className="form-check-input"
-                                            />
-                                          )}
-                                        </Field>
-                                        <span className="form_label mb-0 m-1">
-                                          {" "}
-                                          WhatsApp
-                                        </span>
-                                      </label>
-
-                                      {/* Email Checkbox */}
-                                      <label className="d-flex align-items-center cursor-pointer">
-                                        <Field name="is_notification_sand_email">
-                                          {({ field, form }: any) => (
-                                            <input
-                                              disabled={
-                                                taskData?.id ? true : false
-                                              }
-                                              type="checkbox"
-                                              checked={field.value === 1}
-                                              onChange={(e) => {
-                                                form.setFieldValue(
-                                                  "is_notification_sand_email",
-                                                  e.target.checked ? 1 : 0,
-                                                );
-                                                setIsTeamListAllowSingle(
-                                                  e.target.checked
-                                                    ? true
-                                                    : false,
-                                                );
-                                                setAssignmentTypeSelectedOption(
-                                                  e.target.checked ? "2" : "1",
-                                                );
-                                              }}
-                                              className="form-check-input"
-                                            />
-                                          )}
-                                        </Field>
-                                        <span className="form_label mb-0 m-1">
-                                          {" "}
-                                          Email
-                                        </span>
-                                      </label>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="w-100 d-flex mb-3">
-                                  <div className="" style={{ width: "49%" }}>
-                                    <div className="form-group text-start">
-                                      <label
-                                        htmlFor="task_fromdate"
-                                        className="mb-1 form_label"
-                                      >
-                                        Start Date{" "}
-                                        {!isStrEndDateDisabled && (
-                                          <span className="text-danger">*</span>
-                                        )}
-                                      </label>
-                                      <div>
-                                        <Field name="task_fromdate">
-                                          {({ field, form }: any) => (
-                                            <DatePicker
-                                              value={field.value}
-                                              onOpen={() =>
-                                                setMultiSelectKey(
-                                                  (prev) => prev + 1,
-                                                )
-                                              }
-                                              style={{ width: "100%" }}
-                                              onChange={(date: DateObject) => {
-                                                if (date) {
-                                                  form.setFieldValue(
-                                                    "task_fromdate",
-                                                    date.format(
-                                                      "DD-MM-YYYY hh:mm A",
-                                                    ),
-                                                  );
-                                                } else {
-                                                  form.setFieldValue(
-                                                    "task_fromdate",
-                                                    "",
-                                                  );
-                                                }
-                                              }}
-                                              disableDayPicker={false}
-                                              plugins={[
-                                                <TimePicker
-                                                  position="right"
-                                                  hideSeconds={true}
-                                                />,
-                                              ]}
-                                              disabled={isStrEndDateDisabled}
-                                              format="DD-MM-YYYY hh:mm A"
-                                              placeholder={`Enter From Date`}
-                                              minDate={new DateObject()}
-                                              inputClass={`form-control font-size-15 rounded-1 ${
-                                                errors.task_fromdate &&
-                                                touched.task_fromdate &&
-                                                "is-invalid input-box-error"
-                                              }`}
-                                            />
-                                          )}
-                                        </Field>
-                                      </div>
-                                      <ErrorMessage
-                                        name="task_fromdate"
-                                        component="div"
-                                        className="field-error text-danger"
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="" style={{ width: "49%" }}>
-                                    <div className="form-group text-start">
-                                      <label
-                                        htmlFor="task_enddate"
-                                        className="mb-1 form_label"
-                                      >
-                                        End Date{" "}
-                                        {!isStrEndDateDisabled && (
-                                          <span className="text-danger">*</span>
-                                        )}
-                                      </label>
-                                      <div>
-                                        <Field name="task_enddate">
-                                          {({ field, form }: any) => (
-                                            <DatePicker
-                                              value={field.value}
-                                              onOpen={() =>
-                                                setMultiSelectKey(
-                                                  (prev) => prev + 1,
-                                                )
-                                              }
-                                              style={{ width: "100%" }}
-                                              onChange={(date: DateObject) => {
-                                                if (date) {
-                                                  form.setFieldValue(
-                                                    "task_enddate",
-                                                    date.format(
-                                                      "DD-MM-YYYY hh:mm A",
-                                                    ),
-                                                  );
-                                                } else {
-                                                  form.setFieldValue(
-                                                    "task_enddate",
-                                                    "",
-                                                  );
-                                                }
-                                              }}
-                                              disableDayPicker={false}
-                                              plugins={[
-                                                <TimePicker
-                                                  position="right"
-                                                  hideSeconds={true}
-                                                />,
-                                              ]}
-                                              disabled={isStrEndDateDisabled}
-                                              minDate={new DateObject()}
-                                              format="DD-MM-YYYY hh:mm A"
-                                              placeholder={`Enter From Date`}
-                                              inputClass={`form-control font-size-15 rounded-1 ${
-                                                errors.task_enddate &&
-                                                touched.task_enddate &&
-                                                "is-invalid input-box-error"
-                                              }`}
-                                            />
-                                          )}
-                                        </Field>
-                                      </div>
-                                      <ErrorMessage
-                                        name="task_enddate"
-                                        component="div"
-                                        className="field-error text-danger"
-                                      />
-                                    </div>
-                                  </div>
+                                  <TaskChecklistSection
+                                    taskId={productToEdit}
+                                    pendingItems={pendingChecklistItems}
+                                    onPendingItemsChange={setPendingChecklistItems}
+                                  />
                                 </div>
                               </div>
                               <div style={{ height: "100%", width: "49%" }}>
@@ -1775,6 +1568,213 @@ const CreateTaskView = ({
                                         })}
                                       </div>
                                     )}
+                                  </div>
+                                </div>
+                                <div className="w-100 mb-3">
+                                  <div className="form-group text-start">
+                                    <label className="pb-2 form_label">
+                                      Task for customer and send notfication via
+                                    </label>
+                                    <div className="d-flex gap-4 flex-wrap">
+                                      {/* WhatsApp Checkbox */}
+                                      <label className="d-flex align-items-center cursor-pointer">
+                                        <Field name="is_notification_sand_wp">
+                                          {({ field, form }: any) => (
+                                            <input
+                                              disabled={
+                                                taskData?.id ? true : false
+                                              }
+                                              type="checkbox"
+                                              checked={field.value === 1} // <-- default false means value=0
+                                              onChange={(e) => {
+                                                form.setFieldValue(
+                                                  "is_notification_sand_wp",
+                                                  e.target.checked ? 1 : 0, // <-- checked => 1, unchecked => 0
+                                                );
+
+                                                setIsTeamListAllowSingle(
+                                                  e.target.checked
+                                                    ? true
+                                                    : false,
+                                                );
+                                                setAssignmentTypeSelectedOption(
+                                                  e.target.checked ? "2" : "1",
+                                                );
+                                              }}
+                                              className="form-check-input"
+                                            />
+                                          )}
+                                        </Field>
+                                        <span className="form_label mb-0 m-1">
+                                          {" "}
+                                          WhatsApp
+                                        </span>
+                                      </label>
+
+                                      {/* Email Checkbox */}
+                                      <label className="d-flex align-items-center cursor-pointer">
+                                        <Field name="is_notification_sand_email">
+                                          {({ field, form }: any) => (
+                                            <input
+                                              disabled={
+                                                taskData?.id ? true : false
+                                              }
+                                              type="checkbox"
+                                              checked={field.value === 1}
+                                              onChange={(e) => {
+                                                form.setFieldValue(
+                                                  "is_notification_sand_email",
+                                                  e.target.checked ? 1 : 0,
+                                                );
+                                                setIsTeamListAllowSingle(
+                                                  e.target.checked
+                                                    ? true
+                                                    : false,
+                                                );
+                                                setAssignmentTypeSelectedOption(
+                                                  e.target.checked ? "2" : "1",
+                                                );
+                                              }}
+                                              className="form-check-input"
+                                            />
+                                          )}
+                                        </Field>
+                                        <span className="form_label mb-0 m-1">
+                                          {" "}
+                                          Email
+                                        </span>
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="w-100 d-flex mb-3">
+                                  <div className="" style={{ width: "49%" }}>
+                                    <div className="form-group text-start">
+                                      <label
+                                        htmlFor="task_fromdate"
+                                        className="mb-1 form_label"
+                                      >
+                                        Start Date{" "}
+                                        {!isStrEndDateDisabled && (
+                                          <span className="text-danger">*</span>
+                                        )}
+                                      </label>
+                                      <div>
+                                        <Field name="task_fromdate">
+                                          {({ field, form }: any) => (
+                                            <DatePicker
+                                              value={field.value}
+                                              onOpen={() =>
+                                                setMultiSelectKey(
+                                                  (prev) => prev + 1,
+                                                )
+                                              }
+                                              style={{ width: "100%" }}
+                                              onChange={(date: DateObject) => {
+                                                if (date) {
+                                                  form.setFieldValue(
+                                                    "task_fromdate",
+                                                    date.format(
+                                                      "DD-MM-YYYY hh:mm A",
+                                                    ),
+                                                  );
+                                                } else {
+                                                  form.setFieldValue(
+                                                    "task_fromdate",
+                                                    "",
+                                                  );
+                                                }
+                                              }}
+                                              disableDayPicker={false}
+                                              plugins={[
+                                                <TimePicker
+                                                  position="right"
+                                                  hideSeconds={true}
+                                                />,
+                                              ]}
+                                              disabled={isStrEndDateDisabled}
+                                              format="DD-MM-YYYY hh:mm A"
+                                              placeholder={`Enter From Date`}
+                                              minDate={new DateObject()}
+                                              inputClass={`form-control font-size-15 rounded-1 ${
+                                                errors.task_fromdate &&
+                                                touched.task_fromdate &&
+                                                "is-invalid input-box-error"
+                                              }`}
+                                            />
+                                          )}
+                                        </Field>
+                                      </div>
+                                      <ErrorMessage
+                                        name="task_fromdate"
+                                        component="div"
+                                        className="field-error text-danger"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="" style={{ width: "49%" }}>
+                                    <div className="form-group text-start">
+                                      <label
+                                        htmlFor="task_enddate"
+                                        className="mb-1 form_label"
+                                      >
+                                        End Date{" "}
+                                        {!isStrEndDateDisabled && (
+                                          <span className="text-danger">*</span>
+                                        )}
+                                      </label>
+                                      <div>
+                                        <Field name="task_enddate">
+                                          {({ field, form }: any) => (
+                                            <DatePicker
+                                              value={field.value}
+                                              onOpen={() =>
+                                                setMultiSelectKey(
+                                                  (prev) => prev + 1,
+                                                )
+                                              }
+                                              style={{ width: "100%" }}
+                                              onChange={(date: DateObject) => {
+                                                if (date) {
+                                                  form.setFieldValue(
+                                                    "task_enddate",
+                                                    date.format(
+                                                      "DD-MM-YYYY hh:mm A",
+                                                    ),
+                                                  );
+                                                } else {
+                                                  form.setFieldValue(
+                                                    "task_enddate",
+                                                    "",
+                                                  );
+                                                }
+                                              }}
+                                              disableDayPicker={false}
+                                              plugins={[
+                                                <TimePicker
+                                                  position="right"
+                                                  hideSeconds={true}
+                                                />,
+                                              ]}
+                                              disabled={isStrEndDateDisabled}
+                                              minDate={new DateObject()}
+                                              format="DD-MM-YYYY hh:mm A"
+                                              placeholder={`Enter From Date`}
+                                              inputClass={`form-control font-size-15 rounded-1 ${
+                                                errors.task_enddate &&
+                                                touched.task_enddate &&
+                                                "is-invalid input-box-error"
+                                              }`}
+                                            />
+                                          )}
+                                        </Field>
+                                      </div>
+                                      <ErrorMessage
+                                        name="task_enddate"
+                                        component="div"
+                                        className="field-error text-danger"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                                 {supportTicketFlag === 0 && (
