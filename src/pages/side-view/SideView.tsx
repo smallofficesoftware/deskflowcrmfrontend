@@ -1091,10 +1091,14 @@ const SideView = ({ profileDetail }: IProp) => {
     // yet, so every canView* check in handleSingleReportShow is false and
     // it silently falls through without opening anything. Wait for it.
     if (!permissions || permissions.length === 0) return;
-    // Only auto-open once per deep-linked slug — don't re-fire and stomp
-    // the user's own filter changes if `permissions` updates again later.
-    if (openedReportSlugRef.current === reportSlug) return;
-    openedReportSlugRef.current = reportSlug;
+    // Only auto-open once per deep-linked slug+query — don't re-fire and
+    // stomp the user's own filter changes if `permissions` updates again
+    // later, but DO re-open when the query string changes on an
+    // already-mounted SideView (slug alone isn't enough — a link with the
+    // same slug but a different ?start=/?team=/etc. must still apply).
+    const deepLinkKey = `${reportSlug}?${searchParams.toString()}`;
+    if (openedReportSlugRef.current === deepLinkKey) return;
+    openedReportSlugRef.current = deepLinkKey;
 
     handleSingleReportShow(reportSlug);
 
@@ -1203,7 +1207,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setReportFilters(reportSlug, overrides);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportSlug, permissions]);
+  }, [reportSlug, permissions, searchParams]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();
