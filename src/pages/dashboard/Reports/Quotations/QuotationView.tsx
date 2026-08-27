@@ -47,6 +47,11 @@ import {
   openPrint,
 } from "./QuotationController";
 
+// Generate Multi Print's pdfme path holds every selected order's PDF
+// parsed in memory at merge time (PDFMerger) - keep this bounded rather
+// than letting a "select all" of hundreds of rows through.
+const MAX_MULTI_PRINT_COUNT = 25;
+
 interface ITeamcartDataReports {
   selectedDates?: DateObject[];
   selectedTeamMembers?: string[] | null;
@@ -151,6 +156,12 @@ const TeamQuotationDataReportsView = ({
   const [pendingPrintCartId, setPendingPrintCartId] = useState<
     number | number[] | null
   >(null);
+  // No print action in this file ever showed a loading state, even for a
+  // single row - harmless when it's one fast request, but multi-print's
+  // server round trip (generate N PDFs + merge) is long enough that
+  // clicking it with no feedback looks broken. Scoped to just this action,
+  // not reusing the table's own `loading` state.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -1338,32 +1349,56 @@ const TeamQuotationDataReportsView = ({
   const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
+    // Generate Multi Print's pdfme path generates each order's PDF
+    // sequentially then holds all of them parsed in memory at merge time
+    // (PDFMerger.add) - fine for a handful, but nothing stops a "select
+    // all" of hundreds of rows otherwise. Cap it before doing any work.
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
     // pdfme now covers any selection size: a single id prints that one
     // order, 2+ ids get merged into one PDF server-side (pdfOrder's
     // dispatcher + PDFMerger) - one print job either way. Only falls
     // through to the legacy comma-joined print when pdfme itself is off.
     const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
-    const pdfmeOn = await isPdfmeEnabledForQuotation();
-    if (pdfmeOn) {
-      const choices = await fetchQuotationPdfmeTemplates();
-      if (choices.length > 1) {
-        setPrintTemplateChoices(choices);
-        setPendingPrintCartId(cartIdOrIds);
-      } else {
-        generateAndPrintQuotationPdf(cartIdOrIds);
+    setIsMultiPrintLoading(true);
+    try {
+      const pdfmeOn = await isPdfmeEnabledForQuotation();
+      if (pdfmeOn) {
+        const choices = await fetchQuotationPdfmeTemplates();
+        if (choices.length > 1) {
+          // Hands off to the "Choose Template" modal - stop showing our own
+          // loading state here, the modal itself is the next feedback.
+          setPrintTemplateChoices(choices);
+          setPendingPrintCartId(cartIdOrIds);
+          return;
+        }
+        await generateAndPrintQuotationPdf(cartIdOrIds);
+        return;
       }
-      return;
-    }
 
-    openPrint(selectedIds.join(","), viewFormate);
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
-  const printWithTemplate = (templateId: number) => {
+  const printWithTemplate = async (templateId: number) => {
     setPrintTemplateChoices([]);
-    if (pendingPrintCartId != null) {
-      generateAndPrintQuotationPdf(pendingPrintCartId, templateId);
-    }
+    const cartIdOrIds = pendingPrintCartId;
     setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintQuotationPdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
   const handleSyncWithMiracle = () => {
@@ -1455,9 +1490,9 @@ const TeamQuotationDataReportsView = ({
 
                   <option
                     value="multiPrint"
-                    disabled={selectedIds.length === 0}
+                    disabled={selectedIds.length === 0 || isMultiPrintLoading}
                   >
-                    Generate Multi Print
+                    {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                   </option>
                 </select>
               )}
@@ -1675,7 +1710,7 @@ const TeamQuotationDataReportsView = ({
                     className="listItem text-start"
                     role="button"
                     onClick={() => {
-                      if (selectedIds.length === 0) return;
+                      if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                       setIsExportDropdownOpen(false);
                       handleMultiPrint();
@@ -1694,12 +1729,12 @@ const TeamQuotationDataReportsView = ({
                       }}
                     >
                       <i
-                        className="pi pi-copy"
+                        className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                         style={{ marginRight: "4px" }}
                       />
 
                       <span style={{ marginRight: "auto" }}>
-                        Generate Multi Print
+                        {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                       </span>
                     </div>
                   </li>
