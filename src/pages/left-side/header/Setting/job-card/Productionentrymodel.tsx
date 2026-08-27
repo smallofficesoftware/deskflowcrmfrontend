@@ -215,6 +215,7 @@ const ProductionEntryModel = ({
           ) : (
             <ProductionEntrySection
               order_item_id={order_item_id}
+              productId={itemDetail?.product_id ?? order_item_id}
               jobId={jobId}
               bomProcesses={bomProcesses}
               orderQty={itemDetail?.order_qty ?? 0}
