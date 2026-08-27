@@ -231,8 +231,12 @@ export const isPdfmeEnabledForDispatch = async (): Promise<boolean> => {
 export const fetchDispatchPdfmeTemplates = () =>
   fetchPdfmeTemplatesForPicker(9);
 
+// cartId accepts a single id (single print) or an array of ids (Generate
+// Multi Print - 2+ selected rows). The backend's pdfOrder dispatcher handles
+// both shapes transparently: single id behaves exactly as before, an array
+// generates each order then returns one merged PDF.
 export const generateAndPrintDispatchPdf = async (
-  cartId: number,
+  cartId: number | number[],
   documentTemplateId?: number,
 ) => {
   try {
