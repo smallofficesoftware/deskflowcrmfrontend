@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { getSocket } from "../services/socketClient";
 
 /**
@@ -6,31 +6,22 @@ import { getSocket } from "../services/socketClient";
  * calling component. Multiple components can listen to the same event
  * (e.g. "task-changed") independently — they share the one underlying
  * socket connection via getSocket().
- *
- * The subscription itself only (re)attaches when `event`/`enabled` change,
- * but `handler` always runs its latest version via a ref — so a handler
- * that closes over props/state (e.g. "only refresh if this payload's id
- * matches the record I'm currently showing") stays correct even when that
- * state changes without the component unmounting.
  */
 const useSocketEvent = <T = unknown>(
   event: string,
   handler: (payload: T) => void,
   enabled: boolean = true,
 ) => {
-  const handlerRef = useRef(handler);
-  handlerRef.current = handler;
-
   useEffect(() => {
     if (!enabled) return;
     const socket = getSocket();
     if (!socket) return;
 
-    const stableHandler = (payload: T) => handlerRef.current(payload);
-    socket.on(event, stableHandler);
+    socket.on(event, handler);
     return () => {
-      socket.off(event, stableHandler);
+      socket.off(event, handler);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event, enabled]);
 };
 
