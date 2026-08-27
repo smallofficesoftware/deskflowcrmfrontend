@@ -79,6 +79,33 @@ const NewModuleSettings = ({
       is_enabled: checked,
     });
   };
+
+  // Same company_feature_flags mechanism as document_designer above -
+  // defaults off for every company (no row = disabled). Gates
+  // socketClient.ts's getSocket() - LeftSideView.tsx checks this once on
+  // load, before any feature (task list, task kanban, chat) could otherwise
+  // open a socket connection.
+  const [socketConnectionEnabled, setSocketConnectionEnabledState] = useState(false);
+  useEffect(() => {
+    if (!companyToEdit?.id) return;
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyToEdit.id,
+        feature_key: "socket_connection",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setSocketConnectionEnabledState(!!data.data.item.is_enabled);
+      });
+  }, [companyToEdit?.id]);
+
+  const handleSocketConnectionToggle = async (checked: boolean) => {
+    setSocketConnectionEnabledState(checked);
+    await axiosInstance.post("set-feature-flag", {
+      company_masters_id: companyToEdit?.id,
+      feature_key: "socket_connection",
+      is_enabled: checked,
+    });
+  };
   const [isContactValidation, setisContactValidation] = useState(
     companyToEdit?.is_contact_validation || 1,
   );
@@ -345,6 +372,18 @@ const NewModuleSettings = ({
                         className="form-check-input"
                         checked={documentDesignerEnabled}
                         onChange={(e) => handleDocumentDesignerToggle(e.target.checked)}
+                      />
+                    </div>
+                    <div className="form-check form-switch">
+                      <label htmlFor="socket_connection_enabled">
+                        Socket Connection (Real-time updates)
+                      </label>
+                      <input
+                        type="checkbox"
+                        id="socket_connection_enabled"
+                        className="form-check-input"
+                        checked={socketConnectionEnabled}
+                        onChange={(e) => handleSocketConnectionToggle(e.target.checked)}
                       />
                     </div>
                     <div className="form-check form-switch">

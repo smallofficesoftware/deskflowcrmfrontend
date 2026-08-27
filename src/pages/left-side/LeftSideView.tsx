@@ -50,6 +50,7 @@ import {
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
 import useSocketEvent from "../../hooks/useSocketEvent";
 import { axiosInstance } from "../../services/axiosInstance";
+import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
@@ -675,6 +676,25 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       })();
     }
   }, [setPermissions, token]);
+
+  // Socket connection is off for every company by default (feature_key:
+  // "socket_connection", same company_feature_flags mechanism as
+  // document_designer/report_builder — no row for this key = disabled).
+  // Checked once here, before any useSocketEvent consumer (task list, task
+  // kanban, chat, etc.) could otherwise call getSocket() and connect.
+  useEffect(() => {
+    const companyId = localStorage.getItem("COMPANY_ID");
+    if (!companyId) return;
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyId,
+        feature_key: "socket_connection",
+      })
+      .then(({ data }) => {
+        setSocketConnectionEnabled(data?.ack === 1 && !!data.data.item.is_enabled);
+      })
+      .catch(() => setSocketConnectionEnabled(false));
+  }, []);
 
   const listInnerRef = useRef<HTMLDivElement>(null);
   const { darkMode, toggleTheme } = useTheme();
