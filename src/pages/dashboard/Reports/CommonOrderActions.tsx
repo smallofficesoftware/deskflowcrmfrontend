@@ -120,6 +120,14 @@ const CommonOrderActions = ({
         { id: number; template_name: string; is_default: number }[]
     >([]);
     const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
+    // Regular (non-pending) row print template picker — same click-time-check
+    // shape as showPendingPrintPicker above, applied to the action-column
+    // "Print" (openPrint below), rolled out one cart type at a time.
+    const [showRegularPrintPicker, setShowRegularPrintPicker] = useState(false);
+    const [regularPrintTemplateChoices, setRegularPrintTemplateChoices] = useState<
+        { id: number; template_name: string; is_default: number }[]
+    >([]);
+    const [regularPrintCartId, setRegularPrintCartId] = useState<number | null>(null);
     const [isPDFSendingToWhatsApp, setIsPDFSendingToWhatsApp] = useState(false);
     const [isConvetIntoOrderConfirmation, setIsConvetIntoOrderConfirmation] =
         useState(false);
@@ -2006,6 +2014,87 @@ const CommonOrderActions = ({
         const baseURL = window.location.origin;
         window.open(`${baseURL}/PendingPrintViewV1/${id}/${type}`, "_blank");
     };
+
+    // Regular (non-pending) row print pdfme routing for the action-column
+    // "Print" button below (OrderActionDropdown's openPrint prop) — same
+    // shape as openPendingPrint above. Same doc-type-per-cart-type mapping
+    // as the backend's PDFME_DOC_TYPE_BY_CART_TYPE (orderServices.js) /
+    // frontend's own copy (orderPrintController.ts) — keep in sync.
+    const REGULAR_PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+        1: "quotation",
+        2: "salesOrder",
+        3: "salesInvoice",
+        4: "purchaseInvoice",
+        5: "purchaseOrder",
+        6: "returnSalesInvoice",
+        7: "returnPurchaseInvoice",
+        8: "inward",
+        9: "dispatch",
+        12: "proformaInvoice",
+    };
+
+    const isRegularPdfmeEnabledForType = async (cartTypeId: number): Promise<boolean> => {
+        if (!REGULAR_PDFME_DOC_TYPE_BY_CART_TYPE[cartTypeId]) return false;
+        const companyMastersId = localStorage.getItem("COMPANY_ID");
+        if (!companyMastersId) return false;
+        try {
+            const { data } = await axiosInstance.post("get-feature-flag", {
+                company_masters_id: companyMastersId,
+                feature_key: "document_designer",
+            });
+            return data?.ack === 1 && !!data.data.item.is_enabled;
+        } catch {
+            return false;
+        }
+    };
+
+    const generateAndPrintRegularPdf = async (cartId: number, documentTemplateId?: number) => {
+        try {
+            const resops = await axiosInstance.post("/order-pdf", {
+                cart_id: cartId,
+                ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+            });
+            if (resops.data.ack !== 1) {
+                toast.error(resops.data.ack_msg);
+                return;
+            }
+            const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            const url = URL.createObjectURL(blob);
+            const pdfWindow = window.open(url, "_blank");
+            if (pdfWindow) {
+                pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        }
+    };
+
+    const printWithRegularTemplate = (templateId: number) => {
+        setShowRegularPrintPicker(false);
+        setRegularPrintTemplateChoices([]);
+        if (regularPrintCartId != null) generateAndPrintRegularPdf(regularPrintCartId, templateId);
+        setRegularPrintCartId(null);
+    };
+
+    const tryRegularPdfmePrint = async (id: number, type: number) => {
+        const pdfmeOn = await isRegularPdfmeEnabledForType(type);
+        if (pdfmeOn) {
+            const choices = await fetchTemplatesForDocType(REGULAR_PDFME_DOC_TYPE_BY_CART_TYPE[type]);
+            if (choices.length > 1) {
+                setRegularPrintTemplateChoices(choices);
+                setRegularPrintCartId(id);
+                setShowRegularPrintPicker(true);
+            } else {
+                generateAndPrintRegularPdf(id);
+            }
+            return;
+        }
+
+        openPrint(id);
+    };
+
     const openShippingAddressPrint = (id: number, type: number) => {
         const baseURL = window.location.origin;
 
@@ -2261,7 +2350,9 @@ const CommonOrderActions = ({
                 item={item}
                 isOrderShowNum={isOrderShowNum}
                 handelChangeEdit={handelChangeEdit}
-                openPrint={openPrint}
+                openPrint={(id: number, type: number) => {
+                    tryRegularPdfmePrint(id, type);
+                }}
                 handleDownload={downloadWithPicker}
                 handleSendWhatsApp={handleSendWhatsApp}
                 handleStartWorkFlow={handleStartWorkFlow}
@@ -2745,6 +2836,39 @@ const CommonOrderActions = ({
                                 <button
                                     className="btn btn-sm btn-outline-primary"
                                     onClick={() => printWithPendingTemplate(t.id)}
+                                >
+                                    Print
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {showRegularPrintPicker && (
+                <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                    <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h5>Choose Template</h5>
+                            <span
+                                className="close"
+                                onClick={() => {
+                                    setShowRegularPrintPicker(false);
+                                    setRegularPrintTemplateChoices([]);
+                                    setRegularPrintCartId(null);
+                                }}
+                            >
+                                &times;
+                            </span>
+                        </div>
+                        {regularPrintTemplateChoices.map((t) => (
+                            <div
+                                key={t.id}
+                                className="d-flex justify-content-between align-items-center border-bottom py-2"
+                            >
+                                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                                <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => printWithRegularTemplate(t.id)}
                                 >
                                     Print
                                 </button>

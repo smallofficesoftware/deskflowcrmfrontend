@@ -5,7 +5,6 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import {
   fetchJobCardDetail,
-  printBomDetail,
   saveJobCard,
   updateJobCard,
 } from "./JobCardController";
@@ -13,6 +12,8 @@ import {
   IBomProcess,
   IContactDetail,
   IItemDetail,
+  JOB_CARD_TYPE,
+  JobCardMode,
   TabId,
 } from "./JobCardTypes";
 import ItemDetailSection from "./sections/ItemDetailSection";
@@ -58,11 +59,13 @@ const JobCardView = ({
   // (customer/order/order-item option LISTS no longer live here — the
   // searchable dropdowns in ItemSelectSection fetch their own options.
   // We only keep the selected ids, which is all downstream code needs.)
+  const [mode, setMode] = useState<JobCardMode>("order");
   const [selectedCustomer, setSelectedCustomer] = useState<number | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
   const [selectedOrderItem, setSelectedOrderItem] = useState<number | null>(
     null,
   );
+  const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
   const [productQty, setProductQty] = useState<string>("");
 
   // ── Detail + BOM data ──
@@ -74,7 +77,7 @@ const JobCardView = ({
 
   // ── Loading / action states ──
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [printing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
@@ -105,49 +108,66 @@ const JobCardView = ({
       });
     } else {
       // ── Create mode: reset selections ──
+      setMode("order");
       setSelectedCustomer(null);
       setSelectedOrder(null);
       setSelectedOrderItem(null);
+      setSelectedProduct(null);
       setProductQty("");
     }
   }, [show]);
 
   // ── Cascade handlers ──
 
-  const handleCustomerChange = (id: number) => {
-    setSelectedCustomer(id);
+  const handleModeChange = (next: JobCardMode) => {
+    setMode(next);
+    setSelectedCustomer(null);
     setSelectedOrder(null);
     setSelectedOrderItem(null);
+    setSelectedProduct(null);
     setProductQty("");
+  };
+
+  const handleCustomerChange = (id: number) => {
+    setSelectedCustomer(id || null);
+    setSelectedOrder(null);
+    setSelectedOrderItem(null);
+    if (mode === "order") setProductQty("");
   };
 
   const handleOrderChange = (id: number) => {
-    setSelectedOrder(id);
+    setSelectedOrder(id || null);
     setSelectedOrderItem(null);
     setProductQty("");
   };
 
-  const handleItemChange = (id: number) => setSelectedOrderItem(id);
+  const handleItemChange = (id: number) => setSelectedOrderItem(id || null);
+
+  const handleProductChange = (id: number) => setSelectedProduct(id || null);
 
   // ── Load job card (save first, then fetch details) ──
 
   const handleLoad = async () => {
-    if (
-      !selectedOrderItem ||
-      !productQty ||
-      !selectedCustomer ||
-      !selectedOrder
-    )
-      return;
+    if (!productQty || Number(productQty) <= 0) return;
+
+    // itemId = cart_item id (order mode) or product id (product/customer mode)
+    const itemId = mode === "order" ? selectedOrderItem : selectedProduct;
+    if (!itemId) return;
+    if (mode === "order" && (!selectedCustomer || !selectedOrder)) return;
+    if (mode === "customer" && !selectedCustomer) return;
 
     const createdId = await saveJobCard(
-      selectedOrderItem,
+      JOB_CARD_TYPE[mode],
+      itemId,
       Number(productQty),
-      selectedCustomer,
-      selectedOrder,
+      mode === "product" ? null : selectedCustomer,
+      mode === "order" ? selectedOrder : null,
       setSaving,
     );
     if (!createdId) return;
+
+    // Job card row now exists — refresh the list behind the modal.
+    onComplete?.();
 
     setJobCardId(createdId);
     const ok = await fetchJobCardDetail(
@@ -172,11 +192,15 @@ const JobCardView = ({
 
   // ── Print BOM ──
 
-  const handlePrintBom = async () => {
-    if (!selectedOrderItem && !editJobCardId) return;
-    setPrinting(true);
-    await printBomDetail(selectedOrderItem ?? editJobCardId!);
-    setPrinting(false);
+  const handlePrintBom = () => {
+    // Opens the printable "Required Material" view for this job card, which
+    // fetches the BOM detail and auto-prints (same route the list view uses).
+    const jcId = jobCardId ?? editJobCardId ?? null;
+    if (!jcId) {
+      toast.warning("Save the job card first.");
+      return;
+    }
+    window.open(`/RequiredMaterialPdfView/${jcId}`, "_blank");
   };
 
   // ── Shortage actions ──
@@ -355,14 +379,18 @@ const JobCardView = ({
           {/* ── SELECT TAB ── */}
           {activeTab === "select" && !isEditMode && (
             <ItemSelectSection
+              mode={mode}
               selectedCustomer={selectedCustomer}
               selectedOrder={selectedOrder}
               selectedOrderItem={selectedOrderItem}
+              selectedProduct={selectedProduct}
               productQty={productQty}
               loadingDetails={saving || loadingDetails}
+              onModeChange={handleModeChange}
               onCustomerChange={handleCustomerChange}
               onOrderChange={handleOrderChange}
               onItemChange={handleItemChange}
+              onProductChange={handleProductChange}
               onProductQtyChange={setProductQty}
               onLoad={handleLoad}
             />

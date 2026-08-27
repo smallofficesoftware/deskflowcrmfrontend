@@ -92,9 +92,6 @@ const OrderPrintViewV1 = () => {
   const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [printTemplateChoices, setPrintTemplateChoices] = useState<
-    { id: number; template_name: string; is_default: number }[]
-  >([]);
   const [isLoadingAfterUpdate, setIsLoadingAfterUpdate] = useState(false);
   const [whatsappConfigDetail, setWhatsappConfigDetail] = useState<number>(0);
 
@@ -761,7 +758,13 @@ const OrderPrintViewV1 = () => {
   // pdfmeFlagChecked distinguishes "confirmed not pdfme" from "still
   // checking" — pdfmeEnabled alone defaults false either way, which used
   // to let the legacy auto-print effect below race ahead of this check.
+  // Reset to false at the top of every run: orderPrintById starts
+  // undefined, so this effect's FIRST run (cart.type undefined) always
+  // takes the early-bail branch and sets pdfmeFlagChecked=true - without
+  // this reset, that premature "checked" would linger true through the
+  // real async check that follows once the cart actually loads.
   useEffect(() => {
+    setPdfmeFlagChecked(false);
     const companyMastersId = companyId || localStorage.getItem("COMPANY_ID");
     if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
       setPdfmeFlagChecked(true);
@@ -782,7 +785,10 @@ const OrderPrintViewV1 = () => {
   // triggers the browser print dialog on THAT — replaces window.print() on
   // this hardcoded DOM for a pdfme-enabled Quotation, so what's on the
   // Designer canvas is what prints, not this component's own layout.
-  const printGeneratedPdf = async (documentTemplateId?: number) => {
+  // autoPrint=false (printFlag/"view" links, e.g. a chat message's "View
+  // Order" link) still opens the real generated PDF but skips triggering
+  // the browser print dialog on it.
+  const printGeneratedPdf = async (documentTemplateId?: number, autoPrint: boolean = true) => {
     const token = MobileToken || localStorage.getItem("token");
     const companyMastersId = companyId || localStorage.getItem("COMPANY_ID");
     try {
@@ -795,40 +801,46 @@ const OrderPrintViewV1 = () => {
       const response = await axios.get(resops.data.data.path, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const pdfWindow = window.open(url, "_blank");
-      if (pdfWindow) {
-        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      if (autoPrint) {
+        const pdfWindow = window.open(url, "_blank");
+        if (pdfWindow) {
+          pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+        }
+      } else {
+        // View-only (printFlag) - navigate the current tab instead of
+        // window.open(): this fires after an async network round trip, well
+        // outside the link click's user-gesture window, so browsers reliably
+        // popup-block a new window/tab here. Navigating in place isn't
+        // blocked and view mode never needed the separate window anyway.
+        window.location.href = url;
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  const printWithTemplate = (templateId: number) => {
-    setPrintTemplateChoices([]);
-    printGeneratedPdf(templateId);
-  };
-
   // pdfme path: fires as soon as the flag is confirmed true — no reason to
   // wait for the legacy timer, since we're not printing this component's
-  // own DOM at all. Same shape as ListOrderView.tsx's downloadWithPicker.
+  // own DOM at all. Always uses the default template directly — no picker,
+  // even when 2+ templates are published (per-request: this legacy landing
+  // page should never block on a template choice for Print). Fires for
+  // printFlag ("view") requests too now, just without auto-printing - a
+  // pdfme-enabled cart should show the real document even in view mode,
+  // not the stale hardcoded layout below.
   useEffect(() => {
-    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened && !printFlag) {
-      (async () => {
-        setPrintDialogOpened(true);
-        const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
-        if (choices.length > 1) {
-          setPrintTemplateChoices(choices);
-        } else {
-          printGeneratedPdf();
-        }
-      })();
+    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened) {
+      setPrintDialogOpened(true);
+      printGeneratedPdf(undefined, !printFlag);
     }
   }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
 
   // Legacy path: only for a confirmed-non-pdfme cart — gated on
   // pdfmeFlagChecked so this can't race ahead of the flag check above and
   // fire window.print() before pdfmeEnabled has actually been determined.
+  // The timer is captured and cleared on cleanup - without this, a timer
+  // armed while pdfmeEnabled was still false would still fire 2s later
+  // even after pdfmeEnabled flips true and the pdfme effect already
+  // printed, causing a double print.
   useEffect(() => {
     if (
       !isOrderLoading &&
@@ -841,10 +853,11 @@ const OrderPrintViewV1 = () => {
       pdfmeFlagChecked &&
       !pdfmeEnabled
     ) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setPrintDialogOpened(true);
         window.print();
       }, 2000);
+      return () => clearTimeout(timer);
     }
   }, [
     isOrderLoading,
@@ -4465,35 +4478,6 @@ const OrderPrintViewV1 = () => {
                         onClick={() => downloadWithTemplate(t.id)}
                       >
                         Download
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {printTemplateChoices.length > 0 && (
-              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h5>Choose Template</h5>
-                    <span
-                      className="close"
-                      onClick={() => setPrintTemplateChoices([])}
-                    >
-                      &times;
-                    </span>
-                  </div>
-                  {printTemplateChoices.map((t) => (
-                    <div
-                      key={t.id}
-                      className="d-flex justify-content-between align-items-center border-bottom py-2"
-                    >
-                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => printWithTemplate(t.id)}
-                      >
-                        Print
                       </button>
                     </div>
                   ))}

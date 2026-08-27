@@ -4,14 +4,7 @@ import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import {
-  DataTable,
-  type DataTableFilterEvent,
-  type DataTableFilterMeta,
-  type DataTablePageEvent,
-  type DataTableSortEvent,
-  type SortOrder,
-} from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +13,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
@@ -40,15 +34,6 @@ const GROUPS = [
   { label: "External Status", key: "external" as const },
 ];
 
-interface LazyTableState {
-  first: number;
-  rows: number;
-  page: number;
-  sortField?: string | null;
-  sortOrder?: SortOrder | null;
-  filters: DataTableFilterMeta;
-}
-
 interface IPropStageStatusWiseReports {
   selectedDates?: Date[];
   MobileToken?: string;
@@ -59,19 +44,6 @@ interface IPropStageStatusWiseReports {
   globalSearch?: string;
   onHide?: () => void;
 }
-
-const getNestedValue = (obj: any, path: string): any => {
-  try {
-    return (
-      path.split(".").reduce((acc, part) => {
-        if (acc == null) return undefined;
-        return acc[part];
-      }, obj) ?? ""
-    );
-  } catch {
-    return "";
-  }
-};
 
 const StatusWiseReport = ({
   selectedDates,
@@ -84,15 +56,6 @@ const StatusWiseReport = ({
   onHide,
 }: IPropStageStatusWiseReports) => {
   const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [customers, setCustomers] = useState<IStatusReport[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
-  const [selectedCustomers, setSelectedCustomers] = useState<IStatusReport[]>(
-    [],
-  );
-
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -113,7 +76,6 @@ const StatusWiseReport = ({
   const [error, setError] = useState<string | null>(null);
 
   const dt = useRef<DataTable<IStatusReport[]>>(null);
-  const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClickOutside = (event: MouseEvent) => {
     if (
@@ -258,177 +220,10 @@ const StatusWiseReport = ({
     }
   };
 
-  const [lazyState, setLazyState] = useState<LazyTableState>({
-    first: 0,
-    rows: 49,
-    page: 0,
-    sortField: null,
-    sortOrder: null,
-    filters: {
-      person_name: { value: null, matchMode: "contains" },
-      mobile_number: { value: null, matchMode: "contains" },
-      lable_name: { value: null, matchMode: "contains" },
-      status_name: { value: null, matchMode: "contains" },
-      contactCount: { value: null, matchMode: "contains" },
-      inquiryCount: { value: null, matchMode: "contains" },
-    },
-  });
-
-  useEffect(() => {
-    if (isPaginationCall.current) {
-      isPaginationCall.current = false;
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-
-        await fetchStatus(
-          (data) => {
-            if (isMounted) setStatusWiseReport(data);
-          },
-          filters.selectedDateArray,
-          MobileToken,
-          getID,
-          MobileFlag,
-          filters.checkedOptionsStageStatus,
-          filters.checkedOptionsUser,
-          0,
-          50,
-          debouncedSearchText,
-        );
-      } catch (err: any) {
-        if (isMounted) {
-          setError(err?.message || "Failed to fetch data");
-          setStatusWiseReport(null);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
-  }, [
-    filters.selectedDateArray,
-    filters.checkedOptionsStageStatus,
-    filters.checkedOptionsUser,
-    debouncedSearchText,
-  ]);
-
-  const handleRefresh = async () => {
+  // Load every status row (the master list is small — request a high limit
+  // rather than a hard 50 cap) and let each section grid sort/paginate itself.
+  const loadStatus = async () => {
     setLoading(true);
-    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-    await fetchStatus(
-      (data) => {
-        setStatusWiseReport(data);
-      },
-      filters.selectedDateArray,
-      MobileToken,
-      getID,
-      MobileFlag,
-      filters.checkedOptionsStageStatus,
-      filters.checkedOptionsUser,
-      0,
-      50,
-      debouncedSearchText,
-    );
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadLazyData();
-    return () => {
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
-  }, [lazyState, statusWiseReport]);
-
-  // ── flat array from statusWiseReport object ───────────────────────────────
-  const getFilteredData = () => {
-    const flat: IStatusReport[] = [
-      ...(statusWiseReport?.internal?.support_ticket || []),
-      ...(statusWiseReport?.external?.support_ticket || []),
-      ...(statusWiseReport?.internal?.normal_task || []),
-      ...(statusWiseReport?.external?.normal_task || []),
-    ];
-    let filteredData = [...flat];
-
-    Object.entries(lazyState.filters).forEach(([field, meta]) => {
-      if ("value" in meta && meta.value !== null && meta.value !== "") {
-        const filterValue = meta.value.toString().toLowerCase();
-        const matchMode = meta.matchMode;
-        filteredData = filteredData.filter((item) => {
-          const fieldValue = getNestedValue(item, field);
-          if (fieldValue === undefined || fieldValue === null) return false;
-          const fieldStr = fieldValue.toString().toLowerCase();
-          switch (matchMode) {
-            case "contains":
-              return fieldStr.includes(filterValue);
-            case "notContains":
-              return !fieldStr.includes(filterValue);
-            case "startsWith":
-              return fieldStr.startsWith(filterValue);
-            case "endsWith":
-              return fieldStr.endsWith(filterValue);
-            case "equals":
-              return fieldStr === filterValue;
-            case "notEquals":
-              return fieldStr !== filterValue;
-            default:
-              return true;
-          }
-        });
-      }
-    });
-
-    if (lazyState.sortField) {
-      filteredData.sort((a, b) => {
-        const aValue = getNestedValue(a, lazyState.sortField!);
-        const bValue = getNestedValue(b, lazyState.sortField!);
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      });
-      if (lazyState.sortOrder === -1) filteredData.reverse();
-    }
-    return filteredData;
-  };
-
-  const loadLazyData = () => {
-    setLoading(true);
-    if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    networkTimeout.current = setTimeout(() => {
-      const filteredData = getFilteredData();
-      const start = lazyState.first;
-      const end = start + lazyState.rows;
-      setCustomers(filteredData.slice(start, end));
-      setTotalRecords(filteredData.length);
-      setLoading(false);
-    }, 250);
-  };
-
-  const onPage = async (event: DataTablePageEvent) => {
-    const currentPage = event.page ?? 0;
-    const ul = currentPage * 50;
-    const ll = 50;
-
-    isPaginationCall.current = true;
-    setLazyState((prev) => ({
-      ...prev,
-      first: event.first,
-      rows: event.rows,
-      page: currentPage,
-    }));
-    setLoading(true);
-
     try {
       await fetchStatus(
         (data) => setStatusWiseReport(data),
@@ -438,48 +233,54 @@ const StatusWiseReport = ({
         MobileFlag,
         filters.checkedOptionsStageStatus,
         filters.checkedOptionsUser,
-        ul,
-        ll,
+        0,
+        100000,
         debouncedSearchText,
       );
-    } catch (err) {
-      console.error("Error fetching paginated data:", err);
+    } catch (err: any) {
+      console.error("Error loading status report:", err);
+      setError(err?.message || "Failed to fetch data");
+      setStatusWiseReport(null);
     } finally {
       setLoading(false);
-      setTimeout(() => {
-        isPaginationCall.current = false;
-      }, 100);
     }
   };
 
-  const onSort = (event: DataTableSortEvent) => {
-    setLazyState((prev) => ({
-      ...prev,
-      sortField: event.sortField,
-      sortOrder: event.sortOrder as SortOrder,
-    }));
+  useEffect(() => {
+    loadStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filters.selectedDateArray,
+    filters.checkedOptionsStageStatus,
+    filters.checkedOptionsUser,
+    debouncedSearchText,
+  ]);
+
+  const handleRefresh = () => {
+    loadStatus();
   };
 
-  const onFilter = (event: DataTableFilterEvent) => {
-    setLazyState((prev) => ({ ...prev, first: 0, filters: event.filters }));
-  };
-
-  const onSelectionChange = (event: { value: IStatusReport[] }) => {
-    const value = event.value;
-    setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
-  };
-
-  const onSelectAllChange = (event: { checked: boolean }) => {
-    if (event.checked) {
-      const filteredData = getFilteredData();
-      setSelectAll(true);
-      setSelectedCustomers([...filteredData]);
-    } else {
-      setSelectAll(false);
-      setSelectedCustomers([]);
-    }
-  };
+  // ── merged rows per group (status name -> support-ticket + task counts) ────
+  // Memoised so PrimeReact's per-table sort stays stable across renders.
+  const groupRows = useMemo(() => {
+    const build = (key: "internal" | "external") => {
+      const stMap = new Map<string, number>();
+      const tkMap = new Map<string, number>();
+      (statusWiseReport?.[key]?.support_ticket || []).forEach((i) =>
+        stMap.set(i.name, i.count ?? 0),
+      );
+      (statusWiseReport?.[key]?.normal_task || []).forEach((i) =>
+        tkMap.set(i.name, i.count ?? 0),
+      );
+      const allNames = [...new Set([...stMap.keys(), ...tkMap.keys()])];
+      return allNames.map((name) => ({
+        name,
+        support_ticket: stMap.get(name) ?? 0,
+        task: tkMap.get(name) ?? 0,
+      }));
+    };
+    return { internal: build("internal"), external: build("external") };
+  }, [statusWiseReport]);
 
   // ── export helpers ────────────────────────────────────────────────────────
   const getExportRows = () =>
@@ -860,6 +661,13 @@ const StatusWiseReport = ({
         </div>
       </div>
 
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
+
       {/* ── 2 section tables ───────────────────────────────────────────────── */}
       <div
         className="report_card"
@@ -871,21 +679,7 @@ const StatusWiseReport = ({
         }}
       >
         {GROUPS.map(({ label, key }) => {
-          // merge by status name
-          const stMap = new Map<string, number>();
-          const tkMap = new Map<string, number>();
-          (statusWiseReport?.[key]?.support_ticket || []).forEach((i) =>
-            stMap.set(i.name, i.count ?? 0),
-          );
-          (statusWiseReport?.[key]?.normal_task || []).forEach((i) =>
-            tkMap.set(i.name, i.count ?? 0),
-          );
-          const allNames = [...new Set([...stMap.keys(), ...tkMap.keys()])];
-          const rows = allNames.map((name) => ({
-            name,
-            support_ticket: stMap.get(name) ?? 0,
-            task: tkMap.get(name) ?? 0,
-          }));
+          const rows = groupRows[key];
 
           return (
             <div key={key}>
@@ -900,6 +694,7 @@ const StatusWiseReport = ({
               </h5>
               <DataTable
                 value={rows}
+                dataKey="name"
                 loading={loading}
                 emptyMessage="No data found"
                 scrollable
@@ -907,6 +702,11 @@ const StatusWiseReport = ({
                 columnResizeMode="fit"
                 scrollHeight="300px"
                 size="small"
+                removableSort
+                sortMode="single"
+                paginator={rows.length > 25}
+                rows={25}
+                rowsPerPageOptions={[25, 50, 100]}
                 tableStyle={{ minWidth: "400px" }}
               >
                 {visibleColumns.map((col) => (

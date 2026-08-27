@@ -15,8 +15,9 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { MultiValue } from "react-select";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { formatDateYMDV2 } from "../../common/SharedFunction";
 import DateTimeRangePicker from "../../components/DateTimeRangePicker";
-import ReportModal from "../../components/model/ReportsModel";
 import MultiSelect, { Option } from "../../components/MultiSelect";
 import { useTheme } from "../../components/ThemeContext";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../helpers/AppConstants";
@@ -99,8 +100,7 @@ const DashboardView = ({
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
   const [title, setTitle] = useState<ITitle[]>([]);
   const [optionSelected, setOptionSelected] = useState<Option[] | null>(null);
-  const [isReportShow, setIsReportShow] = useState(false);
-  const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
   const [quationCount, setQuationCount] = useState<ITitle[]>([]);
   const [teamMemberList, setTeamMemberList] = useState<TeamMember[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<OptionType[]>([]);
@@ -408,68 +408,64 @@ const DashboardView = ({
 
   const datePickerRef = useRef<any>(null);
 
+  // Deep-links into /SideView/report/:slug (replaces the old ReportsModel
+  // popup) carrying the dashboard's current date range + team filter so the
+  // report opens pre-scoped to what the tile showed.
+  const navigateToReport = (slug: string) => {
+    const params = new URLSearchParams();
+    if (selectedDates && selectedDates.length === 2) {
+      params.set("start", formatDateYMDV2(selectedDates[0]));
+      params.set("end", formatDateYMDV2(selectedDates[1]));
+    }
+    if (selectedTeamMemberValues.length) {
+      params.set("team", selectedTeamMemberValues.join(","));
+    }
+    const qs = params.toString();
+    navigate(`/SideView/report/${slug}${qs ? `?${qs}` : ""}`);
+  };
+
   const handelChangeShowModelReport = (name: string) => {
     if (canViewContact && name === "all_contact_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewInquiry && name === "all_inquiry_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewAllReminder && name === "all_reminder_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewVisitReport && name === "all_visit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewCallReport && name === "all_call_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewProductInventory && name === "product_inventory") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewQuotation && name === "quotation") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrder && name === "order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrderInvoice && name === "order_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseInvoice && name === "purchase_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseOrder && name === "purchase_order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (
       canViewReturnPurchaseInvoice &&
       name === "return_purchase_invoice"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewReturnSalesInvoice && name === "inward_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewInward && name === "inward") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewDispath && name === "dispatch_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewSupportTicket && name === "support_ticket_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewTask && name === "alltask_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewAllReminder && name === "allreminder_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else {
-      setIsReportShow(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      setReportName(name);
     }
   };
 
@@ -1268,20 +1264,6 @@ const DashboardView = ({
                       </Col>
                     </Row>
                   </>
-                )}
-                {isReportShow && (
-                  <ReportModal
-                    show={isReportShow}
-                    onHide={() => setIsReportShow(false)}
-                    handleSubmit={() => setIsReportShow(false)}
-                    titles={"Create"}
-                    message={"Please Enter Your Order Details"}
-                    btn1={"CANCEL"}
-                    btn2={"Approve"}
-                    reportName={reportName}
-                    date={selectedDates}
-                    selectedTeamMembers={selectedTeamMemberValues}
-                  />
                 )}
               </Container>
             </div>

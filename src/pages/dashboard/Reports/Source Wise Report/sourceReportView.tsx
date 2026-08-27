@@ -20,6 +20,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import {
@@ -30,7 +31,6 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
   exportAllSourceWiseData,
-  fetchSource,
   fetchSourceWiseForExport,
   ISourceReport,
 } from "./sourceReportController";
@@ -80,14 +80,10 @@ const AllSourceReport = ({
 }: IPropsourceReportReports) => {
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [customers, setCustomers] = useState<ISourceReport[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<ISourceReport[]>(
     [],
   );
-
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -199,7 +195,7 @@ const AllSourceReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 0,
     sortField: null,
     sortOrder: null,
@@ -213,29 +209,39 @@ const AllSourceReport = ({
   const [error, setError] = useState<string | null>(null);
 
   const dt = useRef<DataTable<ISourceReport[]>>(null);
-  const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The source list is a small master table — load every row in one shot
+  // (paged internally at 50) and let the grid do sorting/filtering client-side.
+  const loadAllSources = async () => {
+    setLoading(true);
+    try {
+      const all = await exportAllSourceWiseData(
+        (offset, limit) =>
+          fetchSourceWiseForExport(
+            filters.selectedDateArray,
+            MobileToken,
+            getID,
+            MobileFlag,
+            filters.checkedSourceTypes,
+            filters.checkedOptionsUser,
+            debouncedSearchText,
+            offset,
+            limit,
+          ),
+        50,
+      );
+      setSourceReport(all);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    } catch (e) {
+      console.error("Error loading source report:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (isPaginationCall.current) {
-      isPaginationCall.current = false;
-      return;
-    }
-    setLoading(true);
-    setApiParams({ ul: 0, ll: 50 });
-    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-
-    fetchSource(
-      setSourceReport,
-      filters.selectedDateArray,
-      MobileToken,
-      getID,
-      MobileFlag,
-      filters.checkedSourceTypes,
-      filters.checkedOptionsUser,
-      0,
-      50,
-      debouncedSearchText,
-    );
+    loadAllSources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -243,39 +249,27 @@ const AllSourceReport = ({
     debouncedSearchText,
   ]);
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    setApiParams({ ul: 0, ll: 50 });
-    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-    fetchSource(
-      setSourceReport,
-      filters.selectedDateArray,
-      MobileToken,
-      getID,
-      MobileFlag,
-      filters.checkedSourceTypes,
-      filters.checkedOptionsUser,
-      0,
-      50,
-      debouncedSearchText,
-    );
+  const handleRefresh = () => {
+    loadAllSources();
   };
 
-  const dataArray: ISourceReport[] = sourceReport
-    ? sourceReport.map((item) => ({
+  // Keep counts numeric so the grid sorts them as numbers, not strings.
+  const dataArray = useMemo<ISourceReport[]>(
+    () =>
+      (sourceReport ?? []).map((item) => ({
         source_name: item.source_name || "-",
-        contactCount: item.contactCount || "-",
-        inquiryCount: item.inquiryCount || "-",
-      }))
-    : [];
+        contactCount: Number(item.contactCount ?? 0),
+        inquiryCount: Number(item.inquiryCount ?? 0),
+      })),
+    [sourceReport],
+  );
 
   useEffect(() => {
-    loadLazyData();
-    return () => {
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
-  }, [lazyState, sourceReport]);
+    setTotalRecords(dataArray.length);
+  }, [dataArray]);
 
+  // Client filter + sort — used by the export/print paths so they match
+  // whatever sort/filter is currently applied on screen.
   const getFilteredData = () => {
     let filteredData = [...dataArray];
 
@@ -311,12 +305,14 @@ const AllSourceReport = ({
     });
 
     if (lazyState.sortField) {
+      const field = lazyState.sortField;
       filteredData.sort((a, b) => {
-        const aValue = getNestedValue(a, lazyState.sortField!);
-        const bValue = getNestedValue(b, lazyState.sortField!);
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        const aValue = getNestedValue(a, field);
+        const bValue = getNestedValue(b, field);
+        const aNum = Number(aValue);
+        const bNum = Number(bValue);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return String(aValue).localeCompare(String(bValue));
       });
       if (lazyState.sortOrder === -1) filteredData.reverse();
     }
@@ -324,63 +320,11 @@ const AllSourceReport = ({
     return filteredData;
   };
 
-  const loadLazyData = () => {
-    setLoading(true);
-    if (networkTimeout.current) clearTimeout(networkTimeout.current);
-
-    networkTimeout.current = setTimeout(() => {
-      const filteredData = getFilteredData();
-      const start = lazyState.first;
-      const end = start + lazyState.rows;
-      setCustomers(filteredData.slice(start, end));
-      setTotalRecords(filteredData.length);
-      setLoading(false);
-    }, 250);
-  };
-
-  const onPage = async (event: DataTablePageEvent) => {
-    const currentPage = event.page ?? 0;
-    const ll = (currentPage + 1) * 50;
-    const ul = 50;
-
-    isPaginationCall.current = true;
-
-    setLazyState((prev) => ({
-      ...prev,
-      first: event.first,
-      rows: event.rows,
-      page: currentPage,
-    }));
-
-    setApiParams({ ul, ll });
-    setLoading(true);
-
-    try {
-      await fetchSource(
-        setSourceReport,
-        filters.selectedDateArray,
-        MobileToken,
-        getID,
-        MobileFlag,
-        filters.checkedSourceTypes,
-        filters.checkedOptionsUser,
-        ul,
-        ll,
-        debouncedSearchText,
-      );
-    } catch (err) {
-      console.error("Error fetching paginated source data:", err);
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        isPaginationCall.current = false;
-      }, 100);
-    }
-  };
-
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
+      first: 0,
+      page: 0,
       sortField: event.sortField,
       sortOrder: event.sortOrder as SortOrder,
     }));
@@ -390,7 +334,17 @@ const AllSourceReport = ({
     setLazyState((prev) => ({
       ...prev,
       first: 0,
+      page: 0,
       filters: event.filters,
+    }));
+  };
+
+  const onPage = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
     }));
   };
 
@@ -800,7 +754,7 @@ const AllSourceReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canShare
                       ? exportExcel()
@@ -820,7 +774,7 @@ const AllSourceReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canShare
                       ? exportPdf()
@@ -840,7 +794,7 @@ const AllSourceReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canPrint
                       ? printTable()
@@ -880,6 +834,13 @@ const AllSourceReport = ({
         {/* )} */}
       </div>
 
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
+
       <div
         className="report_card"
         style={{ height: "90vh", display: "flex", flexDirection: "column" }}
@@ -892,12 +853,14 @@ const AllSourceReport = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="65vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-          }}
+          paginator
+          rows={lazyState.rows}
+          first={lazyState.first}
+          onPage={onPage}
+          rowsPerPageOptions={[25, 50, 100, 200]}
+          removableSort
           filterDisplay="row"
           dataKey="source_name"
-          totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}

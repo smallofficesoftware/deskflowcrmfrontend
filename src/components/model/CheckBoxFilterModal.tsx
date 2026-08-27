@@ -770,8 +770,132 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     const appliedSeriesValues = checkedOptionsSeries
       .map((id) => id)
       .filter(Boolean);
+
+    // Display-ready summary of everything applied — the report page renders this
+    // via <AppliedFilterBar> so the user can see active filters without reopening
+    // this modal. Only groups enabled by `filtersToShow` are included.
+    const namesFrom = (
+      ids: any[],
+      list: any[],
+      nameKey: string,
+      idKey: string = "id",
+    ): string[] =>
+      (ids || [])
+        .map((id) => {
+          const hit = (Array.isArray(list) ? list : []).find(
+            (o: any) => String(o?.[idKey]) === String(id),
+          );
+          return hit?.[nameKey];
+        })
+        .filter((x: any): x is string => Boolean(x));
+
+    const appliedFilterSummary: {
+      key: string;
+      label: string;
+      values: string[];
+    }[] = [];
+    const pushChip = (key: string, label: string, values: any[]) => {
+      const clean = (values || []).filter(
+        (x: any): x is string => Boolean(x),
+      );
+      if (clean.length) appliedFilterSummary.push({ key, label, values: clean });
+    };
+    const showGroup = (n: number) => filtersToShow.includes(n);
+
+    if (showGroup(2))
+      pushChip("label", "Label", namesFrom(checkedOptions, labelLists, "lable_name"));
+    if (showGroup(3))
+      pushChip(
+        "sourceType",
+        "Source Type",
+        namesFrom(checkedOptionsSourceType, sourceOfTypesLists, "source_name"),
+      );
+    if (showGroup(4))
+      pushChip(
+        "stageStatus",
+        "Stage & Status",
+        namesFrom(checkedOptionsStageStatus, stageStatusList, "name"),
+      );
+    if (showGroup(5))
+      pushChip(
+        "team",
+        "Team Member",
+        namesFrom(checkedOptionsUser, optionJoinCompany, "username"),
+      );
+    if (showGroup(9)) {
+      pushChip(
+        "assignedBy",
+        "Assigned By",
+        namesFrom(assignedByMultiTeamMember, optionJoinCompany, "username"),
+      );
+      pushChip(
+        "createdBy",
+        "Created By",
+        namesFrom(createdByMultiTeamMember, optionJoinCompany, "username"),
+      );
+    }
+    if (showGroup(11))
+      pushChip(
+        "taskType",
+        "Task Type",
+        namesFrom(checkedOptionsTaskType || [], taskTypeList, "type_name"),
+      );
+    if (showGroup(15))
+      pushChip("series", "Series", namesFrom(checkedOptionsSeries, seriesList, "name"));
+    if (showGroup(22))
+      pushChip("gst", "GST", namesFrom(checkedGstOptions, gstOptions, "name"));
+    if (showGroup(24) && checkedTrasactionMode)
+      pushChip(
+        "transactionMode",
+        "Transaction Mode",
+        namesFrom([checkedTrasactionMode], trasactionModeOptions, "name"),
+      );
+    if (showGroup(25) && checkedPaymentType)
+      pushChip(
+        "paymentType",
+        "Payment Type",
+        namesFrom([checkedPaymentType], paymentTypaOptions, "name"),
+      );
+    if (showGroup(26))
+      pushChip(
+        "paymentBy",
+        "Payment By",
+        namesFrom(checkedOptionsPaymentBy, paymentByList, "payment_type_name"),
+      );
+    if (showGroup(27))
+      pushChip(
+        "expenseType",
+        "Expense Type",
+        namesFrom(checkedOptionsExpenseType, expenseOfTypesLists, "expense_name"),
+      );
+    if (showGroup(28))
+      pushChip(
+        "expenseStatus",
+        "Expense Status",
+        namesFrom(checkedOptionsExpenseStatus, expenseStatusOptions, "name"),
+      );
+    if (showGroup(6)) {
+      const demo = [
+        selectedCountryId?.label,
+        selectedStateId?.label,
+        selectedCityId?.label,
+        selectedAreaId?.label,
+      ].filter(Boolean);
+      pushChip("demography", "Demography", demo);
+    }
+    if (selectedActiveId?.label)
+      pushChip("active", "Status", [selectedActiveId.label]);
+    if (selectedCategoryId?.label)
+      pushChip("category", "Category", [selectedCategoryId.label]);
+    if (selectedProductId?.label || selectedProductSearchId?.label)
+      pushChip("product", "Product", [
+        selectedProductId?.label || selectedProductSearchId?.label,
+      ]);
+    if (selectedDays) pushChip("days", "Days", [String(selectedDays)]);
+
     handleSubmit({
       filterData,
+      appliedFilterSummary,
       checkedOptionsLabel: appliedLabelValues ?? [],
       checkedOptionsSourceType: appliedSourceTypeValues ?? [],
       checkedOptionsExpenseType: appliedExpenseTypeValues ?? [],
@@ -856,6 +980,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setLeadAgingActivityTypes([]);
     handleSubmit({
       filterData: null,
+      appliedFilterSummary: [],
       checkedOptionsLabel: [],
       checkedOptionsSourceType: [],
       checkedOptionsExpenseType: [],

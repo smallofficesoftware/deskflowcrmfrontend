@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -87,6 +87,8 @@ const DraggableWidget = ({
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { slug: reportSlug } = useParams<{ slug?: string }>();
+  const openedReportSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     const UUID = localStorage.getItem("UUID");
@@ -158,6 +160,7 @@ const SideView = ({ profileDetail }: IProp) => {
     setShowRightSide,
     setCheckToken,
     companyData,
+    permissions,
     setPermissions,
     showAttendancePopup,
     setShowAttendancePopup,
@@ -1073,6 +1076,121 @@ const SideView = ({ profileDetail }: IProp) => {
     toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     return;
   };
+
+  // ── URL-driven report open ──────────────────────────────────────────────
+  // /SideView/report/:slug?start=&end=&team=&status=&source=&label=
+  // Lets dashboards / insight tiles deep-link straight into a report instead
+  // of opening the old ReportsModel popup. :slug is the same value used as
+  // `name` in handleSingleReportShow / reportsMenuData's subMenu.value.
+  // Query-param overrides are merged on top of handleSingleReportShow's own
+  // default-current-month seeding.
+  useEffect(() => {
+    if (!reportSlug) return;
+    // On a fresh page load (direct URL, not an in-app click) `permissions`
+    // is still [] — the onLoad API call that populates it hasn't resolved
+    // yet, so every canView* check in handleSingleReportShow is false and
+    // it silently falls through without opening anything. Wait for it.
+    if (!permissions || permissions.length === 0) return;
+    // Only auto-open once per deep-linked slug — don't re-fire and stomp
+    // the user's own filter changes if `permissions` updates again later.
+    if (openedReportSlugRef.current === reportSlug) return;
+    openedReportSlugRef.current = reportSlug;
+
+    handleSingleReportShow(reportSlug);
+
+    const overrides: Record<string, any> = {};
+
+    const start = searchParams.get("start");
+    const end = searchParams.get("end");
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      overrides.selectedDateArray = [startDate, endDate];
+      overrides.startSearchDate = startDate;
+      overrides.endSearchDate = endDate;
+    }
+
+    // Every checkbox group in CheckBoxFilterModal compares ids with strict
+    // equality (`option.id === checkedX[i]`) and option.id is always a
+    // number — so these MUST be parsed as numbers, not left as the raw URL
+    // strings, or nothing shows as checked / filtered.
+    const parseIds = (v: string | null): number[] =>
+      (v ?? "")
+        .split(",")
+        .map((id) => Number(id.trim()))
+        .filter((id) => !isNaN(id));
+
+    // AppliedFilterBar (the chip row every report renders) doesn't read the
+    // raw id arrays below — it reads `appliedFilterSummary`, which is
+    // normally built by CheckBoxFilterModal.buildAppliedSummary() on a
+    // manual Apply click. This deep-link path bypasses that modal entirely,
+    // so build the same shape here (id-based labels — we don't have the
+    // name lookups this component would need to show real names) or the bar
+    // silently shows nothing for team/status/source/label even though the
+    // underlying filter data below is set correctly.
+    const summaryChips: { key: string; label: string; values: string[] }[] = [];
+
+    // "Team" isn't one field across reports — filtersToShow group 5 ("Team
+    // Member") reads checkedOptionsUser, group 9 ("Multi team Member") reads
+    // assignedByMultiTeamMember/createdByMultiTeamMember separately. Set all
+    // three from the same ?team= so it works regardless of which group(s)
+    // the target report actually shows; reports that read none of the extra
+    // fields just ignore them.
+    const team = searchParams.get("team");
+    if (team) {
+      const teamIds = parseIds(team);
+      overrides.checkedOptionsUser = teamIds;
+      overrides.assignedByMultiTeamMember = teamIds;
+      overrides.createdByMultiTeamMember = teamIds;
+      summaryChips.push({
+        key: "team",
+        label: "Team Member",
+        values: teamIds.map(String),
+      });
+    }
+
+    const status = searchParams.get("status");
+    if (status) {
+      const statusIds = parseIds(status);
+      overrides.checkedOptionsStageStatus = statusIds;
+      summaryChips.push({
+        key: "status",
+        label: "Stage & Status",
+        values: statusIds.map(String),
+      });
+    }
+
+    const source = searchParams.get("source");
+    if (source) {
+      const sourceIds = parseIds(source);
+      overrides.checkedSourceTypes = sourceIds;
+      summaryChips.push({
+        key: "source",
+        label: "Source Type",
+        values: sourceIds.map(String),
+      });
+    }
+
+    const label = searchParams.get("label");
+    if (label) {
+      const labelIds = parseIds(label);
+      overrides.checkedOptions = labelIds;
+      summaryChips.push({
+        key: "label",
+        label: "Label",
+        values: labelIds.map(String),
+      });
+    }
+
+    if (summaryChips.length) {
+      overrides.appliedFilterSummary = summaryChips;
+    }
+
+    if (Object.keys(overrides).length) {
+      setReportFilters(reportSlug, overrides);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportSlug, permissions]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();

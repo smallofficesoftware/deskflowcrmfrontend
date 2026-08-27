@@ -5,8 +5,8 @@ import { axiosInstance } from "../../../../services/axiosInstance";
 
 export interface ISourceReport {
   source_name: string;
-  contactCount: string;
-  inquiryCount: string;
+  contactCount: number | string;
+  inquiryCount: number | string;
 }
 export const fetchSource = async (
   setSourceReport: TReactSetState<ISourceReport[]>,
@@ -42,9 +42,11 @@ export const fetchSource = async (
 
 
     if (response.data.ack == 3) {
-      toast.error(response.data.ack_msg)
+      toast.error(response.data.ack_msg);
+      setSourceReport([]);
+      return;
     }
-    setSourceReport(response.data.data.item);
+    setSourceReport(response.data?.data?.item ?? []);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }

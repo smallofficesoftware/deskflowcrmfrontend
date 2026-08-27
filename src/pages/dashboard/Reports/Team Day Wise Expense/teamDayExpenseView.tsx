@@ -21,6 +21,7 @@ import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ExpenseStatusUpdateModel from "../../../../components/model/ExpenseStatusUpdateModel";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -1118,6 +1119,14 @@ const AllTeamExpense = ({
       <p style={{ textAlign: "left" }}>
         Note :- Requested Amount (Pass Amount)
       </p>
+
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
+
       <div
         className="report_card"
         style={{ height: "90vh", display: "flex", flexDirection: "column" }}

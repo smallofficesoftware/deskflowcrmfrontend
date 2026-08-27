@@ -55,6 +55,15 @@ export interface ReportsFilter {
   checkedOptionsTaskassignOrNot?: any[];
   checkedOptionsShowTemplateTask?: any[];
   labelwiseContactShowAndOrNot?: number;
+  // Display-ready summary of what the global filter modal applied, built by the
+  // modal (which holds the id→label lists) and rendered by <AppliedFilterBar>.
+  appliedFilterSummary?: AppliedFilterChip[];
+}
+
+export interface AppliedFilterChip {
+  key: string;
+  label: string;
+  values: string[];
 }
 
 export const initialState: ReportsFilter = {
@@ -94,6 +103,7 @@ export const initialState: ReportsFilter = {
   checkedOptionsTaskassignOrNot: [],
   checkedOptionsShowTemplateTask: [],
   labelwiseContactShowAndOrNot: 0,
+  appliedFilterSummary: [],
 };
 
 interface ReportsFilterState {

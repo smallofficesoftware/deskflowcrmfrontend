@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
@@ -93,7 +94,8 @@ const ProductReport = ({ onHide }: IProductReport) => {
     useState(false);
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
-  const { filters, setFilters, setFilter } = useCommonFilterStore();
+  const { getFilter, setFilters } = useCommonFilterStore();
+  const filters = getFilter("products_report");
   const [hasData, setHasData] = useState<boolean>(false);
 
   const listInnerRef = useRef<HTMLElement | null>(null);
@@ -518,12 +520,11 @@ const ProductReport = ({ onHide }: IProductReport) => {
   }, []);
 
   const handleApplyFilters = async (filterData: any) => {
-    setFilter(
-      "selectedCategoryId",
-      filterData?.selectedCategoryId?.value || "",
-    );
-
-    setFilter("selectedProductId", filterData?.selectedProductId?.value || "");
+    setFilters("products_report", {
+      ...filterData,
+      selectedCategoryId: filterData?.selectedCategoryId?.value || "",
+      selectedProductId: filterData?.selectedProductId?.value || "",
+    });
 
     setHasData(
       !!filterData?.selectedCategoryId || !!filterData?.selectedProductId,
@@ -731,6 +732,13 @@ const ProductReport = ({ onHide }: IProductReport) => {
               </div>
             </div>
           </div>
+
+          <AppliedFilterBar
+            summary={filters.appliedFilterSummary}
+            dateRange={filters.selectedDateArray}
+            startDate={filters.startSearchDate}
+            endDate={filters.endSearchDate}
+          />
 
           <div
             className="report_card"
