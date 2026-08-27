@@ -51,6 +51,11 @@ import {
   isPdfmeEnabledForSalesInvoice,
 } from "./salesInvoiceController";
 
+// Generate Multi Print's pdfme path holds every selected order's PDF
+// parsed in memory at merge time (PDFMerger) - keep this bounded rather
+// than letting a "select all" of hundreds of rows through.
+const MAX_MULTI_PRINT_COUNT = 25;
+
 interface LazyTableState {
   first: number;
   rows: number;
@@ -272,9 +277,15 @@ const TeamSalesInvoiceDataReportsView = ({
   const [printTemplateChoices, setPrintTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(
-    null,
-  );
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
+  // No print action in this file ever showed a loading state, even for a
+  // single row - harmless when it's one fast request, but multi-print's
+  // server round trip (generate N PDFs + merge) is long enough that
+  // clicking it with no feedback looks broken. Scoped to just this action,
+  // not reusing the table's own `loading` state.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
 
   const handleHide = () => {
     console.log("handleHide called");
@@ -1335,33 +1346,50 @@ const TeamSalesInvoiceDataReportsView = ({
   const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    // Same shape as ListOrderView.tsx's openPrint: pdfme is only wired for
-    // a single id, more than one selected row falls through to the legacy
-    // comma-joined print.
-    if (selectedIds.length === 1) {
-      const cartId = selectedIds[0];
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
+    // pdfme now covers any selection size: a single id prints that one
+    // order, 2+ ids get merged into one PDF server-side (pdfOrder's
+    // dispatcher + PDFMerger) - one print job either way. Only falls
+    // through to the legacy comma-joined print when pdfme itself is off.
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    setIsMultiPrintLoading(true);
+    try {
       const pdfmeOn = await isPdfmeEnabledForSalesInvoice();
       if (pdfmeOn) {
         const choices = await fetchSalesInvoicePdfmeTemplates();
         if (choices.length > 1) {
           setPrintTemplateChoices(choices);
-          setPendingPrintCartId(cartId);
-        } else {
-          generateAndPrintSalesInvoicePdf(cartId);
+          setPendingPrintCartId(cartIdOrIds);
+          return;
         }
+        await generateAndPrintSalesInvoicePdf(cartIdOrIds);
         return;
       }
-    }
 
-    openPrint(selectedIds.join(","), viewFormate);
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
-  const printWithTemplate = (templateId: number) => {
+  const printWithTemplate = async (templateId: number) => {
     setPrintTemplateChoices([]);
-    if (pendingPrintCartId != null) {
-      generateAndPrintSalesInvoicePdf(pendingPrintCartId, templateId);
-    }
+    const cartIdOrIds = pendingPrintCartId;
     setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintSalesInvoicePdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
   const handleSyncWithMiracle = () => {
@@ -1429,9 +1457,9 @@ const TeamSalesInvoiceDataReportsView = ({
 
                     <option
                       value="multiPrint"
-                      disabled={selectedIds.length === 0}
+                      disabled={selectedIds.length === 0 || isMultiPrintLoading}
                     >
-                      Generate Multi Print
+                      {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                     </option>
                   </select>
                 )}
@@ -1656,7 +1684,7 @@ const TeamSalesInvoiceDataReportsView = ({
                       className="listItem text-start"
                       role="button"
                       onClick={() => {
-                        if (selectedIds.length === 0) return;
+                        if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                         setIsExportDropdownOpen(false);
                         handleMultiPrint();
@@ -1676,12 +1704,12 @@ const TeamSalesInvoiceDataReportsView = ({
                         }}
                       >
                         <i
-                          className="pi pi-copy"
+                          className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                           style={{ marginRight: "4px" }}
                         />
 
                         <span style={{ marginRight: "auto" }}>
-                          Generate Multi Print
+                          {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                         </span>
                       </div>
                     </li>
