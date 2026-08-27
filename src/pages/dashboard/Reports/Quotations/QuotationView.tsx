@@ -148,9 +148,9 @@ const TeamQuotationDataReportsView = ({
   const [printTemplateChoices, setPrintTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(
-    null,
-  );
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -1338,22 +1338,21 @@ const TeamQuotationDataReportsView = ({
   const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    // Same shape as ListOrderView.tsx's openPrint: pdfme is only wired for
-    // a single id, more than one selected row falls through to the legacy
-    // comma-joined print.
-    if (selectedIds.length === 1) {
-      const cartId = selectedIds[0];
-      const pdfmeOn = await isPdfmeEnabledForQuotation();
-      if (pdfmeOn) {
-        const choices = await fetchQuotationPdfmeTemplates();
-        if (choices.length > 1) {
-          setPrintTemplateChoices(choices);
-          setPendingPrintCartId(cartId);
-        } else {
-          generateAndPrintQuotationPdf(cartId);
-        }
-        return;
+    // pdfme now covers any selection size: a single id prints that one
+    // order, 2+ ids get merged into one PDF server-side (pdfOrder's
+    // dispatcher + PDFMerger) - one print job either way. Only falls
+    // through to the legacy comma-joined print when pdfme itself is off.
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    const pdfmeOn = await isPdfmeEnabledForQuotation();
+    if (pdfmeOn) {
+      const choices = await fetchQuotationPdfmeTemplates();
+      if (choices.length > 1) {
+        setPrintTemplateChoices(choices);
+        setPendingPrintCartId(cartIdOrIds);
+      } else {
+        generateAndPrintQuotationPdf(cartIdOrIds);
       }
+      return;
     }
 
     openPrint(selectedIds.join(","), viewFormate);
