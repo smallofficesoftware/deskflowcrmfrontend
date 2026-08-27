@@ -130,4 +130,6 @@ export interface IFilterPayload
   IUserAssignmentFilters,
   IAccountTransaction,
   IWarehouseFilter,
-  ITaskFilters { }
+  ITaskFilters {
+  appliedFilterSummary?: { key: string; label: string; values: string[] }[];
+}
