@@ -5915,6 +5915,20 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           handleclose={() => {
             setIsKanbanViewDisplay(false);
           }}
+          onEdit={(c) => handleModalOpenEditContact(c.raw)}
+          onPin={(id) => openPinModel(id)}
+          onUnpin={(id) => openUnPinModel(id)}
+          onMarkRead={(id) => openReadModel(id)}
+          onMarkUnread={(id) => openUnreadModel(id)}
+          onArchive={(id) => openArchiveModel(id)}
+          onUnarchive={(id) => openUnArchiveModel(id)}
+          onAssignLabel={(id) => handleModalOpen(id)}
+          onAssignStatus={(id, currentStatus) =>
+            handleModalOpenStatusAssign(id, currentStatus)
+          }
+          onAssignTeamMember={(id) => handleModalOpenUserAssign(id)}
+          onStartWorkflow={(id) => handleStartWorkFlow(id)}
+          onDelete={(id) => openDeleteModel(id)}
         />
       )}
       {isCreatecampaignsConfirmation && (

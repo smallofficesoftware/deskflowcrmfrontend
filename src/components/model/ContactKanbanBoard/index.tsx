@@ -25,7 +25,7 @@ import { useKanbanColumns } from "../shared-kanban/hooks/useKanbanColumns";
 import { KanbanItemsInfiniteData } from "../shared-kanban/hooks/useKanbanItems";
 import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult, KanbanItem } from "../shared-kanban/types";
 import "./ContactKanban.css";
-import { KanbanBoardModal } from "./contactType";
+import { ContactCardActions, KanbanBoardModal } from "./contactType";
 
 const BOARD_KEY = "contact-pipeline";
 
@@ -39,6 +39,12 @@ interface ContactKanbanItem {
     label_color: string;
     teamMemberName: string;
     position: number | null;
+    // for the card action menu (same fields the list menu keys off)
+    is_unread: number;
+    is_archive: number;
+    is_pin_by_a_application_login_id: string;
+    contact_status: number | undefined;
+    raw: any;
 }
 
 const mapContactToKanbanItem = (raw: any): ContactKanbanItem => ({
@@ -51,9 +57,129 @@ const mapContactToKanbanItem = (raw: any): ContactKanbanItem => ({
     label_color: raw.label_color || "",
     teamMemberName: raw.teamMemberName || "",
     position: raw.position ?? null,
+    is_unread: Number(raw.is_unread) || 0,
+    is_archive: Number(raw.is_archive) || 0,
+    is_pin_by_a_application_login_id: raw.is_pin_by_a_application_login_id || "",
+    contact_status: raw.contact_status ?? undefined,
+    raw,
 });
 
-const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) => {
+// Per-card "⋮" action menu — mirrors the contact list's row menu
+// (LeftSideView.tsx ~4900). Each action just calls the handler the parent
+// (LeftSideView) already uses for the list; no logic is duplicated here.
+const ContactCardMenu: React.FC<{
+    card: ContactKanbanItem;
+    applicationId: string | null;
+    actions: ContactCardActions;
+}> = ({ card, applicationId, actions }) => {
+    const [open, setOpen] = useState(false);
+    const ref = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, [open]);
+
+    const isPinned = !!applicationId &&
+        card.is_pin_by_a_application_login_id
+            .split(",")
+            .map((s) => s.trim())
+            .includes(applicationId.toString());
+
+    const run = (fn?: () => void) => {
+        setOpen(false);
+        fn?.();
+    };
+
+    return (
+        <div ref={ref} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+            <div
+                style={{ color: "gray", cursor: "pointer", padding: "0 4px" }}
+                title="More options"
+                onClick={() => setOpen((p) => !p)}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
+                    <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                </svg>
+            </div>
+
+            {open && (
+                <ul
+                    className="labelDropLeft isVisible"
+                    style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        left: "auto",
+                        width: "180px",
+                        margin: 0,
+                        zIndex: 1000,
+                        backgroundColor: "#fff",
+                    }}
+                >
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onEdit?.({ id: card.id, raw: card.raw }))}>
+                        Edit
+                    </li>
+                    {isPinned ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onUnpin?.(card.id))}>UnPin</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onPin?.(card.id))}>Pin</li>
+                    )}
+                    {card.is_unread === 1 ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onMarkRead?.(card.id))}>Mark as Read</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onMarkUnread?.(card.id))}>Mark as Unread</li>
+                    )}
+                    {card.is_archive === 1 ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onUnarchive?.(card.id))}>Unarchive contact</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onArchive?.(card.id))}>Archive contact</li>
+                    )}
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignLabel?.(card.id))}>Assign label</li>
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignStatus?.(card.id, card.contact_status))}>Assign Status</li>
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignTeamMember?.(card.id))}>Assign Team Member</li>
+                    <li className="listItem text-start" role="button"
+                        style={{ color: "#0992f3", fontWeight: 600 }}
+                        onClick={() => run(() => actions.onStartWorkflow?.(card.id))}>Start WorkFlow</li>
+                    <li className="listItem text-start" role="button"
+                        style={{ color: "red", fontWeight: 600 }}
+                        onClick={() => run(() => actions.onDelete?.(card.id))}>Delete</li>
+                </ul>
+            )}
+        </div>
+    );
+};
+
+const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
+    show,
+    handleclose,
+    onEdit,
+    onPin,
+    onUnpin,
+    onMarkRead,
+    onMarkUnread,
+    onArchive,
+    onUnarchive,
+    onAssignLabel,
+    onAssignStatus,
+    onAssignTeamMember,
+    onStartWorkflow,
+    onDelete,
+}) => {
     const [isModalFilterVisible, setIsModalFilterVisible] = useState(false);
     const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
     const [hasData, setHasData] = useState(false);
@@ -253,7 +379,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
                         </div>
                     )}
 
-                    <div className="d-flex align-items-center justify-content-end">
+                    <div className="d-flex align-items-center justify-content-end gap-1">
                         <div
                             style={{ color: "gray", cursor: "pointer" }}
                             title="View"
@@ -272,11 +398,44 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
                                 <path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" />
                             </svg>
                         </div>
+                        <ContactCardMenu
+                            card={card}
+                            applicationId={applicationId}
+                            actions={{
+                                onEdit,
+                                onPin,
+                                onUnpin,
+                                onMarkRead,
+                                onMarkUnread,
+                                onArchive,
+                                onUnarchive,
+                                onAssignLabel,
+                                onAssignStatus,
+                                onAssignTeamMember,
+                                onStartWorkflow,
+                                onDelete,
+                            }}
+                        />
                     </div>
                 </>
             );
         },
-        [handleViewTask],
+        [
+            handleViewTask,
+            applicationId,
+            onEdit,
+            onPin,
+            onUnpin,
+            onMarkRead,
+            onMarkUnread,
+            onArchive,
+            onUnarchive,
+            onAssignLabel,
+            onAssignStatus,
+            onAssignTeamMember,
+            onStartWorkflow,
+            onDelete,
+        ],
     );
 
     const config: KanbanBoardConfig<ContactKanbanItem> = useMemo(
