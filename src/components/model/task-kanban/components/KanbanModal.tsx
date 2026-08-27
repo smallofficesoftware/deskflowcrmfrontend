@@ -105,7 +105,12 @@ interface KanbanModalInnerProps {
   onAssignTeamMember?: (task: Task) => void;
   onTimeline?: (task: Task) => void;
   onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onMarkRead?: (task: Task) => void;
+  onMarkUnread?: (task: Task) => void;
+  onChangeExternalStatus?: (task: Task) => void;
+  onConvertToTask?: (task: Task) => void;
   filterParams?: FilterParams;
   hasActiveFilter?: boolean;
   supportTicketFlag?: number | null;
@@ -125,7 +130,12 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   onAssignTeamMember,
   onTimeline,
   onArchive,
+  onUnarchive,
   onDelete,
+  onMarkRead,
+  onMarkUnread,
+  onChangeExternalStatus,
+  onConvertToTask,
   filterParams,
   hasActiveFilter = true,
   onOpenFilter,
@@ -216,7 +226,12 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
         onAssignTeamMember={onAssignTeamMember}
         onTimeline={onTimeline}
         onArchive={onArchive}
+        onUnarchive={onUnarchive}
         onDelete={onDelete}
+        onMarkRead={onMarkRead}
+        onMarkUnread={onMarkUnread}
+        onChangeExternalStatus={onChangeExternalStatus}
+        onConvertToTask={onConvertToTask}
       />
     ),
     [
@@ -227,7 +242,12 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
       onAssignTeamMember,
       onTimeline,
       onArchive,
+      onUnarchive,
       onDelete,
+      onMarkRead,
+      onMarkUnread,
+      onChangeExternalStatus,
+      onConvertToTask,
     ],
   );
 
@@ -558,7 +578,12 @@ export const TaskKanbanModal: React.FC<TaskKanbanModalProps> = ({
   onAssignTeamMember,
   onTimeline,
   onArchive,
+  onUnarchive,
   onDelete,
+  onMarkRead,
+  onMarkUnread,
+  onChangeExternalStatus,
+  onConvertToTask,
   filterParams,
   hasActiveFilter = true,
   onOpenFilter,
@@ -590,9 +615,6 @@ export const TaskKanbanModal: React.FC<TaskKanbanModalProps> = ({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [show, onHide]);
-
-  console.log("onAssignTeamMemberonAssignTeamMember",onAssignTeamMember);
-
 
   if (!show) return null;
 
@@ -640,7 +662,12 @@ export const TaskKanbanModal: React.FC<TaskKanbanModalProps> = ({
                 onAssignTeamMember={onAssignTeamMember}
                 onTimeline={onTimeline}
                 onArchive={onArchive}
+                onUnarchive={onUnarchive}
                 onDelete={onDelete}
+                onMarkRead={onMarkRead}
+                onMarkUnread={onMarkUnread}
+                onChangeExternalStatus={onChangeExternalStatus}
+                onConvertToTask={onConvertToTask}
                 filterParams={filterParams}
                 hasActiveFilter={hasActiveFilter}
                 onOpenFilter={onOpenFilter}

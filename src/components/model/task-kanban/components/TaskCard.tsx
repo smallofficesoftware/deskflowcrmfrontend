@@ -12,7 +12,12 @@ interface TaskCardProps {
   onAssignTeamMember?: (task: Task) => void;
   onTimeline?: (task: Task) => void;
   onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onMarkRead?: (task: Task) => void;
+  onMarkUnread?: (task: Task) => void;
+  onChangeExternalStatus?: (task: Task) => void;
+  onConvertToTask?: (task: Task) => void;
 }
 
 const PRIORITY_CLASSES: Record<Priority, string> = {
@@ -130,7 +135,7 @@ const ActionBtn: React.FC<{
 );
 
 export const TaskCard: React.FC<TaskCardProps> = memo(
-  ({ task, onClick, onEdit, onChangeStatus, onAssignLabel, onAssignTeamMember, onTimeline, onArchive, onDelete }) => {
+  ({ task, onClick, onEdit, onChangeStatus, onAssignLabel, onAssignTeamMember, onTimeline, onArchive, onUnarchive, onDelete, onMarkRead, onMarkUnread, onChangeExternalStatus, onConvertToTask }) => {
     const dueDateInfo = task.due_date ? formatDueDate(task.due_date) : null;
     const [showDetail, setShowDetail] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
@@ -278,6 +283,43 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
                         >
                           Change Status
                         </li>
+                        {isUnread
+                          ? onMarkRead && (
+                              <li
+                                className="listItem text-start"
+                                role="button"
+                                onClick={() => {
+                                  setShowMenu(false);
+                                  onMarkRead(task);
+                                }}
+                              >
+                                Mark as Read
+                              </li>
+                            )
+                          : onMarkUnread && (
+                              <li
+                                className="listItem text-start"
+                                role="button"
+                                onClick={() => {
+                                  setShowMenu(false);
+                                  onMarkUnread(task);
+                                }}
+                              >
+                                Mark as Unread
+                              </li>
+                            )}
+                        {onChangeExternalStatus && (
+                          <li
+                            className="listItem text-start"
+                            role="button"
+                            onClick={() => {
+                              setShowMenu(false);
+                              onChangeExternalStatus(task);
+                            }}
+                          >
+                            Change External Status
+                          </li>
+                        )}
                         <li
                           className="listItem text-start"
                           role="button"
@@ -311,16 +353,41 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
                         >
                           Timeline
                         </li>
-                        <li
-                          className="listItem text-start"
-                          role="button"
-                          onClick={() => {
-                            setShowMenu(false);
-                            onArchive?.(task);
-                          }}
-                        >
-                          Archive
-                        </li>
+                        {Number(task.raw?.is_archive) === 1 ? (
+                          <li
+                            className="listItem text-start"
+                            role="button"
+                            onClick={() => {
+                              setShowMenu(false);
+                              onUnarchive?.(task);
+                            }}
+                          >
+                            UnArchive
+                          </li>
+                        ) : (
+                          <li
+                            className="listItem text-start"
+                            role="button"
+                            onClick={() => {
+                              setShowMenu(false);
+                              onArchive?.(task);
+                            }}
+                          >
+                            Archive
+                          </li>
+                        )}
+                        {onConvertToTask && (
+                          <li
+                            className="listItem text-start"
+                            role="button"
+                            onClick={() => {
+                              setShowMenu(false);
+                              onConvertToTask(task);
+                            }}
+                          >
+                            Convert To Task
+                          </li>
+                        )}
                         <li
                           style={{ color: "red", fontWeight: 600 }}
                           className="listItem text-start"

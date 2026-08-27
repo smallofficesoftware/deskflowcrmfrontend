@@ -4430,6 +4430,23 @@ const TaskListView = ({
         onDelete={(task) => openDeleteModel(task.task_id)}
         onAssignTeamMember={(task) => {handleModalOpenUserAssign(task.task_id)}}
         onTimeline={(task) => openStageAndStatusLog(task.task_id)}
+        onMarkRead={(task) => openReadModel(task.task_id)}
+        onMarkUnread={(task) => openUnreadModel(task.task_id)}
+        onUnarchive={(task) => openUnArchiveTaskModel(task.task_id)}
+        onChangeExternalStatus={
+          supportTicketFlag == 1 && flags.CUSTOMER_SUPPORT_TICKET_ASSING_ID
+            ? (task) =>
+                handleModalOpenStatusAssignContact(
+                  task.task_id,
+                  Number(task.raw?.external_status) || undefined,
+                )
+            : undefined
+        }
+        onConvertToTask={
+          supportTicketFlag == 1
+            ? (task) => openSupportTicketToTaskConvert(task.task_id)
+            : undefined
+        }
       />
     </>
   );
