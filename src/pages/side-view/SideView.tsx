@@ -1100,11 +1100,24 @@ const SideView = ({ profileDetail }: IProp) => {
 
     const overrides: Record<string, any> = {};
 
+    // Parse a bare "YYYY-MM-DD" as a LOCAL calendar date. `new Date(str)`
+    // treats a date-only string as UTC midnight, so in any timezone behind
+    // UTC (e.g. US) the local getters used elsewhere to display it
+    // (.getDate()/.getMonth()) read back the previous calendar day.
+    const parseLocalDate = (s: string): Date | null => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if (!m) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    };
+
     const start = searchParams.get("start");
     const end = searchParams.get("end");
-    if (start && end) {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
+    const startDate = start ? parseLocalDate(start) : null;
+    const endDate = end ? parseLocalDate(end) : null;
+    if (startDate && endDate) {
       overrides.selectedDateArray = [startDate, endDate];
       overrides.startSearchDate = startDate;
       overrides.endSearchDate = endDate;
