@@ -15,6 +15,7 @@ import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
+import { verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import {
   IDocumentTemplateFull,
   IDocumentTemplateListItem,
@@ -35,6 +36,7 @@ import {
   reorderDocumentTemplates,
   restoreTemplateVersion,
   setDefaultDocumentTemplate,
+  setPinRequiredHandler,
 } from "./DocumentDesignerController";
 
 // All 10 cart-shaped doc types templates.js's DOC_TYPES / dataDictionary.js's
@@ -303,6 +305,35 @@ const DocumentDesignerView: React.FC = () => {
 
   const askPrompt = (title: string, onSubmit: (value: string) => void, defaultValue?: string) => {
     setPromptDialog({ title, onSubmit, defaultValue });
+  };
+
+  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js) — registered
+  // as postGated's retry handler (DocumentDesignerController.ts) so any of
+  // the create/update/publish/etc. calls below that hit "PIN verification
+  // required" (missing/expired token) can prompt right here and retry,
+  // instead of failing with no way to resolve it from this page. Same
+  // verifyReportPin ReportBuilderView.tsx uses - one PIN, either page.
+  const [showPinModal, setShowPinModal] = useState(false);
+  const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
+  useEffect(() => {
+    setPinRequiredHandler(() => {
+      setShowPinModal(true);
+      return new Promise<boolean>((resolve) => {
+        pinResolveRef.current = resolve;
+      });
+    });
+    return () => setPinRequiredHandler(null);
+  }, []);
+  const handlePinSubmit = async (pin: string) => {
+    const ok = await verifyReportPin(pin);
+    setShowPinModal(false);
+    pinResolveRef.current?.(ok);
+    pinResolveRef.current = null;
+  };
+  const handlePinCancel = () => {
+    setShowPinModal(false);
+    pinResolveRef.current?.(false);
+    pinResolveRef.current = null;
   };
 
   const refreshTemplates = async () => {
@@ -1098,6 +1129,16 @@ const DocumentDesignerView: React.FC = () => {
         }}
         title={promptDialog?.title || ""}
         defaultValue={promptDialog?.defaultValue}
+      />
+
+      <PromptModal
+        show={showPinModal}
+        onHide={handlePinCancel}
+        onSubmit={handlePinSubmit}
+        title="Owner PIN required"
+        message="This action needs the shared build PIN (same PIN as Report Builder)."
+        placeholder="PIN"
+        submitLabel="Verify"
       />
 
       {loading && (
