@@ -6,19 +6,6 @@ import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../helpers/AppConstants";
 // than each feature opening its own connection.
 let socket: Socket | null = null;
 
-// Company-wide, feature-flag-gated (feature_key: "socket_connection", same
-// company_feature_flags mechanism as document_designer/report_builder — any
-// company with no row for this key defaults to disabled). Defaults false
-// here too, until LeftSideView's own bootstrap check resolves it one way or
-// the other — so no connection is ever attempted before that's known.
-let socketConnectionEnabled = false;
-export const setSocketConnectionEnabled = (enabled: boolean) => {
-  socketConnectionEnabled = enabled;
-  if (!enabled && socket) {
-    socket.disconnect();
-  }
-};
-
 const registerSession = (activeSocket: Socket) => {
   const uuid = localStorage.getItem("UUID");
   if (!uuid) return;
@@ -38,7 +25,7 @@ const registerSession = (activeSocket: Socket) => {
 };
 
 export const getSocket = (): Socket | null => {
-  if (!BACKEND_OF_SMALL_OFFICE_CRM_END_POINT || !socketConnectionEnabled) return null;
+  if (!BACKEND_OF_SMALL_OFFICE_CRM_END_POINT) return null;
 
   if (!socket) {
     socket = io(BACKEND_OF_SMALL_OFFICE_CRM_END_POINT, {
