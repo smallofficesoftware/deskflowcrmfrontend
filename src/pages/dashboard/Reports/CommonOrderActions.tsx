@@ -2017,11 +2017,20 @@ const CommonOrderActions = ({
 
     // Regular (non-pending) row print pdfme routing for the action-column
     // "Print" button below (OrderActionDropdown's openPrint prop) — same
-    // shape as openPendingPrint above. Rolled out one cart type at a time;
-    // types not yet in this map fall through to the existing legacy
-    // openPrint(id) unchanged.
+    // shape as openPendingPrint above. Same doc-type-per-cart-type mapping
+    // as the backend's PDFME_DOC_TYPE_BY_CART_TYPE (orderServices.js) /
+    // frontend's own copy (orderPrintController.ts) — keep in sync.
     const REGULAR_PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+        1: "quotation",
         2: "salesOrder",
+        3: "salesInvoice",
+        4: "purchaseInvoice",
+        5: "purchaseOrder",
+        6: "returnSalesInvoice",
+        7: "returnPurchaseInvoice",
+        8: "inward",
+        9: "dispatch",
+        12: "proformaInvoice",
     };
 
     const isRegularPdfmeEnabledForType = async (cartTypeId: number): Promise<boolean> => {
