@@ -46,6 +46,7 @@ import RightSearch from "./Search";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import useSocketEvent from "../../hooks/useSocketEvent";
 import { AppContext } from "../../common/AppContext";
 import {
   formatDate,
@@ -303,6 +304,18 @@ const RightView = ({
   const [isToggledButton, setIsToggledButton] = useState(false);
   const [messageSide, setMessageSide] = useState(1);
   const [isLoadedMessage, setIsLoadedMessage] = useState(false);
+  // Bumped on every "contact-chat-changed" socket event to force the
+  // message fetch effect below to re-run, even if isLoadedMessage's value
+  // didn't change - covers messages arriving from another user/tab/WhatsApp
+  // reply, not just the ones this tab itself just sent.
+  const [chatSocketRefreshTick, setChatSocketRefreshTick] = useState(0);
+  useSocketEvent<{ contact_id?: number }>("contact-chat-changed", (payload) => {
+    // No contact_id on the payload (e.g. an edit/delete, not a new message)
+    // - fall back to always refreshing rather than risk missing an update.
+    if (!payload?.contact_id || payload.contact_id === getData?.id) {
+      setChatSocketRefreshTick((tick) => tick + 1);
+    }
+  });
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<
@@ -2805,6 +2818,7 @@ const RightView = ({
     selectDate,
     searchTerm,
     setNoDataFound1,
+    chatSocketRefreshTick,
   ]);
   const handleChangeEdit = (itemsDis: TMessage) => {
     if (canEdit) {

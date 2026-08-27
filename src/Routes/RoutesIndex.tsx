@@ -39,6 +39,7 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
+import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
@@ -250,6 +251,10 @@ const RoutesIndex = () => {
             <Route
               path="/document-designer"
               element={<DocumentDesignerView />}
+            />
+            <Route
+              path="/report-builder"
+              element={<ReportBuilderView />}
             />
             <Route
               path="/custom-field/designer-page-sources"
