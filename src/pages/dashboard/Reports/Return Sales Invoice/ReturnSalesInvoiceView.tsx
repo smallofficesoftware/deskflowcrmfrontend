@@ -43,8 +43,11 @@ import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
   exportAllReturnSalesInvoiceData,
   fetchCartReport,
+  fetchReturnSalesInvoicePdfmeTemplates,
   fetchReturnSalesInvoiceReportForExport,
+  generateAndPrintReturnSalesInvoicePdf,
   IFlatCartItem,
+  isPdfmeEnabledForReturnSalesInvoice,
   openPrint,
 } from "./ReturnSalesInvoiceController";
 
@@ -154,6 +157,17 @@ const TeamReturnSalesDataReportsView = ({
   const selectedIds = useMemo(() => {
     return selectedCustomers.map((item: IFlatCartItem) => item.id);
   }, [selectedCustomers]);
+
+  // pdfme single-print picker - same shape as ListOrderView.tsx's
+  // printTemplateChoices/pendingPrintCartId/printWithTemplate. Only used
+  // when exactly one row is selected; multi-select stays on the legacy
+  // openPrint(ids.join(","), viewFormate) path.
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(
+    null,
+  );
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -1482,10 +1496,36 @@ const TeamReturnSalesDataReportsView = ({
       </div>
     );
   }
-  const handleMultiPrint = () => {
+  const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
+    // Same shape as ListOrderView.tsx's openPrint: pdfme is only wired for
+    // a single id, more than one selected row falls through to the legacy
+    // comma-joined print.
+    if (selectedIds.length === 1) {
+      const cartId = selectedIds[0];
+      const pdfmeOn = await isPdfmeEnabledForReturnSalesInvoice();
+      if (pdfmeOn) {
+        const choices = await fetchReturnSalesInvoicePdfmeTemplates();
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+          setPendingPrintCartId(cartId);
+        } else {
+          generateAndPrintReturnSalesInvoicePdf(cartId);
+        }
+        return;
+      }
+    }
+
     openPrint(selectedIds.join(","), viewFormate);
+  };
+
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    if (pendingPrintCartId != null) {
+      generateAndPrintReturnSalesInvoicePdf(pendingPrintCartId, templateId);
+    }
+    setPendingPrintCartId(null);
   };
 
   const handleSyncWithMiracle = () => {
@@ -2143,6 +2183,38 @@ const TeamReturnSalesDataReportsView = ({
             cartType={6}
             title={title}
           />
+          {printTemplateChoices.length > 0 && (
+            <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+              <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h5>Choose Template</h5>
+                  <span
+                    className="close"
+                    onClick={() => {
+                      setPrintTemplateChoices([]);
+                      setPendingPrintCartId(null);
+                    }}
+                  >
+                    &times;
+                  </span>
+                </div>
+                {printTemplateChoices.map((t) => (
+                  <div
+                    key={t.id}
+                    className="d-flex justify-content-between align-items-center border-bottom py-2"
+                  >
+                    <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => printWithTemplate(t.id)}
+                    >
+                      Print
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {isSyncConfirmationOpen && (
             <ConfirmationModal
               show={isSyncConfirmationOpen}
