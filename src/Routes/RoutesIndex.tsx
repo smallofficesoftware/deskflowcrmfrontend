@@ -236,6 +236,7 @@ const RoutesIndex = () => {
             <Route path="/reviews" element={<ReviewsView />} />
             <Route path="/BomPdfView/:id/:bomId" element={<BomPdfView />} />
             <Route path="/SideView" element={<SideView />} />
+            <Route path="/SideView/report/:slug" element={<SideView />} />
             <Route
               path="/ProcessAttendanceMonthlySlip/:empId/:month/:year"
               element={<ProcessAttendanceMonthlySlip />}

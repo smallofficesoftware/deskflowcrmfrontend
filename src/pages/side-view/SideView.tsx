@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -87,6 +87,8 @@ const DraggableWidget = ({
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { slug: reportSlug } = useParams<{ slug?: string }>();
+  const openedReportSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     const UUID = localStorage.getItem("UUID");
@@ -158,6 +160,7 @@ const SideView = ({ profileDetail }: IProp) => {
     setShowRightSide,
     setCheckToken,
     companyData,
+    permissions,
     setPermissions,
     showAttendancePopup,
     setShowAttendancePopup,
@@ -1073,6 +1076,59 @@ const SideView = ({ profileDetail }: IProp) => {
     toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     return;
   };
+
+  // ── URL-driven report open ──────────────────────────────────────────────
+  // /SideView/report/:slug?start=&end=&team=&status=&source=&label=
+  // Lets dashboards / insight tiles deep-link straight into a report instead
+  // of opening the old ReportsModel popup. :slug is the same value used as
+  // `name` in handleSingleReportShow / reportsMenuData's subMenu.value.
+  // Query-param overrides are merged on top of handleSingleReportShow's own
+  // default-current-month seeding.
+  useEffect(() => {
+    if (!reportSlug) return;
+    // On a fresh page load (direct URL, not an in-app click) `permissions`
+    // is still [] — the onLoad API call that populates it hasn't resolved
+    // yet, so every canView* check in handleSingleReportShow is false and
+    // it silently falls through without opening anything. Wait for it.
+    if (!permissions || permissions.length === 0) return;
+    // Only auto-open once per deep-linked slug — don't re-fire and stomp
+    // the user's own filter changes if `permissions` updates again later.
+    if (openedReportSlugRef.current === reportSlug) return;
+    openedReportSlugRef.current = reportSlug;
+
+    handleSingleReportShow(reportSlug);
+
+    const overrides: Record<string, any> = {};
+
+    const start = searchParams.get("start");
+    const end = searchParams.get("end");
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      overrides.selectedDateArray = [startDate, endDate];
+      overrides.startSearchDate = startDate;
+      overrides.endSearchDate = endDate;
+    }
+
+    const team = searchParams.get("team");
+    if (team) overrides.checkedOptionsUser = team.split(",").filter(Boolean);
+
+    const status = searchParams.get("status");
+    if (status)
+      overrides.checkedOptionsStageStatus = status.split(",").filter(Boolean);
+
+    const source = searchParams.get("source");
+    if (source)
+      overrides.checkedSourceTypes = source.split(",").filter(Boolean);
+
+    const label = searchParams.get("label");
+    if (label) overrides.checkedOptions = label.split(",").filter(Boolean);
+
+    if (Object.keys(overrides).length) {
+      setReportFilters(reportSlug, overrides);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportSlug, permissions]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();
