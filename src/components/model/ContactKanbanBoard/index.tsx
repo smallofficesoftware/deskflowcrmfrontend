@@ -22,8 +22,7 @@ import CheckBoxFilterModal from "../CheckBoxFilterModal";
 import ConfirmationModal from "../ConfirmationModal";
 import { KanbanBoard } from "../shared-kanban/components/KanbanBoard";
 import { useKanbanColumns } from "../shared-kanban/hooks/useKanbanColumns";
-import { KanbanItemsInfiniteData } from "../shared-kanban/hooks/useKanbanItems";
-import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult, KanbanItem } from "../shared-kanban/types";
+import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult } from "../shared-kanban/types";
 import "./ContactKanban.css";
 import { KanbanBoardModal } from "./contactType";
 
@@ -300,40 +299,9 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
         queryClient.invalidateQueries({ queryKey: ["shared-kanban-items", BOARD_KEY] });
     }, [queryClient]);
 
-    // Is `id` in any column's currently-loaded pages for this board? Checks
-    // every "shared-kanban-items" query under this BOARD_KEY (one per
-    // column/searchTerm combo) via a partial queryKey match.
-    const isContactIdLoaded = useCallback(
-        (id: number) => {
-            const matches = queryClient.getQueriesData<
-                KanbanItemsInfiniteData<KanbanItem>
-            >({ queryKey: ["shared-kanban-items", BOARD_KEY] });
-            return matches.some(([, data]) =>
-                data?.pages?.some((page) =>
-                    page.items.some((item) => item.id === id),
-                ),
-            );
-        },
-        [queryClient],
-    );
-
     // Live sync: any teammate adding/editing/moving a contact (including via
-    // the drag-to-move commonUpdate path) refreshes this board too - but
-    // only when it's worth it: no id on the payload means a new contact
-    // (always refresh, it might belong on this board), and an id we already
-    // have loaded in some column means an edit to a visible card (also
-    // refresh). An id for a contact not currently loaded here is skipped -
-    // a filter-changing edit to an off-board contact won't pull it in until
-    // the next manual refresh, a known tradeoff.
-    useSocketEvent<{ id?: number }>(
-        "contact-changed",
-        (payload) => {
-            if (!payload?.id || isContactIdLoaded(payload.id)) {
-                refreshBoard();
-            }
-        },
-        show,
-    );
+    // the drag-to-move commonUpdate path) refreshes this board too.
+    useSocketEvent("contact-changed", refreshBoard, show);
 
     const handleModalClose = () => {
         setIsModalFilterVisible(false);

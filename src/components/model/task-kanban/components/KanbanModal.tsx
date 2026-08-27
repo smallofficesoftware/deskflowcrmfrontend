@@ -9,12 +9,10 @@ import { FilterParams } from "../../../../pages/left-side/header/Setting/taskLis
 import useSocketEvent from "../../../../hooks/useSocketEvent";
 import { KanbanBoard as SharedKanbanBoard } from "../../shared-kanban/components/KanbanBoard";
 import { useKanbanColumns } from "../../shared-kanban/hooks/useKanbanColumns";
-import { KanbanItemsInfiniteData } from "../../shared-kanban/hooks/useKanbanItems";
 import {
   KanbanBoardConfig,
   KanbanColumnDef,
   KanbanFetchResult,
-  KanbanItem,
 } from "../../shared-kanban/types";
 import {
   fetchAutoRefreshConfig,
@@ -323,36 +321,9 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     setTimeout(() => setIsRefreshing(false), 600);
   }, [refreshAllTasks]);
 
-  // Is `id` in any column's currently-loaded pages for this board? Checks
-  // every "shared-kanban-items" query under this BOARD_KEY (one per
-  // column/searchTerm combo) via a partial queryKey match.
-  const isTaskIdLoaded = useCallback(
-    (id: number) => {
-      const matches = queryClient.getQueriesData<
-        KanbanItemsInfiniteData<KanbanItem>
-      >({ queryKey: ["shared-kanban-items", BOARD_KEY] });
-      return matches.some(([, data]) =>
-        data?.pages?.some((page) =>
-          page.items.some((item) => item.id === id),
-        ),
-      );
-    },
-    [queryClient, BOARD_KEY],
-  );
-
   // Live sync: any teammate adding/editing/moving a task (including via the
-  // drag-to-move commonUpdate path) refreshes every board open for the
-  // company - but only when it's worth it: no id on the payload means a new
-  // task (always refresh, it might belong on this board), and an id we
-  // already have loaded in some column means an edit to a visible card
-  // (also refresh). An id for a task not currently loaded here is skipped -
-  // a filter-changing edit to an off-board task won't pull it in until the
-  // next manual refresh, a known tradeoff.
-  useSocketEvent<{ id?: number }>("task-changed", (payload) => {
-    if (!payload?.id || isTaskIdLoaded(payload.id)) {
-      refreshAllTasks();
-    }
-  });
+  // drag-to-move commonUpdate path) refreshes every board open for the company.
+  useSocketEvent("task-changed", refreshAllTasks);
 
   const boardTypeLabelMap: Record<BoardType, string> = {
     status: "Status",

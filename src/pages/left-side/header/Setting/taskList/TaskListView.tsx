@@ -116,26 +116,9 @@ const TaskListView = ({
   const statusDropdownRef = useRef<HTMLButtonElement>(null);
   const labelDropdownRef = useRef<HTMLButtonElement>(null);
   const categoryDropdownRef = useRef<HTMLButtonElement>(null);
-  // A tick counter, not a boolean - two triggers arriving close together
-  // (e.g. two rapid "task-changed" socket events before the effect below
-  // resets this) must each produce a distinct value, otherwise the second
-  // setState(true) is a same-value no-op and React drops that refresh.
-  const [refreshTaskBothSide, setRefreshTaskBothSide] = useState(0);
-  // Live sync: any teammate adding/editing/moving a task refreshes this list
-  // too - but only when it's worth it: no id on the payload means a new
-  // task (always refresh, it might belong in this filtered view), and an id
-  // that matches a row we already have loaded means an edit to something
-  // visible here (also refresh). An id for a task we don't currently have
-  // loaded is skipped - a filter-changing edit to an off-screen task won't
-  // pull it into view until the next manual refresh, a known tradeoff.
-  useSocketEvent<{ id?: number }>("task-changed", (payload) => {
-    if (
-      !payload?.id ||
-      targetVsIncentiveList.some((task) => task.id === payload.id)
-    ) {
-      setRefreshTaskBothSide((tick) => tick + 1);
-    }
-  });
+  const [refreshTaskBothSide, setRefreshTaskBothSide] = useState(false);
+  // Live sync: any teammate adding/editing/moving a task refreshes this list too.
+  useSocketEvent("task-changed", () => setRefreshTaskBothSide(true));
   // const [isKanbanViewDisplay, setIsKanbanViewDisplay] =
   //   useState<boolean>(false);
   const [isKanbanNewViewDisplay, setIsKanbanNewViewDisplay] =
@@ -731,7 +714,7 @@ const TaskListView = ({
         );
 
         // Refresh list
-        setRefreshTaskBothSide((tick) => tick + 1);
+        setRefreshTaskBothSide(true);
       }
     } catch (error) {
       console.error(error);
@@ -2007,7 +1990,7 @@ const TaskListView = ({
         filterParams.checkedOptions,
         filterParams.labelwiseContactShowAndOrNot,
       );
-      setRefreshTaskBothSide(0);
+      setRefreshTaskBothSide(false);
     }
   }, [refreshTaskBothSide]);
 
@@ -3962,7 +3945,7 @@ const TaskListView = ({
           onHideTaskChat={() => setOpenTaskChatModel(false)}
           TaskData={targetVsIncentiveList} // Pass data, not setter
           signleDataTask={GetSingleTaskData}
-          setRefreshTask={() => setRefreshTaskBothSide((tick) => tick + 1)}
+          setRefreshTask={() => setRefreshTaskBothSide(true)}
           closeDashboard={() => setshowDashBoard(false)}
           openTaskRight={OpenTaskchatRightSide}
           supportTicketFlag={supportTicketFlag}
