@@ -1205,6 +1205,29 @@ const SideView = ({ profileDetail }: IProp) => {
 
     if (Object.keys(overrides).length) {
       setReportFilters(reportSlug, overrides);
+
+      // The "team" chip above shows raw ids (no name lookup available
+      // synchronously) — resolve real usernames in the background via the
+      // same /my-team endpoint CheckBoxFilterModal uses, then replace just
+      // that chip's values once they arrive. Doesn't block filtering, which
+      // already applied correctly above using the ids.
+      if (team) {
+        const teamIds = parseIds(team);
+        axiosInstance
+          .post("my-team", { a_application_login_id: localStorage.getItem("UUID") })
+          .then(({ data }) => {
+            const members: { id: number; username: string }[] =
+              data?.data?.item || [];
+            const nameById = new Map(members.map((m) => [Number(m.id), m.username]));
+            const names = teamIds.map((id) => nameById.get(id) ?? String(id));
+            const current = useCommonFilterStore.getState().filters[reportSlug];
+            const nextSummary = (current?.appliedFilterSummary || []).map((c) =>
+              c.key === "team" ? { ...c, values: names } : c,
+            );
+            setReportFilters(reportSlug, { appliedFilterSummary: nextSummary });
+          })
+          .catch((e) => console.error("Error resolving team member names:", e));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportSlug, permissions, searchParams]);
