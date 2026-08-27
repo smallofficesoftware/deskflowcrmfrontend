@@ -758,7 +758,13 @@ const OrderPrintViewV1 = () => {
   // pdfmeFlagChecked distinguishes "confirmed not pdfme" from "still
   // checking" — pdfmeEnabled alone defaults false either way, which used
   // to let the legacy auto-print effect below race ahead of this check.
+  // Reset to false at the top of every run: orderPrintById starts
+  // undefined, so this effect's FIRST run (cart.type undefined) always
+  // takes the early-bail branch and sets pdfmeFlagChecked=true - without
+  // this reset, that premature "checked" would linger true through the
+  // real async check that follows once the cart actually loads.
   useEffect(() => {
+    setPdfmeFlagChecked(false);
     const companyMastersId = companyId || localStorage.getItem("COMPANY_ID");
     if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
       setPdfmeFlagChecked(true);
@@ -816,6 +822,10 @@ const OrderPrintViewV1 = () => {
   // Legacy path: only for a confirmed-non-pdfme cart — gated on
   // pdfmeFlagChecked so this can't race ahead of the flag check above and
   // fire window.print() before pdfmeEnabled has actually been determined.
+  // The timer is captured and cleared on cleanup - without this, a timer
+  // armed while pdfmeEnabled was still false would still fire 2s later
+  // even after pdfmeEnabled flips true and the pdfme effect already
+  // printed, causing a double print.
   useEffect(() => {
     if (
       !isOrderLoading &&
@@ -828,10 +838,11 @@ const OrderPrintViewV1 = () => {
       pdfmeFlagChecked &&
       !pdfmeEnabled
     ) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setPrintDialogOpened(true);
         window.print();
       }, 2000);
+      return () => clearTimeout(timer);
     }
   }, [
     isOrderLoading,

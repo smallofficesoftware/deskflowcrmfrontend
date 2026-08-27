@@ -1,3 +1,4 @@
+import axios from "axios";
 import { toast } from "react-toastify";
 import {
   DEFAULT_STATUS_CODE_ERROR,
@@ -8,6 +9,10 @@ import {
 import { TReactSetState } from "../../../helpers/AppType";
 import { axiosInstance } from "../../../services/axiosInstance";
 import { IUserList } from "../../left-side/LeftSideController";
+import {
+  fetchPdfmeTemplatesForPicker,
+  isPdfmeSupportedCartType,
+} from "../../order-print-view/orderPrintController";
 export interface IStageStatusView {
   order_type: number;
   name: string;
@@ -572,6 +577,72 @@ export const fetchStageStatusApiCustomer = async (
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }
+};
+
+// Same shape as OrderCreateModal.tsx's isPdfmeEnabledForType/generateAndViewPdf
+// and QuotationController.ts's tryPendingPdfmePrint - checked at click time so
+// only one print path ever fires. Used for the "View Print" button on a task
+// linked to a cart (openPrint below is called with onlyView=1, which used to
+// always show the legacy hardcoded layout regardless of pdfme status - this
+// makes it show the actual generated PDF instead, when pdfme is enabled).
+const isPdfmeEnabledForCartType = async (cartTypeId: number): Promise<boolean> => {
+  if (!isPdfmeSupportedCartType(cartTypeId)) return false;
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return false;
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    return data?.ack === 1 && !!data.data.item.is_enabled;
+  } catch {
+    return false;
+  }
+};
+
+// autoPrint=false ("View Print") - opens the real pdfme-generated PDF but
+// doesn't trigger the browser print dialog on it, matching this button's
+// view-only intent.
+export const generateAndViewOrderPdf = async (cartId: number, documentTemplateId?: number) => {
+  try {
+    const resops = await axiosInstance.post("/order-pdf", {
+      cart_id: cartId,
+      ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+    });
+    if (resops.data.ack !== 1) {
+      toast.error(resops.data.ack_msg);
+      return;
+    }
+    const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  } catch (error) {
+    console.error(error);
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
+export type PdfmeViewPrintResult =
+  | { status: "handled" }
+  | { status: "picker"; choices: { id: number; template_name: string; is_default: number }[] }
+  | { status: "legacy" };
+
+export const tryPdfmeViewPrint = async (
+  id: number | undefined,
+  cartTypeId: number | null | undefined,
+): Promise<PdfmeViewPrintResult> => {
+  if (!id || !cartTypeId) return { status: "legacy" };
+
+  const pdfmeOn = await isPdfmeEnabledForCartType(cartTypeId);
+  if (!pdfmeOn) return { status: "legacy" };
+
+  const choices = await fetchPdfmeTemplatesForPicker(cartTypeId);
+  if (choices.length > 1) {
+    return { status: "picker", choices };
+  }
+  await generateAndViewOrderPdf(id);
+  return { status: "handled" };
 };
 
 export const openPrint = (

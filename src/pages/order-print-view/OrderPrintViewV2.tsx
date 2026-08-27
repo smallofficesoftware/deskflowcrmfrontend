@@ -287,7 +287,13 @@ const OrderPrintViewV2 = () => {
     printSetting,
   ]);
 
+  // Reset to false at the top of every run: orderPrintById starts
+  // undefined, so this effect's FIRST run (cart.type undefined) always
+  // takes the early-bail branch and sets pdfmeFlagChecked=true - without
+  // this reset, that premature "checked" would linger true through the
+  // real async check that follows once the cart actually loads.
   useEffect(() => {
+    setPdfmeFlagChecked(false);
     const companyMastersId = localStorage.getItem("COMPANY_ID");
     if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
       setPdfmeFlagChecked(true);
