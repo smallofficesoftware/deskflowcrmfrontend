@@ -2,7 +2,6 @@ import axios from "axios";
 import { Button } from "primereact/button";
 import { useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import useSocketEvent from "../../../hooks/useSocketEvent";
 import CsvIcon from "../../../assets/images/CsvIcon.png";
 import docxIcon from "../../../assets/images/docxIcon.png";
 import excelIcon from "../../../assets/images/excelIcon.png";
@@ -128,18 +127,6 @@ const TaskChatRightSide = ({
   /*chatEdittor State Start  */
   const [editorContent, setEditorContent] = useState<string>("");
   const [isLoadedMessage, setIsLoadedMessage] = useState(false);
-  // Bumped on every "task-chat-changed" socket event to force the message
-  // fetch effect below to re-run, even if isLoadedMessage's value didn't
-  // change - covers messages arriving from another user/tab/WhatsApp reply,
-  // not just the ones this tab itself just sent.
-  const [chatSocketRefreshTick, setChatSocketRefreshTick] = useState(0);
-  useSocketEvent<{ task_id?: number }>("task-chat-changed", (payload) => {
-    // No task_id on the payload (e.g. an edit/delete, not a new message) -
-    // fall back to always refreshing rather than risk missing a real update.
-    if (!payload?.task_id || payload.task_id === signleDataTask?.id) {
-      setChatSocketRefreshTick((tick) => tick + 1);
-    }
-  });
   const [editorContentToEditId, setEditorContentToEditId] = useState(0);
   const [isToggledButton, setIsToggledButton] = useState(false);
   const [editorContentToEdit, setEditorContentToEdit] = useState<string>("");
@@ -331,7 +318,6 @@ const TaskChatRightSide = ({
     selectDate,
     searchTerm,
     setNoDataFound1,
-    chatSocketRefreshTick,
   ]);
 
   /* first Call This Api When Open Chat */
