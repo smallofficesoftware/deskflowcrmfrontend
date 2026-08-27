@@ -51,6 +51,11 @@ import {
   openPrint,
 } from "./inwardController";
 
+// PDFMerger holds every selected order's parsed PDF in memory at merge time -
+// cap Generate Multi Print's selection so an unbounded "select all" can't
+// blow up memory.
+const MAX_MULTI_PRINT_COUNT = 25;
+
 interface LazyTableState {
   first: number;
   rows: number;
@@ -158,16 +163,18 @@ const TeamInwardDataReportsView = ({
     return selectedCustomers.map((item: IFlatCartItem) => item.id);
   }, [selectedCustomers]);
 
-  // pdfme single-print picker - same shape as ListOrderView.tsx's
-  // printTemplateChoices/pendingPrintCartId/printWithTemplate. Only used
-  // when exactly one row is selected; multi-select stays on the legacy
-  // openPrint(ids.join(","), viewFormate) path.
+  // pdfme print picker - same shape as ListOrderView.tsx's
+  // printTemplateChoices/pendingPrintCartId/printWithTemplate. Used for both
+  // single print (1 row) and Generate Multi Print (2+ rows, merged PDF).
   const [printTemplateChoices, setPrintTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(
-    null,
-  );
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
+  // Generate Multi Print's round trip (N sequential PDF generations + merge)
+  // is long enough to look broken without a loading indicator.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -1295,33 +1302,46 @@ const TeamInwardDataReportsView = ({
   const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    // Same shape as ListOrderView.tsx's openPrint: pdfme is only wired for
-    // a single id, more than one selected row falls through to the legacy
-    // comma-joined print.
-    if (selectedIds.length === 1) {
-      const cartId = selectedIds[0];
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    setIsMultiPrintLoading(true);
+    try {
       const pdfmeOn = await isPdfmeEnabledForInward();
       if (pdfmeOn) {
         const choices = await fetchInwardPdfmeTemplates();
         if (choices.length > 1) {
           setPrintTemplateChoices(choices);
-          setPendingPrintCartId(cartId);
-        } else {
-          generateAndPrintInwardPdf(cartId);
+          setPendingPrintCartId(cartIdOrIds);
+          return;
         }
+        await generateAndPrintInwardPdf(cartIdOrIds);
         return;
       }
-    }
 
-    openPrint(selectedIds.join(","), viewFormate);
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
-  const printWithTemplate = (templateId: number) => {
+  const printWithTemplate = async (templateId: number) => {
     setPrintTemplateChoices([]);
-    if (pendingPrintCartId != null) {
-      generateAndPrintInwardPdf(pendingPrintCartId, templateId);
-    }
+    const cartIdOrIds = pendingPrintCartId;
     setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintInwardPdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
   const handleSyncWithMiracle = () => {
@@ -1390,9 +1410,9 @@ const TeamInwardDataReportsView = ({
 
                   <option
                     value="multiPrint"
-                    disabled={selectedIds.length === 0}
+                    disabled={selectedIds.length === 0 || isMultiPrintLoading}
                   >
-                    Generate Multi Print
+                    {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                   </option>
                 </select>
               )}
@@ -1617,7 +1637,7 @@ const TeamInwardDataReportsView = ({
                       className="listItem text-start"
                       role="button"
                       onClick={() => {
-                        if (selectedIds.length === 0) return;
+                        if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                         setIsExportDropdownOpen(false);
                         handleMultiPrint();
@@ -1637,12 +1657,12 @@ const TeamInwardDataReportsView = ({
                         }}
                       >
                         <i
-                          className="pi pi-copy"
+                          className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                           style={{ marginRight: "4px" }}
                         />
 
                         <span style={{ marginRight: "auto" }}>
-                          Generate Multi Print
+                          {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                         </span>
                       </div>
                     </li>
