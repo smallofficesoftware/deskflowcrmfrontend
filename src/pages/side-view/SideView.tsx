@@ -1110,19 +1110,81 @@ const SideView = ({ profileDetail }: IProp) => {
       overrides.endSearchDate = endDate;
     }
 
+    // Every checkbox group in CheckBoxFilterModal compares ids with strict
+    // equality (`option.id === checkedX[i]`) and option.id is always a
+    // number — so these MUST be parsed as numbers, not left as the raw URL
+    // strings, or nothing shows as checked / filtered.
+    const parseIds = (v: string | null): number[] =>
+      (v ?? "")
+        .split(",")
+        .map((id) => Number(id.trim()))
+        .filter((id) => !isNaN(id));
+
+    // AppliedFilterBar (the chip row every report renders) doesn't read the
+    // raw id arrays below — it reads `appliedFilterSummary`, which is
+    // normally built by CheckBoxFilterModal.buildAppliedSummary() on a
+    // manual Apply click. This deep-link path bypasses that modal entirely,
+    // so build the same shape here (id-based labels — we don't have the
+    // name lookups this component would need to show real names) or the bar
+    // silently shows nothing for team/status/source/label even though the
+    // underlying filter data below is set correctly.
+    const summaryChips: { key: string; label: string; values: string[] }[] = [];
+
+    // "Team" isn't one field across reports — filtersToShow group 5 ("Team
+    // Member") reads checkedOptionsUser, group 9 ("Multi team Member") reads
+    // assignedByMultiTeamMember/createdByMultiTeamMember separately. Set all
+    // three from the same ?team= so it works regardless of which group(s)
+    // the target report actually shows; reports that read none of the extra
+    // fields just ignore them.
     const team = searchParams.get("team");
-    if (team) overrides.checkedOptionsUser = team.split(",").filter(Boolean);
+    if (team) {
+      const teamIds = parseIds(team);
+      overrides.checkedOptionsUser = teamIds;
+      overrides.assignedByMultiTeamMember = teamIds;
+      overrides.createdByMultiTeamMember = teamIds;
+      summaryChips.push({
+        key: "team",
+        label: "Team Member",
+        values: teamIds.map(String),
+      });
+    }
 
     const status = searchParams.get("status");
-    if (status)
-      overrides.checkedOptionsStageStatus = status.split(",").filter(Boolean);
+    if (status) {
+      const statusIds = parseIds(status);
+      overrides.checkedOptionsStageStatus = statusIds;
+      summaryChips.push({
+        key: "status",
+        label: "Stage & Status",
+        values: statusIds.map(String),
+      });
+    }
 
     const source = searchParams.get("source");
-    if (source)
-      overrides.checkedSourceTypes = source.split(",").filter(Boolean);
+    if (source) {
+      const sourceIds = parseIds(source);
+      overrides.checkedSourceTypes = sourceIds;
+      summaryChips.push({
+        key: "source",
+        label: "Source Type",
+        values: sourceIds.map(String),
+      });
+    }
 
     const label = searchParams.get("label");
-    if (label) overrides.checkedOptions = label.split(",").filter(Boolean);
+    if (label) {
+      const labelIds = parseIds(label);
+      overrides.checkedOptions = labelIds;
+      summaryChips.push({
+        key: "label",
+        label: "Label",
+        values: labelIds.map(String),
+      });
+    }
+
+    if (summaryChips.length) {
+      overrides.appliedFilterSummary = summaryChips;
+    }
 
     if (Object.keys(overrides).length) {
       setReportFilters(reportSlug, overrides);
