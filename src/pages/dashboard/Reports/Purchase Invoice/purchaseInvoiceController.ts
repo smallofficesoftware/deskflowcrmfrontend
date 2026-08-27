@@ -1,7 +1,61 @@
+import axios from "axios";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../helpers/AppConstants";
+import {
+  fetchPdfmeTemplatesForPicker,
+  isPdfmeSupportedCartType,
+} from "../../../order-print-view/orderPrintController";
 import { axiosInstance } from "../../../../services/axiosInstance";
+
+// Purchase Invoice (cart type 4) is pdfme-supported - same shape as
+// ListOrderView.tsx's openPrint. Only wired for a single id, same as
+// ListOrderView.tsx - multi-select print keeps the legacy
+// openPrint(ids.join(","), viewFormate) path (openPrint itself is the
+// generic one shared from QuotationController.ts).
+export const isPdfmeEnabledForPurchaseInvoice = async (): Promise<boolean> => {
+  if (!isPdfmeSupportedCartType(4)) return false;
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return false;
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    return data?.ack === 1 && !!data.data.item.is_enabled;
+  } catch {
+    return false;
+  }
+};
+
+export const fetchPurchaseInvoicePdfmeTemplates = () =>
+  fetchPdfmeTemplatesForPicker(4);
+
+export const generateAndPrintPurchaseInvoicePdf = async (
+  cartId: number,
+  documentTemplateId?: number,
+) => {
+  try {
+    const { data } = await axiosInstance.post("/order-pdf", {
+      cart_id: cartId,
+      ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+    });
+    if (data.ack !== 1) {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return;
+    }
+    const response = await axios.get(data.data.path, { responseType: "blob" });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const pdfWindow = window.open(url, "_blank");
+    if (pdfWindow) {
+      pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
 
 export interface ICartItem {
   id: number;
