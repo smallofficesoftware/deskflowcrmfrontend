@@ -43,6 +43,11 @@ import {
   IFlatCartItem,
 } from "./pendingPurchaseController";
 
+// PDFMerger holds every selected order's parsed PDF in memory at merge time -
+// cap Generate Multi Print's selection so an unbounded "select all" can't
+// blow up memory.
+const MAX_MULTI_PRINT_COUNT = 25;
+
 interface LazyTableState {
   first: number;
   rows: number;
@@ -123,7 +128,12 @@ const PendingPurchaseReportsView = ({
   const [pendingPrintChoices, setPendingPrintChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(null);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
+  // Generate Multi Print's round trip (N sequential PDF generations + merge)
+  // is long enough to look broken without a loading indicator.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
   const handlePendingPrint = async (rowId: number) => {
     const result = await tryPendingPdfmePrint(rowId, 5);
     if (result.status === "picker") {
@@ -134,10 +144,18 @@ const PendingPurchaseReportsView = ({
     if (result.status === "handled") return;
     openPendingPrint(rowId, 5);
   };
-  const printWithPendingTemplate = (templateId: number) => {
+  const printWithPendingTemplate = async (templateId: number) => {
     setPendingPrintChoices([]);
-    if (pendingPrintCartId != null) generateAndPrintPendingPdf(pendingPrintCartId, templateId);
+    const cartIdOrIds = pendingPrintCartId;
     setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintPendingPdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -1270,10 +1288,31 @@ const PendingPurchaseReportsView = ({
       </div>
     );
   }
-  const handleMultiPrint = () => {
+  const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    openPrint(selectedIds.join(","), viewFormate);
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    setIsMultiPrintLoading(true);
+    try {
+      const result = await tryPendingPdfmePrint(cartIdOrIds, 5);
+      if (result.status === "picker") {
+        setPendingPrintChoices(result.choices);
+        setPendingPrintCartId(cartIdOrIds);
+        return;
+      }
+      if (result.status === "handled") return;
+
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
   return (
     <>
@@ -1518,7 +1557,7 @@ const PendingPurchaseReportsView = ({
                     className="listItem text-start"
                     role="button"
                     onClick={() => {
-                      if (selectedIds.length === 0) return;
+                      if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                       setIsExportDropdownOpen(false);
                       handleMultiPrint();
@@ -1537,12 +1576,12 @@ const PendingPurchaseReportsView = ({
                       }}
                     >
                       <i
-                        className="pi pi-copy"
+                        className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                         style={{ marginRight: "4px" }}
                       />
 
                       <span style={{ marginRight: "auto" }}>
-                        Generate Multi Print
+                        {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                       </span>
                     </div>
                   </li>

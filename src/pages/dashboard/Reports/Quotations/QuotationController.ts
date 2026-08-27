@@ -335,7 +335,11 @@ const PENDING_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
   5: "pendingPurchaseOrder",
 };
 
-export const generateAndPrintPendingPdf = async (cartId: number, documentTemplateId?: number) => {
+// cartId accepts a single id (single print) or an array of ids (Generate
+// Multi Print - 2+ selected rows). The backend's pdfOrder dispatcher handles
+// both shapes transparently: single id behaves exactly as before, an array
+// generates each order then returns one merged PDF.
+export const generateAndPrintPendingPdf = async (cartId: number | number[], documentTemplateId?: number) => {
   try {
     const resops = await axiosInstance.post("/order-pdf", {
       cart_id: cartId,
@@ -370,8 +374,12 @@ export type PendingPdfmePrintResult =
   | { status: "picker"; choices: { id: number; template_name: string; is_default: number }[] }
   | { status: "legacy" };
 
+// id accepts a single id (single print) or an array of ids (Generate Multi
+// Print - 2+ selected rows) - passed straight through to
+// generateAndPrintPendingPdf at the "handled" branch below, same shape it
+// already accepts.
 export const tryPendingPdfmePrint = async (
-  id: number,
+  id: number | number[],
   cartType: number,
 ): Promise<PendingPdfmePrintResult> => {
   const docType = PENDING_DOC_TYPE_BY_CART_TYPE[cartType];
