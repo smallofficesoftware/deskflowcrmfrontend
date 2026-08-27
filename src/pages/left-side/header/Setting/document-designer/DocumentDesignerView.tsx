@@ -780,22 +780,6 @@ const DocumentDesignerView: React.FC = () => {
     return <div className="p-4">You don't have permission to view this page.</div>;
   }
 
-  if (!pinVerified) {
-    return (
-      <div className="p-4">
-        <PromptModal
-          show={!pinVerified}
-          onHide={() => navigate(-1)}
-          onSubmit={handlePinSubmit}
-          title="Owner PIN required"
-          message="Document Designer is an owner-only area. Enter the shared build PIN to continue (same PIN as Report Builder)."
-          placeholder="PIN"
-          submitLabel="Verify"
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="dd-page">
       <style>{`
@@ -1152,11 +1136,15 @@ const DocumentDesignerView: React.FC = () => {
       />
 
       <PromptModal
-        show={showPinModal}
-        onHide={handlePinCancel}
+        show={!pinVerified || showPinModal}
+        onHide={pinVerified ? handlePinCancel : () => navigate(-1)}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
-        message="This action needs the shared build PIN (same PIN as Report Builder)."
+        message={
+          pinVerified
+            ? "This action needs the shared build PIN (same PIN as Report Builder)."
+            : "Document Designer is an owner-only area. Enter the shared build PIN to continue (same PIN as Report Builder)."
+        }
         placeholder="PIN"
         submitLabel="Verify"
       />
