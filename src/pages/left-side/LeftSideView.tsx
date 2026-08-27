@@ -50,6 +50,7 @@ import {
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
 import useSocketEvent from "../../hooks/useSocketEvent";
 import { axiosInstance } from "../../services/axiosInstance";
+import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
@@ -744,6 +745,14 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   > | null>(null);
   const [noDataFound1, setNoDataFound1] = useState(false);
   const [loginById, setLoginById] = useState<ILoginData>();
+  // Per-login (team member) opt-in for the socket.io real-time layer,
+  // separate from company-wide feature flags — gates socketClient.ts's
+  // getSocket() so no connection is attempted until this login has
+  // explicitly turned it on (Save Personal Detail, PersonalSettingView.tsx).
+  // Default 0/off, same as the DB column's own default.
+  useEffect(() => {
+    setSocketConnectionEnabled(loginById?.socket_connection_switch === 1);
+  }, [loginById?.socket_connection_switch]);
   const [isLoadContact, setIsLoadContact] = useState(true);
   const [refreshContact, setRefreshContact] = useState(false);
   // Live sync: any teammate adding/editing/deleting a contact refreshes this sidebar list too.
