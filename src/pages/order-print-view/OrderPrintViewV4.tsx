@@ -289,7 +289,13 @@ const OrderPrintViewV4 = () => {
     printSetting,
   ]);
 
+  // Reset to false at the top of every run: orderPrintById starts
+  // undefined, so this effect's FIRST run (cart.type undefined) always
+  // takes the early-bail branch and sets pdfmeFlagChecked=true - without
+  // this reset, that premature "checked" would linger true through the
+  // real async check that follows once the cart actually loads.
   useEffect(() => {
+    setPdfmeFlagChecked(false);
     const companyMastersId = localStorage.getItem("COMPANY_ID");
     if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
       setPdfmeFlagChecked(true);
@@ -306,7 +312,10 @@ const OrderPrintViewV4 = () => {
       .finally(() => setPdfmeFlagChecked(true));
   }, [orderPrintById?.cart?.type]);
 
-  const printGeneratedPdf = async (documentTemplateId?: number) => {
+  // autoPrint=false (printFlag/"view" links, e.g. a chat message's "View
+  // Order" link) still opens the real generated PDF but skips triggering
+  // the browser print dialog on it.
+  const printGeneratedPdf = async (documentTemplateId?: number, autoPrint: boolean = true) => {
     const token = MobileToken || localStorage.getItem("token");
     const companyMastersId = localStorage.getItem("COMPANY_ID");
     try {
@@ -319,9 +328,18 @@ const OrderPrintViewV4 = () => {
       const response = await axios.get(resops.data.data.path, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const pdfWindow = window.open(url, "_blank");
-      if (pdfWindow) {
-        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+      if (autoPrint) {
+        const pdfWindow = window.open(url, "_blank");
+        if (pdfWindow) {
+          pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+        }
+      } else {
+        // View-only (printFlag) - navigate the current tab instead of
+        // window.open(): this fires after an async network round trip, well
+        // outside the link click's user-gesture window, so browsers reliably
+        // popup-block a new window/tab here. Navigating in place isn't
+        // blocked and view mode never needed the separate window anyway.
+        window.location.href = url;
       }
     } catch (error) {
       console.error(error);
@@ -334,11 +352,13 @@ const OrderPrintViewV4 = () => {
   // window.print(), which doesn't apply here since we fetch a real PDF).
   // Always uses the default template directly — no picker, even when 2+
   // templates are published (this legacy landing page never blocks on a
-  // template choice for Print).
+  // template choice for Print). Fires for printFlag ("view") requests too
+  // now, just without auto-printing - a pdfme-enabled cart should show the
+  // real document even in view mode, not the stale hardcoded layout below.
   useEffect(() => {
-    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened && !printFlag) {
+    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened) {
       setPrintDialogOpened(true);
-      printGeneratedPdf();
+      printGeneratedPdf(undefined, !printFlag);
     }
   }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
 
@@ -718,9 +738,9 @@ const OrderPrintViewV4 = () => {
     // with the outer component's own effects (closure), so whichever
     // fires first (here or the outer effect) blocks the rest.
     useEffect(() => {
-      if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened && !printFlag) {
+      if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened) {
         setPrintDialogOpened(true);
-        printGeneratedPdf();
+        printGeneratedPdf(undefined, !printFlag);
       }
     }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
 
