@@ -54,9 +54,11 @@ export const fetchStatus = async (
 
 
     if (response.data.ack == 3) {
-      toast.error(response.data.ack_msg)
+      toast.error(response.data.ack_msg);
+      setStatusWiseReport(null);
+      return;
     }
-    setStatusWiseReport(response.data.data.item);
+    setStatusWiseReport(response.data?.data?.item ?? null);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }
