@@ -15,7 +15,7 @@ interface OrderActionDropdownProps {
 
     // Handlers
     handelChangeEdit?: (id: number, cartNumber: string, type: number) => void;
-    openPrint?: (id: number) => void;
+    openPrint?: (id: number, type: number) => void;
     handleDownload?: (id: number) => void;
     handleSendWhatsApp?: (id: number) => void;
     handleStartWorkFlow?: (showNum: number, orderId: number) => void;
@@ -393,7 +393,7 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
                 <li
                     className="listItem-report"
                     role="button"
-                    onClick={() => openPrint?.(item.id)}
+                    onClick={() => openPrint?.(item.id, item.type)}
                 >
                     Print
                 </li>
