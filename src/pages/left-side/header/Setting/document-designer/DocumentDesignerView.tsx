@@ -752,6 +752,10 @@ const DocumentDesignerView: React.FC = () => {
   const runPreview = async (cart_id?: number) => {
     if (!currentTemplateId) return;
     setStatus("Generating preview...");
+    // Preview reads draft_template_json straight from the DB - without
+    // saving first, it shows whatever was last saved, not the live canvas
+    // (e.g. a just-toggled Rich text field wouldn't show as bold yet).
+    await saveDraftSilently();
     const { data } = await axiosInstance.post("document-templates/preview", {
       company_masters_id: localStorage.getItem("COMPANY_ID"),
       id: currentTemplateId,
