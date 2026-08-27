@@ -307,12 +307,15 @@ const DocumentDesignerView: React.FC = () => {
     setPromptDialog({ title, onSubmit, defaultValue });
   };
 
-  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js) — registered
-  // as postGated's retry handler (DocumentDesignerController.ts) so any of
-  // the create/update/publish/etc. calls below that hit "PIN verification
-  // required" (missing/expired token) can prompt right here and retry,
-  // instead of failing with no way to resolve it from this page. Same
-  // verifyReportPin ReportBuilderView.tsx uses - one PIN, either page.
+  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js). Asked
+  // upfront on page open (pinVerified below gates the whole page, same
+  // pattern ReportBuilderView.tsx uses) rather than only when a gated
+  // action is attempted. showPinModal/pinResolveRef stay as a fallback for
+  // the 2h token expiring while the page is still open — postGated
+  // (DocumentDesignerController.ts) can re-prompt right here and retry the
+  // one call, instead of failing outright. Same verifyReportPin
+  // ReportBuilderView.tsx uses — one PIN, either page.
+  const [pinVerified, setPinVerified] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
   useEffect(() => {
@@ -327,6 +330,7 @@ const DocumentDesignerView: React.FC = () => {
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
     setShowPinModal(false);
+    if (ok) setPinVerified(true);
     pinResolveRef.current?.(ok);
     pinResolveRef.current = null;
   };
@@ -774,6 +778,22 @@ const DocumentDesignerView: React.FC = () => {
 
   if (!canView) {
     return <div className="p-4">You don't have permission to view this page.</div>;
+  }
+
+  if (!pinVerified) {
+    return (
+      <div className="p-4">
+        <PromptModal
+          show={!pinVerified}
+          onHide={() => navigate(-1)}
+          onSubmit={handlePinSubmit}
+          title="Owner PIN required"
+          message="Document Designer is an owner-only area. Enter the shared build PIN to continue (same PIN as Report Builder)."
+          placeholder="PIN"
+          submitLabel="Verify"
+        />
+      </div>
+    );
   }
 
   return (
