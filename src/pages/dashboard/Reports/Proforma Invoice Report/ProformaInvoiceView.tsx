@@ -20,6 +20,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -1764,6 +1765,13 @@ const ProformaInvoiceView = ({
             </div>
             {/* )} */}
           </div>
+
+          <AppliedFilterBar
+            summary={filters.appliedFilterSummary}
+            dateRange={filters.selectedDateArray}
+            startDate={filters.startSearchDate}
+            endDate={filters.endSearchDate}
+          />
 
           <div
             className="report_card"

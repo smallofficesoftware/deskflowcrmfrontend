@@ -4,6 +4,7 @@ import { DataTable } from "primereact/datatable";
 import { useEffect, useMemo, useState } from "react";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
@@ -305,6 +306,14 @@ const PaymentWiseAccountReport = ({
           </div>
         </div>
       </div>
+
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
+
       <div
         className="report_card"
         style={{

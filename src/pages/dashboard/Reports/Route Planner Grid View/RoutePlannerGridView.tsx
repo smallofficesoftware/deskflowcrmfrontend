@@ -11,6 +11,7 @@ import { AppContext } from "../../../../common/AppContext";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -600,6 +601,13 @@ const RoutePlannerGridView = ({
                             />
                         </div>
                     </div>
+
+                    <AppliedFilterBar
+                        summary={filters.appliedFilterSummary}
+                        dateRange={filters.selectedDateArray}
+                        startDate={filters.startSearchDate}
+                        endDate={filters.endSearchDate}
+                    />
 
                     <div
                         className="report_card"

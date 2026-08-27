@@ -28,6 +28,7 @@ import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import EventLogs from "../../../../components/model/EventLogModel/EventLogsModel";
 import TaskChatRightSide from "../../../right-side/task-chat/TaskChatRightSide";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   ITEMS_PER_PAGE,
@@ -2507,6 +2508,13 @@ const AllTaskReportsView = ({
             </button>
           </div>
         </div>
+
+        <AppliedFilterBar
+          summary={filters.appliedFilterSummary}
+          dateRange={filters.selectedDateArray}
+          startDate={filters.startSearchDate}
+          endDate={filters.endSearchDate}
+        />
 
         <div
           className="report_card"
