@@ -31,8 +31,12 @@ export const isPdfmeEnabledForSalesOrder = async (): Promise<boolean> => {
 export const fetchSalesOrderPdfmeTemplates = () =>
   fetchPdfmeTemplatesForPicker(2);
 
+// cartId: a single id (single-row print) or an array (Generate Multi
+// Print) - /order-pdf's pdfOrder dispatcher handles both, merging multiple
+// ids into one PDF server-side (PDFMerger), so this stays one blob-
+// fetch-and-print either way, no client-side merge needed.
 export const generateAndPrintSalesOrderPdf = async (
-  cartId: number,
+  cartId: number | number[],
   documentTemplateId?: number,
 ) => {
   try {
