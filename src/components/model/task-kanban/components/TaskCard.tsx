@@ -67,32 +67,6 @@ const IconCalendar = () => (
     <path d="M16 2v4M8 2v4M3 10h18" />
   </svg>
 );
-const IconEdit = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.2"
-  >
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
-  </svg>
-);
-const IconEye = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.2"
-  >
-    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
 const IconMore = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
     <circle cx="12" cy="5" r="2" />
@@ -159,7 +133,11 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
       <>
         <div
           className={`task-card${isUnread ? " is-unread" : ""}`}
-          onClick={() => onClick?.(task)}
+          style={{ cursor: "pointer" }}
+          onClick={() => {
+            onClick?.(task);
+            setShowDetail(true);
+          }}
         >
           {/* ── Header row: task# + title + actions ── */}
               <div
@@ -208,33 +186,6 @@ export const TaskCard: React.FC<TaskCardProps> = memo(
                     />
                   )}
 
-                  {/* Feature 4: Edit button */}
-                  {onEdit && (
-                    <ActionBtn
-                      title="Edit task"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(task);
-                      }}
-                      color="#9ca3af"
-                      hoverBg="#fef9c3"
-                    >
-                      <IconEdit />
-                    </ActionBtn>
-                  )}
-
-                  {/* Eye / detail button */}
-                  <ActionBtn
-                    title="View details"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDetail(true);
-                    }}
-                    color="#9ca3af"
-                    hoverBg="#ede9fe"
-                  >
-                    <IconEye />
-                  </ActionBtn>
                   <div
                     ref={menuRef}
                     style={{ position: "relative" }}
