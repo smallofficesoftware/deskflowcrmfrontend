@@ -152,7 +152,23 @@ function buildFieldSettingsWidget(includeTokenInsert: boolean) {
       richTextLabel.appendChild(richTextToggle);
       richTextLabel.appendChild(document.createTextNode("Rich text (**bold**, *italic*)"));
       richTextToggle.addEventListener("change", () => {
-        changeSchemas([{ key: "textFormat", value: richTextToggle.checked ? "inline-markdown" : "plain", schemaId }]);
+        const changes: { key: string; value: any; schemaId: string }[] = [
+          { key: "textFormat", value: richTextToggle.checked ? "inline-markdown" : "plain", schemaId },
+        ];
+        if (richTextToggle.checked) {
+          // fonts.js loads "Poppins Bold" as a totally separate, independently-
+          // named font — nothing links it to "Poppins" as a bold variant of
+          // the same family (this app's existing convention is picking a
+          // different Font Name outright, not a bold toggle). pdfme's own
+          // inline-markdown renderer needs this fontVariants mapping to know
+          // which registered font to swap to for a **bold** run - without it,
+          // a **bold**-formatted run just renders as plain "Poppins" (no font
+          // to switch to, and synthetic-bold fallback doesn't kick in either).
+          // Only wired for bold/Poppins for now - a field using a Devanagari/
+          // Gujarati font (no bold file loaded at all) won't get one here.
+          changes.push({ key: "fontVariants", value: { bold: "Poppins Bold" }, schemaId });
+        }
+        changeSchemas(changes);
       });
       wrapper.appendChild(richTextLabel);
 
