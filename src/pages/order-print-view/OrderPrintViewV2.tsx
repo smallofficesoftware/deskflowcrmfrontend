@@ -89,9 +89,6 @@ const OrderPrintViewV2 = () => {
   const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
     { id: number; template_name: string; is_default: number }[]
   >([]);
-  const [printTemplateChoices, setPrintTemplateChoices] = useState<
-    { id: number; template_name: string; is_default: number }[]
-  >([]);
 
   useEffect(() => {
     setUrlParams({ MobileToken, getID });
@@ -329,26 +326,17 @@ const OrderPrintViewV2 = () => {
     }
   };
 
-  const printWithTemplate = (templateId: number) => {
-    setPrintTemplateChoices([]);
-    printGeneratedPdf(templateId);
-  };
-
   // pdfme path: fires as soon as the flag is confirmed true — no reason to
   // wait for the legacy timer (that delay exists to let this component's
   // own DOM finish rendering pageText/pageURL extra sections before
   // window.print(), which doesn't apply here since we fetch a real PDF).
+  // Always uses the default template directly — no picker, even when 2+
+  // templates are published (this legacy landing page never blocks on a
+  // template choice for Print).
   useEffect(() => {
     if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened && !printFlag) {
-      (async () => {
-        setPrintDialogOpened(true);
-        const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
-        if (choices.length > 1) {
-          setPrintTemplateChoices(choices);
-        } else {
-          printGeneratedPdf();
-        }
-      })();
+      setPrintDialogOpened(true);
+      printGeneratedPdf();
     }
   }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
 
@@ -3818,35 +3806,6 @@ const OrderPrintViewV2 = () => {
                         onClick={() => downloadWithTemplate(t.id)}
                       >
                         Download
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {printTemplateChoices.length > 0 && (
-              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h5>Choose Template</h5>
-                    <span
-                      className="close"
-                      onClick={() => setPrintTemplateChoices([])}
-                    >
-                      &times;
-                    </span>
-                  </div>
-                  {printTemplateChoices.map((t) => (
-                    <div
-                      key={t.id}
-                      className="d-flex justify-content-between align-items-center border-bottom py-2"
-                    >
-                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => printWithTemplate(t.id)}
-                      >
-                        Print
                       </button>
                     </div>
                   ))}

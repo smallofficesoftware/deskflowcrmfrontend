@@ -25,7 +25,6 @@ import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
 } from "./pendingPrintController";
-import { fetchTemplatesForDocType } from "./orderPrintController";
 
 // Pending Order / Pending Purchase Order — distinct doc types from the
 // regular sales/purchase order (see backend orderServices.js's pdfOrder,
@@ -73,9 +72,6 @@ const PendingPrintViewV1 = () => {
   // to the pendingSalesOrder/pendingPurchaseOrder doc types.
   const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
   const [, setPdfmeFlagChecked] = useState(false);
-  const [printTemplateChoices, setPrintTemplateChoices] = useState<
-    { id: number; template_name: string; is_default: number }[]
-  >([]);
   const [printDialogOpened, setPrintDialogOpened] = useState(false);
 
   const { id, MobileToken, getID, type } = useParams();
@@ -182,22 +178,13 @@ const PendingPrintViewV1 = () => {
     }
   };
 
-  const printWithTemplate = (templateId: number) => {
-    setPrintTemplateChoices([]);
-    printGeneratedPdf(templateId);
-  };
-
+  // Always uses the default template directly — no picker, even when 2+
+  // templates are published (this legacy landing page never blocks on a
+  // template choice for Print).
   useEffect(() => {
     if (pdfmeEnabled && pendingDocType && orderPrintById && !printDialogOpened) {
-      (async () => {
-        setPrintDialogOpened(true);
-        const choices = await fetchTemplatesForDocType(pendingDocType);
-        if (choices.length > 1) {
-          setPrintTemplateChoices(choices);
-        } else {
-          printGeneratedPdf();
-        }
-      })();
+      setPrintDialogOpened(true);
+      printGeneratedPdf();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfmeEnabled, pendingDocType, orderPrintById, printDialogOpened]);
@@ -1215,35 +1202,6 @@ const PendingPrintViewV1 = () => {
         />
       )}
 
-      {printTemplateChoices.length > 0 && (
-        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5>Choose Template</h5>
-              <span
-                className="close"
-                onClick={() => setPrintTemplateChoices([])}
-              >
-                &times;
-              </span>
-            </div>
-            {printTemplateChoices.map((t) => (
-              <div
-                key={t.id}
-                className="d-flex justify-content-between align-items-center border-bottom py-2"
-              >
-                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
-                <button
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={() => printWithTemplate(t.id)}
-                >
-                  Print
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   ) : (
     <p className="text-center">Loading...</p>
