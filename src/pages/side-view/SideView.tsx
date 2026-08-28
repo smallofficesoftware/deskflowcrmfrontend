@@ -193,7 +193,7 @@ const SideView = ({ profileDetail }: IProp) => {
   const [dropdownOpenMiracle, setDropdownOpenMiracle] = useState(false);
 
   const [widgetPosition, setWidgetPosition] = useState(() => {
-    const saved = localStorage.getItem("tawk-widget-position");
+    const saved = localStorage.getItem("support-widget-position");
 
     if (saved) {
       return JSON.parse(saved);
@@ -227,7 +227,7 @@ const SideView = ({ profileDetail }: IProp) => {
 
     setWidgetPosition(newPosition);
 
-    localStorage.setItem("tawk-widget-position", JSON.stringify(newPosition));
+    localStorage.setItem("support-widget-position", JSON.stringify(newPosition));
   };
 
   const handleDragStart = () => {

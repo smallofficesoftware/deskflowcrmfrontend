@@ -6392,12 +6392,6 @@ const RightView = ({
                           </h4>
                         </div>
                       </div>
-                      {/* <iframe
-                      src="https://tawk.to/chat/68a56c9d727c171927b34bce/1j3330irj"
-
-                      height="250"
-                      width="200"
-                    ></iframe> */}
                     </div>
                     {advertisement && (
                       <div className="text-center btn-mt">
