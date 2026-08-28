@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -88,6 +88,7 @@ const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { slug: reportSlug } = useParams<{ slug?: string }>();
+  const location = useLocation();
   const openedReportSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1096,7 +1097,13 @@ const SideView = ({ profileDetail }: IProp) => {
     // later, but DO re-open when the query string changes on an
     // already-mounted SideView (slug alone isn't enough — a link with the
     // same slug but a different ?start=/?team=/etc. must still apply).
-    const deepLinkKey = `${reportSlug}?${searchParams.toString()}`;
+    // `location.key` is included too: a dashboard insight/card click that
+    // lands on the SAME slug+query as what's already open (e.g. re-clicking
+    // "Total Task" while its date range hasn't changed) still gets a fresh
+    // history entry (new key) from react-router even though reportSlug and
+    // searchParams' content are unchanged — without it that click was a
+    // silent no-op, the report just stayed as-is.
+    const deepLinkKey = `${reportSlug}?${searchParams.toString()}#${location.key}`;
     if (openedReportSlugRef.current === deepLinkKey) return;
     openedReportSlugRef.current = deepLinkKey;
 
@@ -1230,7 +1237,7 @@ const SideView = ({ profileDetail }: IProp) => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportSlug, permissions, searchParams]);
+  }, [reportSlug, permissions, searchParams, location.key]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();
