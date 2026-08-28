@@ -1,5 +1,9 @@
-import { useEffect, useRef } from "react";
-import { getSocket } from "../services/socketClient";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  getSocket,
+  getSocketConnectionEnabledSnapshot,
+  subscribeSocketConnectionEnabled,
+} from "../services/socketClient";
 
 /**
  * Subscribes to a company-broadcast socket event for the lifetime of the
@@ -12,6 +16,12 @@ import { getSocket } from "../services/socketClient";
  * that closes over props/state (e.g. "only refresh if this payload's id
  * matches the record I'm currently showing") stays correct even when that
  * state changes without the component unmounting.
+ *
+ * connectionEnabled is pulled in via useSyncExternalStore, not read once —
+ * LeftSideView.tsx's own socket_connection_switch check only resolves
+ * after an async fetch, well after this hook's first mount, so without
+ * this the effect below would call getSocket() once while it's still
+ * false, get null back, and never retry once the real value arrives.
  */
 const useSocketEvent = <T = unknown>(
   event: string,
@@ -21,8 +31,13 @@ const useSocketEvent = <T = unknown>(
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
+  const connectionEnabled = useSyncExternalStore(
+    subscribeSocketConnectionEnabled,
+    getSocketConnectionEnabledSnapshot,
+  );
+
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !connectionEnabled) return;
     const socket = getSocket();
     if (!socket) return;
 
@@ -31,7 +46,7 @@ const useSocketEvent = <T = unknown>(
     return () => {
       socket.off(event, stableHandler);
     };
-  }, [event, enabled]);
+  }, [event, enabled, connectionEnabled]);
 };
 
 export default useSocketEvent;
