@@ -220,15 +220,6 @@ const OTPVerificationView = ({
           style={{ backgroundColor: "#f3f4f6", padding: "60px 20px" }}
         >
           <div className="w-100" style={{ maxWidth: "1040px" }}>
-            <button
-              type="button"
-              className="btn btn-link p-0 mb-3"
-              style={{ color: "#f58634", textDecoration: "none" }}
-              onClick={() => handleSubmit(false)}
-            >
-              <i className="pi pi-arrow-left" style={{ marginRight: "6px" }} />
-              Back
-            </button>
             {/* Header Badge */}
             <div className="text-center mb-2">
               <span
