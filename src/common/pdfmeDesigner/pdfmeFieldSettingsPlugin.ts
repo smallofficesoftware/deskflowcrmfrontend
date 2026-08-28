@@ -132,6 +132,46 @@ function buildFieldSettingsWidget(includeTokenInsert: boolean) {
     wrapper.appendChild(visLabel);
 
     if (includeTokenInsert) {
+      // pdfme's installed version (@pdfme/schemas 6.1.12) actually supports
+      // inline rich text (bold/italic/strikethrough/code/links mixed within
+      // one field) via textFormat: "inline-markdown" — it's just never been
+      // exposed here, every text field defaults to "plain". This toggle
+      // flips a field between the two; "plain" renders **word** literally,
+      // "inline-markdown" renders it bold. Safe to flip on for any existing
+      // field — content with no markdown syntax in it renders identically
+      // either way.
+      const richTextLabel = document.createElement("label");
+      richTextLabel.style.display = "flex";
+      richTextLabel.style.alignItems = "center";
+      richTextLabel.style.gap = "6px";
+      richTextLabel.style.fontSize = "12px";
+      richTextLabel.style.cursor = "pointer";
+      const richTextToggle = document.createElement("input");
+      richTextToggle.type = "checkbox";
+      richTextToggle.checked = activeSchema.textFormat === "inline-markdown";
+      richTextLabel.appendChild(richTextToggle);
+      richTextLabel.appendChild(document.createTextNode("Rich text (**bold**, *italic*)"));
+      richTextToggle.addEventListener("change", () => {
+        const changes: { key: string; value: any; schemaId: string }[] = [
+          { key: "textFormat", value: richTextToggle.checked ? "inline-markdown" : "plain", schemaId },
+        ];
+        if (richTextToggle.checked) {
+          // fonts.js loads "Poppins Bold" as a totally separate, independently-
+          // named font — nothing links it to "Poppins" as a bold variant of
+          // the same family (this app's existing convention is picking a
+          // different Font Name outright, not a bold toggle). pdfme's own
+          // inline-markdown renderer needs this fontVariants mapping to know
+          // which registered font to swap to for a **bold** run - without it,
+          // a **bold**-formatted run just renders as plain "Poppins" (no font
+          // to switch to, and synthetic-bold fallback doesn't kick in either).
+          // Only wired for bold/Poppins for now - a field using a Devanagari/
+          // Gujarati font (no bold file loaded at all) won't get one here.
+          changes.push({ key: "fontVariants", value: { bold: "Poppins Bold" }, schemaId });
+        }
+        changeSchemas(changes);
+      });
+      wrapper.appendChild(richTextLabel);
+
       const tokenLabel = document.createElement("div");
       tokenLabel.style.fontSize = "11px";
       tokenLabel.style.color = "#666";
@@ -172,7 +212,7 @@ function buildFieldSettingsWidget(includeTokenInsert: boolean) {
       helpNote.style.color = "#888";
       helpNote.style.marginTop = "6px";
       helpNote.textContent =
-        "Bold/underline apply to the whole field — to bold only part of a line, split it into two adjacent fields.";
+        "Bold/underline (in the settings above) apply to the whole field. To bold or italicize just part of the text, turn on Rich text and wrap the word(s) in **double asterisks** or *single asterisks* in the content.";
       wrapper.appendChild(helpNote);
     }
 

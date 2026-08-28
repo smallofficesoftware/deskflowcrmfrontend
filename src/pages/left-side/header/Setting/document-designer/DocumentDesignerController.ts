@@ -26,18 +26,33 @@ const handleError = (error: any, fallback: string) => {
   toast.error(error?.response?.data?.developer_msg || fallback);
 };
 
-export const verifyDocumentManagerPin = async (pin: string): Promise<boolean> => {
-  try {
-    const { data } = await axiosInstance.post("document-templates/verify-pin", {
-      pin,
-    });
-    if (data?.ack === 1) return true;
-    toast.error(data?.ack_msg || "Incorrect PIN");
-    return false;
-  } catch (error) {
-    handleError(error, "Incorrect PIN");
-    return false;
+// Registered by DocumentDesignerView.tsx (the only mounted consumer of the
+// owner+PIN-gated routes below) - shows the shared PIN prompt and resolves
+// true once verifyReportPin (ReportBuilderController.ts, the REAL gate
+// requireReportPin checks server-side) succeeds. null when no view has
+// registered a handler (e.g. this module loaded outside that page).
+let pinRequiredHandler: (() => Promise<boolean>) | null = null;
+export const setPinRequiredHandler = (handler: (() => Promise<boolean>) | null) => {
+  pinRequiredHandler = handler;
+};
+
+// Every owner+PIN-gated document-templates route (create/update/apply-
+// options/publish/discard-draft/reorder/set-default/delete/import/system-
+// gallery-copy - see documentPrintTemplateRouter.js) goes through this
+// instead of a raw axiosInstance.post: on the specific "PIN verification
+// required" 403, prompt once via pinRequiredHandler and retry the exact
+// same call - so a page that's been open a while and hit an expired/
+// missing PIN token doesn't just fail, it resolves right there.
+const postGated = async (url: string, body: any): Promise<any> => {
+  const { data } = await axiosInstance.post(url, body);
+  if (data?.code === 403 && data?.ack_msg === "PIN verification required" && pinRequiredHandler) {
+    const verified = await pinRequiredHandler();
+    if (verified) {
+      const retry = await axiosInstance.post(url, body);
+      return retry.data;
+    }
   }
+  return data;
 };
 
 export const listDocumentTemplates = async (
@@ -91,7 +106,7 @@ export const createDocumentTemplate = async (
   template_purpose?: "main" | "extra_page",
 ): Promise<IDocumentTemplateFull | null> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/create", {
+    const data = await postGated("document-templates/create", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       doc_type,
@@ -114,7 +129,7 @@ export const updateDocumentTemplateDraft = async (
   template_name?: string,
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/update", {
+    const data = await postGated("document-templates/update", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       id,
@@ -134,7 +149,7 @@ export const applyOptionsToDraft = async (
   options: { header?: any; columnOptions?: any; pageSize?: any },
 ): Promise<any | null> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/apply-options", {
+    const data = await postGated("document-templates/apply-options", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       id,
@@ -150,7 +165,7 @@ export const applyOptionsToDraft = async (
 
 export const publishDocumentTemplate = async (id: number): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/publish", {
+    const data = await postGated("document-templates/publish", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       id,
@@ -169,7 +184,7 @@ export const publishDocumentTemplate = async (id: number): Promise<boolean> => {
 
 export const discardDraftChanges = async (id: number): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/discard-draft", {
+    const data = await postGated("document-templates/discard-draft", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       id,
@@ -186,7 +201,7 @@ export const reorderDocumentTemplates = async (
   orderedIds: number[],
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/reorder", {
+    const data = await postGated("document-templates/reorder", {
       company_masters_id: companyMastersId(),
       doc_type,
       orderedIds,
@@ -203,7 +218,7 @@ export const setDefaultDocumentTemplate = async (
   doc_type: string,
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/set-default", {
+    const data = await postGated("document-templates/set-default", {
       company_masters_id: companyMastersId(),
       id,
       doc_type,
@@ -220,7 +235,7 @@ export const deleteDocumentTemplate = async (
   doc_type: string,
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/delete", {
+    const data = await postGated("document-templates/delete", {
       company_masters_id: companyMastersId(),
       id,
       doc_type,
@@ -274,7 +289,7 @@ export const duplicateDocumentTemplate = async (
   doc_type: string,
 ): Promise<IDocumentTemplateFull | null> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/duplicate", {
+    const data = await postGated("document-templates/duplicate", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       id,
@@ -308,7 +323,7 @@ export const importDocumentTemplate = async (
   template_json: any,
 ): Promise<IDocumentTemplateFull | null> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/import", {
+    const data = await postGated("document-templates/import", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       doc_type,
@@ -341,7 +356,7 @@ export const copyFromSystemTemplate = async (
   doc_type: string,
 ): Promise<IDocumentTemplateFull | null> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/system-gallery/copy", {
+    const data = await postGated("document-templates/system-gallery/copy", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       system_template_id,

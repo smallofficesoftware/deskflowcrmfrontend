@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Card as BsCard, Col, Row } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { AppContext } from "../../../common/AppContext";
 import { useEscapeKey } from "../../../common/SharedFunction";
@@ -20,12 +19,14 @@ import { useContactFilterStore } from "../../../store/contact/useContactFilterSt
 import ContactDetailModel from "../ContactdetailsModel/ContactDetailModel";
 import CheckBoxFilterModal from "../CheckBoxFilterModal";
 import ConfirmationModal from "../ConfirmationModal";
+import { SearchBar } from "../task-kanban/components/SearchBar";
+import "../task-kanban/styles/kanban.css";
 import { KanbanBoard } from "../shared-kanban/components/KanbanBoard";
 import { useKanbanColumns } from "../shared-kanban/hooks/useKanbanColumns";
 import { KanbanItemsInfiniteData } from "../shared-kanban/hooks/useKanbanItems";
 import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult, KanbanItem } from "../shared-kanban/types";
 import "./ContactKanban.css";
-import { KanbanBoardModal } from "./contactType";
+import { ContactCardActions, KanbanBoardModal } from "./contactType";
 
 const BOARD_KEY = "contact-pipeline";
 
@@ -39,6 +40,12 @@ interface ContactKanbanItem {
     label_color: string;
     teamMemberName: string;
     position: number | null;
+    // for the card action menu (same fields the list menu keys off)
+    is_unread: number;
+    is_archive: number;
+    is_pin_by_a_application_login_id: string;
+    contact_status: number | undefined;
+    raw: any;
 }
 
 const mapContactToKanbanItem = (raw: any): ContactKanbanItem => ({
@@ -51,9 +58,129 @@ const mapContactToKanbanItem = (raw: any): ContactKanbanItem => ({
     label_color: raw.label_color || "",
     teamMemberName: raw.teamMemberName || "",
     position: raw.position ?? null,
+    is_unread: Number(raw.is_unread) || 0,
+    is_archive: Number(raw.is_archive) || 0,
+    is_pin_by_a_application_login_id: raw.is_pin_by_a_application_login_id || "",
+    contact_status: raw.contact_status ?? undefined,
+    raw,
 });
 
-const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) => {
+// Per-card "⋮" action menu — mirrors the contact list's row menu
+// (LeftSideView.tsx ~4900). Each action just calls the handler the parent
+// (LeftSideView) already uses for the list; no logic is duplicated here.
+const ContactCardMenu: React.FC<{
+    card: ContactKanbanItem;
+    applicationId: string | null;
+    actions: ContactCardActions;
+}> = ({ card, applicationId, actions }) => {
+    const [open, setOpen] = useState(false);
+    const ref = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, [open]);
+
+    const isPinned = !!applicationId &&
+        card.is_pin_by_a_application_login_id
+            .split(",")
+            .map((s) => s.trim())
+            .includes(applicationId.toString());
+
+    const run = (fn?: () => void) => {
+        setOpen(false);
+        fn?.();
+    };
+
+    return (
+        <div ref={ref} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+            <div
+                style={{ color: "gray", cursor: "pointer", padding: "0 4px" }}
+                title="More options"
+                onClick={() => setOpen((p) => !p)}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
+                    <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                </svg>
+            </div>
+
+            {open && (
+                <ul
+                    className="labelDropLeft isVisible"
+                    style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        left: "auto",
+                        width: "180px",
+                        margin: 0,
+                        zIndex: 1000,
+                        backgroundColor: "#fff",
+                    }}
+                >
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onEdit?.({ id: card.id, raw: card.raw }))}>
+                        Edit
+                    </li>
+                    {isPinned ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onUnpin?.(card.id))}>UnPin</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onPin?.(card.id))}>Pin</li>
+                    )}
+                    {card.is_unread === 1 ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onMarkRead?.(card.id))}>Mark as Read</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onMarkUnread?.(card.id))}>Mark as Unread</li>
+                    )}
+                    {card.is_archive === 1 ? (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onUnarchive?.(card.id))}>Unarchive contact</li>
+                    ) : (
+                        <li className="listItem text-start" role="button"
+                            onClick={() => run(() => actions.onArchive?.(card.id))}>Archive contact</li>
+                    )}
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignLabel?.(card.id))}>Assign label</li>
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignStatus?.(card.id, card.contact_status))}>Assign Status</li>
+                    <li className="listItem text-start" role="button"
+                        onClick={() => run(() => actions.onAssignTeamMember?.(card.id))}>Assign Team Member</li>
+                    <li className="listItem text-start" role="button"
+                        style={{ color: "#0992f3", fontWeight: 600 }}
+                        onClick={() => run(() => actions.onStartWorkflow?.(card.id))}>Start WorkFlow</li>
+                    <li className="listItem text-start" role="button"
+                        style={{ color: "red", fontWeight: 600 }}
+                        onClick={() => run(() => actions.onDelete?.(card.id))}>Delete</li>
+                </ul>
+            )}
+        </div>
+    );
+};
+
+const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
+    show,
+    handleclose,
+    onEdit,
+    onPin,
+    onUnpin,
+    onMarkRead,
+    onMarkUnread,
+    onArchive,
+    onUnarchive,
+    onAssignLabel,
+    onAssignStatus,
+    onAssignTeamMember,
+    onStartWorkflow,
+    onDelete,
+}) => {
     const [isModalFilterVisible, setIsModalFilterVisible] = useState(false);
     const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
     const [hasData, setHasData] = useState(false);
@@ -225,9 +352,36 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
                 }));
 
             return (
-                <>
-                    <h6 className="mb-1">{card.person_name}</h6>
-                    <p className="small text-muted mb-1">{card.mobile_number}</p>
+                <div
+                    style={{ cursor: "pointer" }}
+                    onClick={() => handleViewTask(card.id)}
+                >
+                    <div className="d-flex align-items-start justify-content-between gap-1 mb-1">
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h6 className="mb-1">{card.person_name}</h6>
+                            <p className="small text-muted mb-0">{card.mobile_number}</p>
+                        </div>
+                        <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
+                            <ContactCardMenu
+                                card={card}
+                                applicationId={applicationId}
+                                actions={{
+                                    onEdit,
+                                    onPin,
+                                    onUnpin,
+                                    onMarkRead,
+                                    onMarkUnread,
+                                    onArchive,
+                                    onUnarchive,
+                                    onAssignLabel,
+                                    onAssignStatus,
+                                    onAssignTeamMember,
+                                    onStartWorkflow,
+                                    onDelete,
+                                }}
+                            />
+                        </div>
+                    </div>
 
                     {(card.company_name || card.client_code) && (
                         <p className="small mb-1">
@@ -253,30 +407,25 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
                         </div>
                     )}
 
-                    <div className="d-flex align-items-center justify-content-end">
-                        <div
-                            style={{ color: "gray", cursor: "pointer" }}
-                            title="View"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewTask(card.id);
-                            }}
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="15px"
-                                viewBox="0 -960 960 960"
-                                width="15px"
-                                fill="currentColor"
-                            >
-                                <path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" />
-                            </svg>
-                        </div>
-                    </div>
-                </>
+                </div>
             );
         },
-        [handleViewTask],
+        [
+            handleViewTask,
+            applicationId,
+            onEdit,
+            onPin,
+            onUnpin,
+            onMarkRead,
+            onMarkUnread,
+            onArchive,
+            onUnarchive,
+            onAssignLabel,
+            onAssignStatus,
+            onAssignTeamMember,
+            onStartWorkflow,
+            onDelete,
+        ],
     );
 
     const config: KanbanBoardConfig<ContactKanbanItem> = useMemo(
@@ -397,10 +546,6 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
         setIsModalFilterVisible(false);
     };
 
-    const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter") setSearchTerm(searchInput);
-    };
-
     const handleChangeAddContact = () => {
         if (canAdd) {
             setIsCreateContact(true);
@@ -414,88 +559,125 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({ show, handleclose }) =
         <>
             {show && (
                 <div className="modal1">
-                    <div className="modal-content1" style={{ height: "100%", width: "100%", margin: 0 }}>
-                        <div className="mb-2 d-flex justify-content-between align-content-center align-items-center gap-2">
-                            <div className="d-flex align-items-center justify-content-between gap-2" style={{ flex: 1 }}>
-                                <h2>My Contacts</h2>
-                                <div className="d-flex align-items-center justify-content-start gap-2">
-                                    <button type="button" onClick={refreshBoard} style={{ cursor: "pointer" }}>
-                                        <svg width="30" height="30" viewBox="0 0 50 50" fill="gray"><path fill="currentColor" d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"></path><path fill="currentColor" d="M34.7 33.7l-1.5-1.3c1.8-2 2.8-4.6 2.8-7.3 0-6.1-4.9-11-11-11-1.6 0-3.1.3-4.6 1l-.8-1.8c1.7-.8 3.5-1.2 5.4-1.2 7.2 0 13 5.8 13 13 0 3.1-1.2 6.2-3.3 8.6z"></path><path fill="currentColor" d="M18 24h-2v-6h-6v-2h8z"></path><path fill="currentColor" d="M40 34h-8v-8h2v6h6z"></path></svg>
-                                    </button>
-                                    <span className="d-flex align-content-center justify-content-center rounded-1 text-white" style={{ height: "24px", width: "24px", cursor: "pointer" }} title="Add new Task" onClick={handleChangeAddContact}><svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        height="26px"
-                                        viewBox="0 -960 960 960"
-                                        width="26px"
-                                        fill="gray"
+                    <div
+                        className="modal-content1"
+                        style={{
+                            height: "100%",
+                            width: "100%",
+                            margin: 0,
+                            padding: 0,
+                            border: "none",
+                            display: "flex",
+                            flexDirection: "column",
+                            overflow: "hidden",
+                        }}
+                    >
+                        {/* ── Header (matches Task/Support-Ticket board) ── */}
+                        <div className="modal-header kanban-modal-header px-3 py-0">
+                            <div className="d-flex align-items-center gap-2">
+                                <div className="kanban-modal-icon">
+                                    <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="white"
+                                        strokeWidth="2"
                                     >
-                                        <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                                    </svg></span>
-                                    <span className="text-white" id="task-filter" title="Task Filter" onClick={() => { setIsModalFilterVisible(true); }} style={{ cursor: "pointer" }}>
-                                        {hasData ? (
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                height="24px"
-                                                viewBox="0 -960 960 960"
-                                                width="24px"
-                                                fill={hasData ? "red" : "gray"}
-                                            >
-                                                <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
-                                            </svg>
-                                        ) : (
-                                            <svg
-                                                height="24px"
-                                                viewBox="0 -960 960 960"
-                                                width="24px"
-                                                fill={hasData ? "red" : "gray"}
-                                            >
-                                                <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
-                                            </svg>
-                                        )}
-                                    </span>
-                                    <div className="d-flex align-items-center justify-content-between gap-2">
-                                        <input
-                                            type="search"
-                                            placeholder="Search..."
-                                            value={searchInput}
-                                            onChange={(e) => setSearchInput(e.target.value)}
-                                            onKeyPress={handleSearchKeyPress}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="px-2 py-1 text-white"
-                                            style={{ backgroundColor: "#f58634", borderRadius: "3px" }}
-                                            onClick={() => setSearchTerm(searchInput)}
-                                        >
-                                            Search
-                                        </button>
-                                    </div>
+                                        <rect width="7" height="9" x="3" y="3" rx="1" />
+                                        <rect width="7" height="5" x="3" y="16" rx="1" />
+                                        <rect width="7" height="9" x="14" y="12" rx="1" />
+                                        <rect width="7" height="5" x="14" y="3" rx="1" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div className="kanban-modal-title">Contact Board</div>
+                                    <div className="kanban-modal-subtitle">Pipeline view</div>
                                 </div>
                             </div>
-                            <div className="text-end">
-                                <span className="close ms-3" onClick={() => setIsCloseConfirmation(true)}>
-                                    ×
-                                </span>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    marginLeft: "auto",
+                                    marginRight: 8,
+                                }}
+                            >
+                                <button
+                                    title="Filter Contacts"
+                                    onClick={() => setIsModalFilterVisible(true)}
+                                    className="kanban-header-btn"
+                                    style={{ color: hasData ? "#ef4444" : undefined }}
+                                >
+                                    {hasData ? (
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            height="20px"
+                                            viewBox="0 -960 960 960"
+                                            width="20px"
+                                            fill="currentColor"
+                                        >
+                                            <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
+                                        </svg>
+                                    ) : (
+                                        <svg
+                                            height="20px"
+                                            viewBox="0 -960 960 960"
+                                            width="20px"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
+                                        </svg>
+                                    )}
+                                </button>
+
+                                {canAdd && (
+                                    <button
+                                        title="Create Contact"
+                                        onClick={handleChangeAddContact}
+                                        className="kanban-header-btn kanban-header-btn--primary"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            height="22px"
+                                            viewBox="0 -960 960 960"
+                                            width="22px"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                className="btn-close"
+                                aria-label="Close"
+                                onClick={() => setIsCloseConfirmation(true)}
+                            />
+                        </div>
+
+                        {/* ── Body ── */}
+                        <div className="modal-body kanban-modal-body p-0">
+                            <SearchBar
+                                value={searchInput}
+                                onChange={setSearchInput}
+                                onRefresh={refreshBoard}
+                            />
+                            <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+                                <KanbanBoard
+                                    config={config}
+                                    columns={columns}
+                                    isColumnsLoading={isColumnsLoading}
+                                    searchTerm={searchTerm}
+                                    onError={(msg) => toast.error(msg)}
+                                    onSuccess={(msg) => toast.success(msg)}
+                                />
                             </div>
                         </div>
-                        <Row>
-                            <Col>
-                                <BsCard>
-                                    <BsCard.Body>
-                                        <div style={{ height: "81vh", display: "flex" }}>
-                                            <KanbanBoard
-                                                config={config}
-                                                columns={columns}
-                                                isColumnsLoading={isColumnsLoading}
-                                                searchTerm={searchTerm}
-                                                onError={(msg) => toast.error(msg)}
-                                                onSuccess={(msg) => toast.success(msg)}
-                                            />
-                                        </div>
-                                    </BsCard.Body>
-                                </BsCard>
-                            </Col>
-                        </Row>
                     </div>
                 </div>
             )}

@@ -80,7 +80,16 @@ export const verifyReportPin = async (pin: string): Promise<boolean> => {
       a_application_login_id: loginId(),
       pin,
     });
-    if (data?.ack === 1) return true;
+    if (data?.ack === 1) {
+      // Stateless verification (backend's reportPinAuth.js) — this token is
+      // what requireReportPin actually checks on every gated request, sent
+      // automatically by axiosInstance's own interceptor. Stored here so
+      // it survives across Report Builder AND Document Designer, same PIN.
+      if (data.data?.reportPinToken) {
+        localStorage.setItem("REPORT_PIN_TOKEN", data.data.reportPinToken);
+      }
+      return true;
+    }
     reportError(data, "Incorrect PIN");
     return false;
   } catch (error) {

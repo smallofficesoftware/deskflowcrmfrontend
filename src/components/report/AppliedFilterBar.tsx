@@ -16,6 +16,13 @@ const toDate = (v: any): Date | null => {
       return null;
     }
   }
+  // A bare "YYYY-MM-DD" string parses as UTC midnight in `new Date(v)`, which
+  // then reads back a day early via the local getters below (fmtDay etc.) in
+  // any timezone behind UTC. Parse it as a local calendar date instead.
+  if (typeof v === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 };

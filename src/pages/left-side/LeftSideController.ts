@@ -95,6 +95,9 @@ export interface ILoginData {
   login_pin: string;
   registration_flag: string;
   recovery_email: string;
+  // Per-login (team member) opt-in for the socket.io real-time layer -
+  // separate from company-wide feature flags. Default 0 (off).
+  socket_connection_switch?: number;
 }
 
 // Interface for attendance history, used in AttendanceHistory.tsx

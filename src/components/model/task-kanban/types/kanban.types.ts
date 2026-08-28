@@ -184,7 +184,13 @@ export interface TaskKanbanModalProps {
   onAssignTeamMember?: (task: Task) => void;
   onTimeline?: (task: Task) => void;
   onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onMarkRead?: (task: Task) => void;
+  onMarkUnread?: (task: Task) => void;
+  // support-ticket only — pass only when allowed, presence = shown
+  onChangeExternalStatus?: (task: Task) => void;
+  onConvertToTask?: (task: Task) => void;
   filterParams?: FilterParams;
   hasActiveFilter?: boolean;
   onOpenFilter?: () => void;

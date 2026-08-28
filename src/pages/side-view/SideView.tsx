@@ -1091,20 +1091,37 @@ const SideView = ({ profileDetail }: IProp) => {
     // yet, so every canView* check in handleSingleReportShow is false and
     // it silently falls through without opening anything. Wait for it.
     if (!permissions || permissions.length === 0) return;
-    // Only auto-open once per deep-linked slug — don't re-fire and stomp
-    // the user's own filter changes if `permissions` updates again later.
-    if (openedReportSlugRef.current === reportSlug) return;
-    openedReportSlugRef.current = reportSlug;
+    // Only auto-open once per deep-linked slug+query — don't re-fire and
+    // stomp the user's own filter changes if `permissions` updates again
+    // later, but DO re-open when the query string changes on an
+    // already-mounted SideView (slug alone isn't enough — a link with the
+    // same slug but a different ?start=/?team=/etc. must still apply).
+    const deepLinkKey = `${reportSlug}?${searchParams.toString()}`;
+    if (openedReportSlugRef.current === deepLinkKey) return;
+    openedReportSlugRef.current = deepLinkKey;
 
     handleSingleReportShow(reportSlug);
 
     const overrides: Record<string, any> = {};
 
+    // Parse a bare "YYYY-MM-DD" as a LOCAL calendar date. `new Date(str)`
+    // treats a date-only string as UTC midnight, so in any timezone behind
+    // UTC (e.g. US) the local getters used elsewhere to display it
+    // (.getDate()/.getMonth()) read back the previous calendar day.
+    const parseLocalDate = (s: string): Date | null => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if (!m) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    };
+
     const start = searchParams.get("start");
     const end = searchParams.get("end");
-    if (start && end) {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
+    const startDate = start ? parseLocalDate(start) : null;
+    const endDate = end ? parseLocalDate(end) : null;
+    if (startDate && endDate) {
       overrides.selectedDateArray = [startDate, endDate];
       overrides.startSearchDate = startDate;
       overrides.endSearchDate = endDate;
@@ -1188,9 +1205,32 @@ const SideView = ({ profileDetail }: IProp) => {
 
     if (Object.keys(overrides).length) {
       setReportFilters(reportSlug, overrides);
+
+      // The "team" chip above shows raw ids (no name lookup available
+      // synchronously) — resolve real usernames in the background via the
+      // same /my-team endpoint CheckBoxFilterModal uses, then replace just
+      // that chip's values once they arrive. Doesn't block filtering, which
+      // already applied correctly above using the ids.
+      if (team) {
+        const teamIds = parseIds(team);
+        axiosInstance
+          .post("my-team", { a_application_login_id: localStorage.getItem("UUID") })
+          .then(({ data }) => {
+            const members: { id: number; username: string }[] =
+              data?.data?.item || [];
+            const nameById = new Map(members.map((m) => [Number(m.id), m.username]));
+            const names = teamIds.map((id) => nameById.get(id) ?? String(id));
+            const current = useCommonFilterStore.getState().filters[reportSlug];
+            const nextSummary = (current?.appliedFilterSummary || []).map((c) =>
+              c.key === "team" ? { ...c, values: names } : c,
+            );
+            setReportFilters(reportSlug, { appliedFilterSummary: nextSummary });
+          })
+          .catch((e) => console.error("Error resolving team member names:", e));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportSlug, permissions]);
+  }, [reportSlug, permissions, searchParams]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();

@@ -6,6 +6,18 @@ import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../helpers/AppConstants";
 // than each feature opening its own connection.
 let socket: Socket | null = null;
 
+// Per-login (team member) opt-in, not company-wide — LeftSideView.tsx sets
+// this from loginById.socket_connection_switch (a_application_logins column,
+// default 0/off). Defaults false here too, until that check resolves one
+// way or the other, so no connection is ever attempted before it's known.
+let socketConnectionEnabled = false;
+export const setSocketConnectionEnabled = (enabled: boolean) => {
+  socketConnectionEnabled = enabled;
+  if (!enabled && socket) {
+    socket.disconnect();
+  }
+};
+
 const registerSession = (activeSocket: Socket) => {
   const uuid = localStorage.getItem("UUID");
   if (!uuid) return;
@@ -25,7 +37,7 @@ const registerSession = (activeSocket: Socket) => {
 };
 
 export const getSocket = (): Socket | null => {
-  if (!BACKEND_OF_SMALL_OFFICE_CRM_END_POINT) return null;
+  if (!BACKEND_OF_SMALL_OFFICE_CRM_END_POINT || !socketConnectionEnabled) return null;
 
   if (!socket) {
     socket = io(BACKEND_OF_SMALL_OFFICE_CRM_END_POINT, {

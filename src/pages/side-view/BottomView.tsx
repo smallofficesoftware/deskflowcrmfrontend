@@ -117,7 +117,6 @@ const BottomView = ({
   const getFilter = useCommonFilterStore((state) => state.getFilter);
   const setFilter = useCommonFilterStore((state) => state.setFilter);
   const setFilters = useCommonFilterStore((state) => state.setFilters);
-  const clearFilters = useCommonFilterStore((state) => state.clearFilters);
 
   const filters = getFilter("appliedReportType");
 
@@ -174,19 +173,29 @@ const BottomView = ({
 
   useEffect(() => {
     if (appliedReportType && appliedReportType !== "") {
-      clearFilters(appliedReportType);
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const defaultDates = [startOfMonth, endOfMonth];
+      // Guarded: this used to unconditionally clearFilters + reseed default
+      // dates on every appliedReportType change, which is a duplicate of
+      // handleSingleReportShow's own preamble (SideView.tsx) — and being
+      // unconditional, it ran in a later commit and clobbered any
+      // already-correct dates back to the default month, including the
+      // /SideView/report/:slug?start=&end= deep-link overrides. Only seed
+      // when nothing is set yet, same guard every report's own mount effect
+      // already uses.
+      const existing = getFilter(appliedReportType);
+      if (!existing.startSearchDate || !existing.endSearchDate) {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const defaultDates = [startOfMonth, endOfMonth];
 
-      setFilters(appliedReportType, {
-        selectedDateArray: defaultDates,
-        startSearchDate: defaultDates[0],
-        endSearchDate: defaultDates[1],
-      });
+        setFilters(appliedReportType, {
+          selectedDateArray: defaultDates,
+          startSearchDate: defaultDates[0],
+          endSearchDate: defaultDates[1],
+        });
+      }
     }
-  }, [appliedReportType, clearFilters, setFilters]);
+  }, [appliedReportType, setFilters, getFilter]);
 
   useEffect(() => {
     // Use the active workspace company, not always title[0] (which may be the main company).
