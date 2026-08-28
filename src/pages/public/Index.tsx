@@ -382,6 +382,37 @@ const Index = () => {
             />
           </Link>
         </div>
+
+        {!isTrainingDisabled && (
+          <div className="pt-3">
+            <a
+              href="https://deskflowcrm.com/software-training"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="software-training-btn"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "10px 20px",
+                borderRadius: 6,
+                background: "#FF7D12",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 14,
+                textDecoration: "none",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11V6a2 2 0 0 1 4 0v5" />
+                <path d="M13 9a2 2 0 0 1 4 0v2" />
+                <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
+              </svg>
+              Scheduled Training &gt;&gt;
+            </a>
+          </div>
+        )}
       </div>
       {timestamp ? (
         <div className="container main ">
@@ -424,41 +455,7 @@ const Index = () => {
                   <TeamPriceTable />
                 )
               ) : (
-                <>
-                  {!isTrainingDisabled && (
-                    <a
-                      href="https://deskflowcrm.com/software-training"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="software-training-btn"
-                      style={{
-                        position: "fixed",
-                        top: 16,
-                        right: 16,
-                        zIndex: 1080,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "8px 16px",
-                        borderRadius: 6,
-                        background: "#FF7D12",
-                        color: "#fff",
-                        fontWeight: 600,
-                        fontSize: 14,
-                        textDecoration: "none",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 11V6a2 2 0 0 1 4 0v5" />
-                        <path d="M13 9a2 2 0 0 1 4 0v2" />
-                        <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
-                      </svg>
-                      Scheduled Training &gt;&gt;
-                    </a>
-                  )}
-                  <LeftSideView isVisible={!isGroupOpen} />
-                </>
+                <LeftSideView isVisible={!isGroupOpen} />
               )}
             </div>
           )}
