@@ -567,11 +567,12 @@ const Index = () => {
                         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                       }}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 11V6a2 2 0 0 1 4 0v5" />
+                        <path d="M13 9a2 2 0 0 1 4 0v2" />
+                        <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
                       </svg>
-                      Software Training
+                      Scheduled Training &gt;&gt;
                     </a>
                   )}
                   <LeftSideView isVisible={!isGroupOpen} />
