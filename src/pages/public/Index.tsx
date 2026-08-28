@@ -12,6 +12,7 @@ import {
 } from "../../helpers/AppConstants";
 import { axiosInstance } from "../../services/axiosInstance";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
+import useTrainingStore from "../../store/training/useTrainingStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import CustomerSupportFormView from "../customer-support/customer-support-form/CustomerSupportFormView";
 import { logOutApi } from "../left-side/LeftSideController";
@@ -238,6 +239,7 @@ const Index = () => {
   const [showRenewPlan, setShowRenewPlan] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const { setAdvertisement } = useAdvertisementStore();
+  const { isTrainingDisabled, setTrainingDisabled } = useTrainingStore();
 
   const LoginSubmit = async () => {
     const token = localStorage.getItem("token");
@@ -292,6 +294,7 @@ const Index = () => {
           handleRefresh();
         }
         setAdvertisement(response.data.data.advertisement);
+        setTrainingDisabled(response.data.data.is_training_disabled === 1);
         setCompulsaryAttendance(
           response.data.data.compulsary_attendance === true,
         );
@@ -539,7 +542,40 @@ const Index = () => {
                   <TeamPriceTable />
                 )
               ) : (
-                <LeftSideView isVisible={!isGroupOpen} />
+                <>
+                  {!isTrainingDisabled && (
+                    <a
+                      href="https://deskflowcrm.com/software-training"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="software-training-btn"
+                      style={{
+                        position: "fixed",
+                        top: 16,
+                        right: 16,
+                        zIndex: 1080,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "8px 16px",
+                        borderRadius: 6,
+                        background: "#FF7D12",
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        textDecoration: "none",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                      </svg>
+                      Software Training
+                    </a>
+                  )}
+                  <LeftSideView isVisible={!isGroupOpen} />
+                </>
               )}
             </div>
           )}
