@@ -1101,12 +1101,14 @@ const CreateTaskView = ({
                               style={{ flex: 1, display: "flex", gap: "30px" }}
                             >
                               <div style={{ height: "100%", width: "49%" }}>
-                                {supportTicketFlag == 1 && !contactId && (
+                                {!contactId && (
                                   <div className="w-100 mb-3">
                                     <div className="form-group autosuggest-container">
                                       <label className="pb-2 form_label">
                                         Search Contact
-                                        <span className="text-danger">*</span>
+                                        {supportTicketFlag == 1 && (
+                                          <span className="text-danger">*</span>
+                                        )}
                                         <span
                                           className="ms-2"
                                           style={{ cursor: "pointer" }}
