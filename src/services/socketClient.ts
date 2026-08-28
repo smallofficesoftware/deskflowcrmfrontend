@@ -10,13 +10,32 @@ let socket: Socket | null = null;
 // this from loginById.socket_connection_switch (a_application_logins column,
 // default 0/off). Defaults false here too, until that check resolves one
 // way or the other, so no connection is ever attempted before it's known.
+//
+// This has to be a proper observable (useSyncExternalStore below), not a
+// bare variable: useSocketEvent's effect calls getSocket() once per mount,
+// and loginById.socket_connection_switch only resolves AFTER an async
+// fetch — so the very first getSocket() call almost always fires while
+// this is still false, gets null back, and nothing re-triggers it once
+// the real value arrives. Subscribing lets every consumer's effect re-run
+// the instant this flips, instead of only checking once at mount.
 let socketConnectionEnabled = false;
+const listeners = new Set<() => void>();
+
 export const setSocketConnectionEnabled = (enabled: boolean) => {
+  if (socketConnectionEnabled === enabled) return;
   socketConnectionEnabled = enabled;
   if (!enabled && socket) {
     socket.disconnect();
   }
+  listeners.forEach((listener) => listener());
 };
+
+export const subscribeSocketConnectionEnabled = (listener: () => void) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
+
+export const getSocketConnectionEnabledSnapshot = () => socketConnectionEnabled;
 
 const registerSession = (activeSocket: Socket) => {
   const uuid = localStorage.getItem("UUID");
