@@ -559,15 +559,6 @@ const OTPVerificationView = ({
                                       )}
                                       <div className="">
                                         <div className="">
-                                          <button
-                                            type="button"
-                                            className="btn btn-link p-0 mb-2"
-                                            style={{ color: "#f58634", textDecoration: "none" }}
-                                            onClick={() => handleSubmit(false)}
-                                          >
-                                            <i className="pi pi-arrow-left" style={{ marginRight: "6px" }} />
-                                            Back
-                                          </button>
                                           <p className="text-center h2 fw-bold mb-3 mt-4">
                                             Verify {haspin ? "PIN" : "OTP"}
                                           </p>
@@ -732,6 +723,15 @@ const OTPVerificationView = ({
                                             }}
                                           >
                                             Verify {haspin ? "PIN" : "OTP"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-link p-0 mt-2 w-100 text-center"
+                                            style={{ color: "#f58634", textDecoration: "none" }}
+                                            onClick={() => handleSubmit(false)}
+                                          >
+                                            <i className="pi pi-arrow-left" style={{ marginRight: "6px" }} />
+                                            Back
                                           </button>
                                         </div>
 
