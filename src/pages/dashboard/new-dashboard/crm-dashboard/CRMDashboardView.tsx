@@ -657,28 +657,9 @@ const CRMDashboardView = ({
                   transform: translateY(-2px);
                 }
               `}</style>
-              <div style={{ marginBottom: "18px" }}>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: "22px",
-                    fontWeight: 700,
-                    color: "#1a1a1a",
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  My Insights
-                </h2>
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontSize: "13px",
-                    color: "#8a8a8a",
-                  }}
-                >
-                  A snapshot of your business activity for the selected period.
-                </p>
-              </div>
+              {/* "My Insights" heading + subtitle removed — NewDashboardView already
+                  renders the "My Insights" title in the shared top bar above this
+                  content; having both was a duplicate header. */}
               <div
                 className="d-flex align-items-end gap-3 flex-wrap"
                 style={{
@@ -1203,7 +1184,7 @@ const CRMDashboardView = ({
                             },
                             {
                               count: taskCount,
-                              title: "Total Task",
+                              title: "Total Due Task",
                               onClick: () => {
                                 handelChangeShowModelReport("alltask_report");
                               },

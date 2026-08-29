@@ -312,6 +312,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
           type="text"
           className="form-control"
           placeholder="Add checklist item"
+          style={{ marginBottom: "0px" }}
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyDown={(e) => {
