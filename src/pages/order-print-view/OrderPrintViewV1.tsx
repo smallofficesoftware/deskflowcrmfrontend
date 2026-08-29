@@ -801,19 +801,15 @@ const OrderPrintViewV1 = () => {
       const response = await axios.get(resops.data.data.path, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      if (autoPrint) {
-        const pdfWindow = window.open(url, "_blank");
-        if (pdfWindow) {
-          pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
-        }
-      } else {
-        // View-only (printFlag) - navigate the current tab instead of
-        // window.open(): this fires after an async network round trip, well
-        // outside the link click's user-gesture window, so browsers reliably
-        // popup-block a new window/tab here. Navigating in place isn't
-        // blocked and view mode never needed the separate window anyway.
-        window.location.href = url;
-      }
+      // Always navigate the current tab instead of window.open(): this
+      // fires after an async network round trip (the two fetches above),
+      // well outside the original click's user-gesture window, so browsers
+      // (and some mobile WebViews even more aggressively) silently
+      // popup-block a new window/tab here - no error, no visible change,
+      // just nothing happens. Navigating in place isn't blocked. autoPrint
+      // no longer distinguishes behavior (both paths just show the PDF
+      // in-place) - kept as a param for callers, unused here now.
+      window.location.href = url;
     } catch (error) {
       console.error(error);
     }

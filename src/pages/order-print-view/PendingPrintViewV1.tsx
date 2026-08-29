@@ -169,10 +169,12 @@ const PendingPrintViewV1 = () => {
       const response = await axios.get(resops.data.data.path, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const pdfWindow = window.open(url, "_blank");
-      if (pdfWindow) {
-        pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
-      }
+      // Navigate the current tab instead of window.open(): this fires after
+      // an async network round trip (the two fetches above), well outside
+      // the original click's user-gesture window, so browsers (and some
+      // mobile WebViews even more aggressively) silently popup-block a new
+      // window/tab here - no error, no visible change, just nothing happens.
+      window.location.href = url;
     } catch (error) {
       console.error(error);
     }
