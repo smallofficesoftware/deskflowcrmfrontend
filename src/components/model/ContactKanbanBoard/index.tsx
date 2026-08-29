@@ -474,10 +474,22 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
     // refresh). An id for a contact not currently loaded here is skipped -
     // a filter-changing edit to an off-board contact won't pull it in until
     // the next manual refresh, a known tradeoff.
-    useSocketEvent<{ id?: number }>(
+    //
+    // assigned_to (when present - baseController.js's attachContactAssignees,
+    // skipped for the no-id/new-contact case above) further narrows this to
+    // only MY assignments - a company can have several team members' boards
+    // open at once, each only caring about their own cards, not every
+    // contact-changed event company-wide.
+    useSocketEvent<{ id?: number; assigned_to?: number[] }>(
         "contact-changed",
         (payload) => {
-            if (!payload?.id || isContactIdLoaded(payload.id)) {
+            if (!payload?.id) {
+                refreshBoard();
+                return;
+            }
+            const myLoginId = Number(localStorage.getItem("UUID"));
+            const isMine = !payload.assigned_to || payload.assigned_to.includes(myLoginId);
+            if (isMine && isContactIdLoaded(payload.id)) {
                 refreshBoard();
             }
         },
