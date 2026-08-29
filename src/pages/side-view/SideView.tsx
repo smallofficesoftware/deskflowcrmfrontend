@@ -103,6 +103,17 @@ const SideView = ({ profileDetail }: IProp) => {
     searchParams.get("view") === "reports" ? "reports_home" : "dashboard",
   );
 
+  // Keep activeView in sync with the URL for the Insights/Smart Reports sidebar
+  // buttons (browser back/forward, or landing directly on /SideView?view=reports).
+  // Skips while a specific report is open (reportSlug set) — the report-deep-link
+  // effect further down owns that case, and activeView is reused elsewhere as an
+  // insight-tile category filter, so this intentionally only reacts to the
+  // dashboard/reports_home distinction, not every activeView value.
+  useEffect(() => {
+    if (reportSlug) return;
+    setActiveView(searchParams.get("view") === "reports" ? "reports_home" : "dashboard");
+  }, [reportSlug, searchParams]);
+
   const [isOpen, setIsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string[]>([
     "CompanySetup",
@@ -1377,10 +1388,12 @@ const SideView = ({ profileDetail }: IProp) => {
           onInsightsClick={() => {
             setActiveView("dashboard");
             setAppliedReportType("");
+            navigate("/SideView");
           }}
           onSmartReportsClick={() => {
             setActiveView("reports_home");
             setAppliedReportType("");
+            navigate("/SideView?view=reports");
           }}
           isOpen={isOpen}
           setIsOpen={setIsOpen}

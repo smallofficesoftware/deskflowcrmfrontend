@@ -466,10 +466,14 @@ const CreateTaskView = ({
         ),
       );
 
-      setSelectedReqList({
-        value: contactDataForEdit?.id,
-        label: `${contactDataForEdit?.person_name}-${contactDataForEdit?.mobile_number}${contactDataForEdit?.company_name ? "-" + contactDataForEdit?.company_name : ""}`,
-      });
+      setSelectedReqList(
+        contactDataForEdit
+          ? {
+              value: contactDataForEdit.id,
+              label: `${contactDataForEdit.person_name}-${contactDataForEdit.mobile_number}${contactDataForEdit.company_name ? "-" + contactDataForEdit.company_name : ""}`,
+            }
+          : null,
+      );
 
       setSelectedDays(
         selectWeeklyOptions.filter((option: any) =>

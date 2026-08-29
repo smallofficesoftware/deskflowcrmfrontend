@@ -4,6 +4,7 @@ import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../
 import { TFilterDate } from "../../../helpers/AppInterface";
 import { TReactSetState } from "../../../helpers/AppType";
 import { axiosInstance } from "../../../services/axiosInstance";
+import { formatDateYMDV2 } from "../../../common/SharedFunction";
 import { ITaskView } from "../../left-side/header/Setting/taskList/TaskListController";
 
 export type { ITaskView };
@@ -70,8 +71,11 @@ export const fetchApiTask = async (
         statusFilter: statusFilter,
         taskCategoryFilter: taskCategoryFilter,
         priorityFilter: priorityFilter,
-        startDate: startSearchDate,
-        endDate: endSearchDate,
+        // See TaskListController.ts's fetchApiTask for why: raw Date/DateObject
+        // must be formatted to a plain local YYYY-MM-DD string before axios
+        // JSON.stringifies it, or it silently shifts a day for IST/any UTC+ zone.
+        startDate: startSearchDate ? formatDateYMDV2(startSearchDate) : startSearchDate,
+        endDate: endSearchDate ? formatDateYMDV2(endSearchDate) : endSearchDate,
         statusFilterComan: checkedOptionsStageStatus,
         assignedByMultiTeamMember: assignedByMultiTeamMember,
         createdByMultiTeamMember: createdByMultiTeamMember,
@@ -105,11 +109,9 @@ export const fetchApiTask = async (
                 const TaskCountGet = data.data.data.due_count;
                 const TaskCountGetAll = data.data.data.all_count;
                 const TaskCountGetMy = data.data.data.my_count;
-                if (setTaskAutoRefreshON) {
-                    setTaskCountGet(TaskCountGet);
-                    setTaskCountGetAll(TaskCountGetAll);
-                    setTaskCountGetMy(TaskCountGetMy);
-                }
+                setTaskCountGet?.(TaskCountGet);
+                setTaskCountGetAll?.(TaskCountGetAll);
+                setTaskCountGetMy?.(TaskCountGetMy);
                 if (setTaskAutoRefreshON) {
                     setTaskAutoRefreshON(data.data.data?.TASK_AUTO_REFRESH_ON);
                 }
