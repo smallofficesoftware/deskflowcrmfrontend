@@ -1,4 +1,4 @@
-import { image, table, text } from "@pdfme/schemas";
+import { ellipse, image, line, list, rectangle, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -37,6 +37,10 @@ const plugins = {
   text: extendPluginWithFieldSettings(text, "textFieldSettings", true),
   table,
   image: extendPluginWithFieldSettings(image, "imageFieldSettings", false),
+  rectangle,
+  ellipse,
+  line,
+  list,
 };
 
 // Seeds a fresh page with the SAME "Header: Details" company banner
