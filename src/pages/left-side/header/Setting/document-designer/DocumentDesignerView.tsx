@@ -1,4 +1,4 @@
-import { image, table, text } from "@pdfme/schemas";
+import { ellipse, image, line, list, rectangle, table, text } from "@pdfme/schemas";
 import React, { useEffect, useState } from "react";
 import { Accordion } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
@@ -202,6 +202,13 @@ const plugins = {
   text: extendPluginWithFieldSettings(text, "textFieldSettings", true),
   table: extendedTable,
   image: extendPluginWithFieldSettings(image, "imageFieldSettings", false),
+  // Plain @pdfme/schemas built-ins — pure layout/decoration elements, no
+  // real per-record data to bind, so left un-wrapped (same as `table`
+  // above already was before its own itemsTable-specific extension).
+  rectangle,
+  ellipse,
+  line,
+  list,
 };
 
 const DocumentDesignerView: React.FC = () => {
