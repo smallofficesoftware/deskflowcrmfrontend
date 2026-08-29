@@ -19,13 +19,14 @@ interface TaskChecklistSectionProps {
 }
 
 const ChecklistRow: React.FC<{
+  index: number;
   title: string;
   done: boolean;
   dragHandleProps?: any;
   onToggle?: () => void;
   onDelete: () => void;
   onRename: (newTitle: string) => void;
-}> = ({ title, done, dragHandleProps, onToggle, onDelete, onRename }) => {
+}> = ({ index, title, done, dragHandleProps, onToggle, onDelete, onRename }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
 
@@ -55,6 +56,9 @@ const ChecklistRow: React.FC<{
       {onToggle && (
         <input type="checkbox" checked={done} onChange={onToggle} style={{ marginRight: "8px" }} />
       )}
+      <span style={{ color: "#999", marginRight: "6px", fontSize: "0.9rem", flexShrink: 0 }}>
+        {index}.
+      </span>
       {isEditing ? (
         <input
           type="text"
@@ -153,6 +157,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
         {pending.map((title, index) => (
           <ChecklistRow
             key={index}
+            index={index + 1}
             title={title}
             done={false}
             onDelete={() => handlePendingDelete(index)}
@@ -165,6 +170,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
             type="text"
             className="form-control"
             placeholder="Add checklist item"
+            style={{ marginBottom: "0px" }}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => {
@@ -176,8 +182,8 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
           />
           <button
             type="button"
-            className="btn btn-outline-primary"
-            style={{ whiteSpace: "nowrap" }}
+            className="btn btn-primary px-3 py-2 text-light form_label rounded-1"
+            style={{ whiteSpace: "nowrap", backgroundColor: "rgb(245, 134, 52)" }}
             disabled={!newTitle.trim()}
             onClick={handlePendingAdd}
           >
@@ -282,6 +288,7 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
                     {(dragProvided) => (
                       <div ref={dragProvided.innerRef} {...dragProvided.draggableProps}>
                         <ChecklistRow
+                          index={index + 1}
                           title={item.title}
                           done={!!item.is_done}
                           dragHandleProps={dragProvided.dragHandleProps}
@@ -316,8 +323,8 @@ const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
         />
         <button
           type="button"
-          className="btn btn-outline-primary"
-          style={{ whiteSpace: "nowrap" }}
+          className="btn btn-sm btn-primary"
+          style={{ whiteSpace: "nowrap", backgroundColor: "#f58634", borderColor: "#f58634" }}
           disabled={isAdding || !newTitle.trim()}
           onClick={handleAdd}
         >
