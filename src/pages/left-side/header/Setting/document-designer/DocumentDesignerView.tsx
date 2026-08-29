@@ -1,9 +1,10 @@
-import { ellipse, image, line, list, rectangle, table, text } from "@pdfme/schemas";
+import { ellipse, image, line, list, table, text } from "@pdfme/schemas";
 import React, { useEffect, useState } from "react";
 import { Accordion } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
+import { customRectangle } from "../../../../../common/pdfmeDesigner/customRectanglePlugin";
 import {
   extendPluginWithFieldSettings,
   setFieldSettingsDictionary,
@@ -205,7 +206,7 @@ const plugins = {
   // Plain @pdfme/schemas built-ins — pure layout/decoration elements, no
   // real per-record data to bind, so left un-wrapped (same as `table`
   // above already was before its own itemsTable-specific extension).
-  rectangle,
+  rectangle: customRectangle,
   ellipse,
   line,
   list,

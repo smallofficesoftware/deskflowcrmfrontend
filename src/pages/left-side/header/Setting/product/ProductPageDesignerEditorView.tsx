@@ -1,8 +1,9 @@
-import { ellipse, image, line, list, rectangle, table, text } from "@pdfme/schemas";
+import { ellipse, image, line, list, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { newRightsForPrint } from "../../../../../common/SharedFunction";
+import { customRectangle } from "../../../../../common/pdfmeDesigner/customRectanglePlugin";
 import { extendPluginWithFieldSettings, setFieldSettingsDictionary } from "../../../../../common/pdfmeDesigner/pdfmeFieldSettingsPlugin";
 import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesigner/pdfmeStyles";
 import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
@@ -40,7 +41,7 @@ const plugins = {
   text: extendPluginWithFieldSettings(text, "textFieldSettings", true),
   table,
   image: extendPluginWithFieldSettings(image, "imageFieldSettings", false),
-  rectangle,
+  rectangle: customRectangle,
   ellipse,
   line,
   list,
