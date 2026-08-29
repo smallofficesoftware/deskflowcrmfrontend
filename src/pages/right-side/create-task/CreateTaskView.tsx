@@ -1572,13 +1572,14 @@ const CreateTaskView = ({
                                     )}
                                   </div>
                                 </div>
+                                {/* Send-notification-via WhatsApp/Email checkboxes — commented out per
+                                    request; WhatsApp/email dispatch isn't ready to expose here.
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">
                                     <label className="pb-2 form_label">
                                       Task for customer and send notfication via
                                     </label>
                                     <div className="d-flex gap-4 flex-wrap">
-                                      {/* WhatsApp Checkbox */}
                                       <label className="d-flex align-items-center cursor-pointer">
                                         <Field name="is_notification_sand_wp">
                                           {({ field, form }: any) => (
@@ -1587,11 +1588,11 @@ const CreateTaskView = ({
                                                 taskData?.id ? true : false
                                               }
                                               type="checkbox"
-                                              checked={field.value === 1} // <-- default false means value=0
+                                              checked={field.value === 1}
                                               onChange={(e) => {
                                                 form.setFieldValue(
                                                   "is_notification_sand_wp",
-                                                  e.target.checked ? 1 : 0, // <-- checked => 1, unchecked => 0
+                                                  e.target.checked ? 1 : 0,
                                                 );
 
                                                 setIsTeamListAllowSingle(
@@ -1613,7 +1614,6 @@ const CreateTaskView = ({
                                         </span>
                                       </label>
 
-                                      {/* Email Checkbox */}
                                       <label className="d-flex align-items-center cursor-pointer">
                                         <Field name="is_notification_sand_email">
                                           {({ field, form }: any) => (
@@ -1649,6 +1649,7 @@ const CreateTaskView = ({
                                     </div>
                                   </div>
                                 </div>
+                                */}
                                 <div className="w-100 d-flex mb-3">
                                   <div className="" style={{ width: "49%" }}>
                                     <div className="form-group text-start">

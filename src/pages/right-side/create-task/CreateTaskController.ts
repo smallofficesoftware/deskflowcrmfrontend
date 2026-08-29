@@ -763,17 +763,6 @@ export const createTask = async (
   formData.append("a_application_login_id", getUUID || "");
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "0");
 
-  if (customFormList && customFormList.length > 0) {
-    customFormList.forEach((field) => {
-      const fieldValue = expenseTypeInput[field.reference_column_name as keyof ITaskCreate];
-
-      if (fieldValue !== undefined && fieldValue !== null) {
-        formData.append(field.reference_column_name, String(fieldValue));
-      } else {
-        formData.append(field.reference_column_name, ""); // empty field bhi bhejna zaroori hai
-      }
-    });
-  }
   const ATTACHMENT_COLUMNS = [
     "task_column_attechments_1",
     "task_column_attechments_2",
