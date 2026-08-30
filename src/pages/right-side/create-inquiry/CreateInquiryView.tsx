@@ -71,7 +71,8 @@ const CreateInquiryView = ({
   const [newRowQty, setNewRowQty] = useState("");
   // Per-product remarks are free text (commas / newlines), so unlike
   // category_id/product_id/qty they can't be comma-joined — product_remarks
-  // is stored as a JSON array string positionally paired with product_id.
+  // is stored as a "||$||"-delimited string positionally paired with
+  // product_id instead.
   const [newRowRemarks, setNewRowRemarks] = useState("");
   // productOptions is category-filtered (only the currently-selected
   // category's products), so it can't resolve the label for a row added
@@ -402,13 +403,8 @@ const CreateInquiryView = ({
       const catIds = String(contactData.category_id || "")
         .split(",")
         .map((c: string) => c.trim());
-      let remarksArr: string[] = [];
-      try {
-        const parsed = JSON.parse(String(contactData.product_remarks || "[]"));
-        if (Array.isArray(parsed)) remarksArr = parsed.map((r) => String(r ?? ""));
-      } catch {
-        remarksArr = [];
-      }
+      const remarksArr = String(contactData.product_remarks || "")
+        .split("||$||");
       setProductRows(
         ids.map((id: string, i: number) => ({
           category_id: catIds[i] || "",
@@ -455,8 +451,10 @@ const CreateInquiryView = ({
     setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
     setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
     setFieldValue("qty", rows.map((r) => r.qty).join(","));
-    // Free text — JSON array, not comma-joined. "[]" when no rows.
-    setFieldValue("product_remarks", JSON.stringify(rows.map((r) => r.remarks || "")));
+    // Free text — can't reuse the plain comma-join the other row fields use
+    // (remarks may contain commas), so join on a distinctive delimiter
+    // unlikely to appear in real text instead of JSON-encoding the array.
+    setFieldValue("product_remarks", rows.map((r) => r.remarks || "").join("||$||"));
   };
 
   const sanitizeQtyInput = (value: string) => {
