@@ -173,6 +173,36 @@
   animation: spin 0.8s linear infinite;
 }
 
+/* Search + Refresh moved into the modal header's title row (alongside
+   Filter/+) instead of their own full-width row below - drop the
+   standalone-row chrome and shrink to fit next to the title/icons. */
+.kanban-modal-header .kanban-search-bar {
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
+  height: auto;
+  position: static;
+  gap: 8px;
+  /* Sized to content (not flex:1) - it must NOT grow to fill the header's
+     free space, or its own content (input+refresh) ends up left-aligned
+     inside that expanded box, leaving a visible gap before Filter/+
+     instead of sitting right next to them. The outer action-group div's
+     own flex:1 + justify-content:flex-end does the right-alignment. */
+  flex: 0 0 auto;
+}
+
+.kanban-modal-header .kanban-search-bar .search-input-wrapper {
+  max-width: 280px;
+}
+
+.kanban-modal-header .kanban-search-bar .btn-refresh {
+  padding: 6px 8px;
+}
+
+.kanban-modal-header .kanban-search-bar .btn-refresh span {
+  display: none;
+}
+
 /* ─── Column Nav Pills ─────────────────────────────────────────────────────── */
 .kanban-nav {
   background: var(--k-surface);
@@ -428,17 +458,22 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.8);
+  /* rgba(255,255,255,*) was designed for a dark header background - this
+     header's actual background is var(--k-surface) (white), so a near-
+     white icon/border was invisible by default (only visible when
+     JSX overrides color inline, e.g. the active-filter red state) - not
+     Contact-board-specific, every board's non-active header icon had
+     this same low-contrast bug, just unnoticed until now. */
+  border: 1.5px solid var(--k-border);
+  background: var(--k-surface-2);
+  color: var(--k-text-secondary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 .kanban-header-btn:hover {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
-  border-color: rgba(255,255,255,0.3);
+  background: var(--k-border);
+  color: var(--k-text-primary);
 }
 .kanban-header-btn--primary {
   background: var(--k-accent, #4f46e5);

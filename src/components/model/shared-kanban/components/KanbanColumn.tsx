@@ -135,7 +135,16 @@ export function KanbanColumn<T extends KanbanItem>({
 
               {!isLoading && displayItems.length === 0 && (
                 <div className="shared-kanban-empty-state">
-                  <div className="shared-kanban-empty-icon">📋</div>
+                  <svg
+                    className="shared-kanban-empty-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="28"
+                    height="28"
+                    viewBox="0 -960 960 960"
+                    fill="currentColor"
+                  >
+                    <path d="M220-160q-24 0-42-18t-18-42v-434q0-24 18-42t42-18h520q24 0 42 18t18 42v434q0 24-18 42t-42 18H220Zm0-60h520v-434H660v100q0 17-11.5 28.5T620-514H340q-17 0-28.5-11.5T300-554v-100H220v434Zm60-434h280v-100H280v100Z" />
+                  </svg>
                   <p>{config.emptyStateLabel ?? "Nothing here"}</p>
                 </div>
               )}

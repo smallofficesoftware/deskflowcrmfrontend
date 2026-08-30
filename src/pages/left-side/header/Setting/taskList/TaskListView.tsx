@@ -4418,7 +4418,7 @@ const TaskListView = ({
         )}
         canEdit={true}
         filterParams={filterParams}
-        hasActiveFilter={true}
+        hasActiveFilter={hasData}
         onOpenFilter={() => {
           openFilterLabel();
         }}

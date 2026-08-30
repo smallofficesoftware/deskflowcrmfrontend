@@ -8,6 +8,7 @@ import ReactDOM from "react-dom";
 import { FilterParams } from "../../../../pages/left-side/header/Setting/taskList/TaskListView";
 import useSocketEvent from "../../../../hooks/useSocketEvent";
 import { KanbanBoard as SharedKanbanBoard } from "../../shared-kanban/components/KanbanBoard";
+import { KanbanModalFrame } from "../../shared-kanban/components/KanbanModalFrame";
 import { useKanbanColumns } from "../../shared-kanban/hooks/useKanbanColumns";
 import { KanbanItemsInfiniteData } from "../../shared-kanban/hooks/useKanbanItems";
 import {
@@ -31,7 +32,6 @@ import {
   TaskKanbanModalProps,
 } from "../types/kanban.types";
 import { parseRefreshTimeout } from "../utils/taskMapper";
-import { SearchBar } from "./SearchBar";
 import { TaskCard } from "./TaskCard";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   onChangeExternalStatus,
   onConvertToTask,
   filterParams,
-  hasActiveFilter = true,
+  hasActiveFilter = false,
   onOpenFilter,
   supportTicketFlag,
 }) => {
@@ -384,115 +384,29 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
 
   return (
     <>
-      {/* ── Header ── */}
-      <div className="modal-header kanban-modal-header px-3 py-0">
-        <div className="d-flex align-items-center gap-2">
-          <div className="kanban-modal-icon">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-            >
-              <rect width="7" height="9" x="3" y="3" rx="1" />
-              <rect width="7" height="5" x="3" y="16" rx="1" />
-              <rect width="7" height="9" x="14" y="12" rx="1" />
-              <rect width="7" height="5" x="14" y="3" rx="1" />
-            </svg>
-          </div>
-          <div>
-            <div className="kanban-modal-title">Task Board</div>
-            <div className="kanban-modal-subtitle">
-              {boardTypeLabelMap[boardType]} view
-            </div>
-          </div>
-        </div>
-
-        {/* Right-side header actions */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            marginLeft: "auto",
-            marginRight: 8,
-          }}
-        >
-          {/* Feature 5: Filter button */}
-          {onOpenFilter && (
-            <button
-              title="Filter Tasks"
-              onClick={onOpenFilter}
-              className="kanban-header-btn"
-              style={{ color: hasActiveFilter ? "#ef4444" : undefined }}
-            >
-              {hasActiveFilter ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  height="20px"
-                  viewBox="0 -960 960 960"
-                  width="20px"
-                  fill="currentColor"
-                >
-                  <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
-                </svg>
-              ) : (
-                <svg
-                  height="20px"
-                  viewBox="0 -960 960 960"
-                  width="20px"
-                  fill="currentColor"
-                >
-                  <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
-                </svg>
-              )}
-            </button>
-          )}
-
-          {/* Feature 3: Add Task button */}
-          {renderAddTaskModal && (
-            <button
-              title="Create Task"
-              onClick={() => {
+      <KanbanModalFrame
+        show
+        onHide={onHide}
+        title="Task Board"
+        subtitle={`${boardTypeLabelMap[boardType]} view`}
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        onRefresh={handleRefresh}
+        isSearching={isSearching}
+        isRefreshing={isRefreshing}
+        onOpenFilter={onOpenFilter}
+        hasActiveFilter={hasActiveFilter}
+        filterTitle="Filter Tasks"
+        onAdd={
+          renderAddTaskModal
+            ? () => {
                 if (canAdd) setShowAddModal(true);
-                else
-                  addToast("You don't have permission to add tasks.", "error");
-              }}
-              className="kanban-header-btn kanban-header-btn--primary"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                height="22px"
-                viewBox="0 -960 960 960"
-                width="22px"
-                fill="currentColor"
-              >
-                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          className="btn-close"
-          aria-label="Close"
-          onClick={onHide}
-        />
-      </div>
-
-      {/* ── Body ── */}
-      <div className="modal-body kanban-modal-body p-0">
-        <SearchBar
-          value={searchInput}
-          onChange={setSearchInput}
-          onRefresh={handleRefresh}
-          isLoading={isSearching}
-          isRefreshing={isRefreshing}
-        />
-
+                else addToast("You don't have permission to add tasks.", "error");
+              }
+            : undefined
+        }
+        addTitle="Create Task"
+      >
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
           <SharedKanbanBoard
             config={config}
@@ -503,22 +417,11 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
             onSuccess={(msg) => addToast(msg, "success")}
           />
         </div>
-      </div>
+      </KanbanModalFrame>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Feature 3: Add task modal — rendered by parent app */}
-      {/* {showAddModal &&
-        renderAddTaskModal?.({
-          show: showAddModal,
-          onHide: () => setShowAddModal(false),
-          onSuccess: () => {
-            setShowAddModal(false);
-            refreshAllTasks();
-            addToast("Task created successfully!", "success");
-          },
-        })} */}
-
       {showAddModal &&
         renderAddTaskModal &&
         ReactDOM.createPortal(
@@ -585,98 +488,41 @@ export const TaskKanbanModal: React.FC<TaskKanbanModalProps> = ({
   onChangeExternalStatus,
   onConvertToTask,
   filterParams,
-  hasActiveFilter = true,
+  hasActiveFilter = false,
   onOpenFilter,
 }) => {
-  const backdropRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (show) {
-      document.body.classList.add("modal-open");
-      document.body.style.overflow = "hidden";
-      document.body.style.paddingRight = "0px";
-    } else {
-      document.body.classList.remove("modal-open");
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    }
-    return () => {
-      document.body.classList.remove("modal-open");
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    };
-  }, [show]);
-
-  useEffect(() => {
-    if (!show) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onHide();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [show, onHide]);
-
+  // Modal chrome (backdrop, scroll-lock, Escape-to-close, kanban-scope) all
+  // moved into KanbanModalFrame, used inside KanbanModalInner below - this
+  // outer component now only needs to gate mounting KanbanModalInner (and
+  // its data-fetching hooks) behind `show`, and provide the query client.
   if (!show) return null;
 
   const markup = (
     <QueryClientProvider client={queryClient}>
-      <div className="kanban-scope">
-        <div
-          ref={backdropRef}
-          className="modal-backdrop fade show"
-          style={{ zIndex: 1054 }}
-          onClick={onHide}
-        />
-        <div
-          className="modal fade show kanban-modal"
-          style={{ display: "flex", zIndex: 1055, alignItems: "stretch" }}
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onHide();
-          }}
-        >
-          <div
-            className="modal-dialog modal-fullscreen m-0 w-100"
-            style={{ maxWidth: "100%", height: "100%" }}
-          >
-            <div
-              className="modal-content kanban-modal-content"
-              style={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              <KanbanModalInner
-                boardType={boardType}
-                onHide={onHide}
-                onTaskClick={onTaskClick}
-                renderAddTaskModal={renderAddTaskModal}
-                renderEditTaskModal={renderEditTaskModal}
-                canAdd={canAdd}
-                canEdit={canEdit}
-                onChangeStatus={onChangeStatus}
-                onAssignLabel={onAssignLabel}
-                onAssignTeamMember={onAssignTeamMember}
-                onTimeline={onTimeline}
-                onArchive={onArchive}
-                onUnarchive={onUnarchive}
-                onDelete={onDelete}
-                onMarkRead={onMarkRead}
-                onMarkUnread={onMarkUnread}
-                onChangeExternalStatus={onChangeExternalStatus}
-                onConvertToTask={onConvertToTask}
-                filterParams={filterParams}
-                hasActiveFilter={hasActiveFilter}
-                onOpenFilter={onOpenFilter}
-                supportTicketFlag={supportTicketFlag}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <KanbanModalInner
+        boardType={boardType}
+        onHide={onHide}
+        onTaskClick={onTaskClick}
+        renderAddTaskModal={renderAddTaskModal}
+        renderEditTaskModal={renderEditTaskModal}
+        canAdd={canAdd}
+        canEdit={canEdit}
+        onChangeStatus={onChangeStatus}
+        onAssignLabel={onAssignLabel}
+        onAssignTeamMember={onAssignTeamMember}
+        onTimeline={onTimeline}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+        onDelete={onDelete}
+        onMarkRead={onMarkRead}
+        onMarkUnread={onMarkUnread}
+        onChangeExternalStatus={onChangeExternalStatus}
+        onConvertToTask={onConvertToTask}
+        filterParams={filterParams}
+        hasActiveFilter={hasActiveFilter}
+        onOpenFilter={onOpenFilter}
+        supportTicketFlag={supportTicketFlag}
+      />
     </QueryClientProvider>
   );
 
