@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import moment from "moment";
 import React, { useCallback, useMemo, useState } from "react";
-import { Card as BsCard, Col, Row } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../common/SharedFunction";
 import {
@@ -22,9 +21,9 @@ import { axiosInstance } from "../../../services/axiosInstance";
 import CheckBoxFilterModal from "../CheckBoxFilterModal";
 import ConfirmationModal from "../ConfirmationModal";
 import { KanbanBoard as SharedKanbanBoard } from "../shared-kanban/components/KanbanBoard";
+import { KanbanModalFrame } from "../shared-kanban/components/KanbanModalFrame";
 import { useKanbanColumns } from "../shared-kanban/hooks/useKanbanColumns";
 import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult } from "../shared-kanban/types";
-import "./KanbanBoard.css";
 import TaskInfoModal from "./TaskInfoModal";
 import { KanbanBoardModal } from "./types";
 
@@ -284,10 +283,6 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
     refreshBoard();
   };
 
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") refreshBoard();
-  };
-
   const handleCreateTask = () => {
     if (canAdd) {
       setIsCreateModel(true);
@@ -299,94 +294,31 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
 
   return (
     <>
-      {show && (
-        <div className="modal1">
-          <div className="modal-content1" style={{ height: "100%", width: "100%", margin: 0 }}>
-            <div className="mb-2 d-flex justify-content-between align-content-center align-items-center gap-2">
-              <div className="d-flex align-items-center justify-content-between gap-2" style={{ flex: 1 }}>
-                <h2>{supportTicketFlag == 0 ? "My Tasks" : "My Support Tickets"}</h2>
-                <div className="d-flex align-items-center justify-content-start gap-2">
-                  <button type="button" onClick={refreshBoard} style={{ cursor: "pointer" }}>
-                    <svg width="30" height="30" viewBox="0 0 50 50" fill="gray">
-                      <path fill="currentColor" d="M25 38c-7.2 0-13-5.8-13-13 0-3.2 1.2-6.2 3.3-8.6l1.5 1.3C15 19.7 14 22.3 14 25c0 6.1 4.9 11 11 11 1.6 0 3.1-.3 4.6-1l.8 1.8c-1.7.8-3.5 1.2-5.4 1.2z"></path>
-                      <path fill="currentColor" d="M34.7 33.7l-1.5-1.3c1.8-2 2.8-4.6 2.8-7.3 0-6.1-4.9-11-11-11-1.6 0-3.1.3-4.6 1l-.8-1.8c1.7-.8 3.5-1.2 5.4-1.2 7.2 0 13 5.8 13 13 0 3.1-1.2 6.2-3.3 8.6z"></path>
-                      <path fill="currentColor" d="M18 24h-2v-6h-6v-2h8z"></path>
-                      <path fill="currentColor" d="M40 34h-8v-8h2v6h6z"></path>
-                    </svg>
-                  </button>
-                  <span
-                    className="d-flex align-content-center justify-content-center rounded-1 text-white"
-                    style={{ height: "24px", width: "24px", cursor: "pointer" }}
-                    title="Add new Task"
-                    onClick={handleCreateTask}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" height="26px" viewBox="0 -960 960 960" width="26px" fill="gray">
-                      <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                    </svg>
-                  </span>
-                  <span
-                    className="text-white"
-                    id="task-filter"
-                    title="Task Filter"
-                    onClick={() => setIsModalFilterVisible(true)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {hasData ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill={hasData ? "red" : "gray"}>
-                        <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
-                      </svg>
-                    ) : (
-                      <svg height="24px" viewBox="0 -960 960 960" width="24px" fill={hasData ? "red" : "gray"}>
-                        <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
-                      </svg>
-                    )}
-                  </span>
-                  <div className="d-flex align-items-center justify-content-between gap-2">
-                    <input
-                      type="search"
-                      placeholder="Search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyPress={handleSearchKeyPress}
-                    />
-                    <button
-                      type="button"
-                      className="px-2 py-1 text-white"
-                      style={{ backgroundColor: "#f58634", borderRadius: "3px" }}
-                      onClick={refreshBoard}
-                    >
-                      Search
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="text-end">
-                <span className="close ms-3" onClick={() => setIsCloseConfirmation(true)}>
-                  ×
-                </span>
-              </div>
-            </div>
-            <Row>
-              <Col>
-                <BsCard>
-                  <BsCard.Body>
-                    <div style={{ height: "81vh", display: "flex" }}>
-                      <SharedKanbanBoard
-                        config={config}
-                        columns={columns}
-                        isColumnsLoading={isColumnsLoading}
-                        searchTerm={searchTerm}
-                        onError={(msg) => toast.error(msg)}
-                        onSuccess={(msg) => toast.success(msg)}
-                      />
-                    </div>
-                  </BsCard.Body>
-                </BsCard>
-              </Col>
-            </Row>
-          </div>
+      <KanbanModalFrame
+        show={show}
+        onHide={() => setIsCloseConfirmation(true)}
+        title={supportTicketFlag == 0 ? "My Tasks" : "My Support Tickets"}
+        subtitle="Category view"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onRefresh={refreshBoard}
+        onOpenFilter={() => setIsModalFilterVisible(true)}
+        hasActiveFilter={hasData}
+        filterTitle="Task Filter"
+        onAdd={handleCreateTask}
+        addTitle="Add new Task"
+      >
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <SharedKanbanBoard
+            config={config}
+            columns={columns}
+            isColumnsLoading={isColumnsLoading}
+            searchTerm={searchTerm}
+            onError={(msg) => toast.error(msg)}
+            onSuccess={(msg) => toast.success(msg)}
+          />
         </div>
-      )}
+      </KanbanModalFrame>
       {isCloseConfirmation && (
         <ConfirmationModal
           show

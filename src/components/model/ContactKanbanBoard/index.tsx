@@ -19,13 +19,11 @@ import { useContactFilterStore } from "../../../store/contact/useContactFilterSt
 import ContactDetailModel from "../ContactdetailsModel/ContactDetailModel";
 import CheckBoxFilterModal from "../CheckBoxFilterModal";
 import ConfirmationModal from "../ConfirmationModal";
-import { SearchBar } from "../task-kanban/components/SearchBar";
-import "../task-kanban/styles/kanban.css";
 import { KanbanBoard } from "../shared-kanban/components/KanbanBoard";
+import { KanbanModalFrame } from "../shared-kanban/components/KanbanModalFrame";
 import { useKanbanColumns } from "../shared-kanban/hooks/useKanbanColumns";
 import { KanbanItemsInfiniteData } from "../shared-kanban/hooks/useKanbanItems";
 import { KanbanBoardConfig, KanbanColumnDef, KanbanFetchResult, KanbanItem } from "../shared-kanban/types";
-import "./ContactKanban.css";
 import { ContactCardActions, KanbanBoardModal } from "./contactType";
 
 const BOARD_KEY = "contact-pipeline";
@@ -438,6 +436,16 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
             renderCard,
             pageSize: ITEMS_PER_PAGE,
             emptyStateLabel: "Drop Contact here",
+            sortOptions: [
+                {
+                    label: "Name",
+                    compare: (a, b) => a.person_name.localeCompare(b.person_name),
+                },
+                {
+                    label: "Company",
+                    compare: (a, b) => a.company_name.localeCompare(b.company_name),
+                },
+            ],
         }),
         [fetchColumns, fetchItems, updateItemPosition, renderCard],
     );
@@ -569,137 +577,31 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
 
     return (
         <>
-            {show && (
-                <div className="modal1 kanban-scope">
-                    <div
-                        className="modal-content1"
-                        style={{
-                            height: "100%",
-                            width: "100%",
-                            margin: 0,
-                            padding: 0,
-                            border: "none",
-                            display: "flex",
-                            flexDirection: "column",
-                            overflow: "hidden",
-                        }}
-                    >
-                        {/* ── Header (matches Task/Support-Ticket board) ── */}
-                        <div className="modal-header kanban-modal-header px-3 py-0">
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="kanban-modal-icon">
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="white"
-                                        strokeWidth="2"
-                                    >
-                                        <rect width="7" height="9" x="3" y="3" rx="1" />
-                                        <rect width="7" height="5" x="3" y="16" rx="1" />
-                                        <rect width="7" height="9" x="14" y="12" rx="1" />
-                                        <rect width="7" height="5" x="14" y="3" rx="1" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <div className="kanban-modal-title">Contact Board</div>
-                                    <div className="kanban-modal-subtitle">Pipeline view</div>
-                                </div>
-                            </div>
-
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    marginLeft: "auto",
-                                    marginRight: 8,
-                                    flex: 1,
-                                    minWidth: 0,
-                                    justifyContent: "flex-end",
-                                }}
-                            >
-                                {/* Search + Refresh moved up here from their own row below -
-                                    same change as task-kanban's KanbanModal.tsx, same CSS
-                                    (.kanban-modal-header .kanban-search-bar) makes it fit. */}
-                                <SearchBar
-                                    value={searchInput}
-                                    onChange={setSearchInput}
-                                    onRefresh={refreshBoard}
-                                />
-
-                                <button
-                                    title="Filter Contacts"
-                                    onClick={() => setIsModalFilterVisible(true)}
-                                    className="kanban-header-btn"
-                                    style={{ color: hasData ? "#ef4444" : undefined }}
-                                >
-                                    {hasData ? (
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            height="20px"
-                                            viewBox="0 -960 960 960"
-                                            width="20px"
-                                            fill="currentColor"
-                                        >
-                                            <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
-                                        </svg>
-                                    ) : (
-                                        <svg
-                                            height="20px"
-                                            viewBox="0 -960 960 960"
-                                            width="20px"
-                                            fill="currentColor"
-                                        >
-                                            <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
-                                        </svg>
-                                    )}
-                                </button>
-
-                                {canAdd && (
-                                    <button
-                                        title="Create Contact"
-                                        onClick={handleChangeAddContact}
-                                        className="kanban-header-btn kanban-header-btn--primary"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            height="22px"
-                                            viewBox="0 -960 960 960"
-                                            width="22px"
-                                            fill="currentColor"
-                                        >
-                                            <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                                        </svg>
-                                    </button>
-                                )}
-                            </div>
-
-                            <button
-                                type="button"
-                                className="btn-close"
-                                aria-label="Close"
-                                onClick={() => setIsCloseConfirmation(true)}
-                            />
-                        </div>
-
-                        {/* ── Body ── */}
-                        <div className="modal-body kanban-modal-body p-0">
-                            <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-                                <KanbanBoard
-                                    config={config}
-                                    columns={columns}
-                                    isColumnsLoading={isColumnsLoading}
-                                    searchTerm={searchTerm}
-                                    onError={(msg) => toast.error(msg)}
-                                    onSuccess={(msg) => toast.success(msg)}
-                                />
-                            </div>
-                        </div>
-                    </div>
+            <KanbanModalFrame
+                show={show}
+                onHide={() => setIsCloseConfirmation(true)}
+                title="Contact Board"
+                subtitle="Pipeline view"
+                searchValue={searchInput}
+                onSearchChange={setSearchInput}
+                onRefresh={refreshBoard}
+                onOpenFilter={() => setIsModalFilterVisible(true)}
+                hasActiveFilter={hasData}
+                filterTitle="Filter Contacts"
+                onAdd={canAdd ? handleChangeAddContact : undefined}
+                addTitle="Create Contact"
+            >
+                <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+                    <KanbanBoard
+                        config={config}
+                        columns={columns}
+                        isColumnsLoading={isColumnsLoading}
+                        searchTerm={searchTerm}
+                        onError={(msg) => toast.error(msg)}
+                        onSuccess={(msg) => toast.success(msg)}
+                    />
                 </div>
-            )}
+            </KanbanModalFrame>
             {isCloseConfirmation && (
                 <ConfirmationModal
                     show
