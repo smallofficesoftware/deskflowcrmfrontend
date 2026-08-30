@@ -2506,7 +2506,7 @@ const CreateContactView = ({
                                       </div>
                                       <button
                                         type="button"
-                                        className="btn btn-outline-primary"
+                                        className="btn btn-outline-theme"
                                         style={{ whiteSpace: "nowrap", height: "45px" }}
                                         onClick={() => addProductRow(setFieldValue)}
                                       >
