@@ -1064,7 +1064,7 @@ const CreateInquiryView = ({
                               <button
                                 type="button"
                                 className="btn btn-outline-primary"
-                                style={{ whiteSpace: "nowrap" }}
+                                style={{ whiteSpace: "nowrap", height: "45px" }}
                                 onClick={() => addProductRow(setFieldValue)}
                               >
                                 + Add
