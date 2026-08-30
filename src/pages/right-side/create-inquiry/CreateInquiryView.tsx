@@ -478,8 +478,14 @@ const CreateInquiryView = ({
       toast.error("Select a product and enter its quantity");
       return;
     }
-    if (productRows.some((r) => r.product_id === String(newRowProduct.value))) {
-      toast.error("That product is already added");
+    if (
+      productRows.some(
+        (r) =>
+          r.product_id === String(newRowProduct.value) &&
+          r.remarks.trim() === newRowRemarks.trim(),
+      )
+    ) {
+      toast.error("That product with the same remarks is already added");
       return;
     }
     const nextRows = [
