@@ -418,8 +418,23 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
             gap: 6,
             marginLeft: "auto",
             marginRight: 8,
+            flex: 1,
+            minWidth: 0,
+            justifyContent: "flex-end",
           }}
         >
+          {/* Search + Refresh moved up here from their own row below - CSS in
+              kanban.css scopes .kanban-modal-header .kanban-search-bar to
+              drop the full-width-row chrome (border/height/sticky) it has
+              as a standalone row. */}
+          <SearchBar
+            value={searchInput}
+            onChange={setSearchInput}
+            onRefresh={handleRefresh}
+            isLoading={isSearching}
+            isRefreshing={isRefreshing}
+          />
+
           {/* Feature 5: Filter button */}
           {onOpenFilter && (
             <button
@@ -485,14 +500,6 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
 
       {/* ── Body ── */}
       <div className="modal-body kanban-modal-body p-0">
-        <SearchBar
-          value={searchInput}
-          onChange={setSearchInput}
-          onRefresh={handleRefresh}
-          isLoading={isSearching}
-          isRefreshing={isRefreshing}
-        />
-
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
           <SharedKanbanBoard
             config={config}

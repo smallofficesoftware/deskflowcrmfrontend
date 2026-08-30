@@ -116,14 +116,11 @@ export const formatDueDate = (
   dueDateStr: string,
 ): { label: string; isOverdue: boolean; isToday: boolean } => {
   if (!dueDateStr) return { label: "", isOverdue: false, isToday: false };
-  // dueDateStr arrives already formatted server-side as "DD-MM-YYYY hh:mm A"
-  // (see taskManagementServices.js), not ISO - new Date(dueDateStr) can't
-  // reliably parse that (native Date assumes MM-DD-YYYY for a dash-separated
-  // string, so day=13-31 fails outright as an invalid month), silently
-  // producing Invalid Date - every such overdue task showed no badge at all.
-  const [datePart] = dueDateStr.split(" ");
-  const [day, month, year] = datePart.split("-").map(Number);
-  const dueDate = day && month && year ? new Date(year, month - 1, day) : new Date(NaN);
+  // dueDateStr here is task.due_date, which mapApiResponseToTask already
+  // ran through parseTaskDate() to convert from the API's raw
+  // "DD-MM-YYYY hh:mm A" into "YYYY-MM-DD" - safe for native Date parsing
+  // as-is. (Do NOT re-split this as DD-MM-YYYY - it already isn't.)
+  const dueDate = new Date(dueDateStr);
   if (isNaN(dueDate.getTime()))
     return { label: "", isOverdue: false, isToday: false };
 

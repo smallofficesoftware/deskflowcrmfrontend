@@ -615,8 +615,20 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                                     gap: 6,
                                     marginLeft: "auto",
                                     marginRight: 8,
+                                    flex: 1,
+                                    minWidth: 0,
+                                    justifyContent: "flex-end",
                                 }}
                             >
+                                {/* Search + Refresh moved up here from their own row below -
+                                    same change as task-kanban's KanbanModal.tsx, same CSS
+                                    (.kanban-modal-header .kanban-search-bar) makes it fit. */}
+                                <SearchBar
+                                    value={searchInput}
+                                    onChange={setSearchInput}
+                                    onRefresh={refreshBoard}
+                                />
+
                                 <button
                                     title="Filter Contacts"
                                     onClick={() => setIsModalFilterVisible(true)}
@@ -674,11 +686,6 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
 
                         {/* ── Body ── */}
                         <div className="modal-body kanban-modal-body p-0">
-                            <SearchBar
-                                value={searchInput}
-                                onChange={setSearchInput}
-                                onRefresh={refreshBoard}
-                            />
                             <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
                                 <KanbanBoard
                                     config={config}
