@@ -20,6 +20,7 @@ export interface ITeamMember {
   aadhar_card_number?: string;
   pan_card_number?: string;
   date_of_joining?: string;
+  date_of_birth?: string;
   employee_pf_no?: string;
   daily_in_time?: string;
   daily_out_time?: string;
@@ -130,6 +131,7 @@ export const teamMemberInitialValues = (companyTeamInfo: any): ITeamMember => ({
     companyTeamInfo?.pan_card_number || companyTeamInfo?.pan_card_number || "",
   date_of_joining:
     companyTeamInfo?.date_of_joining || companyTeamInfo?.date_of_joining || "",
+  date_of_birth: companyTeamInfo?.date_of_birth || "",
   employee_pf_no:
     companyTeamInfo?.employee_pf_no || companyTeamInfo?.employee_pf_no || "",
 });
@@ -221,7 +223,7 @@ export const fetchBasicDetailsApi = async (
     const response = await axiosInstance.post("mainCommonGet", {
       table: "a_application_logins",
       columns:
-        "id,employee_id,username,recovery_email,recovery_mobile,reporting_member,department,expense_types,aadhar_card_number,pan_card_number,date_of_joining,employee_pf_no",
+        "id,employee_id,username,recovery_email,recovery_mobile,reporting_member,department,expense_types,aadhar_card_number,pan_card_number,date_of_joining,date_of_birth,employee_pf_no",
       where: [`id=${employeeId}`],
       request_flag: 0,
     });
@@ -240,6 +242,7 @@ export const fetchBasicDetailsApi = async (
       aadhar_card_number: row.aadhar_card_number || row.aadhar_card_number || "",
       pan_card_number: row.pan_card_number || row.pan_card_number || "",
       date_of_joining: row.date_of_joining || row.date_of_joining || "",
+      date_of_birth: row.date_of_birth || "",
       employee_pf_no: row.employee_pf_no || row.employee_pf_no || "",
       reporting_member: row.reporting_member ? Number(row.reporting_member) : "",
       department: row.department ? Number(row.department) : "",
@@ -394,6 +397,7 @@ export const updateBasicDetails = async (
       pan_card_number: values.pan_card_number,
       employee_pf_no: values.employee_pf_no,
       date_of_joining: values.date_of_joining,
+      date_of_birth: values.date_of_birth,
     }),
   };
 

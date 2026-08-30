@@ -93,6 +93,7 @@ export interface ICompanyTeam {
   isActive: number;
   attendance_status?: number;
   employee_id?: number | string;
+  date_of_birth?: string;
 }
 
 export interface IAttendanceHistory {

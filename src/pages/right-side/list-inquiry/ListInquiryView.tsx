@@ -318,6 +318,16 @@ const ListInquiryView = ({
     refreshInquiriesList(0);
   }, [searchTerm, filterParams]);
 
+  // The right-side ListInquiryView stays mounted; opening it from a contact's
+  // inquiry button only flips isListInquiry. Re-fetch from page 0 on open (and
+  // when the contact changes) so the list isn't stale from a previous contact.
+  useEffect(() => {
+    if (isListInquiry && contactData?.id) {
+      refreshInquiriesList(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isListInquiry, contactData?.id]);
+
   useEffect(() => {
     if (isListInquiry) {
       if (options) {
