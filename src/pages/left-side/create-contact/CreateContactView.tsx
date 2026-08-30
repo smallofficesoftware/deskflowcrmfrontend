@@ -123,10 +123,13 @@ const CreateContactView = ({
   // positionally-paired strings, matching CreateInquiryView.tsx's pattern
   // and the same inquiries table columns directly (no new field names).
   const [productRows, setProductRows] = useState<
-    { category_id: string; product_id: string; qty: string }[]
+    { category_id: string; product_id: string; qty: string; remarks: string }[]
   >([]);
   const [newRowProduct, setNewRowProduct] = useState<IOption | null>(null);
   const [newRowQty, setNewRowQty] = useState("");
+  // Per-product remarks — free text, so stored as a JSON array string
+  // (product_remarks), not comma-joined like the other row fields.
+  const [newRowRemarks, setNewRowRemarks] = useState("");
   const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
   const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
   const [areaList, setAreaList] = useState([]);
@@ -536,12 +539,13 @@ const CreateContactView = ({
   };
 
   const syncProductRowsToFormik = (
-    rows: { category_id: string; product_id: string; qty: string }[],
+    rows: { category_id: string; product_id: string; qty: string; remarks: string }[],
     setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
   ) => {
     setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
     setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
     setFieldValue("qty", rows.map((r) => r.qty).join(","));
+    setFieldValue("product_remarks", JSON.stringify(rows.map((r) => r.remarks || "")));
   };
 
   const sanitizeQtyInput = (value: string) => {
@@ -573,6 +577,7 @@ const CreateContactView = ({
         category_id: selectedCategoryId ? String(selectedCategoryId) : "",
         product_id: String(newRowProduct.value),
         qty: newRowQty,
+        remarks: newRowRemarks.trim(),
       },
     ];
     setProductRows(nextRows);
@@ -583,6 +588,7 @@ const CreateContactView = ({
     }));
     setNewRowProduct(null);
     setNewRowQty("");
+    setNewRowRemarks("");
   };
 
   const removeProductRow = (
@@ -866,6 +872,7 @@ const CreateContactView = ({
     setProductRows([]);
     setNewRowProduct(null);
     setNewRowQty("");
+    setNewRowRemarks("");
   }, [show]);
 
   useEffect(() => {
@@ -2475,6 +2482,28 @@ const CreateContactView = ({
                                           }
                                         />
                                       </div>
+                                      <div style={{ flex: "1 1 160px" }}>
+                                        <label className="pb-2 mb-1 form_label">
+                                          Remarks
+                                        </label>
+                                        <input
+                                          type="text"
+                                          className="form-control"
+                                          style={{
+                                            height: "45px",
+                                            marginBottom: 0,
+                                            paddingTop: 0,
+                                            paddingBottom: 0,
+                                            lineHeight: "43px",
+                                          }}
+                                          placeholder="Remarks (optional)"
+                                          maxLength={TEXTAREA_TEXT_LENGTH}
+                                          value={newRowRemarks}
+                                          onChange={(e) =>
+                                            setNewRowRemarks(e.target.value)
+                                          }
+                                        />
+                                      </div>
                                       <button
                                         type="button"
                                         className="btn btn-outline-primary"
@@ -2501,7 +2530,7 @@ const CreateContactView = ({
                                       return (
                                         <div
                                           key={`${row.product_id}-${index}`}
-                                          className="d-flex justify-content-between align-items-center mb-2 px-3 py-2"
+                                          className="d-flex justify-content-between align-items-start mb-2 px-3 py-2"
                                           style={{
                                             background: "#f8f9fa",
                                             borderRadius: "8px",
@@ -2520,6 +2549,17 @@ const CreateContactView = ({
                                             <span className="text-muted ms-2">
                                               Qty: {row.qty}
                                             </span>
+                                            {row.remarks && (
+                                              <div
+                                                className="text-muted mt-1"
+                                                style={{
+                                                  fontSize: "0.85rem",
+                                                  whiteSpace: "pre-wrap",
+                                                }}
+                                              >
+                                                📝 {row.remarks}
+                                              </div>
+                                            )}
                                           </div>
                                           <span
                                             style={{

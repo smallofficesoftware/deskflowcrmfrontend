@@ -65,10 +65,14 @@ const CreateInquiryView = ({
   // existing inquiry's already-comma-joined values when editing (see
   // effect below).
   const [productRows, setProductRows] = useState<
-    { category_id: string; product_id: string; qty: string }[]
+    { category_id: string; product_id: string; qty: string; remarks: string }[]
   >([]);
   const [newRowProduct, setNewRowProduct] = useState<IOption | null>(null);
   const [newRowQty, setNewRowQty] = useState("");
+  // Per-product remarks are free text (commas / newlines), so unlike
+  // category_id/product_id/qty they can't be comma-joined — product_remarks
+  // is stored as a JSON array string positionally paired with product_id.
+  const [newRowRemarks, setNewRowRemarks] = useState("");
   // productOptions is category-filtered (only the currently-selected
   // category's products), so it can't resolve the label for a row added
   // under a DIFFERENT category once the filter switches — this cache
@@ -398,11 +402,19 @@ const CreateInquiryView = ({
       const catIds = String(contactData.category_id || "")
         .split(",")
         .map((c: string) => c.trim());
+      let remarksArr: string[] = [];
+      try {
+        const parsed = JSON.parse(String(contactData.product_remarks || "[]"));
+        if (Array.isArray(parsed)) remarksArr = parsed.map((r) => String(r ?? ""));
+      } catch {
+        remarksArr = [];
+      }
       setProductRows(
         ids.map((id: string, i: number) => ({
           category_id: catIds[i] || "",
           product_id: id,
           qty: qtys[i] || "",
+          remarks: remarksArr[i] || "",
         })),
       );
       // Resolve names for every row's product regardless of category — the
@@ -433,15 +445,18 @@ const CreateInquiryView = ({
     }
     setNewRowProduct(null);
     setNewRowQty("");
+    setNewRowRemarks("");
   }, [contactData?.id, show]);
 
   const syncProductRowsToFormik = (
-    rows: { category_id: string; product_id: string; qty: string }[],
+    rows: { category_id: string; product_id: string; qty: string; remarks: string }[],
     setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
   ) => {
     setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
     setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
     setFieldValue("qty", rows.map((r) => r.qty).join(","));
+    // Free text — JSON array, not comma-joined. "[]" when no rows.
+    setFieldValue("product_remarks", JSON.stringify(rows.map((r) => r.remarks || "")));
   };
 
   const sanitizeQtyInput = (value: string) => {
@@ -473,6 +488,7 @@ const CreateInquiryView = ({
         category_id: selectedCategoryId ? String(selectedCategoryId) : "",
         product_id: String(newRowProduct.value),
         qty: newRowQty,
+        remarks: newRowRemarks.trim(),
       },
     ];
     setProductRows(nextRows);
@@ -483,6 +499,7 @@ const CreateInquiryView = ({
     }));
     setNewRowProduct(null);
     setNewRowQty("");
+    setNewRowRemarks("");
   };
 
   const removeProductRow = (
@@ -1026,6 +1043,24 @@ const CreateInquiryView = ({
                                   onChange={(e) => setNewRowQty(sanitizeQtyInput(e.target.value))}
                                 />
                               </div>
+                              <div style={{ flex: "1 1 160px" }}>
+                                <label className="pb-2 mb-1 form_label">Remarks</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  style={{
+                                    height: "45px",
+                                    marginBottom: 0,
+                                    paddingTop: 0,
+                                    paddingBottom: 0,
+                                    lineHeight: "43px",
+                                  }}
+                                  placeholder="Remarks (optional)"
+                                  maxLength={TEXTAREA_TEXT_LENGTH}
+                                  value={newRowRemarks}
+                                  onChange={(e) => setNewRowRemarks(e.target.value)}
+                                />
+                              </div>
                               <button
                                 type="button"
                                 className="btn btn-outline-primary"
@@ -1048,7 +1083,7 @@ const CreateInquiryView = ({
                               return (
                                 <div
                                   key={`${row.product_id}-${index}`}
-                                  className="d-flex justify-content-between align-items-center mb-2 px-3 py-2"
+                                  className="d-flex justify-content-between align-items-start mb-2 px-3 py-2"
                                   style={{
                                     background: "#f8f9fa",
                                     borderRadius: "8px",
@@ -1063,6 +1098,14 @@ const CreateInquiryView = ({
                                       </span>
                                     )}
                                     <span className="text-muted ms-2">Qty: {row.qty}</span>
+                                    {row.remarks && (
+                                      <div
+                                        className="text-muted mt-1"
+                                        style={{ fontSize: "0.85rem", whiteSpace: "pre-wrap" }}
+                                      >
+                                        📝 {row.remarks}
+                                      </div>
+                                    )}
                                   </div>
                                   <span
                                     style={{ cursor: "pointer", fontSize: "1rem" }}
