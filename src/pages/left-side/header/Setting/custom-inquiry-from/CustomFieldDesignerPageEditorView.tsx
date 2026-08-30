@@ -18,7 +18,10 @@ import {
   getDataDictionary,
   getDocumentTemplate,
   publishDocumentTemplate,
+  setPinRequiredHandler,
+  updateDocumentTemplateDraft,
 } from "../document-designer/DocumentDesignerController";
+import { verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 
 // Dedicated editor for the "Document Designer Page" custom field type
 // (data_type 14) — reached ONLY from DesignerPageDataSourceView.tsx's "Open
@@ -177,6 +180,38 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     setConfirmDialog({ message, onConfirm });
   };
 
+  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js) for the
+  // createDocumentTemplate/publishDocumentTemplate/applyOptionsToDraft calls
+  // above — those go through DocumentDesignerController.ts's postGated,
+  // which only re-prompts+retries a 403 "PIN verification required" if a
+  // pinRequiredHandler is registered. DocumentDesignerView.tsx registers one;
+  // this page (reached from the custom-field data-source flow, not that
+  // view) never did, so a PIN-gated company just saw a raw "PIN verification
+  // required" toast with no way to actually enter the PIN. Same PromptModal,
+  // same verifyReportPin, as DocumentDesignerView.tsx's fallback path.
+  const [showPinModal, setShowPinModal] = useState(false);
+  const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
+  useEffect(() => {
+    setPinRequiredHandler(() => {
+      setShowPinModal(true);
+      return new Promise<boolean>((resolve) => {
+        pinResolveRef.current = resolve;
+      });
+    });
+    return () => setPinRequiredHandler(null);
+  }, []);
+  const handlePinSubmit = async (pin: string) => {
+    const ok = await verifyReportPin(pin);
+    setShowPinModal(false);
+    pinResolveRef.current?.(ok);
+    pinResolveRef.current = null;
+  };
+  const handlePinCancel = () => {
+    setShowPinModal(false);
+    pinResolveRef.current?.(false);
+    pinResolveRef.current = null;
+  };
+
   const { targetPageNumber, setTargetPageNumber, addPageBefore, addPageAfter, removeCurrentPage } = usePageManipulation(
     designerRef,
     selectedField,
@@ -226,13 +261,8 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
   const saveDraftSilently = async () => {
     if (!currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
-    const ok = await axiosInstance.post("document-templates/update", {
-      company_masters_id: localStorage.getItem("COMPANY_ID"),
-      a_application_login_id: localStorage.getItem("UUID"),
-      id: currentTemplateId,
-      template_json: template,
-    });
-    if (ok.data?.ack === 1) setStatus("Draft saved.");
+    const ok = await updateDocumentTemplateDraft(currentTemplateId, template);
+    if (ok) setStatus("Draft saved.");
   };
 
   const handleUseAsDataSource = async () => {
@@ -264,12 +294,7 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
             templateId = created.id;
             setCurrentTemplateId(created.id);
           } else if (name && name !== currentTemplateName) {
-            await axiosInstance.post("document-templates/update", {
-              company_masters_id: localStorage.getItem("COMPANY_ID"),
-              a_application_login_id: getUUID,
-              id: templateId,
-              template_name: name,
-            });
+            await updateDocumentTemplateDraft(templateId, undefined, name);
           }
 
           // generateDocument.js's buildDesignerPageBytes reads
@@ -422,6 +447,14 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
         }}
         title={promptDialog?.title || ""}
         defaultValue={promptDialog?.defaultValue}
+      />
+
+      <PromptModal
+        show={showPinModal}
+        onHide={handlePinCancel}
+        onSubmit={handlePinSubmit}
+        title="Owner PIN required"
+        message="This action needs the shared build PIN (same PIN as Report Builder)."
       />
 
       {loading && (
