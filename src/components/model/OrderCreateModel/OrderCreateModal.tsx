@@ -11796,7 +11796,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
               setIsPrintSettingShow(false);
             }
           }}
-          orderType={Number(isOrderShowNum)}
+          orderType={Number(newOrderShowNumAfterConversion || isOrderShowNum)}
           viewFormate={Number(isOrderViewFormate)}
           orderById={printSetting?.setting_details}
           titles={"Create"}
@@ -12003,7 +12003,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           title={`Confirm ${dynamicTitle} Actions`}
           message={`Pick what you want to do after clicking Approve.`}
           showTaskTemplateFor={dynamicStartWorkflow}
-          orderType={isOrderShowNum}
+          orderType={Number(newOrderShowNumAfterConversion || isOrderShowNum)}
           showOrderId={cartId}
           defaultSeriesValue={
             orderById?.cart?.sr_by_prifix || orderbyidList?.cart?.sr_by_prifix
