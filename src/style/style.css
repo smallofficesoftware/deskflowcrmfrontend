@@ -2412,6 +2412,23 @@ button {
   border-color: transparent !important;
 }
 
+/* Theme-colored outline button — Bootstrap's own .btn-outline-primary
+   renders its default blue since this app never overrides --bs-primary;
+   every other "orange" button in the app hardcodes #f58634 via inline
+   style instead. This is that same color as a reusable outline class, for
+   secondary actions (e.g. "+ Add" row buttons) that want the outline look
+   without a one-off inline style + hover handler. */
+.btn-outline-theme {
+  border: 1px solid #f58634;
+  color: #f58634;
+  background-color: transparent;
+}
+
+.btn-outline-theme:hover {
+  background-color: #f58634;
+  color: #fff;
+}
+
 .custom-checkbox {
   width: 10px;
   height: 10px;

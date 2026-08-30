@@ -567,8 +567,14 @@ const CreateContactView = ({
       toast.error("Select a product and enter its quantity");
       return;
     }
-    if (productRows.some((r) => r.product_id === String(newRowProduct.value))) {
-      toast.error("That product is already added");
+    if (
+      productRows.some(
+        (r) =>
+          r.product_id === String(newRowProduct.value) &&
+          r.remarks.trim() === newRowRemarks.trim(),
+      )
+    ) {
+      toast.error("That product with the same remarks is already added");
       return;
     }
     const nextRows = [
@@ -2506,8 +2512,8 @@ const CreateContactView = ({
                                       </div>
                                       <button
                                         type="button"
-                                        className="btn btn-outline-primary"
-                                        style={{ whiteSpace: "nowrap" }}
+                                        className="btn btn-outline-theme"
+                                        style={{ whiteSpace: "nowrap", height: "45px" }}
                                         onClick={() => addProductRow(setFieldValue)}
                                       >
                                         + Add

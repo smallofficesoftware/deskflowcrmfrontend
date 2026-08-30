@@ -478,8 +478,14 @@ const CreateInquiryView = ({
       toast.error("Select a product and enter its quantity");
       return;
     }
-    if (productRows.some((r) => r.product_id === String(newRowProduct.value))) {
-      toast.error("That product is already added");
+    if (
+      productRows.some(
+        (r) =>
+          r.product_id === String(newRowProduct.value) &&
+          r.remarks.trim() === newRowRemarks.trim(),
+      )
+    ) {
+      toast.error("That product with the same remarks is already added");
       return;
     }
     const nextRows = [
@@ -967,7 +973,7 @@ const CreateInquiryView = ({
                   <div className="  mt-3    d-flex justify-content-center">
                     <div className="mb-3 py-4  ">
                       <div
-                        className="row  mx-0 px-2 gy-3  d-flex justify-content-center"
+                        className="row  mx-0 px-2 gy-3  d-flex justify-content-start"
                         style={{ maxHeight: "600px", overflowX: "scroll" }}
                       >
                         <div className="col-12">
@@ -1063,8 +1069,8 @@ const CreateInquiryView = ({
                               </div>
                               <button
                                 type="button"
-                                className="btn btn-outline-primary"
-                                style={{ whiteSpace: "nowrap" }}
+                                className="btn btn-outline-theme"
+                                style={{ whiteSpace: "nowrap", height: "45px" }}
                                 onClick={() => addProductRow(setFieldValue)}
                               >
                                 + Add
