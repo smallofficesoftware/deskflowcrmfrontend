@@ -458,17 +458,22 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.8);
+  /* rgba(255,255,255,*) was designed for a dark header background - this
+     header's actual background is var(--k-surface) (white), so a near-
+     white icon/border was invisible by default (only visible when
+     JSX overrides color inline, e.g. the active-filter red state) - not
+     Contact-board-specific, every board's non-active header icon had
+     this same low-contrast bug, just unnoticed until now. */
+  border: 1.5px solid var(--k-border);
+  background: var(--k-surface-2);
+  color: var(--k-text-secondary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 .kanban-header-btn:hover {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
-  border-color: rgba(255,255,255,0.3);
+  background: var(--k-border);
+  color: var(--k-text-primary);
 }
 .kanban-header-btn--primary {
   background: var(--k-accent, #4f46e5);
