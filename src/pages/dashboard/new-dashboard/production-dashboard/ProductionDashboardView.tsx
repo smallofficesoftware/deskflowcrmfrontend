@@ -660,6 +660,15 @@ const ProductionDashboardView = ({
             }}
           >
             <Container fluid className="mt-2">
+              <style>{`
+                .crm-stat-card {
+                  transition: box-shadow 0.15s ease, transform 0.15s ease;
+                }
+                .crm-stat-card:hover {
+                  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+                  transform: translateY(-2px);
+                }
+              `}</style>
               {/* <div className="d-flex justify-content-between align-items-center pb-2"> */}
               {/* <h2 className="modal-title1 form_header_text mb-0">
                     My Insights
@@ -859,25 +868,66 @@ const ProductionDashboardView = ({
                           ].map((item, idx) => (
                             <Col md={4} key={idx}>
                               <Card
-                                className="text-end h-100"
-                                style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer" }}
+                                className="h-100 crm-stat-card"
+                                style={{ borderRadius: "12px", border: "1px solid #eef0f3", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)", cursor: "pointer" }}
                                 // onClick={item.onClick}
                               >
-                                <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
-                                  <div>
-                                    <div className="d-flex text-end justify-content-end align-items-center gap-1">
-                                      <small className="text-muted fw-bold">
-                                        Total:
-                                      </small>
-                                      <h4 className="dash-board-text-count" style={{ fontSize: "20px" }}>
+                                <Card.Body style={{ padding: "18px" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "flex-start",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        width: "44px",
+                                        height: "44px",
+                                        borderRadius: "12px",
+                                        background: "#f3f4f6",
+                                        color: "#5f6368",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {item.svg}
+                                    </span>
+                                    <div style={{ textAlign: "right" }}>
+                                      <h3
+                                        className="dash-board-text-count"
+                                        style={{
+                                          margin: 0,
+                                          fontSize: "26px",
+                                          fontWeight: 700,
+                                          lineHeight: 1,
+                                          color: "#1a1a1a",
+                                        }}
+                                      >
                                         {item.count}
-                                      </h4>
+                                      </h3>
+                                      <small
+                                        className="text-muted"
+                                        style={{ fontSize: "11px" }}
+                                      >
+                                        Total
+                                      </small>
                                     </div>
-                                    <span>{item.svg}</span>
                                   </div>
+
                                   <h4
                                     className="dash-board-text"
-                                    style={{ maxWidth: "100%" }}
+                                    style={{
+                                      maxWidth: "100%",
+                                      marginTop: "16px",
+                                      marginBottom: 0,
+                                      fontSize: "14px",
+                                      fontWeight: 600,
+                                      color: "#333",
+                                      textAlign: "left",
+                                    }}
                                   >
                                     {item.title}
                                   </h4>
