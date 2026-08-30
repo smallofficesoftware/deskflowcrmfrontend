@@ -1,4 +1,5 @@
 import { toast } from "react-toastify";
+import { formatDateYMDV2 } from "../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../helpers/AppConstants";
 import { TReactSetState } from "../../../../helpers/AppType";
 import { axiosInstance } from "../../../../services/axiosInstance";
@@ -25,12 +26,18 @@ export const fetchHRMSDashoardApi = async (
   setTotalVisitCount: TReactSetState<number>,
   setMonthlyBarChart: TReactSetState<any>,
   setEmployeeAttendance: TReactSetState<TEmployeeAttendance>,
+  setBirthdayCount: TReactSetState<number>,
 ) => {
   const getUUID = await localStorage.getItem("UUID");
   const token = await localStorage.getItem("token");
   const requestData = {
     a_application_login_id: getUUID,
-    selectedDates,
+    // Send plain local YYYY-MM-DD strings, not raw Date objects — axios
+    // JSON.stringifies the body, which calls Date.toISOString() (UTC) and
+    // shifts the calendar day back for any timezone ahead of UTC (e.g. IST
+    // sends 2026-08-01 as 2026-07-31T18:30:00.000Z). Matters even more here
+    // now that this is a single-date picker, not a range.
+    selectedDates: selectedDates?.map((d) => formatDateYMDV2(d)) ?? selectedDates,
     year
   };
   try {
@@ -46,6 +53,7 @@ export const fetchHRMSDashoardApi = async (
         absentEmployee: 0,
         salary: 0,
       });
+      setBirthdayCount(0);
       return;
     }
     setTeamMemberCount(data.data.data.teamMembers);
@@ -54,6 +62,7 @@ export const fetchHRMSDashoardApi = async (
     setExpense(data.data.data.expense)
     setTotalVisitCount(data.data.data.totalVisitCount)
     setMonthlyBarChart(data.data.data.monthlyBarchart)
+    setBirthdayCount(data.data.data.birthdayCount || 0)
 
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
