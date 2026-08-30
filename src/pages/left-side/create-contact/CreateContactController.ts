@@ -32,6 +32,7 @@ export interface ICreateCustomer {
   description: string;
   category_id: number;
   product_id: number;
+  product_remarks: string;
   static: number;
   assinged_to_work_a_application_id: number;
   lable: string | number | undefined;
@@ -200,6 +201,7 @@ export const createCustomerInitialValues = (
     description: "",
     category_id: 0,
     product_id: 0,
+    product_remarks: "",
     static: 0,
     assinged_to_work_a_application_id:
       contactData?.assinged_to_work_a_application_id || 0,
@@ -499,6 +501,7 @@ export const createContact = async (
     description: values.description,
     category_id: values.category_id,
     product_id: values.product_id,
+    product_remarks: values.product_remarks,
     static: values.static,
     is_unread: 1,
     column_number_1: values.column_number_1,
