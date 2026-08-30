@@ -127,8 +127,8 @@ const CreateContactView = ({
   >([]);
   const [newRowProduct, setNewRowProduct] = useState<IOption | null>(null);
   const [newRowQty, setNewRowQty] = useState("");
-  // Per-product remarks — free text, so stored as a JSON array string
-  // (product_remarks), not comma-joined like the other row fields.
+  // Per-product remarks — free text, so stored as a "||$||"-delimited
+  // string (product_remarks), not comma-joined like the other row fields.
   const [newRowRemarks, setNewRowRemarks] = useState("");
   const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
   const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
@@ -545,7 +545,7 @@ const CreateContactView = ({
     setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
     setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
     setFieldValue("qty", rows.map((r) => r.qty).join(","));
-    setFieldValue("product_remarks", JSON.stringify(rows.map((r) => r.remarks || "")));
+    setFieldValue("product_remarks", rows.map((r) => r.remarks || "").join("||$||"));
   };
 
   const sanitizeQtyInput = (value: string) => {
