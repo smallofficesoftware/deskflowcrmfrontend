@@ -570,7 +570,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
     return (
         <>
             {show && (
-                <div className="modal1">
+                <div className="modal1 kanban-scope">
                     <div
                         className="modal-content1"
                         style={{
