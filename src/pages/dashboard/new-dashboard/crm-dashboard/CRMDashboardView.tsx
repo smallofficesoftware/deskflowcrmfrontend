@@ -1184,7 +1184,7 @@ const CRMDashboardView = ({
                             },
                             {
                               count: taskCount,
-                              title: "Total Due Task",
+                              title: "Total Task",
                               onClick: () => {
                                 handelChangeShowModelReport("alltask_report");
                               },
