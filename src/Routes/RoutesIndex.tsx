@@ -178,7 +178,7 @@ const RoutesIndex = () => {
               element={<OrderPrintViewV1 />}
             />
             <Route
-              path="/OrderPrintViewMobileV1/:id/:MobileToken/:getID/:printFlag"
+              path="/OrderPrintViewMobileV1/:id/:printFlag/:MobileToken/:getID"
               element={<OrderPrintViewV1 />}
             />
             <Route
@@ -186,7 +186,7 @@ const RoutesIndex = () => {
               element={<OrderPrintViewV2 />}
             />
             <Route
-              path="/OrderPrintViewMobileV2/:id/:MobileToken/:getID/:printFlag"
+              path="/OrderPrintViewMobileV2/:id/:printFlag/:MobileToken/:getID"
               element={<OrderPrintViewV2 />}
             />
             <Route
@@ -194,7 +194,7 @@ const RoutesIndex = () => {
               element={<OrderPrintViewV3 />}
             />
             <Route
-              path="/OrderPrintViewMobileV3/:id/:MobileToken/:getID/:printFlag"
+              path="/OrderPrintViewMobileV3/:id/:printFlag/:MobileToken/:getID"
               element={<OrderPrintViewV3 />}
             />
             <Route
@@ -202,7 +202,7 @@ const RoutesIndex = () => {
               element={<OrderPrintViewV4 />}
             />
             <Route
-              path="/OrderPrintViewMobileV4/:id/:MobileToken/:getID/:printFlag"
+              path="/OrderPrintViewMobileV4/:id/:printFlag/:MobileToken/:getID"
               element={<OrderPrintViewV4 />}
             />
             <Route
@@ -210,7 +210,7 @@ const RoutesIndex = () => {
               element={<OrderPrintViewV5 />}
             />
             <Route
-              path="/OrderPrintViewMobileV5/:id/:MobileToken/:getID/:printFlag"
+              path="/OrderPrintViewMobileV5/:id/:printFlag/:MobileToken/:getID"
               element={<OrderPrintViewV5 />}
             />
             <Route
