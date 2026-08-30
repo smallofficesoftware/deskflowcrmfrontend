@@ -973,7 +973,7 @@ const CreateInquiryView = ({
                   <div className="  mt-3    d-flex justify-content-center">
                     <div className="mb-3 py-4  ">
                       <div
-                        className="row  mx-0 px-2 gy-3  d-flex justify-content-center"
+                        className="row  mx-0 px-2 gy-3  d-flex justify-content-start"
                         style={{ maxHeight: "600px", overflowX: "scroll" }}
                       >
                         <div className="col-12">
