@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import moment from "moment";
 import React, { useCallback, useMemo, useState } from "react";
 import { Card as BsCard, Col, Row } from "react-bootstrap";
 import { toast } from "react-toastify";
@@ -44,10 +45,18 @@ const mapTaskToKanbanItem = (task: ITaskView): KanbanTaskItem => ({
 });
 
 const columnSummary = (items: KanbanTaskItem[]): string => {
-  const now = Date.now();
-  const overdue = items.filter(
-    (item) => item.dueDate && new Date(item.dueDate).getTime() < now,
-  ).length;
+  // dueDate (task.task_enddate) arrives already formatted server-side as
+  // "DD-MM-YYYY hh:mm A" (see taskManagementServices.js), not ISO -
+  // new Date(dueDate) can't reliably parse that (native Date assumes
+  // MM-DD-YYYY for a dash-separated string, so day=30 fails outright as
+  // an invalid month), silently producing Invalid Date and undercounting
+  // every overdue task. Parse with the exact known format instead.
+  const now = moment();
+  const overdue = items.filter((item) => {
+    if (!item.dueDate) return false;
+    const parsed = moment(item.dueDate, "DD-MM-YYYY hh:mm A");
+    return parsed.isValid() && parsed.isBefore(now);
+  }).length;
   return overdue > 0 ? `${overdue} overdue` : "";
 };
 
