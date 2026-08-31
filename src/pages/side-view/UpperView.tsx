@@ -389,47 +389,64 @@ const UpperView = ({ profileDetail }: IProp) => {
                                         background: "#fff",
                                         borderRadius: "10px",
                                         boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                                        minWidth: "170px",
+                                        minWidth: "230px",
+                                        whiteSpace: "nowrap",
                                     }}
                                 >
                                     <li
                                         className="listItem"
                                         role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
                                         onClick={() => {
                                             addReminder();
                                             setAddMenuOpen(false);
                                         }}
                                     >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80ZM160-200v-80h80v-280q0-83 50-141.5T420-774v-18q0-25 17.5-42.5T480-852q25 0 42.5 17.5T540-792v18q80 12 130 70.5T720-560v280h80v80H160Z" />
+                                        </svg>
                                         Add Reminder
                                     </li>
                                     <li
                                         className="listItem"
                                         role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
                                         onClick={() => {
                                             handleChangeAddContact();
                                             setAddMenuOpen(false);
                                         }}
                                     >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                                        </svg>
                                         Add Contact
                                     </li>
                                     <li
                                         className="listItem"
                                         role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
                                         onClick={() => {
                                             openCreateTask(0);
                                             setAddMenuOpen(false);
                                         }}
                                     >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Z" />
+                                        </svg>
                                         Add Task
                                     </li>
                                     <li
                                         className="listItem"
                                         role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
                                         onClick={() => {
                                             openCreateTask(1);
                                             setAddMenuOpen(false);
                                         }}
                                     >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M880-560v-120q0-33-23.5-56.5T800-760H160q-33 0-56.5 23.5T80-680v120q33 0 56.5 23.5T160-480q0 33-23.5 56.5T80-400v120q0 33 23.5 56.5T160-200h640q33 0 56.5-23.5T880-280v-120q-33 0-56.5-23.5T800-480q0-33 23.5-56.5T880-560ZM800-616q-37 22-58.5 58.5T720-480q0 45 21.5 81.5T800-340v60H160v-60q37-22 58.5-58.5T240-480q0-45-21.5-81.5T160-620v-60h640v64Z" />
+                                        </svg>
                                         Add Support Ticket
                                     </li>
                                 </ul>
