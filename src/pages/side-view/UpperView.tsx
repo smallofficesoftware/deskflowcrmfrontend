@@ -261,8 +261,8 @@ const UpperView = ({ profileDetail }: IProp) => {
             <div
                 style={{
                     height: "8vh",
-                    background: "linear-gradient(90deg, #fff3eb 0%, #ffe0c2 100%)",
-                    borderBottom: "1px solid #f3c99b",
+                    background: "#E1E1E1",
+                    borderBottom: "1px solid #c9c9c9",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
