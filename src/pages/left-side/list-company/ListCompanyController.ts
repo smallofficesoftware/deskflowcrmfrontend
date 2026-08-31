@@ -123,6 +123,9 @@ export interface IAttendanceHistory {
   totalWorkingHours: string;
   in_status: string;
   out_status: string;
+  grace_period?: number;
+  actual_late_minutes?: number;
+  late_minutes_after_grace?: number;
 }
 
 export interface ITotalHourAndSalary {

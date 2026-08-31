@@ -1523,6 +1523,15 @@ const CreateCompanyView = ({
       setFieldValue("country_id", "");
       setSelectedStateId(undefined);
     }
+    // A changed country invalidates whatever state/city were selected
+    // before - stateOptions/cityOptions get refetched for the new country
+    // (selectedStateId effect), but the Formik values themselves were
+    // never cleared, so state/city kept showing the old country's
+    // selection (e.g. India + Chandigarh + Udaipur, a state/city pair
+    // that doesn't belong to each other).
+    setFieldValue("state_id", "");
+    setFieldValue("city_id", "");
+    setSelectedCityId(undefined);
   };
   const handleCategoryChange = async (
     selectedOption: SingleValue<IOption>,
@@ -1554,6 +1563,9 @@ const CreateCompanyView = ({
       setFieldValue("state_id", "");
       setSelectedCityId(undefined);
     }
+    // Same reasoning as handleCountriesChange - a changed state invalidates
+    // whatever city was selected under the old state.
+    setFieldValue("city_id", "");
   };
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -5520,7 +5532,7 @@ const CreateCompanyView = ({
                                             </small>
                                           </p>
                                         </div>
-                                        <div className="imgBox-product d-flex align-items-end">
+                                        <div className="imgBox-product d-flex align-items-end" onClick={handleViewImageTool} style={{ cursor: "pointer" }}>
                                           {croppedImageUrl ? (
                                             <img
                                               onClick={handleViewImageTool}
