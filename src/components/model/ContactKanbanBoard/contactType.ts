@@ -1,38 +1,21 @@
-export type Id = string;
-
-export interface KanbanCard {
-    id: Id;
-    person_name: string;
-    mobile_number: string;
-    company_name: string;
-    client_code: string;
-    stage_status_name: string;
-    stage_status_color: string;
-    label_name: string;         // comma-separated names
-    label_color: string;        // comma-separated colors
-    teamMemberName: string;
+export interface ContactCardActions {
+    /** raw = the full contact API object (needed to prefill the edit form) */
+    onEdit?: (contact: { id: number; raw: any }) => void;
+    onPin?: (id: number) => void;
+    onUnpin?: (id: number) => void;
+    onMarkRead?: (id: number) => void;
+    onMarkUnread?: (id: number) => void;
+    onArchive?: (id: number) => void;
+    onUnarchive?: (id: number) => void;
+    onAssignLabel?: (id: number) => void;
+    onAssignStatus?: (id: number, currentStatus?: number) => void;
+    onAssignTeamMember?: (id: number) => void;
+    onStartWorkflow?: (id: number) => void;
+    onDelete?: (id: number) => void;
 }
 
-export interface Column {
-    id: Id;
-    title: string;              // stage_status_name
-    cardIds: Id[];
-    color: string;              // stage_status_color
-}
-
-export interface KanbanBoardModal {
+export interface KanbanBoardModal extends ContactCardActions {
     show: boolean;
     handleclose: () => void;
     supportTicketFlag: number;
-}
-
-export interface CardProps {
-    card: KanbanCard;
-    onView?: (cardId: string) => void;
-}
-
-export interface ColumnProps {
-    column: Column;
-    cards: KanbanCard[];
-    onView: (cardId: string) => void;
 }

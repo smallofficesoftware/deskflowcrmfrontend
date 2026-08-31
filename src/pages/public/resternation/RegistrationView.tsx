@@ -1,5 +1,5 @@
 import { ErrorMessage, Field, Form, Formik } from "formik";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { generateCustomEmail, generateCustomNumber } from "../../../common/SharedFunction";
@@ -22,16 +22,6 @@ const RegistrationView = ({ pageRedirect }: IRegistrationProps) => {
   const [showMenu, setShowMenu] = useState(false);
   const [saveMobileNumber, setSaveMobileNumber] = useState("");
   const [showLogin, setShowLogin] = useState(false);
-
-
-  const usernameInputRef = useRef<HTMLInputElement>(null);
-
-  // Set focus on the username field when the component mounts
-  useEffect(() => {
-    if (showOtp && usernameInputRef.current) {
-      usernameInputRef.current.focus();
-    }
-  }, [showOtp]);
 
   const handleSubmit = async (values: IRegistration) => {
     const updatedValues = { ...values };
@@ -138,7 +128,6 @@ const RegistrationView = ({ pageRedirect }: IRegistrationProps) => {
                                                 }`}
                                               style={{ border: "1px solid #CED4DA" }}
                                               value={values.username}
-                                              innerRef={usernameInputRef}
                                             />
                                             <ErrorMessage
                                               name="username"
@@ -208,7 +197,6 @@ const RegistrationView = ({ pageRedirect }: IRegistrationProps) => {
                                             <button
                                               type="submit"
                                               className="btn text-light w-100 py-2  rounded-1 fw_500"
-                                              onClick={() => registrationSubmit}
                                               style={{
                                                 backgroundColor: "#f58634",
                                               }}

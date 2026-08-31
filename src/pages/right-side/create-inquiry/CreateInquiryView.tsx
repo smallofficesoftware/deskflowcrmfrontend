@@ -16,6 +16,7 @@ import {
   formatDateTimeSendDataBaseV2,
   getCustomFieldDatavalues,
 } from "../../../common/SharedFunction";
+import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import {
@@ -56,6 +57,30 @@ const CreateInquiryView = ({
   const [categoryList, setCategoryList] = useState<any>([]);
   const [productList, setProductList] = useState<any>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number>();
+  // Multi-product rows — collapse to Formik's category_id/product_id/qty
+  // as comma-separated, positionally-paired strings (e.g. "3,7" / "5,12" /
+  // "2,1") on every change; matches the DB column contract directly, no
+  // new field names needed. Each row remembers the category it was added
+  // under (an inquiry can span multiple categories). Initialized from an
+  // existing inquiry's already-comma-joined values when editing (see
+  // effect below).
+  const [productRows, setProductRows] = useState<
+    { category_id: string; product_id: string; qty: string; remarks: string }[]
+  >([]);
+  const [newRowProduct, setNewRowProduct] = useState<IOption | null>(null);
+  const [newRowQty, setNewRowQty] = useState("");
+  // Per-product remarks are free text (commas / newlines), so unlike
+  // category_id/product_id/qty they can't be comma-joined — product_remarks
+  // is stored as a "||$||"-delimited string positionally paired with
+  // product_id instead.
+  const [newRowRemarks, setNewRowRemarks] = useState("");
+  // productOptions is category-filtered (only the currently-selected
+  // category's products), so it can't resolve the label for a row added
+  // under a DIFFERENT category once the filter switches — this cache
+  // accumulates every product name we've ever seen (from adding a row, or
+  // from the edit-load lookup below) so row labels stay correct regardless
+  // of which category is currently selected in the filter.
+  const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
   const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
   const [isSwitchActive, setIsSwitchActive] = useState(false);
   const [datasorce, setDataScorce] = useState<any[]>([]);
@@ -361,6 +386,135 @@ const CreateInquiryView = ({
     fetchData();
   }, [contactData?.category_id, selectedCategoryId, show]);
 
+  // Rebuild the product+qty rows from an existing inquiry's comma-joined
+  // product_id/qty whenever the modal opens for a different record —
+  // works identically for a legacy single-product value ("5"/"2") or a
+  // multi-product one ("5,12,18"/"2,1,3").
+  useEffect(() => {
+    if (!show) return;
+    if (contactData?.product_id) {
+      const ids = String(contactData.product_id)
+        .split(",")
+        .map((id: string) => id.trim())
+        .filter(Boolean);
+      const qtys = String(contactData.qty || "")
+        .split(",")
+        .map((q: string) => q.trim());
+      const catIds = String(contactData.category_id || "")
+        .split(",")
+        .map((c: string) => c.trim());
+      const remarksArr = String(contactData.product_remarks || "")
+        .split("||$||");
+      setProductRows(
+        ids.map((id: string, i: number) => ({
+          category_id: catIds[i] || "",
+          product_id: id,
+          qty: qtys[i] || "",
+          remarks: remarksArr[i] || "",
+        })),
+      );
+      // Resolve names for every row's product regardless of category — the
+      // category-filtered productOptions can't be relied on here since the
+      // rows may span several categories.
+      (async () => {
+        try {
+          const response = await axiosInstance.post("commonGet", {
+            table: "products",
+            columns: "id,product_name",
+            where: ["isDelete=0", `id IN (${ids.join(",")})`],
+            request_flag: 0,
+          });
+          const fetched = response.data?.data || [];
+          setProductNameCache((prev) => {
+            const next = { ...prev };
+            fetched.forEach((p: any) => {
+              next[String(p.id)] = p.product_name;
+            });
+            return next;
+          });
+        } catch (error) {
+          console.error("Error resolving row product names:", error);
+        }
+      })();
+    } else {
+      setProductRows([]);
+    }
+    setNewRowProduct(null);
+    setNewRowQty("");
+    setNewRowRemarks("");
+  }, [contactData?.id, show]);
+
+  const syncProductRowsToFormik = (
+    rows: { category_id: string; product_id: string; qty: string; remarks: string }[],
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    setFieldValue("category_id", rows.map((r) => r.category_id).join(","));
+    setFieldValue("product_id", rows.map((r) => r.product_id).join(","));
+    setFieldValue("qty", rows.map((r) => r.qty).join(","));
+    // Free text — can't reuse the plain comma-join the other row fields use
+    // (remarks may contain commas), so join on a distinctive delimiter
+    // unlikely to appear in real text instead of JSON-encoding the array.
+    setFieldValue("product_remarks", rows.map((r) => r.remarks || "").join("||$||"));
+  };
+
+  const sanitizeQtyInput = (value: string) => {
+    let next = value;
+    if (!/^\d*\.?\d*$/.test(next)) {
+      next = next.replace(/[^0-9.]/g, "");
+    }
+    const decimalCount = (next.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      next = next.slice(0, -1);
+    }
+    return next;
+  };
+
+  const addProductRow = (
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    if (!newRowProduct || !newRowQty) {
+      toast.error("Select a product and enter its quantity");
+      return;
+    }
+    if (
+      productRows.some(
+        (r) =>
+          r.product_id === String(newRowProduct.value) &&
+          r.remarks.trim() === newRowRemarks.trim(),
+      )
+    ) {
+      toast.error("That product with the same remarks is already added");
+      return;
+    }
+    const nextRows = [
+      ...productRows,
+      {
+        category_id: selectedCategoryId ? String(selectedCategoryId) : "",
+        product_id: String(newRowProduct.value),
+        qty: newRowQty,
+        remarks: newRowRemarks.trim(),
+      },
+    ];
+    setProductRows(nextRows);
+    syncProductRowsToFormik(nextRows, setFieldValue);
+    setProductNameCache((prev) => ({
+      ...prev,
+      [String(newRowProduct.value)]: newRowProduct.label,
+    }));
+    setNewRowProduct(null);
+    setNewRowQty("");
+    setNewRowRemarks("");
+  };
+
+  const removeProductRow = (
+    index: number,
+    setFieldValue: (field: string, value: any, shouldValidate?: boolean) => void,
+  ) => {
+    const nextRows = productRows.filter((_, i) => i !== index);
+    setProductRows(nextRows);
+    syncProductRowsToFormik(nextRows, setFieldValue);
+  };
+
   const handleCountriesChange = async (
     selectedOption: SingleValue<IOption>,
     setFieldValue: (
@@ -371,14 +525,16 @@ const CreateInquiryView = ({
   ) => {
     if (selectedOption) {
       setFieldValue("category_id", selectedOption.value);
-      setFieldValue("product_id", ""); // Reset product_id when category changes
       setSelectedCategoryId(selectedOption.value as number);
     } else {
       setFieldValue("category_id", "");
-      setFieldValue("product_id", "");
       setSelectedCategoryId(undefined);
       setProductList([]);
     }
+    // Category only narrows which products the "+ Add" picker offers below
+    // (an inquiry can hold products from several categories) — already-
+    // added rows are left untouched on category switch.
+    setNewRowProduct(null);
   };
 
   useEffect(() => {
@@ -815,107 +971,159 @@ const CreateInquiryView = ({
                   <div className="  mt-3    d-flex justify-content-center">
                     <div className="mb-3 py-4  ">
                       <div
-                        className="row  mx-0 px-2 gy-3  d-flex justify-content-center"
+                        className="row  mx-0 px-2 gy-3  d-flex justify-content-start"
                         style={{ maxHeight: "600px", overflowX: "scroll" }}
                       >
-                        <div className="col-6 col-md-6 ">
+                        <div className="col-12">
                           <div className="form-group">
-                            <label
-                              htmlFor="category_id"
-                              className="pb-2 mb-1 form_label"
-                            >
-                              Product Category Name
-                            </label>
-                            {canAddCategory && (
-                              <span
-                                className="ms-2"
-                                style={{ cursor: "pointer" }}
-                                onClick={() => setIsOpenAddCategoryModal(true)}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  height="24px"
-                                  viewBox="0 -960 960 960"
-                                  width="24px"
-                                  fill="currentColor"
+                            <div className="d-flex gap-2 align-items-end flex-wrap mb-2">
+                              <div style={{ flex: "1 1 200px" }}>
+                                <label
+                                  htmlFor="category_id"
+                                  className="pb-2 mb-1 form_label"
                                 >
-                                  <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                                </svg>
-                              </span>
-                            )}
-                            <FormikCustomSearchDropdown
-                              name="category_id"
-                              options={categoryOptions}
-                              className={`  ${
-                                errors.category_id &&
-                                touched.category_id &&
-                                "is-invalid input-box-error"
-                              }`}
-                              onChange={handleCountriesChange}
-                            />
+                                  Product Category Name
+                                </label>
+                                {canAddCategory && (
+                                  <span
+                                    className="ms-2"
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => setIsOpenAddCategoryModal(true)}
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      height="24px"
+                                      viewBox="0 -960 960 960"
+                                      width="24px"
+                                      fill="currentColor"
+                                    >
+                                      <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                    </svg>
+                                  </span>
+                                )}
+                                <FormikCustomSearchDropdown
+                                  name="category_id"
+                                  options={categoryOptions}
+                                  className={`  ${
+                                    errors.category_id &&
+                                    touched.category_id &&
+                                    "is-invalid input-box-error"
+                                  }`}
+                                  onChange={handleCountriesChange}
+                                />
+                                <ErrorMessage
+                                  name="category_id"
+                                  component="div"
+                                  className="field-error text-danger"
+                                />
+                              </div>
+                              <div style={{ flex: "1 1 200px" }}>
+                                <label className="pb-2 mb-1 form_label">Products</label>
+                                <CustomSearchDropdown
+                                  options={productOptions}
+                                  value={newRowProduct}
+                                  onChange={(opt: IOption | null) => setNewRowProduct(opt)}
+                                  placeholder="Select product"
+                                  styles={{
+                                    control: (base: any) => ({ ...base, minHeight: "45px" }),
+                                  }}
+                                />
+                              </div>
+                              <div style={{ maxWidth: "110px" }}>
+                                <label className="pb-2 mb-1 form_label">Qty</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  style={{
+                                    height: "45px",
+                                    marginBottom: 0,
+                                    paddingTop: 0,
+                                    paddingBottom: 0,
+                                    lineHeight: "43px",
+                                  }}
+                                  placeholder="Qty"
+                                  maxLength={MINI_TEXT_LENGTH}
+                                  value={newRowQty}
+                                  onChange={(e) => setNewRowQty(sanitizeQtyInput(e.target.value))}
+                                />
+                              </div>
+                              <div style={{ flex: "1 1 160px" }}>
+                                <label className="pb-2 mb-1 form_label">Remarks</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  style={{
+                                    height: "45px",
+                                    marginBottom: 0,
+                                    paddingTop: 0,
+                                    paddingBottom: 0,
+                                    lineHeight: "43px",
+                                  }}
+                                  placeholder="Remarks (optional)"
+                                  maxLength={TEXTAREA_TEXT_LENGTH}
+                                  value={newRowRemarks}
+                                  onChange={(e) => setNewRowRemarks(e.target.value)}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-outline-theme"
+                                style={{ whiteSpace: "nowrap", height: "45px" }}
+                                onClick={() => addProductRow(setFieldValue)}
+                              >
+                                + Add
+                              </button>
+                            </div>
+                            {productRows.map((row, index) => {
+                              const label =
+                                productNameCache[row.product_id] ||
+                                productOptions.find(
+                                  (o: IOption) => String(o.value) === row.product_id,
+                                )?.label ||
+                                row.product_id;
+                              const categoryLabel = categoryOptions.find(
+                                (o: IOption) => String(o.value) === row.category_id,
+                              )?.label;
+                              return (
+                                <div
+                                  key={`${row.product_id}-${index}`}
+                                  className="d-flex justify-content-between align-items-start mb-2 px-3 py-2"
+                                  style={{
+                                    background: "#f8f9fa",
+                                    borderRadius: "8px",
+                                    border: "1px solid #e9ecef",
+                                  }}
+                                >
+                                  <div>
+                                    <span style={{ fontWeight: 500 }}>{label}</span>
+                                    {categoryLabel && (
+                                      <span className="badge bg-light text-secondary border ms-2">
+                                        {categoryLabel}
+                                      </span>
+                                    )}
+                                    <span className="text-muted ms-2">Qty: {row.qty}</span>
+                                    {row.remarks && (
+                                      <div
+                                        className="text-muted mt-1"
+                                        style={{ fontSize: "0.85rem", whiteSpace: "pre-wrap" }}
+                                      >
+                                        📝 {row.remarks}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span
+                                    style={{ cursor: "pointer", fontSize: "1rem" }}
+                                    className="text-danger"
+                                    title="Remove"
+                                    onClick={() => removeProductRow(index, setFieldValue)}
+                                  >
+                                    🗑
+                                  </span>
+                                </div>
+                              );
+                            })}
                             <ErrorMessage
-                              name="category_id"
-                              component="div"
-                              className="field-error text-danger"
-                            />
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-6 ">
-                          <div className="form-group">
-                            <label htmlFor="name " className="pb-2 form_label">
-                              Product Name
-                            </label>
-                            <FormikCustomSearchDropdown
                               name="product_id"
-                              options={productOptions}
-                              className={`  ${
-                                errors.product_id &&
-                                touched.product_id &&
-                                "is-invalid input-box-error"
-                              }`}
-                            />
-
-                            <ErrorMessage
-                              name="product_id"
-                              component="div"
-                              className="field-error text-danger"
-                            />
-                          </div>
-                        </div>
-                        <div className="col-6 col-md-6 ">
-                          <div className="form-group">
-                            <label htmlFor="name " className="pb-2 form_label">
-                              Required Quantity
-                            </label>
-                            <Field
-                              type="text"
-                              name="qty"
-                              maxlength={MINI_TEXT_LENGTH}
-                              className={`form-control font-size-15 rounded-1   ${
-                                errors.qty &&
-                                touched.qty &&
-                                "is-invalid input-box-error"
-                              }`}
-                              onChange={(
-                                e: React.ChangeEvent<HTMLInputElement>,
-                              ) => {
-                                let value = e.target.value;
-                                if (!/^\d*\.?\d*$/.test(value)) {
-                                  value = value.replace(/[^0-9.]/g, ""); // Remove non-numeric & extra dots
-                                }
-
-                                // Ensure only one decimal point exists
-                                const decimalCount = (value.match(/\./g) || [])
-                                  .length;
-                                if (decimalCount > 1) {
-                                  value = value.slice(0, -1); // Remove extra decimal point
-                                }
-
-                                setFieldValue("qty", value);
-                              }}
-                            />
-                            <ErrorMessage
-                              name="qty"
                               component="div"
                               className="field-error text-danger"
                             />

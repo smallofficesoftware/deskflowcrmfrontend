@@ -3,6 +3,7 @@ import { Task, Priority } from "../types/kanban.types";
 // Map raw API response to Task interface
 export const mapApiResponseToTask = (raw: Record<string, unknown>): Task => {
   return {
+    id: Number(raw.id ?? raw.task_id ?? 0),
     task_id: Number(raw.id ?? raw.task_id ?? 0),
     task_name: String(
       raw.task_title ?? raw.task_name ?? raw.name ?? "Untitled Task",
@@ -72,6 +73,16 @@ export const mapApiResponseToTask = (raw: Record<string, unknown>): Task => {
     label_name: raw.label_name ? String(raw.label_name) : undefined,
     label_color: raw.label_color ? String(raw.label_color) : undefined,
 
+    // ── Checklist (subtasks) progress badge ────────────────────────────────
+    checklist_total:
+      raw.checklist_total !== undefined && raw.checklist_total !== null
+        ? Number(raw.checklist_total)
+        : undefined,
+    checklist_done:
+      raw.checklist_done !== undefined && raw.checklist_done !== null
+        ? Number(raw.checklist_done)
+        : undefined,
+
     // Keep full raw for edit modal (Feature 4)
     raw,
   };
@@ -105,6 +116,10 @@ export const formatDueDate = (
   dueDateStr: string,
 ): { label: string; isOverdue: boolean; isToday: boolean } => {
   if (!dueDateStr) return { label: "", isOverdue: false, isToday: false };
+  // dueDateStr here is task.due_date, which mapApiResponseToTask already
+  // ran through parseTaskDate() to convert from the API's raw
+  // "DD-MM-YYYY hh:mm A" into "YYYY-MM-DD" - safe for native Date parsing
+  // as-is. (Do NOT re-split this as DD-MM-YYYY - it already isn't.)
   const dueDate = new Date(dueDateStr);
   if (isNaN(dueDate.getTime()))
     return { label: "", isOverdue: false, isToday: false };

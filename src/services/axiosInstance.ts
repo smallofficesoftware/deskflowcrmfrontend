@@ -41,6 +41,12 @@ axiosInstance.interceptors.request.use(
     const token = urlParams.MobileToken || localStorage.getItem("token");
     const uuid = urlParams.getID || localStorage.getItem("UUID");
     const companyId = localStorage.getItem("COMPANY_ID");
+    // Owner+PIN gate for Report Builder/Document Designer build routes
+    // (requireReportPin, backend's reportPinAuth.js) — a signed, short-lived
+    // token set by verifyReportPin on success, attached to every request the
+    // same way as the headers above, rather than threading it through each
+    // individual call site.
+    const reportPinToken = localStorage.getItem("REPORT_PIN_TOKEN");
     if (token) {
       config.headers.Authorization = token;
     }
@@ -49,6 +55,9 @@ axiosInstance.interceptors.request.use(
     }
     if (companyId) {
       config.headers["x-company-id"] = companyId;
+    }
+    if (reportPinToken) {
+      config.headers["x-report-pin-token"] = reportPinToken;
     }
     if ((IS_PRODUCTION || IS_ACTUAL == "1") && config.data) {
       config.data = { payload: encryptPayload(config.data) };

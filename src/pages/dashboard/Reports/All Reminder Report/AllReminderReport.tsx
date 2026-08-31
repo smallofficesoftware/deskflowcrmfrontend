@@ -12,6 +12,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ReminderModal from "../../../../components/model/ReminderModal";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import {
@@ -1166,6 +1167,13 @@ const AllReminderReport = ({
         </div>
         {/* )} */}
       </div>
+
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
 
       <div className="report_card" style={{ height: "90vh", display: "block" }}>
         <DataTable

@@ -1,5 +1,5 @@
 import { ErrorMessage, Field, Form, Formik } from "formik";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { APPLICATION_VERSION, MINI_TEXT_LENGTH } from "../../../helpers/AppConstants";
 import OTPVerificationView from "../otp-verification/OTPVerificationView";
@@ -23,7 +23,6 @@ const LoginView = ({ pageRedirect }: ILoginProps) => {
   const [showReg, setShowReg] = useState(false);
   const [saveMobileNumber, setSaveMobileNumber] = useState("");
   const [haspin, setHaspin] = useState<string | undefined>(undefined); // State to store haspin value
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (values: ILoginValues) => {
     const result = await loginSubmit(values, setShowOtp); // Assuming loginSubmit returns the response or haspin
@@ -34,9 +33,6 @@ const LoginView = ({ pageRedirect }: ILoginProps) => {
       setHaspin(undefined); // Reset haspin if not present
     }
   };
-  useEffect(() => {
-    searchInputRef.current && searchInputRef.current.focus();
-  }, []);
   return (
     <>
       {showReg ? (
@@ -97,7 +93,6 @@ const LoginView = ({ pageRedirect }: ILoginProps) => {
                                       <Field
                                         type="text"
                                         name="mobile_number"
-                                        innerRef={searchInputRef}
                                         placeholder="Enter Mobile Number / Email Address"
                                         maxLength={MINI_TEXT_LENGTH}
                                         className={`form-control d-flex justify-content-center pl-10 ${errors.mobile_number &&

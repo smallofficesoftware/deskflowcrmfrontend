@@ -1,6 +1,18 @@
 // ─── Tab Navigation (production entry is now a separate modal) ────────────────
 export type TabId = "select" | "details" | "material";
 
+// ─── Job Card creation mode ──────────────────────────────────────────────────
+//   "order"    -> Customer → Order → Order Item  (job_card_type 1)
+//   "product"  -> Direct Product, no customer/order  (job_card_type 2)
+//   "customer" -> Customer → Product, no order  (job_card_type 3)
+export type JobCardMode = "order" | "product" | "customer";
+
+export const JOB_CARD_TYPE: Record<JobCardMode, number> = {
+  order: 1,
+  product: 2,
+  customer: 3,
+};
+
 // ─── Dropdown Options ─────────────────────────────────────────────────────────
 export interface ICustomerOption {
   value: number;
@@ -31,6 +43,8 @@ export interface IContactDetail {
 
 export interface IItemDetail {
   item_id: number;
+  product_id?: number; // canonical product id (BOM / production entry key)
+  job_card_type?: number;
   item_name: string;
   item_code?: string;
   order_no?: string;
@@ -62,6 +76,8 @@ export interface IBomProcess {
 export interface IJobCardListItem {
   id: number;
   order_item_id: number;
+  product_id?: number;
+  job_card_type?: number;
   item_name: string;
   item_code?: string;
   order_no?: string;
@@ -131,6 +147,7 @@ export interface IProductionEntryMaterialPayload {
 export interface IProductionEntrySavePayload {
   job_id: number;
   order_item_id: number;
+  product_id?: number; // canonical finished-good product id
   produced_qty: number;
   finish_good_warehouse_id: number | null;
   entry_date: string; // "YYYY-MM-DD"

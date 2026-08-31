@@ -20,6 +20,9 @@ export interface IPersonalSettingCreate {
   whatsapp_phone_number_id?: string;
   whatsapp_waba_id?: string;
   whatsapp_api_key?: string;
+  // Per-login opt-in for the socket.io real-time layer - separate from
+  // company-wide feature flags. Default 0/off.
+  socket_connection_switch?: number;
 }
 
 export interface ITeamWABADetails {
@@ -47,6 +50,7 @@ export const createPersonalSettingInitialValues = (
     companyToEdit?.whatsapp_waba_id || "",
   whatsapp_api_key:
     companyToEdit?.whatsapp_api_key || "",
+  socket_connection_switch: companyToEdit?.socket_connection_switch || 0,
 });
 
 
@@ -78,6 +82,7 @@ export const handleSaveData = async (
       whatsapp_phone_number_id: values.whatsapp_phone_number_id,
       whatsapp_waba_id: values.whatsapp_waba_id,
       whatsapp_api_key: values.whatsapp_api_key,
+      socket_connection_switch: values.socket_connection_switch ? 1 : 0,
     })
   };
 

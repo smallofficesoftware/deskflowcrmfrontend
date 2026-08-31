@@ -17,8 +17,9 @@ import { toast } from "react-toastify";
 
 import { GoogleMap, InfoWindow, Marker, useJsApiLoader } from "@react-google-maps/api";
 import DatePicker from "react-multi-date-picker";
+import { useNavigate } from "react-router-dom";
+import { formatDateYMDV2 } from "../../../../common/SharedFunction";
 import DateTimeRangePicker from "../../../../components/DateTimeRangePicker";
-import ReportModal from "../../../../components/model/ReportsModel";
 import { useTheme } from "../../../../components/ThemeContext";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION, GOOGLE_MAP_KEY } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -112,8 +113,7 @@ const HRMDashboardView = ({
   const [selectReportType, setSelectReportType] = useState("");
   // const [appliedReportType, setAppliedReportType] = useState("");
   const [reportKey, setReportKey] = useState(0);
-  const [isReportShow, setIsReportShow] = useState(false);
-  const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
   const [teamMemberList, setTeamMemberList] = useState<TeamMember[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<OptionType[]>([]);
   const [localError, setLocalError] = useState("");
@@ -126,6 +126,7 @@ const HRMDashboardView = ({
   const [salary, setSalary] = useState(0);
   const [expense, setExpense] = useState(0);
   const [totalVisitCount, setTotalVisitCount] = useState(0);
+  const [birthdayCount, setBirthdayCount] = useState(0);
   const [employeeData, setEmployeeData] = useState<Employee[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [sortBy, setSortBy] = useState<SortKey>("presentDays");
@@ -355,6 +356,7 @@ const HRMDashboardView = ({
         setTotalVisitCount,
         setMonthlyBarChart,
         setEmployeeAttendance,
+        setBirthdayCount,
       );
       await fetchChainWiseTeamApi();
     } catch (error: any) {
@@ -499,71 +501,70 @@ const HRMDashboardView = ({
   const leaderBoardDatePickerRef = useRef<any>(null);
   const mapDatePickerRef = useRef<any>(null);
 
+  // Deep-links into /SideView/report/:slug (replaces the old ReportsModel
+  // popup) carrying the dashboard's current date range + team filter so the
+  // report opens pre-scoped to what the tile showed.
+  const navigateToReport = (slug: string, extraParams?: Record<string, string>) => {
+    const params = new URLSearchParams();
+    if (selectedDates && selectedDates.length === 2) {
+      params.set("start", formatDateYMDV2(selectedDates[0]));
+      params.set("end", formatDateYMDV2(selectedDates[1]));
+    }
+    if (selectedUsers.length) {
+      params.set("team", selectedUsers.map((u) => u.value).join(","));
+    }
+    if (extraParams) {
+      Object.entries(extraParams).forEach(([key, value]) => params.set(key, value));
+    }
+    const qs = params.toString();
+    navigate(`/SideView/report/${slug}${qs ? `?${qs}` : ""}`);
+  };
+
   const handelChangeShowModelReport = (name: string) => {
     if (canViewMyTeamList && name === "My_Team_Report") {
       setActiveView("HRMS");
       setAppliedReportType(name);
     } else if (canViewInquiry && name === "all_inquiry_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewVisitReport && name === "all_visit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewCallReport && name === "all_call_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewProductInventory && name === "product_inventory") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewQuotation && name === "quotation") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrder && name === "order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrderInvoice && name === "order_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseInvoice && name === "purchase_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseOrder && name === "purchase_order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (
       canViewReturnPurchaseInvoice &&
       name === "return_purchase_invoice"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewReturnSalesInvoice && name === "inward_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewInward && name === "inward") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewDispath && name === "dispatch_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewSupportTicket && name === "support_ticket_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewTask && name === "alltask_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewAttedance && name === "attendance_salary") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewTeamExpense && name === "team_day_wise_expanse_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewVisit && name === "all_visit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else {
-      setIsReportShow(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      setReportName(name);
     }
   };
 
@@ -801,6 +802,15 @@ const HRMDashboardView = ({
             }}
           >
             <Container fluid className="mt-2">
+              <style>{`
+                .crm-stat-card {
+                  transition: box-shadow 0.15s ease, transform 0.15s ease;
+                }
+                .crm-stat-card:hover {
+                  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+                  transform: translateY(-2px);
+                }
+              `}</style>
               {/* <div
                 className="d-flex align-items-center gap-2"
                 style={{
@@ -847,12 +857,16 @@ const HRMDashboardView = ({
                           style={{ maxWidth: "300px", marginBottom: "10px" }}
                           ref={datePickerRef}
                         >
-                          <label className="fw-bold mb-1">Date Range</label><br />
-                          <DateTimeRangePicker
-                            value={selectedDates || getTodayDateRange()}
-                            onChange={handelSearchDateChange}
-                            showTime={false}
-                            numberOfMonthsShow={1}
+                          <label className="fw-bold mb-1">Date</label><br />
+                          <DatePicker
+                            value={(selectedDates || getTodayDateRange())[0]}
+                            onChange={(date: any) => {
+                              const d = date ? date.toDate() : new Date();
+                              handelSearchDateChange([d, d]);
+                            }}
+                            format="YYYY-MM-DD"
+                            calendarPosition="bottom-right"
+                            className="form-control"
                           />
                           <span
                             className="ms-2"
@@ -945,18 +959,6 @@ const HRMDashboardView = ({
                               </svg>
                             ),
                           },
-                          {
-                            count: employeeAttendance.salary,
-                            title: "salary",
-                            onClick: () => {
-                              handelChangeShowModelReport("attendance_salary");
-                            },
-                            svg: (
-                              <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#5f6368">
-                                <path d="M560-440q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM280-320q-33 0-56.5-23.5T200-400v-320q0-33 23.5-56.5T280-800h560q33 0 56.5 23.5T920-720v320q0 33-23.5 56.5T840-320H280Zm80-80h400q0-33 23.5-56.5T840-480v-160q-33 0-56.5-23.5T760-720H360q0 33-23.5 56.5T280-640v160q33 0 56.5 23.5T360-400Zm440 240H120q-33 0-56.5-23.5T40-240v-440h80v440h680v80ZM280-400v-320 320Z" />
-                              </svg>
-                            ),
-                          },
                           // {
                           //   count: outOfStockCount,
                           //   title: "Out of Stock Products",
@@ -990,55 +992,87 @@ const HRMDashboardView = ({
 
 
                           {
-                            count: totalVisitCount,
-                            title: "visit",
+                            count: birthdayCount,
+                            title: "Birthdays",
+                            onClick: () => {
+                              // Unlike the Total Employee tile (which just flips local state
+                              // to show the full roster), this needs to carry the selected
+                              // date through so MyTeamReport can filter down to just today's
+                              // birthdays instead of showing everyone — go through the same
+                              // URL-based deep-link path every other report tile uses.
+                              if (canViewMyTeamList) {
+                                navigateToReport("My_Team_Report", { birthdayOnly: "1" });
+                              }
+                            },
                             svg: (
                               <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#5f6368">
-                                <path d="M536.5-503.5Q560-527 560-560t-23.5-56.5Q513-640 480-640t-56.5 23.5Q400-593 400-560t23.5 56.5Q447-480 480-480t56.5-23.5ZM480-186q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Zm0-480Z" />
+                                <path d="M160-80q-17 0-28.5-11.5T120-120v-200q0-33 23.5-56.5T200-400v-160q0-33 23.5-56.5T280-640h160v-58q-18-12-29-29t-11-41q0-15 6-29.5t18-26.5l56-56 56 56q12 12 18 26.5t6 29.5q0 24-11 41t-29 29v58h160q33 0 56.5 23.5T760-560v160q33 0 56.5 23.5T840-320v200q0 17-11.5 28.5T800-80H160Zm120-320h400v-160H280v160Zm-80 240h560v-160H200v160Zm80-240h400-400Zm-80 240h560-560Zm560-240H200h560Z" />
                               </svg>
                             ),
-                            onClick: () => {
-                              handelChangeShowModelReport("all_visit_report");
-                            },
                           },
-                          // {
-                          //   count: totalDispath,
-                          //   title: "Birthdays",
-                          //   svg: (
-                          //     <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#5f6368">
-                          //       <path d="M160-80q-17 0-28.5-11.5T120-120v-200q0-33 23.5-56.5T200-400v-160q0-33 23.5-56.5T280-640h160v-58q-18-12-29-29t-11-41q0-15 6-29.5t18-26.5l56-56 56 56q12 12 18 26.5t6 29.5q0 24-11 41t-29 29v58h160q33 0 56.5 23.5T760-560v160q33 0 56.5 23.5T840-320v200q0 17-11.5 28.5T800-80H160Zm120-320h400v-160H280v160Zm-80 240h560v-160H200v160Zm80-240h400-400Zm-80 240h560-560Zm560-240H200h560Z" />
-                          //     </svg>
-                          //   ),
-                          //   onClick: () => {
-                          //     handelChangeShowModelReport("dispatch_report");
-                          //   },
-                          // },
                         ].map((item, idx) => (
                           <Col md={4} key={idx}>
                             <Card
-                              className="text-end h-100"
-                              style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer", minHeight: "160px" }}
+                              className="h-100 crm-stat-card"
+                              style={{ borderRadius: "12px", border: "1px solid #eef0f3", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)", cursor: "pointer", minHeight: "160px" }}
                               onClick={item.onClick}
                             >
-                              <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
-                                <div>
-                                  <div className="d-flex text-end justify-content-end align-items-center gap-1">
-                                    <small className="text-muted fw-bold">
-                                      Total:
-                                    </small>
-                                    <h4 className="dash-board-text-count">
+                              <Card.Body style={{ padding: "18px" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "flex-start",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      width: "44px",
+                                      height: "44px",
+                                      borderRadius: "12px",
+                                      background: "#f3f4f6",
+                                      color: "#5f6368",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {item.svg}
+                                  </span>
+                                  <div style={{ textAlign: "right" }}>
+                                    <h3
+                                      className="dash-board-text-count"
+                                      style={{
+                                        margin: 0,
+                                        fontSize: "26px",
+                                        fontWeight: 700,
+                                        lineHeight: 1,
+                                        color: "#1a1a1a",
+                                      }}
+                                    >
                                       {item.count}
-                                    </h4>
+                                    </h3>
+                                    <small
+                                      className="text-muted"
+                                      style={{ fontSize: "11px" }}
+                                    >
+                                      Total
+                                    </small>
                                   </div>
-                                  {/* <small className="text-muted">
-                                    Appr. {item.approvedCount ?? 0.0}
-                                  </small>
-                                  <br /> */}
-                                  <span>{item.svg}</span>
                                 </div>
+
                                 <h4
                                   className="dash-board-text"
-                                  style={{ maxWidth: "100%" }}
+                                  style={{
+                                    maxWidth: "100%",
+                                    marginTop: "16px",
+                                    marginBottom: 0,
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    color: "#333",
+                                    textAlign: "left",
+                                  }}
                                 >
                                   {item.title}
                                 </h4>
@@ -1388,19 +1422,6 @@ const HRMDashboardView = ({
                 </Row>
               </>
 
-              {isReportShow && (
-                <ReportModal
-                  show={isReportShow}
-                  onHide={() => setIsReportShow(false)}
-                  handleSubmit={() => setIsReportShow(false)}
-                  titles={"Create"}
-                  message={"Please Enter Your Order Details"}
-                  btn1={"CANCEL"}
-                  btn2={"Approve"}
-                  reportName={reportName}
-                  date={selectedDates}
-                />
-              )}
             </Container>
           </div>
         </div>

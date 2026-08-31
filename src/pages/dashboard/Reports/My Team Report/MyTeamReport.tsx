@@ -8,7 +8,8 @@ import {
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -39,6 +40,23 @@ const MyTeamReport = ({
 }: IPropsMyTeamReport) => {
     const [loading, setLoading] = useState(false);
     const [myTeamList, setMyTeamList] = useState<ICompanyTeam[]>([]);
+
+    // Deep-linked here from HRMS Insight's "Birthdays" tile (?birthdayOnly=1&start=YYYY-MM-DD) —
+    // that tile's count is scoped to people whose birthday falls on the selected date, so the
+    // list here needs the same month+day filter or it silently shows the full roster instead
+    // and looks like the count and the list disagree.
+    const [searchParams] = useSearchParams();
+    const birthdayOnly = searchParams.get("birthdayOnly") === "1";
+    const birthdayFilterDate = searchParams.get("start");
+    const displayedTeamList = useMemo(() => {
+        if (!birthdayOnly || !birthdayFilterDate) return myTeamList;
+        const [, filterMonth, filterDay] = birthdayFilterDate.split("-");
+        return myTeamList.filter((member) => {
+            if (!member.date_of_birth) return false;
+            const [, month, day] = member.date_of_birth.split("-");
+            return month === filterMonth && day === filterDay;
+        });
+    }, [myTeamList, birthdayOnly, birthdayFilterDate]);
 
     const [globalSearchText, setGlobalSearchText] = useState("");
     const [debouncedSearchText, setDebouncedSearchText] = useState("");
@@ -120,6 +138,10 @@ const MyTeamReport = ({
             matchMode: "contains",
         },
         recovery_email: {
+            value: null,
+            matchMode: "contains",
+        },
+        date_of_birth: {
             value: null,
             matchMode: "contains",
         },
@@ -635,7 +657,7 @@ const MyTeamReport = ({
                             }}
                         >
                             <DataTable
-                                value={myTeamList}
+                                value={displayedTeamList}
                                 loading={loading}
                                 resizableColumns
                                 columnResizeMode="fit"
@@ -732,6 +754,31 @@ const MyTeamReport = ({
                                         return (
                                             <span>
                                                 {rowData.recovery_email}
+                                            </span>
+                                        );
+                                    }}
+                                />
+                                <Column
+                                    field="date_of_birth"
+                                    header={
+                                        <span>
+                                            Birthday
+                                        </span>
+                                    }
+                                    sortable
+                                    filter
+                                    filterPlaceholder="Search"
+                                    filterMatchMode="contains"
+                                    headerStyle={{
+                                        width: "150px",
+                                        background: "#f8f9fa",
+                                        fontSize: "14px",
+                                    }}
+                                    bodyStyle={{ fontSize: "14px" }}
+                                    body={(rowData: ICompanyTeam) => {
+                                        return (
+                                            <span>
+                                                {rowData.date_of_birth || "-"}
                                             </span>
                                         );
                                     }}

@@ -2,6 +2,7 @@ import axios from "axios";
 import { Button } from "primereact/button";
 import { useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+import useSocketEvent from "../../../hooks/useSocketEvent";
 import CsvIcon from "../../../assets/images/CsvIcon.png";
 import docxIcon from "../../../assets/images/docxIcon.png";
 import excelIcon from "../../../assets/images/excelIcon.png";
@@ -58,9 +59,11 @@ import {
   fetchAllCompanyApi,
   fetchStageStatusApi,
   fetchTaskMessageData,
+  generateAndViewOrderPdf,
   openPrint,
   TMessagesByDate,
   TMessageTask,
+  tryPdfmeViewPrint,
   updateUserCheckBox,
 } from "./TaskChatRightController";
 
@@ -127,6 +130,18 @@ const TaskChatRightSide = ({
   /*chatEdittor State Start  */
   const [editorContent, setEditorContent] = useState<string>("");
   const [isLoadedMessage, setIsLoadedMessage] = useState(false);
+  // Bumped on every "task-chat-changed" socket event to force the message
+  // fetch effect below to re-run, even if isLoadedMessage's value didn't
+  // change - covers messages arriving from another user/tab/WhatsApp reply,
+  // not just the ones this tab itself just sent.
+  const [chatSocketRefreshTick, setChatSocketRefreshTick] = useState(0);
+  useSocketEvent<{ task_id?: number }>("task-chat-changed", (payload) => {
+    // No task_id on the payload (e.g. an edit/delete, not a new message) -
+    // fall back to always refreshing rather than risk missing a real update.
+    if (!payload?.task_id || payload.task_id === signleDataTask?.id) {
+      setChatSocketRefreshTick((tick) => tick + 1);
+    }
+  });
   const [editorContentToEditId, setEditorContentToEditId] = useState(0);
   const [isToggledButton, setIsToggledButton] = useState(false);
   const [editorContentToEdit, setEditorContentToEdit] = useState<string>("");
@@ -208,6 +223,40 @@ const TaskChatRightSide = ({
     };
 
     return map[referenceTable || ""] || null;
+  };
+
+  // Companion to getViewFormat above - same reference_table keys, but
+  // resolving to the numeric cart type pdfme routing needs (view format is
+  // a V1-V5 template choice, not the cart's actual type).
+  const getCartType = (referenceTable: string | undefined): number | null => {
+    const map: Record<string, number> = {
+      cart_quotation: 1,
+      cart_order: 2,
+      cart_invoice: 3,
+      cart_order_purchase: 4,
+      cart_purchase_order: 5,
+      cart_return_sales_invoice: 6,
+      cart_return_purchase_invoice: 7,
+      cart_inward: 8,
+      cart_dispatch: 9,
+    };
+    return map[referenceTable || ""] || null;
+  };
+
+  // pdfme "View Print" template picker - same shape used everywhere else
+  // in the app (Quotations, ListOrderView, etc.).
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<number | null>(
+    null,
+  );
+  const printWithTemplate = (templateId: number) => {
+    setPrintTemplateChoices([]);
+    if (pendingPrintCartId != null) {
+      generateAndViewOrderPdf(pendingPrintCartId, templateId);
+    }
+    setPendingPrintCartId(null);
   };
 
   /* Rights Code Start */
@@ -318,6 +367,7 @@ const TaskChatRightSide = ({
     selectDate,
     searchTerm,
     setNoDataFound1,
+    chatSocketRefreshTick,
   ]);
 
   /* first Call This Api When Open Chat */
@@ -1119,7 +1169,23 @@ const TaskChatRightSide = ({
                     <Button
                       icon="pi pi-eye"
                       className="p-button-text"
-                      onClick={() => {
+                      onClick={async () => {
+                        const cartTypeId = getCartType(
+                          signleDataTask.reference_table,
+                        );
+                        const result = await tryPdfmeViewPrint(
+                          signleDataTask.reference_id,
+                          cartTypeId,
+                        );
+                        if (result.status === "picker") {
+                          setPrintTemplateChoices(result.choices);
+                          setPendingPrintCartId(
+                            signleDataTask.reference_id ?? null,
+                          );
+                          return;
+                        }
+                        if (result.status === "handled") return;
+
                         const viewFormat = getViewFormat(
                           signleDataTask.reference_table,
                         );
@@ -2321,6 +2387,39 @@ const TaskChatRightSide = ({
           />
         )}
       </div>
+
+      {printTemplateChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setPrintTemplateChoices([]);
+                  setPendingPrintCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {printTemplateChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* <IntroductionVideo /> */}
     </>

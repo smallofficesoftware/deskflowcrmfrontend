@@ -545,6 +545,23 @@ const PersonalSettingView = ({
                             </div>
                           </>
                         )} */}
+                          <div className="col-12 col-md-6">
+                            <div className="form-check form-switch">
+                              <label htmlFor="socket_connection_switch">
+                                Socket Connection (Real-time updates)
+                              </label>
+                              <Field
+                                type="checkbox"
+                                id="socket_connection_switch"
+                                name="socket_connection_switch"
+                                className="form-check-input"
+                                checked={!!values.socket_connection_switch}
+                                onChange={(e: { target: { checked: boolean } }) =>
+                                  setFieldValue("socket_connection_switch", e.target.checked ? 1 : 0)
+                                }
+                              />
+                            </div>
+                          </div>
                           <div className="col-12 col-12 pt-4 d-flex justify-content-end modal-buttons">
                             <button
                               className="modal-button1"

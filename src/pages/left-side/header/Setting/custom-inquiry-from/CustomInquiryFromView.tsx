@@ -139,7 +139,7 @@ const CustomInquiryFromView = ({
 
     const isFormType5to9 =
       selectedPageTypeValue &&
-      ["5", "6", "7", "8", "9", "10", "11"].includes(selectedPageTypeValue);
+      ["5", "6", "7", "8", "9", "10", "11", "16"].includes(selectedPageTypeValue);
 
     const attachmentAllowedPages = ["3", "14", "15"];
 
@@ -150,8 +150,8 @@ const CustomInquiryFromView = ({
           return attachmentAllowedPages.includes(selectedPageTypeValue);
         }
 
-        // Page Text & Page URL
-        if (["11", "12"].includes(option.id)) {
+        // Page Text, Page URL & Document Designer Page
+        if (["11", "12", "14"].includes(option.id)) {
           return isFormType5to9;
         }
 
@@ -263,7 +263,7 @@ const CustomInquiryFromView = ({
     setSelectedOrderList(selectedOption);
     setDataTypeError(selectedOption ? "" : "Data type is required");
 
-    if (selectedOption?.value === "11" || selectedOption?.value === "12") {
+    if (selectedOption?.value === "11" || selectedOption?.value === "12" || selectedOption?.value === "14") {
       const noOption = reqTypesCustomInquiryList.find(opt => opt.id === "2");
       setSelectedReqList({
         value: noOption?.id || "2",
@@ -595,6 +595,18 @@ const CustomInquiryFromView = ({
   const dataSourceForPageText = (item: ICustomInquiryFromList) => {
     setIsAddDataSourceForPageText(true);
     setAddDataSourceItemForPageText(item);
+  };
+
+  const dataSourceForDesignerPage = (item: ICustomInquiryFromList) => {
+    const params = new URLSearchParams({
+      fieldId: String(item.id),
+      fieldTitle: item.title || "",
+      formType: String(item.form_type),
+    });
+    // New tab, not an in-app navigate — this Custom Field settings screen
+    // (with its own unsaved-edit state, open modals etc.) stays exactly as
+    // the user left it instead of being replaced.
+    window.open(`/custom-field/designer-page-sources?${params.toString()}`, "_blank");
   };
 
   const handleDelete = (id: number, column: string, formType: number) => {
@@ -1234,6 +1246,20 @@ const CustomInquiryFromView = ({
                                                       role="button"
                                                       onClick={() =>
                                                         dataSourceForPageText(item)
+                                                      }
+                                                    >
+                                                      Add Data source
+                                                    </li>
+                                                  ) : (
+                                                    <span></span>
+                                                  )}
+                                                {
+                                                  item.data_type === 14 ? (
+                                                    <li
+                                                      className="listItem"
+                                                      role="button"
+                                                      onClick={() =>
+                                                        dataSourceForDesignerPage(item)
                                                       }
                                                     >
                                                       Add Data source

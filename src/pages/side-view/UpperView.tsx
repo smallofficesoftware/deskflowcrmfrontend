@@ -30,6 +30,7 @@ const UpperView = ({ profileDetail }: IProp) => {
 
     const [supportTicketFlag, setSupportTicketFlag] = useState(0);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [addMenuOpen, setAddMenuOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
     const [isOpenCreateModel, setIsCreateModel] = useState(false);
@@ -111,6 +112,7 @@ const UpperView = ({ profileDetail }: IProp) => {
     useEffect(() => {
         const handleClickOutside = () => {
             setDropdownOpen(false);
+            setAddMenuOpen(false);
         };
 
         document.addEventListener("click", handleClickOutside);
@@ -261,7 +263,8 @@ const UpperView = ({ profileDetail }: IProp) => {
             <div
                 style={{
                     height: "8vh",
-                    background: "#ffffff",
+                    background: "#F5F5F5",
+                    borderBottom: "1px solid #c9c9c9",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -270,82 +273,55 @@ const UpperView = ({ profileDetail }: IProp) => {
                     marginBottom: "10px"
                 }}
             >
+                <style>{`
+                    .sideview-add-contact-btn.contact-btn-search {
+                        background: rgb(245, 134, 52) !important;
+                        border-color: transparent !important;
+                    }
+                    .sideview-add-contact-btn.contact-btn-search:hover {
+                        background: rgb(229, 118, 42) !important;
+                    }
+                    .sideview-add-contact-btn .contact-btn-search-text {
+                        color: #fff !important;
+                    }
+                `}</style>
                 {/* LEFT SIDE */}
-                <div
+                <button
+                    onClick={() => navigate("/")}
+                    title="Back to Main Panel"
                     style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "16px",
+                        justifyContent: "center",
+                        gap: "6px",
+                        height: "34px",
+                        padding: "0 14px 0 10px",
+                        borderRadius: "20px",
+                        border: "1px solid #c9c9c9",
+                        background: "#fff",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "#4B4B4D",
+                        whiteSpace: "nowrap",
                     }}
                 >
-                    <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
-                        onClick={() => addReminder()}
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#4B4B4D"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                     >
-                        <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-                            <span className="contact-btn-search-text">
-
-                                Add Reminder
-                            </span>
-                        </span>
-
-                    </button>
-                    <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
-                        onClick={() => handleChangeAddContact()}
-                    >
-                        <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#6f6f6f">
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-                            <span className="contact-btn-search-text">
-
-                                Add Contact
-                            </span>
-                        </span>
-                    </button>
-                    <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
-                        onClick={() => openCreateTask(0)}
-                    >
-                        <span>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="20px"
-                                viewBox="0 -960 960 960"
-                                width="20px"
-                                fill="#6f6f6f"
-                            >
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-
-                            <span className="contact-btn-search-text">Add Task</span>
-                        </span>
-                    </button>
-
-                    <button
-                        className="btn ms-1 contact-btn-search rounded-4 fw_500"
-                        onClick={() => openCreateTask(1)}
-                    >
-                        <span>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="20px"
-                                viewBox="0 -960 960 960"
-                                width="20px"
-                                fill="#6f6f6f"
-                            >
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-
-                            <span className="contact-btn-search-text">Add Support Ticket</span>
-                        </span>
-                    </button>
-                </div>
-
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    Back to Main Panel
+                </button>
                 {/* RIGHT SIDE */}
                 <div
                     style={{
@@ -409,6 +385,110 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 </span>
                             </div>
                         )}
+                        <div style={{ position: "relative" }}>
+                            <button
+                                className="btn sideview-add-contact-btn contact-btn-search"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAddMenuOpen(!addMenuOpen);
+                                }}
+                                style={{
+                                    borderRadius: "50%",
+                                    width: "40px",
+                                    height: "40px",
+                                    padding: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                                title="Add"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" height="22px" viewBox="0 -960 960 960" width="22px" fill="#fff">
+                                    <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                </svg>
+                            </button>
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: "50px",
+                                    right: "0",
+                                    zIndex: 1001,
+                                    display: addMenuOpen ? "block" : "none",
+                                }}
+                            >
+                                <ul
+                                    className="dropLeft"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        listStyle: "none",
+                                        margin: 0,
+                                        padding: "5px 0",
+                                        background: "#fff",
+                                        borderRadius: "10px",
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                        minWidth: "230px",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                                        onClick={() => {
+                                            addReminder();
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80ZM160-200v-80h80v-280q0-83 50-141.5T420-774v-18q0-25 17.5-42.5T480-852q25 0 42.5 17.5T540-792v18q80 12 130 70.5T720-560v280h80v80H160Z" />
+                                        </svg>
+                                        Add Reminder
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                                        onClick={() => {
+                                            handleChangeAddContact();
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                                        </svg>
+                                        Add Contact
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                                        onClick={() => {
+                                            openCreateTask(0);
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Z" />
+                                        </svg>
+                                        Add Task
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                                        onClick={() => {
+                                            openCreateTask(1);
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#f58634">
+                                            <path d="M880-560v-120q0-33-23.5-56.5T800-760H160q-33 0-56.5 23.5T80-680v120q33 0 56.5 23.5T160-480q0 33-23.5 56.5T80-400v120q0 33 23.5 56.5T160-200h640q33 0 56.5-23.5T880-280v-120q-33 0-56.5-23.5T800-480q0-33 23.5-56.5T880-560ZM800-616q-37 22-58.5 58.5T720-480q0 45 21.5 81.5T800-340v60H160v-60q37-22 58.5-58.5T240-480q0-45-21.5-81.5T160-620v-60h640v64Z" />
+                                        </svg>
+                                        Add Support Ticket
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                         <div>
                             <button
                                 onClick={handleAttendance}

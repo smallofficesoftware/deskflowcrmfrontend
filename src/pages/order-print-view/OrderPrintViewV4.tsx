@@ -1,5 +1,6 @@
 //OrderPrintViewV4.tsx
 
+import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -18,7 +19,7 @@ import PrintSettingModal from "../../components/model/PrintSettingModal";
 import { whatsappTemplateCloudeSend } from "../../components/model/whatsapp_template_sender/WhatsappTemplateSenderController";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../helpers/AppConstants";
 import { PAGE_ID, PRINT_SETTING_TYPE_OBJ } from "../../helpers/AppEnum";
-import { setUrlParams } from "../../services/axiosInstance";
+import { axiosInstance, setUrlParams } from "../../services/axiosInstance";
 import { numberToWordsCurrency } from "../../utils/numberToWordsCurrency";
 import {
   fetchCustomForm,
@@ -31,7 +32,9 @@ import "./OrderPrintView.css";
 import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
+  fetchPdfmeTemplatesForPicker,
   handleDownload,
+  isPdfmeSupportedCartType,
 } from "./orderPrintController";
 
 // Define interface for custom form fields based on console output
@@ -76,6 +79,13 @@ const OrderPrintViewV4 = () => {
   const [isLoadingAfterUpdate, setIsLoadingAfterUpdate] = useState(false);
   const [orderPrintList, setOrderPrintList] = useState<ItemDetails[]>([]);
   const [whatsappConfigDetail, setWhatsappConfigDetail] = useState<number>(0);
+  // pdfme Document Designer — opt-in per company, Quotation (cart.type===1)
+  // only for this pilot. Same pattern as OrderPrintViewV1.tsx.
+  const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
+  const [pdfmeFlagChecked, setPdfmeFlagChecked] = useState(false);
+  const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
   const [canPdfProfomaInvoice, setcanPdfProfomaInvoice] = useState<boolean>(false);
 
   const orderIds = useMemo(() => {
@@ -279,6 +289,77 @@ const OrderPrintViewV4 = () => {
     printSetting,
   ]);
 
+  // Reset to false at the top of every run: orderPrintById starts
+  // undefined, so this effect's FIRST run (cart.type undefined) always
+  // takes the early-bail branch and sets pdfmeFlagChecked=true - without
+  // this reset, that premature "checked" would linger true through the
+  // real async check that follows once the cart actually loads.
+  useEffect(() => {
+    setPdfmeFlagChecked(false);
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!isPdfmeSupportedCartType(orderPrintById?.cart?.type) || !companyMastersId) {
+      setPdfmeFlagChecked(true);
+      return;
+    }
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
+      })
+      .finally(() => setPdfmeFlagChecked(true));
+  }, [orderPrintById?.cart?.type]);
+
+  // autoPrint=false (printFlag/"view" links, e.g. a chat message's "View
+  // Order" link) still opens the real generated PDF but skips triggering
+  // the browser print dialog on it.
+  const printGeneratedPdf = async (documentTemplateId?: number, autoPrint: boolean = true) => {
+    const token = MobileToken || localStorage.getItem("token");
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    try {
+      const resops = await axiosInstance.post(
+        "/order-pdf",
+        { cart_id: id, ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}) },
+        { headers: { Authorization: `${token}`, "x-tenant-id": getID, "x-company-id": companyMastersId } },
+      );
+      if (resops.data.ack !== 1) return;
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      // Always navigate the current tab instead of window.open(): this
+      // fires after an async network round trip (the two fetches above),
+      // well outside the original click's user-gesture window, so browsers
+      // (and some mobile WebViews even more aggressively) silently
+      // popup-block a new window/tab here - no error, no visible change,
+      // just nothing happens. Navigating in place isn't blocked. autoPrint
+      // no longer distinguishes behavior (both paths just show the PDF
+      // in-place) - kept as a param for callers, unused here now.
+      window.location.href = url;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // pdfme path: fires as soon as the flag is confirmed true — no reason to
+  // wait for the legacy timer (that delay exists to let this component's
+  // own DOM finish rendering pageText/pageURL extra sections before
+  // window.print(), which doesn't apply here since we fetch a real PDF).
+  // Always uses the default template directly — no picker, even when 2+
+  // templates are published (this legacy landing page never blocks on a
+  // template choice for Print). Fires for printFlag ("view") requests too
+  // now, just without auto-printing - a pdfme-enabled cart should show the
+  // real document even in view mode, not the stale hardcoded layout below.
+  useEffect(() => {
+    if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened) {
+      setPrintDialogOpened(true);
+      printGeneratedPdf(undefined, !printFlag);
+    }
+  }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
+
+  // Legacy path: only for a confirmed-non-pdfme cart — gated on
+  // pdfmeFlagChecked so this can't race ahead of the flag check above.
   // Trigger print dialog 2 seconds after all data is loaded
   useEffect(() => {
     if (
@@ -288,7 +369,9 @@ const OrderPrintViewV4 = () => {
       orderPrintById &&
       printSetting &&
       !printDialogOpened &&
-      !printFlag
+      !printFlag &&
+      pdfmeFlagChecked &&
+      !pdfmeEnabled
     ) {
       const timeoutDuration = customOrderPdfViewById.some(
         (field) =>
@@ -314,6 +397,8 @@ const OrderPrintViewV4 = () => {
     printDialogOpened,
     printFlag,
     customOrderPdfViewById,
+    pdfmeFlagChecked,
+    pdfmeEnabled,
   ]);
 
   const selectedCurrency =
@@ -643,14 +728,34 @@ const OrderPrintViewV4 = () => {
     const timeoutDuration =
       field.data_type === 11 || field.data_type === 12 ? 5000 : 2000;
 
+    // This component mounts once PER matching pageText/pageURL custom
+    // field — without a printDialogOpened guard, 2+ such fields would each
+    // independently trigger print. Shares printDialogOpened/pdfmeEnabled
+    // with the outer component's own effects (closure), so whichever
+    // fires first (here or the outer effect) blocks the rest.
     useEffect(() => {
-      if (orderPrintById && !printFlag && printSetting) {
+      if (pdfmeEnabled && orderPrintById && printSetting && !printDialogOpened) {
+        setPrintDialogOpened(true);
+        printGeneratedPdf(undefined, !printFlag);
+      }
+    }, [pdfmeEnabled, orderPrintById, printSetting, printDialogOpened, printFlag]);
+
+    useEffect(() => {
+      if (
+        orderPrintById &&
+        !printFlag &&
+        printSetting &&
+        !printDialogOpened &&
+        pdfmeFlagChecked &&
+        !pdfmeEnabled
+      ) {
         const timer = setTimeout(() => {
+          setPrintDialogOpened(true);
           window.print();
         }, timeoutDuration);
         return () => clearTimeout(timer);
       }
-    }, [orderPrintById, timeoutDuration]);
+    }, [orderPrintById, timeoutDuration, printDialogOpened, printFlag, printSetting, pdfmeFlagChecked, pdfmeEnabled]);
 
     return null;
   };
@@ -795,7 +900,7 @@ const OrderPrintViewV4 = () => {
     );
     setcanPdfProfomaInvoice(response12?.share);
   };
-  const openPdf = () => {
+  const openPdf = async () => {
     const permissionMap: Record<number, boolean> = {
       1: canPdfQuo,
       2: canPdfOrder,
@@ -808,10 +913,20 @@ const OrderPrintViewV4 = () => {
       12: canPdfProfomaInvoice,
     };
     if (orderPrintById?.shareRights == true) {
-      handleDownload(id, MobileToken, getID, "downloadPdf");
+      const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
+      if (choices.length > 1) {
+        setDownloadTemplateChoices(choices);
+      } else {
+        handleDownload(id, MobileToken, getID, "downloadPdf");
+      }
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
+  };
+
+  const downloadWithTemplate = (templateId: number) => {
+    setDownloadTemplateChoices([]);
+    handleDownload(id, MobileToken, getID, "downloadPdf", templateId);
   };
 
   const shareWhatsapp = () => {
@@ -2751,7 +2866,12 @@ const OrderPrintViewV4 = () => {
 
             <div
               className="print-setting"
-              style={{ position: "absolute", top: "0", right: "0" }}
+              style={{
+                position: "absolute",
+                top: "0",
+                right: "0",
+                display: pdfmeEnabled ? "none" : undefined,
+              }}
             >
               <button
                 className="icons "
@@ -2856,6 +2976,35 @@ const OrderPrintViewV4 = () => {
                 btn2={"Approve"}
                 getID={getID}
               />
+            )}
+            {downloadTemplateChoices.length > 0 && (
+              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5>Choose Template</h5>
+                    <span
+                      className="close"
+                      onClick={() => setDownloadTemplateChoices([])}
+                    >
+                      &times;
+                    </span>
+                  </div>
+                  {downloadTemplateChoices.map((t) => (
+                    <div
+                      key={t.id}
+                      className="d-flex justify-content-between align-items-center border-bottom py-2"
+                    >
+                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => downloadWithTemplate(t.id)}
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

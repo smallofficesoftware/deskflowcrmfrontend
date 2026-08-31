@@ -20,6 +20,7 @@ export const orderTypesCustomInquiryList = [
   { id: "11", order_type_display: "Page Text" },
   { id: "12", order_type_display: "Page Url" },
   { id: "13", order_type_display: "Attachments" },
+  { id: "14", order_type_display: "Document Designer Page" },
 ];
 
 export const validationTypeList = [
@@ -70,6 +71,7 @@ export const pageTypesCustomFieldList = [
   { id: "13", order_type_display: "Dispatch" },
   { id: "14", order_type_display: "Task" },
   { id: "15", order_type_display: "Support Ticket" },
+  { id: "16", order_type_display: "Proforma Invoice" },
 ];
 export const productApplicableModulesList = [
   { id: "4", order_type_display: "Product Master" },
@@ -82,6 +84,7 @@ export const productApplicableModulesList = [
   { id: "11", order_type_display: "Return Purchase Invoice" },
   { id: "12", order_type_display: "Goods Received Note" },
   { id: "13", order_type_display: "Dispatch" },
+  { id: "16", order_type_display: "Proforma Invoice" },
 ];
 export interface ICustomInquiryFromList {
   id: number;

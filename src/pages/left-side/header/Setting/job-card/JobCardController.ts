@@ -161,17 +161,17 @@ export const searchOrdersByCustomer = async (
   }
 };
 
-// ── Order items (orderById), scoped to an order (cart_id) ──
+// ── Order items for a cart, filtered to items whose product has a BOM ──
 export const fetchOrderItemsByCart = async (
   cartId: number,
 ): Promise<IOption[]> => {
   try {
-    const { data } = await axiosInstance.post("orderById", {
+    const { data } = await axiosInstance.post("job-card/order-items", {
       a_application_login_id: uuid(),
       cart_id: cartId,
     });
     if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-      const items: IRawOrderItem[] = data.data?.item?.items || [];
+      const items: IRawOrderItem[] = data.data?.items || [];
       return items.map((i) => ({
         value: i.id,
         label: i.item_product_code
@@ -182,6 +182,36 @@ export const fetchOrderItemsByCart = async (
     return [];
   } catch (error) {
     console.error("Error loading order items:", error);
+    return [];
+  }
+};
+
+// ── BOM product search (Direct Product / For Customer modes) ──
+export const searchBomProducts = async (
+  inputValue: string,
+): Promise<IOption[]> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/products", {
+      a_application_login_id: uuid(),
+      searchTerm: inputValue || "",
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      const items: {
+        id: number;
+        product_name: string;
+        product_code?: string;
+        unit?: string;
+      }[] = data.data?.items || [];
+      return items.map((p) => ({
+        value: p.id,
+        label: p.product_code
+          ? `${p.product_name} (${p.product_code})`
+          : p.product_name,
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Error loading BOM products:", error);
     return [];
   }
 };
@@ -310,20 +340,23 @@ export const fetchJobCardDetail = async (
 // ─── Save Job Card ────────────────────────────────────────────────────────────
 
 export const saveJobCard = async (
-  orderItemId: number,
+  jobCardType: number, // 1 = from order, 2 = direct product, 3 = for customer
+  itemId: number, // cart_item id (type 1) or product id (type 2/3)
   productQty: number,
-  selectedCustomer: string | number,
-  selectedOrder: string | number,
+  selectedCustomer: string | number | null,
+  selectedOrder: string | number | null,
   setLoading: TReactSetState<boolean>,
 ): Promise<number | null> => {
   setLoading(true);
   try {
     const { data } = await axiosInstance.post("job-card/save", {
       a_application_login_id: uuid(),
-      order_item_id: orderItemId,
+      job_card_type: jobCardType,
+      item_id: itemId,
+      order_item_id: itemId, // kept for backward compat with older backends
       product_qty: productQty,
-      customer_id: selectedCustomer,
-      order_id: selectedOrder,
+      customer_id: selectedCustomer || null,
+      order_id: selectedOrder || null,
     });
 
     if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {

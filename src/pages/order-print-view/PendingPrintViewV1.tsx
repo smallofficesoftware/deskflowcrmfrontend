@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -11,7 +12,7 @@ import PrintSettingModal from "../../components/model/PrintSettingModal";
 import SafeHtml from "../../components/SafeHtml";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../helpers/AppConstants";
 import { PAGE_ID, PRINT_SETTING_TYPE_OBJ } from "../../helpers/AppEnum";
-import { setUrlParams } from "../../services/axiosInstance";
+import { axiosInstance, setUrlParams } from "../../services/axiosInstance";
 import { numberToWordsCurrency } from "../../utils/numberToWordsCurrency";
 import {
   fetchCustomForm,
@@ -24,6 +25,15 @@ import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
 } from "./pendingPrintController";
+
+// Pending Order / Pending Purchase Order — distinct doc types from the
+// regular sales/purchase order (see backend orderServices.js's pdfOrder,
+// PENDING_PDFME_DOC_TYPE_BY_CART_TYPE), keyed by cart.type same as the
+// confirmed-order picker.
+const PENDING_PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+  2: "pendingSalesOrder",
+  5: "pendingPurchaseOrder",
+};
 
 // Define interface for custom form fields based on console output
 interface CustomFormField {
@@ -57,6 +67,12 @@ const PendingPrintViewV1 = () => {
   const [printSetting, setPrintSetting] = useState<IprintSetting>();
   const [dynamicViewFormate, setDynamicViewFormate] = useState(1);
   const [isPrintSettingShow, setIsPrintSettingShow] = useState(false);
+
+  // Document Designer (pdfme) — mirrors OrderPrintViewV1's pattern, scoped
+  // to the pendingSalesOrder/pendingPurchaseOrder doc types.
+  const [pdfmeEnabled, setPdfmeEnabled] = useState(false);
+  const [, setPdfmeFlagChecked] = useState(false);
+  const [printDialogOpened, setPrintDialogOpened] = useState(false);
 
   const { id, MobileToken, getID, type } = useParams();
 
@@ -104,6 +120,76 @@ const PendingPrintViewV1 = () => {
       setProductCustomOrderPdfViewById([]);
     }
   };
+
+  const pendingDocType = orderPrintById?.cart?.type
+    ? PENDING_PDFME_DOC_TYPE_BY_CART_TYPE[Number(orderPrintById.cart.type)]
+    : undefined;
+
+  // orderPrintById.cart.company_masters_id is server-fetched and always
+  // present once the cart loads — COMPANY_ID in localStorage isn't reliably
+  // set by every login flow, so it's only a fallback, not the primary source
+  // (same gotcha as socketClient.ts's registerSession).
+  const companyMastersId =
+    orderPrintById?.cart?.company_masters_id?.toString() ||
+    localStorage.getItem("COMPANY_ID") ||
+    undefined;
+
+  useEffect(() => {
+    if (!pendingDocType || !companyMastersId) {
+      setPdfmeFlagChecked(true);
+      return;
+    }
+    axiosInstance
+      .post("get-feature-flag", {
+        company_masters_id: companyMastersId,
+        feature_key: "document_designer",
+      })
+      .then(({ data }) => {
+        if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
+      })
+      .finally(() => setPdfmeFlagChecked(true));
+  }, [pendingDocType, companyMastersId]);
+
+  // Fetches the backend-generated pdfme PDF (print_variant=pending) and
+  // triggers the browser print dialog on it — same pattern as
+  // OrderPrintViewV1's printGeneratedPdf.
+  const printGeneratedPdf = async (documentTemplateId?: number) => {
+    const token = MobileToken || localStorage.getItem("token");
+    try {
+      const resops = await axiosInstance.post(
+        "/order-pdf",
+        {
+          cart_id: id,
+          print_variant: "pending",
+          ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+        },
+        { headers: { Authorization: `${token}`, "x-tenant-id": getID, "x-company-id": companyMastersId } },
+      );
+      if (resops.data.ack !== 1) return;
+      const response = await axios.get(resops.data.data.path, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      // Navigate the current tab instead of window.open(): this fires after
+      // an async network round trip (the two fetches above), well outside
+      // the original click's user-gesture window, so browsers (and some
+      // mobile WebViews even more aggressively) silently popup-block a new
+      // window/tab here - no error, no visible change, just nothing happens.
+      window.location.href = url;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // Always uses the default template directly — no picker, even when 2+
+  // templates are published (this legacy landing page never blocks on a
+  // template choice for Print).
+  useEffect(() => {
+    if (pdfmeEnabled && pendingDocType && orderPrintById && !printDialogOpened) {
+      setPrintDialogOpened(true);
+      printGeneratedPdf();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfmeEnabled, pendingDocType, orderPrintById, printDialogOpened]);
 
   useEffect(() => {
     let print_flag = 1;
@@ -1117,6 +1203,7 @@ const PendingPrintViewV1 = () => {
           getID={getID}
         />
       )}
+
     </div>
   ) : (
     <p className="text-center">Loading...</p>

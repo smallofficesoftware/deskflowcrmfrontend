@@ -21,6 +21,7 @@ import ProductionEntryProcessCard from "./ProductionEntryProcessCard";
 interface IProps {
   jobId: number;
   order_item_id: number;
+  productId?: number; // canonical finished-good product id
   bomProcesses: IBomProcess[];
   orderQty: number;
   itemName?: string;
@@ -112,6 +113,7 @@ const overlaySavedItems = (
 
 const ProductionEntrySection = ({
   order_item_id,
+  productId,
   jobId,
   bomProcesses,
   orderQty,
@@ -395,6 +397,7 @@ const ProductionEntrySection = ({
     onSave({
       job_id: jobId,
       order_item_id: order_item_id,
+      product_id: productId ?? order_item_id,
       produced_qty: producedQty,
       finish_good_warehouse_id: finishGoodWarehouse
         ? Number(finishGoodWarehouse.value)

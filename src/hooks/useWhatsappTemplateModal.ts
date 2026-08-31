@@ -485,6 +485,13 @@ export function useWhatsappTemplateModal(
         ? !!attachmentUrl
         : !!attachmentVariableKey;
 
+    if (templateHasAttachment(selectedTemplate) && !hasAttachmentConfig) {
+      toast.warning(
+        "Choose an image/video/document (upload one or pick a variable) before saving",
+      );
+      return;
+    }
+
     if (Object.keys(quickFillVars).length === 0 && !hasAttachmentConfig) {
       toast.warning("Please map at least one variable before saving");
       return;

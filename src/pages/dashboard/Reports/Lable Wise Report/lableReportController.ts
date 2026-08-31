@@ -5,8 +5,8 @@ import { axiosInstance } from "../../../../services/axiosInstance";
 
 export interface ILableReport {
   lable_name: string;
-  contactCount: string;
-  inquiryCount: string;
+  contactCount: number | string;
+  inquiryCount: number | string;
 }
 export const fetchLable = async (
   setLableReport: TReactSetState<ILableReport[]>,
@@ -43,9 +43,11 @@ export const fetchLable = async (
 
 
     if (response.data.ack == 3) {
-      toast.error(response.data.ack_msg)
+      toast.error(response.data.ack_msg);
+      setLableReport([]);
+      return;
     }
-    setLableReport(response.data.data.item);
+    setLableReport(response.data?.data?.item ?? []);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
   }

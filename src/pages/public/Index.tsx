@@ -12,6 +12,7 @@ import {
 } from "../../helpers/AppConstants";
 import { axiosInstance } from "../../services/axiosInstance";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
+import useTrainingStore from "../../store/training/useTrainingStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import CustomerSupportFormView from "../customer-support/customer-support-form/CustomerSupportFormView";
 import { logOutApi } from "../left-side/LeftSideController";
@@ -32,7 +33,7 @@ const DraggableWidget = ({
   position: { x: number; y: number };
 }) => {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: "tawk-widget",
+    id: "support-widget",
   });
 
   const style: React.CSSProperties = {
@@ -56,7 +57,7 @@ const Index = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [widgetPosition, setWidgetPosition] = useState(() => {
-    const saved = localStorage.getItem("tawk-widget-position");
+    const saved = localStorage.getItem("support-widget-position");
     if (saved) {
       return JSON.parse(saved);
     }
@@ -80,94 +81,6 @@ const Index = () => {
   const flag = useFeatureFlagStore(
     (state) => state.flags.RAISE_SUPPORT_TICKET_FLAG
   );
-  useEffect(() => {
-    const s1 = document.createElement("script");
-    s1.src = "https://embed.tawk.to/68a56c9d727c171927b34bce/1j3330irj";
-    s1.async = true;
-    s1.charset = "UTF-8";
-    s1.setAttribute("crossorigin", "*");
-    document.body.appendChild(s1);
-
-    const style = document.createElement("style");
-    style.id = "tawk-hide-style";
-    style.innerHTML = `
-        #tawk-bubble-container,
-        .tawk-custom-color,
-        .tawk-button,
-        div[class*="tawk"],
-        iframe[title*="chat"] {
-          display: none !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-        
-        /* Only show the chat window when maximized */
-        .tawk-chat-panel,
-        iframe[src*="tawk"][style*="display: block"] {
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          pointer-events: auto !important;
-        }
-      `;
-    document.head.appendChild(style);
-
-    const interval = setInterval(() => {
-      if ((window as any).Tawk_API) {
-        const tawkAPI = (window as any).Tawk_API;
-
-        if (tawkAPI.hideWidget) {
-          tawkAPI.hideWidget();
-        }
-
-        if (tawkAPI.onChatMinimized) {
-          tawkAPI.onChatMinimized(() => {
-            if (tawkAPI.hideWidget) {
-              tawkAPI.hideWidget();
-            }
-          });
-        }
-
-        if (tawkAPI.onChatHidden) {
-          tawkAPI.onChatHidden(() => {
-            if (tawkAPI.hideWidget) {
-              tawkAPI.hideWidget();
-            }
-          });
-        }
-
-        clearInterval(interval);
-      }
-    }, 100);
-
-    const observer = new MutationObserver(() => {
-      const tawkWidget = document.querySelector("#tawk-bubble-container");
-      if (tawkWidget && (tawkWidget as HTMLElement).style.display !== "none") {
-        (tawkWidget as HTMLElement).style.display = "none";
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["style"],
-    });
-
-    return () => {
-      clearInterval(interval);
-      observer.disconnect();
-      if (document.body.contains(s1)) {
-        document.body.removeChild(s1);
-      }
-      const styleEl = document.getElementById("tawk-hide-style");
-      if (styleEl && document.head.contains(styleEl)) {
-        document.head.removeChild(styleEl);
-      }
-    };
-  }, []);
-
   const handleDragEnd = (event: any) => {
     setIsDragging(false);
     const { delta } = event;
@@ -182,41 +95,11 @@ const Index = () => {
       ),
     };
     setWidgetPosition(newPosition);
-    localStorage.setItem("tawk-widget-position", JSON.stringify(newPosition));
+    localStorage.setItem("support-widget-position", JSON.stringify(newPosition));
   };
 
   const handleDragStart = () => {
     setIsDragging(true);
-  };
-
-  const openTawkChat = () => {
-    if ((window as any).Tawk_API) {
-      const tawkAPI = (window as any).Tawk_API;
-
-      if (tawkAPI.isChatMaximized && tawkAPI.isChatMaximized()) {
-        if (tawkAPI.minimize) {
-          tawkAPI.minimize();
-        }
-      } else {
-        if (tawkAPI.showWidget) {
-          tawkAPI.showWidget();
-        }
-
-        setTimeout(() => {
-          if (tawkAPI.maximize) {
-            tawkAPI.maximize();
-          }
-
-          setTimeout(() => {
-            if (tawkAPI.hideWidget) {
-              tawkAPI.hideWidget();
-            }
-          }, 100);
-        }, 100);
-      }
-    } else {
-      console.log("Tawk_API not available yet");
-    }
   };
 
   let isGroupOpen;
@@ -238,6 +121,7 @@ const Index = () => {
   const [showRenewPlan, setShowRenewPlan] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const { setAdvertisement } = useAdvertisementStore();
+  const { setTrainingDisabled } = useTrainingStore();
 
   const LoginSubmit = async () => {
     const token = localStorage.getItem("token");
@@ -292,6 +176,7 @@ const Index = () => {
           handleRefresh();
         }
         setAdvertisement(response.data.data.advertisement);
+        setTrainingDisabled(response.data.data.is_training_disabled === 1);
         setCompulsaryAttendance(
           response.data.data.compulsary_attendance === true,
         );
@@ -546,70 +431,7 @@ const Index = () => {
         </>
       )}
 
-      {flag === 1 && (
-        <DndContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
-          <DraggableWidget position={widgetPosition}>
-            <div
-              onMouseDown={(e) => { }}
-              onMouseUp={(e) => {
-                if (!isDragging) {
-                  openTawkChat();
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              style={{
-                width: "60px",
-                height: "60px",
-                borderRadius: "50%",
-                backgroundColor: "#FF7D12",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                transition: isDragging
-                  ? "none"
-                  : "transform 0.2s, box-shadow 0.2s",
-                cursor: isDragging ? "grabbing" : "grab",
-                userSelect: "none",
-              }}
-              onMouseEnter={(e) => {
-                if (!isDragging) {
-                  e.currentTarget.style.transform = "scale(1.1)";
-                  e.currentTarget.style.boxShadow =
-                    "0 6px 16px rgba(0, 0, 0, 0.2)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isDragging) {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(0, 0, 0, 0.15)";
-                }
-              }}
-            >
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z"
-                  fill="white"
-                />
-                <circle cx="8" cy="10" r="1.5" fill="white" />
-                <circle cx="12" cy="10" r="1.5" fill="white" />
-                <circle cx="16" cy="10" r="1.5" fill="white" />
-              </svg>
-            </div>
-          </DraggableWidget>
-        </DndContext>
-      )}
-
-      {flag === 2 && (<DndContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+      {(flag === 1 || flag === 2) && (<DndContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
         <DraggableWidget position={widgetPosition}>
           <div
             onMouseDown={(e) => { }}
@@ -690,7 +512,7 @@ const Index = () => {
         // categoryNames={categoryNames}
         />
       }
-      {flag === 2 && showForm && (
+      {(flag === 1 || flag === 2) && showForm && (
         <div
           style={{
             position: "fixed",

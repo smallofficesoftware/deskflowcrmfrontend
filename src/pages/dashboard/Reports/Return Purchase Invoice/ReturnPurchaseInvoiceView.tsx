@@ -24,6 +24,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -43,10 +44,18 @@ import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
   exportAllReturnPurchaseInvoiceData,
   fetchCartReport,
+  fetchReturnPurchaseInvoicePdfmeTemplates,
   fetchReturnPurchaseInvoiceReportForExport,
+  generateAndPrintReturnPurchaseInvoicePdf,
   IFlatCartItem,
+  isPdfmeEnabledForReturnPurchaseInvoice,
   openPrint,
 } from "./ReturnPurchaseInvoiceController";
+
+// PDFMerger holds every selected order's parsed PDF in memory at merge time -
+// cap Generate Multi Print's selection so an unbounded "select all" can't
+// blow up memory.
+const MAX_MULTI_PRINT_COUNT = 25;
 
 interface LazyTableState {
   first: number;
@@ -151,6 +160,19 @@ const TeamReturnPurchaseDataReportsView = ({
   const selectedIds = useMemo(() => {
     return selectedCustomers.map((item: IFlatCartItem) => item.id);
   }, [selectedCustomers]);
+
+  // pdfme print picker - same shape as ListOrderView.tsx's
+  // printTemplateChoices/pendingPrintCartId/printWithTemplate. Used for both
+  // single print (1 row) and Generate Multi Print (2+ rows, merged PDF).
+  const [printTemplateChoices, setPrintTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
+  // Generate Multi Print's round trip (N sequential PDF generations + merge)
+  // is long enough to look broken without a loading indicator.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -1415,10 +1437,49 @@ const TeamReturnPurchaseDataReportsView = ({
     );
   }
 
-  const handleMultiPrint = () => {
+  const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    openPrint(selectedIds.join(","), viewFormate);
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    setIsMultiPrintLoading(true);
+    try {
+      const pdfmeOn = await isPdfmeEnabledForReturnPurchaseInvoice();
+      if (pdfmeOn) {
+        const choices = await fetchReturnPurchaseInvoicePdfmeTemplates();
+        if (choices.length > 1) {
+          setPrintTemplateChoices(choices);
+          setPendingPrintCartId(cartIdOrIds);
+          return;
+        }
+        await generateAndPrintReturnPurchaseInvoicePdf(cartIdOrIds);
+        return;
+      }
+
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
+  };
+
+  const printWithTemplate = async (templateId: number) => {
+    setPrintTemplateChoices([]);
+    const cartIdOrIds = pendingPrintCartId;
+    setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintReturnPurchaseInvoicePdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
 
   const handleSyncWithMiracle = () => {
@@ -1487,9 +1548,9 @@ const TeamReturnPurchaseDataReportsView = ({
 
                   <option
                     value="multiPrint"
-                    disabled={selectedIds.length === 0}
+                    disabled={selectedIds.length === 0 || isMultiPrintLoading}
                   >
-                    Generate Multi Print
+                    {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                   </option>
                 </select>
               )}
@@ -1714,7 +1775,7 @@ const TeamReturnPurchaseDataReportsView = ({
                       className="listItem text-start"
                       role="button"
                       onClick={() => {
-                        if (selectedIds.length === 0) return;
+                        if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                         setIsExportDropdownOpen(false);
                         handleMultiPrint();
@@ -1734,12 +1795,12 @@ const TeamReturnPurchaseDataReportsView = ({
                         }}
                       >
                         <i
-                          className="pi pi-copy"
+                          className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                           style={{ marginRight: "4px" }}
                         />
 
                         <span style={{ marginRight: "auto" }}>
-                          Generate Multi Print
+                          {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                         </span>
                       </div>
                     </li>
@@ -1797,6 +1858,13 @@ const TeamReturnPurchaseDataReportsView = ({
             </div>
             {/* )} */}
           </div>
+
+          <AppliedFilterBar
+            summary={filters.appliedFilterSummary}
+            dateRange={filters.selectedDateArray}
+            startDate={filters.startSearchDate}
+            endDate={filters.endSearchDate}
+          />
 
           <div
             className="report_card"
@@ -2076,6 +2144,38 @@ const TeamReturnPurchaseDataReportsView = ({
             cartType={7}
             title={title}
           />
+          {printTemplateChoices.length > 0 && (
+            <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+              <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h5>Choose Template</h5>
+                  <span
+                    className="close"
+                    onClick={() => {
+                      setPrintTemplateChoices([]);
+                      setPendingPrintCartId(null);
+                    }}
+                  >
+                    &times;
+                  </span>
+                </div>
+                {printTemplateChoices.map((t) => (
+                  <div
+                    key={t.id}
+                    className="d-flex justify-content-between align-items-center border-bottom py-2"
+                  >
+                    <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => printWithTemplate(t.id)}
+                    >
+                      Print
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {isSyncConfirmationOpen && (
             <ConfirmationModal
               show={isSyncConfirmationOpen}

@@ -1,6 +1,11 @@
+import axios from "axios";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../helpers/AppConstants";
+import {
+  fetchPdfmeTemplatesForPicker,
+  isPdfmeSupportedCartType,
+} from "../../../order-print-view/orderPrintController";
 import { axiosInstance } from "../../../../services/axiosInstance";
 
 export interface ICartItem {
@@ -207,6 +212,59 @@ export const openPrint = (
     console.error("Failed to open print");
   }
 };
+// Proforma Invoice (cart type 12) is pdfme-supported - same shape as
+// ListOrderView.tsx's openPrint: check flag+support first, open nothing
+// until we know what to generate, then blob-fetch-and-print the real PDF.
+// Only wired for a single id here, same as ListOrderView.tsx - multi-select
+// print keeps the legacy openPrint(ids.join(","), viewFormate) path.
+export const isPdfmeEnabledForProformaInvoice = async (): Promise<boolean> => {
+  if (!isPdfmeSupportedCartType(12)) return false;
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return false;
+  try {
+    const { data } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    return data?.ack === 1 && !!data.data.item.is_enabled;
+  } catch {
+    return false;
+  }
+};
+
+export const fetchProformaInvoicePdfmeTemplates = () =>
+  fetchPdfmeTemplatesForPicker(12);
+
+// cartId accepts a single id (single print) or an array of ids (Generate
+// Multi Print - 2+ selected rows). The backend's pdfOrder dispatcher handles
+// both shapes transparently: single id behaves exactly as before, an array
+// generates each order then returns one merged PDF.
+export const generateAndPrintProformaInvoicePdf = async (
+  cartId: number | number[],
+  documentTemplateId?: number,
+) => {
+  try {
+    const { data } = await axiosInstance.post("/order-pdf", {
+      cart_id: cartId,
+      ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+    });
+    if (data.ack !== 1) {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return;
+    }
+    const response = await axios.get(data.data.path, { responseType: "blob" });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const pdfWindow = window.open(url, "_blank");
+    if (pdfWindow) {
+      pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
 export const openPendingPrint = (
   id: number,
   viewFormate: number | undefined,

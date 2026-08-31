@@ -1051,6 +1051,28 @@ const ProductView = ({
                                           role="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
+                                            const params = new URLSearchParams({
+                                              productId: String(item.id),
+                                              productTitle: item.product_name || "",
+                                            });
+                                            if (item.document_template_id) {
+                                              params.set("openTemplateId", String(item.document_template_id));
+                                            }
+                                            // New tab — same reasoning as the
+                                            // Document Designer Page custom
+                                            // field's "Add Data source": don't
+                                            // disrupt this product list's own
+                                            // open menu/scroll/filter state.
+                                            window.open(`/product/designer-page-editor?${params.toString()}`, "_blank");
+                                          }}
+                                        >
+                                          Product Page Designer
+                                        </li>
+                                        <li
+                                          className="listItem text-start"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             setProductDropdown(null);
                                             setIsProductMenuOpen(false);
                                             setHasIdAvail(undefined);

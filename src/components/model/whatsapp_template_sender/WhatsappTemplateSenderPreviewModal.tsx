@@ -54,7 +54,13 @@ const WhatsappTemplateSenderPreviewModal: React.FC<
   if (!show) return null;
 
   const variableIndices = Object.keys(variables).map(Number);
-  const allFilled = variableIndices.every((i) => variables[i]?.trim() !== "");
+
+  const hasAttachment = selectedTemplate
+    ? templateHasAttachment(selectedTemplate)
+    : false;
+  const headerFormat = selectedTemplate
+    ? (getTemplateHeaderFormat(selectedTemplate) as AttachmentFormat | null)
+    : null;
 
   // Attachment is "configured" if either a variable key OR a static URL is set
   const hasAttachmentConfig =
@@ -64,12 +70,13 @@ const WhatsappTemplateSenderPreviewModal: React.FC<
   const hasMappings =
     Object.keys(quickFillVars).length > 0 || hasAttachmentConfig;
 
-  const hasAttachment = selectedTemplate
-    ? templateHasAttachment(selectedTemplate)
-    : false;
-  const headerFormat = selectedTemplate
-    ? (getTemplateHeaderFormat(selectedTemplate) as AttachmentFormat | null)
-    : null;
+  // An IMAGE/VIDEO/DOCUMENT template needs its attachment resolved too -
+  // previously this only checked the text {{n}} variables, so Save stayed
+  // enabled with no image/video/document chosen at all (either source:
+  // static upload or a dynamic variable, either is fine, just not neither).
+  const allFilled =
+    variableIndices.every((i) => variables[i]?.trim() !== "") &&
+    (!hasAttachment || hasAttachmentConfig);
 
   return (
     <div className={s.moduleRoot}>
@@ -478,7 +485,11 @@ const WhatsappTemplateSenderPreviewModal: React.FC<
                   onClick={handleSend}
                   disabled={!allFilled || isFormDisabled || !selectedTemplate}
                   title={
-                    !allFilled ? "Fill all variable values to send" : undefined
+                    !allFilled
+                      ? hasAttachment && !hasAttachmentConfig
+                        ? "Choose an image/video/document (upload one or pick a variable) to send"
+                        : "Fill all variable values to send"
+                      : undefined
                   }
                 >
                   {loading.sending ? (

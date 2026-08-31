@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import noImage from "../../../../assets/images/no_image.jpeg";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
@@ -139,6 +140,24 @@ const Setting = ({
   searchTermFromRightSide,
   setSearchTermFromRightSide,
 }: IPropsSetting) => {
+  const navigate = useNavigate();
+  const canViewDocumentDesigner = useCheckUserPermission(
+    PAGE_ID.DOCUMENT_DESIGNER_RIGHTS,
+    PERMISSION_TYPE.VIEW,
+  );
+  // PIN itself is asked for reactively inside Document Designer (see
+  // DocumentDesignerView.tsx's postGated retry handler) - not gated here,
+  // since not every action there needs it (viewing/listing templates
+  // doesn't) and this used to call a dead-end verify (verifyDocumentManagerPin)
+  // that never satisfied the real gate (requireReportPin), leaving no way
+  // to actually resolve "PIN verification required" once inside the page.
+  function openDocumentDesigner() {
+    if (canViewDocumentDesigner) {
+      navigate("/document-designer");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
   const [optionConfirmation, setOptionConfirmation] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showopenNotification, setShownNotification] = useState(false);
@@ -667,6 +686,34 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
+                  <div className="block ps-3" onClick={openDocumentDesigner}>
+                    <div className="icon-Box">
+                      <button className="icons-setings">
+                        <span
+                          data-icon="settings-notifications"
+                          className=""
+                          title="Document Designer"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            height="24px"
+                            viewBox="0 -960 960 960"
+                            width="24px"
+                            fill="currentColor"
+                          >
+                            <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm80-80h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                    <div className="h-text">
+                      <div className="head">
+                        <h4 title="Document Designer" aria-label="Document Designer">
+                          Document Designer
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
                   <div className="block ps-3" onClick={openInsights}>
                     <div className="icon-Box">
                       <button className="icons-setings">
@@ -676,7 +723,6 @@ const Setting = ({
                           title="Product Category"
                         >
                           <svg
-                            enable-background="new 0 0 20 20"
                             height="24px"
                             viewBox="0 0 20 20"
                             width="24px"

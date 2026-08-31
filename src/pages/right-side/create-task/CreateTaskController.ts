@@ -700,6 +700,7 @@ export const createTask = async (
   customFormList: ICustomFromList[],
   onTaskCreated?: () => void,
   setIsLoadedMessage?: any,
+  onChecklistFlush?: (newTaskId: number) => void,
 ) => {
   const getUUID = await localStorage.getItem("UUID");
   const token = await localStorage.getItem("token");
@@ -762,17 +763,6 @@ export const createTask = async (
   formData.append("a_application_login_id", getUUID || "");
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "0");
 
-  if (customFormList && customFormList.length > 0) {
-    customFormList.forEach((field) => {
-      const fieldValue = expenseTypeInput[field.reference_column_name as keyof ITaskCreate];
-
-      if (fieldValue !== undefined && fieldValue !== null) {
-        formData.append(field.reference_column_name, String(fieldValue));
-      } else {
-        formData.append(field.reference_column_name, ""); // empty field bhi bhejna zaroori hai
-      }
-    });
-  }
   const ATTACHMENT_COLUMNS = [
     "task_column_attechments_1",
     "task_column_attechments_2",
@@ -818,6 +808,10 @@ export const createTask = async (
 
     if (data.code === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
       toast.success(data.ack_msg || "Task created successfully!");
+      const newTaskId = data.data?.item?.[0]?.id;
+      if (newTaskId) {
+        onChecklistFlush?.(newTaskId);
+      }
       clearFormCallback();
       onTaskCreated?.();
       setIsLoadedMessage?.((prev: boolean) => !prev);
@@ -972,6 +966,117 @@ export const fetchCustomInqFromApiForTask = async (
     setCustomFromList(data.data.data.item);
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
+// ================= TASK CHECKLIST (SUBTASKS) =================
+// Lightweight checklist items nested under a parent task -- title +
+// done/not-done + order only. Independent of the surrounding form's own
+// save/submit lifecycle (like task comments), refetch-on-response rather
+// than any socket dependency.
+
+export interface IChecklistItem {
+  id: number;
+  task_id: number;
+  title: string;
+  is_done: number;
+  position: number | null;
+}
+
+export const fetchTaskChecklist = async (
+  taskId: number,
+): Promise<IChecklistItem[]> => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("get-task-checklist", {
+      task_id: taskId,
+      a_application_login_id: Number(getUUID),
+    });
+    if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) return [];
+    return data.data?.item || [];
+  } catch (error) {
+    console.error("fetchTaskChecklist error", error);
+    return [];
+  }
+};
+
+export const createChecklistItem = async (
+  taskId: number,
+  title: string,
+): Promise<IChecklistItem | null> => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("create-task-checklist-item", {
+      task_id: taskId,
+      title,
+      a_application_login_id: Number(getUUID),
+    });
+    if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return null;
+    }
+    return data.data?.item || null;
+  } catch (error) {
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  }
+};
+
+export const updateChecklistItem = async (
+  id: number,
+  changes: { title?: string; is_done?: boolean },
+): Promise<boolean> => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("update-task-checklist-item", {
+      id,
+      ...changes,
+      a_application_login_id: Number(getUUID),
+    });
+    if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return false;
+  }
+};
+
+export const deleteChecklistItem = async (id: number): Promise<boolean> => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("delete-task-checklist-item", {
+      id,
+      a_application_login_id: Number(getUUID),
+    });
+    if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return false;
+  }
+};
+
+export const reorderChecklistItems = async (
+  taskId: number,
+  orderedIds: number[],
+): Promise<boolean> => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("reorder-task-checklist", {
+      task_id: taskId,
+      orderedIds,
+      a_application_login_id: Number(getUUID),
+    });
+    return data.ack === DEFAULT_STATUS_CODE_SUCCESS;
+  } catch (error) {
+    toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return false;
   }
 };
 

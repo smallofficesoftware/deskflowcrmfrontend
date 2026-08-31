@@ -14,6 +14,8 @@ export interface ICreateInquiry {
   description: number | string;
   company_name: string | undefined;
   qty: string;
+  // JSON array string of per-product remarks, paired with product_id.
+  product_remarks: string;
   source_type_id: string;
   label_id?: string;
   static: string;
@@ -124,6 +126,7 @@ export const createInquiryInitialValues = (
   company_name: inquiryToEdit?.company_name || "",
   description: inquiryToEdit?.description || " ",
   qty: inquiryToEdit?.qty || "",
+  product_remarks: inquiryToEdit?.product_remarks || "",
   static: inquiryToEdit?.static || "0",
   source_type_id: inquiryToEdit?.source_type_id || "",
   column_number_1: inquiryToEdit?.column_number_1 || "",
@@ -294,6 +297,7 @@ export const createInquiry = async (
         category_id: values.category_id,
         description: values.description,
         qty: values.qty,
+        product_remarks: values.product_remarks,
         source_type_id: values.source_type_id,
         static: values.static,
         contact_master_id: contact_id,
@@ -382,6 +386,7 @@ export const updateInquiry = async (
       category_id: values.category_id,
       description: values.description,
       qty: values.qty,
+      product_remarks: values.product_remarks,
       source_type_id: values.source_type_id,
       static: values.static,
       column_number_1: values.column_number_1,

@@ -16,6 +16,7 @@ export interface IProductView {
   product_code: string;
   product_description: string;
   id: number;
+  document_template_id?: number | null;
   created_date_time?: string;
   product_group_id: string;
   category_id: string;

@@ -20,6 +20,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
@@ -28,7 +29,6 @@ import { useCommonFilterStore } from "../../../../store/report/useCommonFilterSt
 import {
   exportAllLabelWiseData,
   fetchLabelWiseForExport,
-  fetchLable,
   ILableReport,
 } from "./lableReportController";
 
@@ -77,14 +77,10 @@ const AlllableReport = ({
 }: IProplableReportReports) => {
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [customers, setCustomers] = useState<ILableReport[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<ILableReport[]>(
     [],
   );
-
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -196,7 +192,7 @@ const AlllableReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 0,
     sortField: null,
     sortOrder: null,
@@ -213,52 +209,41 @@ const AlllableReport = ({
   const [error, setError] = useState<string | null>(null);
 
   const dt = useRef<DataTable<ILableReport[]>>(null);
-  const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The label list is a small master table — load every row in one shot
+  // (paged internally at 50) and let the grid sort/filter/paginate client-side.
+  const loadAllLabels = async () => {
+    setLoading(true);
+    try {
+      const all = await exportAllLabelWiseData(
+        (offset, limit) =>
+          fetchLabelWiseForExport(
+            filters.selectedDateArray,
+            MobileToken,
+            getID,
+            MobileFlag,
+            filters.checkedOptions,
+            filters.checkedOptionsUser,
+            debouncedSearchText,
+            offset,
+            limit,
+          ),
+        50,
+      );
+      setLableReport(all);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    } catch (e: any) {
+      console.error("Error loading label report:", e);
+      setError(e?.message || "Failed to fetch Label data");
+      setLableReport([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Skip if pagination call is in progress
-    if (isPaginationCall.current) {
-      isPaginationCall.current = false;
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-
-        await fetchLable(
-          setLableReport,
-          filters.selectedDateArray,
-          MobileToken,
-          getID,
-          MobileFlag,
-          filters.checkedOptions,
-          filters.checkedOptionsUser,
-          0,
-          50,
-          debouncedSearchText,
-        );
-      } catch (err: any) {
-        if (isMounted) {
-          setError(err?.message || "Failed to fetch Label data");
-          setLableReport([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
+    loadAllLabels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptions,
@@ -266,39 +251,27 @@ const AlllableReport = ({
     debouncedSearchText,
   ]);
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
-    await fetchLable(
-      setLableReport,
-      filters.selectedDateArray,
-      MobileToken,
-      getID,
-      MobileFlag,
-      filters.checkedOptions,
-      filters.checkedOptionsUser,
-      0,
-      50,
-      debouncedSearchText,
-    );
-    setLoading(false);
+  const handleRefresh = () => {
+    loadAllLabels();
   };
 
-  const dataArray: ILableReport[] = lableReport
-    ? lableReport.map((item) => ({
+  // Keep counts numeric so the grid sorts them as numbers, not strings.
+  const dataArray = useMemo<ILableReport[]>(
+    () =>
+      (lableReport ?? []).map((item) => ({
         lable_name: item.lable_name || "-",
-        contactCount: item.contactCount || "-",
-        inquiryCount: item.inquiryCount || "-",
-      }))
-    : [];
+        contactCount: Number(item.contactCount ?? 0),
+        inquiryCount: Number(item.inquiryCount ?? 0),
+      })),
+    [lableReport],
+  );
 
   useEffect(() => {
-    loadLazyData();
-    return () => {
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
-  }, [lazyState, lableReport]);
+    setTotalRecords(dataArray.length);
+  }, [dataArray]);
 
+  // Client filter + sort — used by the export/print paths so they match
+  // whatever sort/filter is currently applied on screen.
   const getFilteredData = () => {
     let filteredData = [...dataArray];
 
@@ -338,73 +311,25 @@ const AlllableReport = ({
     });
 
     if (lazyState.sortField) {
+      const field = lazyState.sortField;
       filteredData.sort((a, b) => {
-        const aValue = getNestedValue(a, lazyState.sortField!);
-        const bValue = getNestedValue(b, lazyState.sortField!);
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        const aValue = getNestedValue(a, field);
+        const bValue = getNestedValue(b, field);
+        const aNum = Number(aValue);
+        const bNum = Number(bValue);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return String(aValue).localeCompare(String(bValue));
       });
       if (lazyState.sortOrder === -1) filteredData.reverse();
     }
     return filteredData;
   };
 
-  const loadLazyData = () => {
-    setLoading(true);
-    if (networkTimeout.current) clearTimeout(networkTimeout.current);
-
-    networkTimeout.current = setTimeout(() => {
-      const filteredData = getFilteredData();
-      const start = lazyState.first;
-      const end = start + lazyState.rows;
-      setCustomers(filteredData.slice(start, end));
-      setTotalRecords(filteredData.length);
-      setLoading(false);
-    }, 250);
-  };
-
-  const onPage = async (event: DataTablePageEvent) => {
-    const currentPage = event.page ?? 0;
-    const ul = currentPage * 50; // upper limit (starting point)
-    const ll = 50; // lower limit (ending point)
-
-    isPaginationCall.current = true;
-
-    setLazyState((prev) => ({
-      ...prev,
-      first: event.first,
-      rows: event.rows,
-      page: currentPage,
-    }));
-
-    setLoading(true);
-
-    try {
-      await fetchLable(
-        setLableReport,
-        filters.selectedDateArray,
-        MobileToken,
-        getID,
-        MobileFlag,
-        filters.checkedOptions,
-        filters.checkedOptionsUser,
-        ul,
-        ll,
-        debouncedSearchText,
-      );
-    } catch (err) {
-      console.error("Error fetching paginated label data:", err);
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        isPaginationCall.current = false;
-      }, 100);
-    }
-  };
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
+      first: 0,
+      page: 0,
       sortField: event.sortField,
       sortOrder: event.sortOrder as SortOrder,
     }));
@@ -414,7 +339,17 @@ const AlllableReport = ({
     setLazyState((prev) => ({
       ...prev,
       first: 0,
+      page: 0,
       filters: event.filters,
+    }));
+  };
+
+  const onPage = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
     }));
   };
 
@@ -821,7 +756,7 @@ const AlllableReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canShare
                       ? exportExcel()
@@ -841,7 +776,7 @@ const AlllableReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canShare
                       ? exportPdf()
@@ -861,7 +796,7 @@ const AlllableReport = ({
                   onClick={() => {
                     setIsExportDropdownOpen(false);
 
-                    if (customers.length === 0) return;
+                    if (dataArray.length === 0) return;
 
                     canPrint
                       ? printTable()
@@ -899,6 +834,13 @@ const AlllableReport = ({
         {/* )} */}
       </div>
 
+      <AppliedFilterBar
+        summary={filters.appliedFilterSummary}
+        dateRange={filters.selectedDateArray}
+        startDate={filters.startSearchDate}
+        endDate={filters.endSearchDate}
+      />
+
       <div
         className="report_card"
         style={{ height: "90vh", display: "flex", flexDirection: "column" }}
@@ -911,12 +853,14 @@ const AlllableReport = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="65vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-          }}
+          paginator
+          rows={lazyState.rows}
+          first={lazyState.first}
+          onPage={onPage}
+          rowsPerPageOptions={[25, 50, 100, 200]}
+          removableSort
           filterDisplay="row"
           dataKey="lable_name"
-          totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}

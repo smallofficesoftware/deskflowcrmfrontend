@@ -7,6 +7,7 @@ import {
 import { TFilterDate } from "../../../../../helpers/AppInterface";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import { formatDateYMDV2 } from "../../../../../common/SharedFunction";
 
 export interface ITaskView {
   id: number;
@@ -231,8 +232,12 @@ export const fetchApiTask = async (
     statusFilter: statusFilter,
     taskCategoryFilter: taskCategoryFilter,
     priorityFilter: priorityFilter,
-    startDate: startSearchDate,
-    endDate: endSearchDate,
+    // Format as a plain local YYYY-MM-DD string, not the raw Date/DateObject —
+    // letting axios JSON.stringify a Date directly calls .toISOString(), which
+    // shifts the calendar day backwards for any timezone ahead of UTC (e.g. IST
+    // sends 2026-08-01 as 2026-07-31T18:30:00.000Z).
+    startDate: startSearchDate ? formatDateYMDV2(startSearchDate) : startSearchDate,
+    endDate: endSearchDate ? formatDateYMDV2(endSearchDate) : endSearchDate,
     statusFilterComan: checkedOptionsStageStatus,
     assignedByMultiTeamMember: assignedByMultiTeamMember,
     createdByMultiTeamMember: createdByMultiTeamMember,
@@ -269,12 +274,10 @@ export const fetchApiTask = async (
         const TaskCountGetAll = data.data.data.all_count;
         const TaskCountGetMy = data.data.data.my_count;
         const UnreadCount = data.data.data.unread_count;
-        if (setTaskAutoRefreshON) {
-          setTaskCountGet(TaskCountGet);
-          setTaskCountGetAll(TaskCountGetAll);
-          setTaskCountGetMy(TaskCountGetMy);
-          setUnreadCount(UnreadCount);
-        }
+        setTaskCountGet?.(TaskCountGet);
+        setTaskCountGetAll?.(TaskCountGetAll);
+        setTaskCountGetMy?.(TaskCountGetMy);
+        setUnreadCount?.(UnreadCount);
         if (setTaskAutoRefreshON) {
           setTaskAutoRefreshON(data.data.data?.TASK_AUTO_REFRESH_ON);
         }

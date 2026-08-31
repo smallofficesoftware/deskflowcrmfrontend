@@ -27,6 +27,7 @@ import {
   ITEMS_PER_PAGE,
   MIN_WIDTH_FOR_TEXT,
 } from "../../../../../helpers/AppConstants";
+import useSocketEvent from "../../../../../hooks/useSocketEvent";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import {
   IFilterData,
@@ -115,7 +116,35 @@ const TaskListView = ({
   const statusDropdownRef = useRef<HTMLButtonElement>(null);
   const labelDropdownRef = useRef<HTMLButtonElement>(null);
   const categoryDropdownRef = useRef<HTMLButtonElement>(null);
-  const [refreshTaskBothSide, setRefreshTaskBothSide] = useState(false);
+  // A tick counter, not a boolean - two triggers arriving close together
+  // (e.g. two rapid "task-changed" socket events before the effect below
+  // resets this) must each produce a distinct value, otherwise the second
+  // setState(true) is a same-value no-op and React drops that refresh.
+  const [refreshTaskBothSide, setRefreshTaskBothSide] = useState(0);
+  // Live sync: any teammate adding/editing/moving a task refreshes this list
+  // too - but only when it's worth it: no id on the payload means a new
+  // task (always refresh, it might belong in this filtered view), and an id
+  // that matches a row we already have loaded means an edit to something
+  // visible here (also refresh). An id for a task we don't currently have
+  // loaded is skipped - a filter-changing edit to an off-screen task won't
+  // pull it into view until the next manual refresh, a known tradeoff -
+  // EXCEPT when assigned_to (baseController.js's attachTaskAssignees) says
+  // it's now mine: this view can be filtered to "My Tasks", and a brand new
+  // assignment is exactly the case that was never loaded before (it wasn't
+  // mine, so it never showed here) - gating on the loaded-check alone would
+  // silently skip it.
+  useSocketEvent<{ id?: number; assigned_to?: number[] }>("task-changed", (payload) => {
+    if (!payload?.id) {
+      setRefreshTaskBothSide((tick) => tick + 1);
+      return;
+    }
+    const alreadyLoaded = targetVsIncentiveList.some((task) => task.id === payload.id);
+    const myLoginId = Number(localStorage.getItem("UUID"));
+    const isMine = !!payload.assigned_to?.includes(myLoginId);
+    if (alreadyLoaded || isMine) {
+      setRefreshTaskBothSide((tick) => tick + 1);
+    }
+  });
   // const [isKanbanViewDisplay, setIsKanbanViewDisplay] =
   //   useState<boolean>(false);
   const [isKanbanNewViewDisplay, setIsKanbanNewViewDisplay] =
@@ -178,6 +207,22 @@ const TaskListView = ({
   const [isOpenTaskChatModel, setOpenTaskChatModel] = useState(false);
   // const [GetSingleTaskData, setGetSingleTaskData] = useState<number | null>(null);
   const [GetSingleTaskData, setGetSingleTaskData] = useState<ITaskView>();
+  // GetSingleTaskData is a one-time snapshot taken when a row is clicked to
+  // open TaskChatRightSide - it never re-reads targetVsIncentiveList on its
+  // own, so a status/label/assignee change made elsewhere (Kanban drag,
+  // another teammate) while the chat panel is open never reached the
+  // panel's header, which kept showing the stale value until closed and
+  // reopened. Re-sync it from the list's own copy whenever a refresh
+  // (including the task-changed socket listener below) brings in fresh data.
+  useEffect(() => {
+    if (!GetSingleTaskData?.id) return;
+    const fresh = targetVsIncentiveList.find(
+      (task) => task.id === GetSingleTaskData.id,
+    );
+    if (fresh && fresh !== GetSingleTaskData) {
+      setGetSingleTaskData(fresh);
+    }
+  }, [targetVsIncentiveList]);
   const [showDashBoard, setshowDashBoard] = useState(false);
 
   //priority filter
@@ -711,7 +756,7 @@ const TaskListView = ({
         );
 
         // Refresh list
-        setRefreshTaskBothSide(true);
+        setRefreshTaskBothSide((tick) => tick + 1);
       }
     } catch (error) {
       console.error(error);
@@ -1987,7 +2032,7 @@ const TaskListView = ({
         filterParams.checkedOptions,
         filterParams.labelwiseContactShowAndOrNot,
       );
-      setRefreshTaskBothSide(false);
+      setRefreshTaskBothSide(0);
     }
   }, [refreshTaskBothSide]);
 
@@ -3672,6 +3717,22 @@ const TaskListView = ({
                                         ))
                                       : ""}
                                   </div>
+                                  {(item.checklist_total ?? 0) > 0 && (
+                                    <div className="text-end">
+                                      <span
+                                        style={{
+                                          backgroundColor: "#eeeeee",
+                                          color: "#54656f",
+                                          fontWeight: "normal",
+                                        }}
+                                        className="badge rounded-pill"
+                                        title="Checklist progress"
+                                      >
+                                        ☑ {item.checklist_done ?? 0}/
+                                        {item.checklist_total}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div
                                     className="d-flex"
                                     style={{
@@ -3942,7 +4003,7 @@ const TaskListView = ({
           onHideTaskChat={() => setOpenTaskChatModel(false)}
           TaskData={targetVsIncentiveList} // Pass data, not setter
           signleDataTask={GetSingleTaskData}
-          setRefreshTask={() => setRefreshTaskBothSide(true)}
+          setRefreshTask={() => setRefreshTaskBothSide((tick) => tick + 1)}
           closeDashboard={() => setshowDashBoard(false)}
           openTaskRight={OpenTaskchatRightSide}
           supportTicketFlag={supportTicketFlag}
@@ -4382,7 +4443,7 @@ const TaskListView = ({
         )}
         canEdit={true}
         filterParams={filterParams}
-        hasActiveFilter={true}
+        hasActiveFilter={hasData}
         onOpenFilter={() => {
           openFilterLabel();
         }}
@@ -4394,6 +4455,23 @@ const TaskListView = ({
         onDelete={(task) => openDeleteModel(task.task_id)}
         onAssignTeamMember={(task) => {handleModalOpenUserAssign(task.task_id)}}
         onTimeline={(task) => openStageAndStatusLog(task.task_id)}
+        onMarkRead={(task) => openReadModel(task.task_id)}
+        onMarkUnread={(task) => openUnreadModel(task.task_id)}
+        onUnarchive={(task) => openUnArchiveTaskModel(task.task_id)}
+        onChangeExternalStatus={
+          supportTicketFlag == 1 && flags.CUSTOMER_SUPPORT_TICKET_ASSING_ID
+            ? (task) =>
+                handleModalOpenStatusAssignContact(
+                  task.task_id,
+                  Number(task.raw?.external_status) || undefined,
+                )
+            : undefined
+        }
+        onConvertToTask={
+          supportTicketFlag == 1
+            ? (task) => openSupportTicketToTaskConvert(task.task_id)
+            : undefined
+        }
       />
     </>
   );

@@ -32,6 +32,7 @@ import ImportExcelForContactModal from "../../components/model/ImportExcelForCon
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
 import WorkFlowModel from "../../components/model/workflowConformatioModel/workFlowModelView";
+import ReviewDialog from "../../components/review/ReviewDialog";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   DEFAULT_STATUS_CODE_SUCCESS,
@@ -47,11 +48,14 @@ import {
   TFilterDate,
 } from "../../helpers/AppInterface";
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
+import useSocketEvent from "../../hooks/useSocketEvent";
 import { axiosInstance } from "../../services/axiosInstance";
+import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
 import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
+import { useReviewStore } from "../../store/review/useReviewStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import useWhatsappPlatformStore from "../../store/whatsapp/useWhatsappPlateformFlagStore";
 import NewDashboardView from "../dashboard/new-dashboard/NewDashboardView";
@@ -139,6 +143,9 @@ import ListReminderView from "./header/list-reminder/ListReminderView";
 import { fetchDepartmentsApi } from "./list-company/EditTeamMemberController";
 import ListCompanyView from "./list-company/ListCompanyView";
 import ListMyCompanyView from "./list-company/MyCompanyList";
+
+// Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
+const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
 
 // ── Optional: custom CRM fields to map variables to ──────────────────────────
 const MY_CRM_FIELDS = [
@@ -622,6 +629,16 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           setPermissions(response.data.data.resultRights);
           setAdvertisement(response.data.data.advertisement);
 
+          const reviewStatus = response?.data?.data?.review;
+          if (reviewStatus?.show && reviewStatus.show !== "none") {
+            // Don't interrupt the app right on load — server tells us how
+            // long to wait (REVIEW_PROMPT_DELAY_SECONDS env var).
+            const delayMs = (reviewStatus.delaySeconds ?? DEFAULT_REVIEW_PROMPT_DELAY_MS / 1000) * 1000;
+            setTimeout(() => {
+              useReviewStore.getState().setStatus(reviewStatus);
+            }, delayMs);
+          }
+
           setFeatureEnabled(
             response?.data?.data?.MIRACLE_FLAG == 1 ? true : false,
           );
@@ -632,7 +649,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           if (response.data.data.PinNumber === 0) {
             const timer = setTimeout(() => {
               setShowPinSetModel(true);
-            }, 10000);
+            }, 3000);
             return () => clearTimeout(timer);
           }
         } else {
@@ -718,6 +735,20 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [user1, setUsers1] = useState(false);
 
   const [contInfo, setcontInfo] = useState<IUserList>();
+  // contInfo is a one-time snapshot taken when a row is clicked to open
+  // RightView - it never re-reads `user` on its own, so a status/label/
+  // assignee change made elsewhere (Kanban drag, another teammate) while
+  // the chat panel is open never reached the panel's header, which kept
+  // showing the stale value until closed and reopened. Re-sync it from the
+  // list's own copy whenever a refresh (including the contact-changed
+  // socket listener below) brings in fresh data.
+  useEffect(() => {
+    if (!contInfo?.id) return;
+    const fresh = user.find((item) => item.id === contInfo.id);
+    if (fresh && fresh !== contInfo) {
+      setcontInfo(fresh);
+    }
+  }, [user]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -728,8 +759,18 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   > | null>(null);
   const [noDataFound1, setNoDataFound1] = useState(false);
   const [loginById, setLoginById] = useState<ILoginData>();
+  // Per-login (team member) opt-in for the socket.io real-time layer,
+  // separate from company-wide feature flags — gates socketClient.ts's
+  // getSocket() so no connection is attempted until this login has
+  // explicitly turned it on (Save Personal Detail, PersonalSettingView.tsx).
+  // Default 0/off, same as the DB column's own default.
+  useEffect(() => {
+    setSocketConnectionEnabled(loginById?.socket_connection_switch === 1);
+  }, [loginById?.socket_connection_switch]);
   const [isLoadContact, setIsLoadContact] = useState(true);
   const [refreshContact, setRefreshContact] = useState(false);
+  // Live sync: any teammate adding/editing/deleting a contact refreshes this sidebar list too.
+  useSocketEvent("contact-changed", () => setRefreshContact(true));
   const [isRefers, setIsRefers] = useState(true);
   // In LeftSide component
   const [hasOneData, setHasOneData] = useState<number | null>(null);
@@ -3079,6 +3120,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
         <>
           <div style={{ zIndex: "999" }}>
             {showPinSetModel && <PinSetModel />}
+            <ReviewDialog />
           </div>
 
           {isVisible ? (
@@ -3787,7 +3829,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                         {/* <button className="icons" onClick={openDashBoard}>
                           <span title="View Insight">
                             <svg
-                              enable-background="new 0 0 20 20"
                               height="25"
                               viewBox="0 0 20 20"
                               width="25"
@@ -5897,6 +5938,20 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           handleclose={() => {
             setIsKanbanViewDisplay(false);
           }}
+          onEdit={(c) => handleModalOpenEditContact(c.raw)}
+          onPin={(id) => openPinModel(id)}
+          onUnpin={(id) => openUnPinModel(id)}
+          onMarkRead={(id) => openReadModel(id)}
+          onMarkUnread={(id) => openUnreadModel(id)}
+          onArchive={(id) => openArchiveModel(id)}
+          onUnarchive={(id) => openUnArchiveModel(id)}
+          onAssignLabel={(id) => handleModalOpen(id)}
+          onAssignStatus={(id, currentStatus) =>
+            handleModalOpenStatusAssign(id, currentStatus)
+          }
+          onAssignTeamMember={(id) => handleModalOpenUserAssign(id)}
+          onStartWorkflow={(id) => handleStartWorkFlow(id)}
+          onDelete={(id) => openDeleteModel(id)}
         />
       )}
       {isCreatecampaignsConfirmation && (

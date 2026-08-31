@@ -16,9 +16,9 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { MultiValue } from "react-select";
 import { toast } from "react-toastify";
 
-import { formatDate } from "../../../../common/SharedFunction";
+import { formatDate, formatDateYMDV2 } from "../../../../common/SharedFunction";
+import { useNavigate } from "react-router-dom";
 import DateTimeRangePicker from "../../../../components/DateTimeRangePicker";
-import ReportModal from "../../../../components/model/ReportsModel";
 import { useTheme } from "../../../../components/ThemeContext";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -81,8 +81,7 @@ const ProductionDashboardView = ({
   const [selectReportType, setSelectReportType] = useState("");
   const [appliedReportType, setAppliedReportType] = useState("");
   const [reportKey, setReportKey] = useState(0);
-  const [isReportShow, setIsReportShow] = useState(false);
-  const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
   const [quationCount, setQuationCount] = useState<ITitle[]>([]);
   const [teamMemberList, setTeamMemberList] = useState<TeamMember[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<OptionType[]>([]);
@@ -429,62 +428,60 @@ const ProductionDashboardView = ({
   const datePickerRef = useRef<any>(null);
   const leaderBoardDatePickerRef = useRef<any>(null);
 
+  // Deep-links into /SideView/report/:slug (replaces the old ReportsModel
+  // popup) carrying the dashboard's current date range + team filter so the
+  // report opens pre-scoped to what the tile showed.
+  const navigateToReport = (slug: string) => {
+    const params = new URLSearchParams();
+    if (selectedDates && selectedDates.length === 2) {
+      params.set("start", formatDateYMDV2(selectedDates[0]));
+      params.set("end", formatDateYMDV2(selectedDates[1]));
+    }
+    if (selectedUsers.length) {
+      params.set("team", selectedUsers.map((u) => u.value).join(","));
+    }
+    const qs = params.toString();
+    navigate(`/SideView/report/${slug}${qs ? `?${qs}` : ""}`);
+  };
+
   const handelChangeShowModelReport = (name: string) => {
     if (canViewContact && name === "all_contact_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewInquiry && name === "all_inquiry_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewVisitReport && name === "all_visit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewCallReport && name === "all_call_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewProductInventory && name === "product_inventory") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewQuotation && name === "quotation") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrder && name === "order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewOrderInvoice && name === "order_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseInvoice && name === "purchase_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewPurchaseOrder && name === "purchase_order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (
       canViewReturnPurchaseInvoice &&
       name === "return_purchase_invoice"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewReturnSalesInvoice && name === "inward_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewInward && name === "inward") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewDispath && name === "dispatch_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewSupportTicket && name === "support_ticket_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else if (canViewTask && name === "alltask_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigateToReport(name);
     } else {
-      setIsReportShow(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      setReportName(name);
     }
   };
 
@@ -663,6 +660,15 @@ const ProductionDashboardView = ({
             }}
           >
             <Container fluid className="mt-2">
+              <style>{`
+                .crm-stat-card {
+                  transition: box-shadow 0.15s ease, transform 0.15s ease;
+                }
+                .crm-stat-card:hover {
+                  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+                  transform: translateY(-2px);
+                }
+              `}</style>
               {/* <div className="d-flex justify-content-between align-items-center pb-2"> */}
               {/* <h2 className="modal-title1 form_header_text mb-0">
                     My Insights
@@ -862,25 +868,66 @@ const ProductionDashboardView = ({
                           ].map((item, idx) => (
                             <Col md={4} key={idx}>
                               <Card
-                                className="text-end h-100"
-                                style={{ borderRadius: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)", cursor: "pointer" }}
+                                className="h-100 crm-stat-card"
+                                style={{ borderRadius: "12px", border: "1px solid #eef0f3", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)", cursor: "pointer" }}
                                 // onClick={item.onClick}
                               >
-                                <Card.Body className="d-flex flex-column justify-content-between align-items-end text-end">
-                                  <div>
-                                    <div className="d-flex text-end justify-content-end align-items-center gap-1">
-                                      <small className="text-muted fw-bold">
-                                        Total:
-                                      </small>
-                                      <h4 className="dash-board-text-count" style={{ fontSize: "20px" }}>
+                                <Card.Body style={{ padding: "18px" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "flex-start",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        width: "44px",
+                                        height: "44px",
+                                        borderRadius: "12px",
+                                        background: "#f3f4f6",
+                                        color: "#5f6368",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {item.svg}
+                                    </span>
+                                    <div style={{ textAlign: "right" }}>
+                                      <h3
+                                        className="dash-board-text-count"
+                                        style={{
+                                          margin: 0,
+                                          fontSize: "26px",
+                                          fontWeight: 700,
+                                          lineHeight: 1,
+                                          color: "#1a1a1a",
+                                        }}
+                                      >
                                         {item.count}
-                                      </h4>
+                                      </h3>
+                                      <small
+                                        className="text-muted"
+                                        style={{ fontSize: "11px" }}
+                                      >
+                                        Total
+                                      </small>
                                     </div>
-                                    <span>{item.svg}</span>
                                   </div>
+
                                   <h4
                                     className="dash-board-text"
-                                    style={{ maxWidth: "100%" }}
+                                    style={{
+                                      maxWidth: "100%",
+                                      marginTop: "16px",
+                                      marginBottom: 0,
+                                      fontSize: "14px",
+                                      fontWeight: 600,
+                                      color: "#333",
+                                      textAlign: "left",
+                                    }}
                                   >
                                     {item.title}
                                   </h4>
@@ -1138,19 +1185,6 @@ const ProductionDashboardView = ({
                     </Col>
                   </Row>
                 </>
-              )}
-              {isReportShow && (
-                <ReportModal
-                  show={isReportShow}
-                  onHide={() => setIsReportShow(false)}
-                  handleSubmit={() => setIsReportShow(false)}
-                  titles={"Create"}
-                  message={"Please Enter Your Order Details"}
-                  btn1={"CANCEL"}
-                  btn2={"Approve"}
-                  reportName={reportName}
-                  date={selectedDates}
-                />
               )}
             </Container>
           </div>

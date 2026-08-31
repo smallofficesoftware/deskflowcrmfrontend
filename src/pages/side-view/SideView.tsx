@@ -17,7 +17,7 @@ import {
 } from "../../helpers/AppConstants";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   handleRefresh,
   openInNewTab,
@@ -38,6 +38,8 @@ import CustomerSupportFormView from "../customer-support/customer-support-form/C
 import CreateCompanyView from "../left-side/create-company/CreateCompanyView";
 import MiracleConfigurationsView from "../left-side/header/Setting/work-flow-automation/MiracleConfigurationsView";
 import ManageWorkspacesModal from "../../components/model/ManageWorkspacesModal";
+import ReviewDialog from "../../components/review/ReviewDialog";
+import { useReviewStore } from "../../store/review/useReviewStore";
 import { IFilterLocationParams } from "../left-side/LeftSideView";
 import {
   fetchCompanyApi,
@@ -47,6 +49,9 @@ import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
+
+// Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
+const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
 
 interface IProp {
   profileDetail?: ILoginData;
@@ -81,6 +86,10 @@ const DraggableWidget = ({
 
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { slug: reportSlug } = useParams<{ slug?: string }>();
+  const location = useLocation();
+  const openedReportSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     const UUID = localStorage.getItem("UUID");
@@ -90,7 +99,20 @@ const SideView = ({ profileDetail }: IProp) => {
     }
   }, [navigate]);
 
-  const [activeView, setActiveView] = useState("dashboard");
+  const [activeView, setActiveView] = useState(() =>
+    searchParams.get("view") === "reports" ? "reports_home" : "dashboard",
+  );
+
+  // Keep activeView in sync with the URL for the Insights/Smart Reports sidebar
+  // buttons (browser back/forward, or landing directly on /SideView?view=reports).
+  // Skips while a specific report is open (reportSlug set) — the report-deep-link
+  // effect further down owns that case, and activeView is reused elsewhere as an
+  // insight-tile category filter, so this intentionally only reacts to the
+  // dashboard/reports_home distinction, not every activeView value.
+  useEffect(() => {
+    if (reportSlug) return;
+    setActiveView(searchParams.get("view") === "reports" ? "reports_home" : "dashboard");
+  }, [reportSlug, searchParams]);
 
   const [isOpen, setIsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string[]>([
@@ -150,6 +172,7 @@ const SideView = ({ profileDetail }: IProp) => {
     setShowRightSide,
     setCheckToken,
     companyData,
+    permissions,
     setPermissions,
     showAttendancePopup,
     setShowAttendancePopup,
@@ -182,7 +205,7 @@ const SideView = ({ profileDetail }: IProp) => {
   const [dropdownOpenMiracle, setDropdownOpenMiracle] = useState(false);
 
   const [widgetPosition, setWidgetPosition] = useState(() => {
-    const saved = localStorage.getItem("tawk-widget-position");
+    const saved = localStorage.getItem("support-widget-position");
 
     if (saved) {
       return JSON.parse(saved);
@@ -216,7 +239,7 @@ const SideView = ({ profileDetail }: IProp) => {
 
     setWidgetPosition(newPosition);
 
-    localStorage.setItem("tawk-widget-position", JSON.stringify(newPosition));
+    localStorage.setItem("support-widget-position", JSON.stringify(newPosition));
   };
 
   const handleDragStart = () => {
@@ -309,6 +332,16 @@ const SideView = ({ profileDetail }: IProp) => {
           setPermissions(response.data.data.resultRights);
           setAdvertisement(response.data.data.advertisement);
 
+          const reviewStatus = response?.data?.data?.review;
+          if (reviewStatus?.show && reviewStatus.show !== "none") {
+            // Don't interrupt the app right on load — server tells us how
+            // long to wait (REVIEW_PROMPT_DELAY_SECONDS env var).
+            const delayMs = (reviewStatus.delaySeconds ?? DEFAULT_REVIEW_PROMPT_DELAY_MS / 1000) * 1000;
+            setTimeout(() => {
+              useReviewStore.getState().setStatus(reviewStatus);
+            }, delayMs);
+          }
+
           setFeatureEnabled(
             response?.data?.data?.MIRACLE_FLAG == 1 ? true : false,
           );
@@ -317,7 +350,7 @@ const SideView = ({ profileDetail }: IProp) => {
           if (response.data.data.PinNumber === 0) {
             const timer = setTimeout(() => {
               setShowPinSetModel(true);
-            }, 10000);
+            }, 3000);
             return () => clearTimeout(timer);
           }
         } else {
@@ -1056,6 +1089,167 @@ const SideView = ({ profileDetail }: IProp) => {
     return;
   };
 
+  // ── URL-driven report open ──────────────────────────────────────────────
+  // /SideView/report/:slug?start=&end=&team=&status=&source=&label=
+  // Lets dashboards / insight tiles deep-link straight into a report instead
+  // of opening the old ReportsModel popup. :slug is the same value used as
+  // `name` in handleSingleReportShow / reportsMenuData's subMenu.value.
+  // Query-param overrides are merged on top of handleSingleReportShow's own
+  // default-current-month seeding.
+  useEffect(() => {
+    if (!reportSlug) return;
+    // On a fresh page load (direct URL, not an in-app click) `permissions`
+    // is still [] — the onLoad API call that populates it hasn't resolved
+    // yet, so every canView* check in handleSingleReportShow is false and
+    // it silently falls through without opening anything. Wait for it.
+    if (!permissions || permissions.length === 0) return;
+    // Only auto-open once per deep-linked slug+query — don't re-fire and
+    // stomp the user's own filter changes if `permissions` updates again
+    // later, but DO re-open when the query string changes on an
+    // already-mounted SideView (slug alone isn't enough — a link with the
+    // same slug but a different ?start=/?team=/etc. must still apply).
+    // `location.key` is included too: a dashboard insight/card click that
+    // lands on the SAME slug+query as what's already open (e.g. re-clicking
+    // "Total Task" while its date range hasn't changed) still gets a fresh
+    // history entry (new key) from react-router even though reportSlug and
+    // searchParams' content are unchanged — without it that click was a
+    // silent no-op, the report just stayed as-is.
+    const deepLinkKey = `${reportSlug}?${searchParams.toString()}#${location.key}`;
+    if (openedReportSlugRef.current === deepLinkKey) return;
+    openedReportSlugRef.current = deepLinkKey;
+
+    handleSingleReportShow(reportSlug);
+
+    const overrides: Record<string, any> = {};
+
+    // Parse a bare "YYYY-MM-DD" as a LOCAL calendar date. `new Date(str)`
+    // treats a date-only string as UTC midnight, so in any timezone behind
+    // UTC (e.g. US) the local getters used elsewhere to display it
+    // (.getDate()/.getMonth()) read back the previous calendar day.
+    const parseLocalDate = (s: string): Date | null => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if (!m) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    };
+
+    const start = searchParams.get("start");
+    const end = searchParams.get("end");
+    const startDate = start ? parseLocalDate(start) : null;
+    const endDate = end ? parseLocalDate(end) : null;
+    if (startDate && endDate) {
+      overrides.selectedDateArray = [startDate, endDate];
+      overrides.startSearchDate = startDate;
+      overrides.endSearchDate = endDate;
+    }
+
+    // Every checkbox group in CheckBoxFilterModal compares ids with strict
+    // equality (`option.id === checkedX[i]`) and option.id is always a
+    // number — so these MUST be parsed as numbers, not left as the raw URL
+    // strings, or nothing shows as checked / filtered.
+    const parseIds = (v: string | null): number[] =>
+      (v ?? "")
+        .split(",")
+        .map((id) => Number(id.trim()))
+        .filter((id) => !isNaN(id));
+
+    // AppliedFilterBar (the chip row every report renders) doesn't read the
+    // raw id arrays below — it reads `appliedFilterSummary`, which is
+    // normally built by CheckBoxFilterModal.buildAppliedSummary() on a
+    // manual Apply click. This deep-link path bypasses that modal entirely,
+    // so build the same shape here (id-based labels — we don't have the
+    // name lookups this component would need to show real names) or the bar
+    // silently shows nothing for team/status/source/label even though the
+    // underlying filter data below is set correctly.
+    const summaryChips: { key: string; label: string; values: string[] }[] = [];
+
+    // "Team" isn't one field across reports — filtersToShow group 5 ("Team
+    // Member") reads checkedOptionsUser, group 9 ("Multi team Member") reads
+    // assignedByMultiTeamMember/createdByMultiTeamMember separately. Set all
+    // three from the same ?team= so it works regardless of which group(s)
+    // the target report actually shows; reports that read none of the extra
+    // fields just ignore them.
+    const team = searchParams.get("team");
+    if (team) {
+      const teamIds = parseIds(team);
+      overrides.checkedOptionsUser = teamIds;
+      overrides.assignedByMultiTeamMember = teamIds;
+      overrides.createdByMultiTeamMember = teamIds;
+      summaryChips.push({
+        key: "team",
+        label: "Team Member",
+        values: teamIds.map(String),
+      });
+    }
+
+    const status = searchParams.get("status");
+    if (status) {
+      const statusIds = parseIds(status);
+      overrides.checkedOptionsStageStatus = statusIds;
+      summaryChips.push({
+        key: "status",
+        label: "Stage & Status",
+        values: statusIds.map(String),
+      });
+    }
+
+    const source = searchParams.get("source");
+    if (source) {
+      const sourceIds = parseIds(source);
+      overrides.checkedSourceTypes = sourceIds;
+      summaryChips.push({
+        key: "source",
+        label: "Source Type",
+        values: sourceIds.map(String),
+      });
+    }
+
+    const label = searchParams.get("label");
+    if (label) {
+      const labelIds = parseIds(label);
+      overrides.checkedOptions = labelIds;
+      summaryChips.push({
+        key: "label",
+        label: "Label",
+        values: labelIds.map(String),
+      });
+    }
+
+    if (summaryChips.length) {
+      overrides.appliedFilterSummary = summaryChips;
+    }
+
+    if (Object.keys(overrides).length) {
+      setReportFilters(reportSlug, overrides);
+
+      // The "team" chip above shows raw ids (no name lookup available
+      // synchronously) — resolve real usernames in the background via the
+      // same /my-team endpoint CheckBoxFilterModal uses, then replace just
+      // that chip's values once they arrive. Doesn't block filtering, which
+      // already applied correctly above using the ids.
+      if (team) {
+        const teamIds = parseIds(team);
+        axiosInstance
+          .post("my-team", { a_application_login_id: localStorage.getItem("UUID") })
+          .then(({ data }) => {
+            const members: { id: number; username: string }[] =
+              data?.data?.item || [];
+            const nameById = new Map(members.map((m) => [Number(m.id), m.username]));
+            const names = teamIds.map((id) => nameById.get(id) ?? String(id));
+            const current = useCommonFilterStore.getState().filters[reportSlug];
+            const nextSummary = (current?.appliedFilterSummary || []).map((c) =>
+              c.key === "team" ? { ...c, values: names } : c,
+            );
+            setReportFilters(reportSlug, { appliedFilterSummary: nextSummary });
+          })
+          .catch((e) => console.error("Error resolving team member names:", e));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportSlug, permissions, searchParams, location.key]);
+
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();
 
@@ -1191,6 +1385,16 @@ const SideView = ({ profileDetail }: IProp) => {
       >
         <SidebarView
           onReportClick={handleSingleReportShow}
+          onInsightsClick={() => {
+            setActiveView("dashboard");
+            setAppliedReportType("");
+            navigate("/SideView");
+          }}
+          onSmartReportsClick={() => {
+            setActiveView("reports_home");
+            setAppliedReportType("");
+            navigate("/SideView?view=reports");
+          }}
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           activeReport={appliedReportType}
@@ -1224,6 +1428,7 @@ const SideView = ({ profileDetail }: IProp) => {
             reportType={reportType}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
+            onReportClick={handleSingleReportShow}
           />
         </div>
         <TaskStickyIcon
@@ -1347,6 +1552,7 @@ const SideView = ({ profileDetail }: IProp) => {
         show={showManageWorkspaces}
         onHide={() => setShowManageWorkspaces(false)}
       />
+      <ReviewDialog />
       {isExploreNearbyShow && (
         <ExploreNearbyModal
           show={isExploreNearbyShow}

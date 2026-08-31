@@ -153,7 +153,8 @@ const PublicCompanyView = ({
                                           </div> */}
 
                                           <div className="col-4 d-flex align-items-center justify-content-center"
-                                            style={{ border: "1px solid black", height: "125px" }}>
+                                            style={{ border: "1px solid black", height: "125px", cursor: "pointer" }}
+                                            onClick={() => setIsCreateCompany(true)}>
                                             <div className="text-center"
                                               style={{
                                                 height: "100%",
@@ -165,7 +166,6 @@ const PublicCompanyView = ({
                                                 src={require("../../../assets/icons/create_company.png")}
                                                 width={50}
                                                 alt="Create"
-                                                onClick={() => setIsCreateCompany(true)}
                                                 style={{ cursor: "pointer" }}
                                               />
                                             </div>

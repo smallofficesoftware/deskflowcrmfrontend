@@ -3,11 +3,26 @@ import {
   QueryClientProvider,
   useQueryClient,
 } from "@tanstack/react-query";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { FilterParams } from "../../../../pages/left-side/header/Setting/taskList/TaskListView";
-import { fetchAutoRefreshConfig } from "../api/kanbanApi";
-import { useKanbanColumns } from "../hooks/useKanbanColumns";
+import useSocketEvent from "../../../../hooks/useSocketEvent";
+import { KanbanBoard as SharedKanbanBoard } from "../../shared-kanban/components/KanbanBoard";
+import { KanbanModalFrame } from "../../shared-kanban/components/KanbanModalFrame";
+import { useKanbanColumns } from "../../shared-kanban/hooks/useKanbanColumns";
+import { KanbanItemsInfiniteData } from "../../shared-kanban/hooks/useKanbanItems";
+import {
+  KanbanBoardConfig,
+  KanbanColumnDef,
+  KanbanFetchResult,
+  KanbanItem,
+} from "../../shared-kanban/types";
+import {
+  fetchAutoRefreshConfig,
+  fetchBoardColumns,
+  getTaskList,
+  updateTaskColumnAndPosition,
+} from "../api/kanbanApi";
 import "../styles/kanban.css";
 import {
   BoardType,
@@ -17,8 +32,7 @@ import {
   TaskKanbanModalProps,
 } from "../types/kanban.types";
 import { parseRefreshTimeout } from "../utils/taskMapper";
-import { KanbanBoard } from "./KanbanBoard";
-import { SearchBar } from "./SearchBar";
+import { TaskCard } from "./TaskCard";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 interface Toast {
@@ -91,7 +105,12 @@ interface KanbanModalInnerProps {
   onAssignTeamMember?: (task: Task) => void;
   onTimeline?: (task: Task) => void;
   onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onMarkRead?: (task: Task) => void;
+  onMarkUnread?: (task: Task) => void;
+  onChangeExternalStatus?: (task: Task) => void;
+  onConvertToTask?: (task: Task) => void;
   filterParams?: FilterParams;
   hasActiveFilter?: boolean;
   supportTicketFlag?: number | null;
@@ -111,9 +130,14 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   onAssignTeamMember,
   onTimeline,
   onArchive,
+  onUnarchive,
   onDelete,
+  onMarkRead,
+  onMarkUnread,
+  onChangeExternalStatus,
+  onConvertToTask,
   filterParams,
-  hasActiveFilter = true,
+  hasActiveFilter = false,
   onOpenFilter,
   supportTicketFlag,
 }) => {
@@ -130,8 +154,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTask, setEditTask] = useState<ITaskView | null>(null);
 
-  const { data: columns = [], isLoading: isColumnsLoading } =
-    useKanbanColumns(boardType);
+  const BOARD_KEY = `task-kanban-${boardType}`;
 
   // Debounce search
   useEffect(() => {
@@ -143,32 +166,6 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  // Auto refresh
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const setup = async () => {
-      try {
-        const config = await fetchAutoRefreshConfig();
-        if (config.TASK_AUTO_REFRESH_ON === "true") {
-          const timeout = parseRefreshTimeout(
-            config.TASK_AUTO_REFRESH_TIMEOUT ?? "30s",
-          );
-          interval = setInterval(() => {
-            queryClient.invalidateQueries({
-              queryKey: ["kanban-tasks", boardType],
-            });
-          }, timeout);
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    setup();
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [boardType, queryClient]);
-
   const addToast = useCallback((message: string, type: Toast["type"]) => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -177,17 +174,6 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
-
-  // Refresh all task queries for this board
-  const refreshAllTasks = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["kanban-tasks", boardType] });
-  }, [queryClient, boardType]);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    refreshAllTasks();
-    setTimeout(() => setIsRefreshing(false), 600);
-  }, [refreshAllTasks]);
 
   // Feature 4: task edit handler — converts Task to ITaskView shape
   const handleTaskEdit = useCallback(
@@ -227,6 +213,184 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     [canEdit, renderEditTaskModal],
   );
 
+  const onTaskEdit = canEdit && renderEditTaskModal ? handleTaskEdit : undefined;
+
+  const renderCard = useCallback(
+    (task: Task) => (
+      <TaskCard
+        task={task}
+        onClick={onTaskClick}
+        onEdit={onTaskEdit}
+        onChangeStatus={onChangeStatus}
+        onAssignLabel={onAssignLabel}
+        onAssignTeamMember={onAssignTeamMember}
+        onTimeline={onTimeline}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+        onDelete={onDelete}
+        onMarkRead={onMarkRead}
+        onMarkUnread={onMarkUnread}
+        onChangeExternalStatus={onChangeExternalStatus}
+        onConvertToTask={onConvertToTask}
+      />
+    ),
+    [
+      onTaskClick,
+      onTaskEdit,
+      onChangeStatus,
+      onAssignLabel,
+      onAssignTeamMember,
+      onTimeline,
+      onArchive,
+      onUnarchive,
+      onDelete,
+      onMarkRead,
+      onMarkUnread,
+      onChangeExternalStatus,
+      onConvertToTask,
+    ],
+  );
+
+  const config: KanbanBoardConfig<Task> = useMemo(
+    () => ({
+      boardKey: BOARD_KEY,
+      fetchColumns: (): Promise<KanbanColumnDef[]> =>
+        fetchBoardColumns(boardType).then((cols) =>
+          cols.map((c) => ({
+            id: c.id,
+            name: c.name,
+            color: c.color,
+            unreadCount: c.unread_count,
+          })),
+        ),
+      fetchItems: (params): Promise<KanbanFetchResult<Task>> =>
+        getTaskList({
+          page: params.page,
+          limit: params.limit,
+          search: params.searchTerm,
+          columnId: Number(params.columnId),
+          boardType,
+          filterParams: filterParams ?? DEFAULT_FILTER_PARAMS,
+          supportTicketFlag,
+        }).then((res) => ({
+          items: res.tasks,
+          total: res.total,
+          hasMore: res.hasMore,
+        })),
+      itemPosition: (task) => {
+        const raw = (task.raw ?? {}) as Record<string, unknown>;
+        const position = raw.position;
+        return position === null || position === undefined
+          ? null
+          : Number(position);
+      },
+      updateItemPosition: (taskId, columnId, position) =>
+        updateTaskColumnAndPosition(Number(taskId), Number(columnId), position),
+      renderCard,
+      sortOptions: [
+        {
+          label: "Due date",
+          compare: (a, b) =>
+            (a.due_date ?? "").localeCompare(b.due_date ?? ""),
+        },
+        {
+          label: "Priority",
+          compare: (a, b) => (b.priority_id ?? 0) - (a.priority_id ?? 0),
+        },
+      ],
+    }),
+    [BOARD_KEY, boardType, filterParams, supportTicketFlag, renderCard],
+  );
+
+  const { data: columns = [], isLoading: isColumnsLoading } =
+    useKanbanColumns(config);
+
+  // Auto refresh
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const setup = async () => {
+      try {
+        const autoRefreshConfig = await fetchAutoRefreshConfig();
+        if (autoRefreshConfig.TASK_AUTO_REFRESH_ON === "true") {
+          const timeout = parseRefreshTimeout(
+            autoRefreshConfig.TASK_AUTO_REFRESH_TIMEOUT ?? "30s",
+          );
+          interval = setInterval(() => {
+            queryClient.invalidateQueries({
+              queryKey: ["shared-kanban-items", BOARD_KEY],
+            });
+          }, timeout);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    setup();
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [BOARD_KEY, queryClient]);
+
+  // Refresh all task queries for this board
+  const refreshAllTasks = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["shared-kanban-columns", BOARD_KEY] });
+    queryClient.invalidateQueries({ queryKey: ["shared-kanban-items", BOARD_KEY] });
+  }, [queryClient, BOARD_KEY]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    refreshAllTasks();
+    setTimeout(() => setIsRefreshing(false), 600);
+  }, [refreshAllTasks]);
+
+  // Is `id` in any column's currently-loaded pages for this board? Checks
+  // every "shared-kanban-items" query under this BOARD_KEY (one per
+  // column/searchTerm combo) via a partial queryKey match.
+  const isTaskIdLoaded = useCallback(
+    (id: number) => {
+      const matches = queryClient.getQueriesData<
+        KanbanItemsInfiniteData<KanbanItem>
+      >({ queryKey: ["shared-kanban-items", BOARD_KEY] });
+      return matches.some(([, data]) =>
+        data?.pages?.some((page) =>
+          page.items.some((item) => item.id === id),
+        ),
+      );
+    },
+    [queryClient, BOARD_KEY],
+  );
+
+  // Live sync: any teammate adding/editing/moving a task (including via the
+  // drag-to-move commonUpdate path) refreshes every board open for the
+  // company - but only when it's worth it: no id on the payload means a new
+  // task (always refresh, it might belong on this board).
+  //
+  // assigned_to (present whenever an id is - baseController.js's
+  // attachTaskAssignees) is authoritative for who this concerns, so when
+  // it's there we trust it alone: refresh whenever it's mine, loaded or
+  // not - a BRAND NEW assignment is exactly the case where the task was
+  // never loaded before (I wasn't assigned, so my board never fetched it),
+  // so gating on isTaskIdLoaded here would silently skip the one case that
+  // matters most. Only fall back to the loaded-check when assigned_to is
+  // somehow missing (payload enrichment failed) - can't tell relevance,
+  // so use "was it already visible" as a weaker proxy.
+  useSocketEvent<{ id?: number; assigned_to?: number[] }>("task-changed", (payload) => {
+    if (!payload?.id) {
+      refreshAllTasks();
+      return;
+    }
+    if (payload.assigned_to) {
+      const myLoginId = Number(localStorage.getItem("UUID"));
+      if (payload.assigned_to.includes(myLoginId)) {
+        refreshAllTasks();
+      }
+      return;
+    }
+    if (isTaskIdLoaded(payload.id)) {
+      refreshAllTasks();
+    }
+  });
+
   const boardTypeLabelMap: Record<BoardType, string> = {
     status: "Status",
     category: "Category",
@@ -237,151 +401,44 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
 
   return (
     <>
-      {/* ── Header ── */}
-      <div className="modal-header kanban-modal-header px-3 py-0">
-        <div className="d-flex align-items-center gap-2">
-          <div className="kanban-modal-icon">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-            >
-              <rect width="7" height="9" x="3" y="3" rx="1" />
-              <rect width="7" height="5" x="3" y="16" rx="1" />
-              <rect width="7" height="9" x="14" y="12" rx="1" />
-              <rect width="7" height="5" x="14" y="3" rx="1" />
-            </svg>
-          </div>
-          <div>
-            <div className="kanban-modal-title">Task Board</div>
-            <div className="kanban-modal-subtitle">
-              {boardTypeLabelMap[boardType]} view
-            </div>
-          </div>
-        </div>
-
-        {/* Right-side header actions */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            marginLeft: "auto",
-            marginRight: 8,
-          }}
-        >
-          {/* Feature 5: Filter button */}
-          {onOpenFilter && (
-            <button
-              title="Filter Tasks"
-              onClick={onOpenFilter}
-              className="kanban-header-btn"
-              style={{ color: hasActiveFilter ? "#ef4444" : undefined }}
-            >
-              {hasActiveFilter ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  height="20px"
-                  viewBox="0 -960 960 960"
-                  width="20px"
-                  fill="currentColor"
-                >
-                  <path d="m592-481-57-57 143-182H353l-80-80h487q25 0 36 22t-4 42L592-481ZM791-56 560-287v87q0 17-11.5 28.5T520-160h-80q-17 0-28.5-11.5T400-200v-247L56-791l56-57 736 736-57 56ZM535-538Z" />
-                </svg>
-              ) : (
-                <svg
-                  height="20px"
-                  viewBox="0 -960 960 960"
-                  width="20px"
-                  fill="currentColor"
-                >
-                  <path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" />
-                </svg>
-              )}
-            </button>
-          )}
-
-          {/* Feature 3: Add Task button */}
-          {renderAddTaskModal && (
-            <button
-              title="Create Task"
-              onClick={() => {
+      <KanbanModalFrame
+        show
+        onHide={onHide}
+        title="Task Board"
+        subtitle={`${boardTypeLabelMap[boardType]} view`}
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        onRefresh={handleRefresh}
+        isSearching={isSearching}
+        isRefreshing={isRefreshing}
+        onOpenFilter={onOpenFilter}
+        hasActiveFilter={hasActiveFilter}
+        filterTitle="Filter Tasks"
+        onAdd={
+          renderAddTaskModal
+            ? () => {
                 if (canAdd) setShowAddModal(true);
-                else
-                  addToast("You don't have permission to add tasks.", "error");
-              }}
-              className="kanban-header-btn kanban-header-btn--primary"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                height="22px"
-                viewBox="0 -960 960 960"
-                width="22px"
-                fill="currentColor"
-              >
-                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-              </svg>
-            </button>
-          )}
+                else addToast("You don't have permission to add tasks.", "error");
+              }
+            : undefined
+        }
+        addTitle="Create Task"
+      >
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <SharedKanbanBoard
+            config={config}
+            columns={columns}
+            isColumnsLoading={isColumnsLoading}
+            searchTerm={debouncedSearch}
+            onError={(msg) => addToast(msg, "error")}
+            onSuccess={(msg) => addToast(msg, "success")}
+          />
         </div>
-
-        <button
-          type="button"
-          className="btn-close"
-          aria-label="Close"
-          onClick={onHide}
-        />
-      </div>
-
-      {/* ── Body ── */}
-      <div className="modal-body kanban-modal-body p-0">
-        <SearchBar
-          value={searchInput}
-          onChange={setSearchInput}
-          onRefresh={handleRefresh}
-          isLoading={isSearching}
-          isRefreshing={isRefreshing}
-        />
-
-        <KanbanBoard
-          columns={columns}
-          isColumnsLoading={isColumnsLoading}
-          boardType={boardType}
-          searchTerm={debouncedSearch}
-          filterParams={filterParams ?? DEFAULT_FILTER_PARAMS}
-          onTaskClick={onTaskClick}
-          onTaskEdit={
-            canEdit && renderEditTaskModal ? handleTaskEdit : undefined
-          }
-          onChangeStatus={onChangeStatus}
-          onAssignLabel={onAssignLabel}
-          onAssignTeamMember={onAssignTeamMember}
-          onTimeline={onTimeline}
-          onArchive={onArchive}
-          onDelete={onDelete}
-          onError={(msg) => addToast(msg, "error")}
-          onSuccess={(msg) => addToast(msg, "success")}
-          supportTicketFlag={supportTicketFlag}
-        />
-      </div>
+      </KanbanModalFrame>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Feature 3: Add task modal — rendered by parent app */}
-      {/* {showAddModal &&
-        renderAddTaskModal?.({
-          show: showAddModal,
-          onHide: () => setShowAddModal(false),
-          onSuccess: () => {
-            setShowAddModal(false);
-            refreshAllTasks();
-            addToast("Task created successfully!", "success");
-          },
-        })} */}
-
       {showAddModal &&
         renderAddTaskModal &&
         ReactDOM.createPortal(
@@ -441,98 +498,48 @@ export const TaskKanbanModal: React.FC<TaskKanbanModalProps> = ({
   onAssignTeamMember,
   onTimeline,
   onArchive,
+  onUnarchive,
   onDelete,
+  onMarkRead,
+  onMarkUnread,
+  onChangeExternalStatus,
+  onConvertToTask,
   filterParams,
-  hasActiveFilter = true,
+  hasActiveFilter = false,
   onOpenFilter,
 }) => {
-  const backdropRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (show) {
-      document.body.classList.add("modal-open");
-      document.body.style.overflow = "hidden";
-      document.body.style.paddingRight = "0px";
-    } else {
-      document.body.classList.remove("modal-open");
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    }
-    return () => {
-      document.body.classList.remove("modal-open");
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    };
-  }, [show]);
-
-  useEffect(() => {
-    if (!show) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onHide();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [show, onHide]);
-
-  console.log("onAssignTeamMemberonAssignTeamMember",onAssignTeamMember);
-
-
+  // Modal chrome (backdrop, scroll-lock, Escape-to-close, kanban-scope) all
+  // moved into KanbanModalFrame, used inside KanbanModalInner below - this
+  // outer component now only needs to gate mounting KanbanModalInner (and
+  // its data-fetching hooks) behind `show`, and provide the query client.
   if (!show) return null;
 
   const markup = (
     <QueryClientProvider client={queryClient}>
-      <div className="kanban-scope">
-        <div
-          ref={backdropRef}
-          className="modal-backdrop fade show"
-          style={{ zIndex: 1054 }}
-          onClick={onHide}
-        />
-        <div
-          className="modal fade show kanban-modal"
-          style={{ display: "flex", zIndex: 1055, alignItems: "stretch" }}
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onHide();
-          }}
-        >
-          <div
-            className="modal-dialog modal-fullscreen m-0 w-100"
-            style={{ maxWidth: "100%", height: "100%" }}
-          >
-            <div
-              className="modal-content kanban-modal-content"
-              style={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              <KanbanModalInner
-                boardType={boardType}
-                onHide={onHide}
-                onTaskClick={onTaskClick}
-                renderAddTaskModal={renderAddTaskModal}
-                renderEditTaskModal={renderEditTaskModal}
-                canAdd={canAdd}
-                canEdit={canEdit}
-                onChangeStatus={onChangeStatus}
-                onAssignLabel={onAssignLabel}
-                onAssignTeamMember={onAssignTeamMember}
-                onTimeline={onTimeline}
-                onArchive={onArchive}
-                onDelete={onDelete}
-                filterParams={filterParams}
-                hasActiveFilter={hasActiveFilter}
-                onOpenFilter={onOpenFilter}
-                supportTicketFlag={supportTicketFlag}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <KanbanModalInner
+        boardType={boardType}
+        onHide={onHide}
+        onTaskClick={onTaskClick}
+        renderAddTaskModal={renderAddTaskModal}
+        renderEditTaskModal={renderEditTaskModal}
+        canAdd={canAdd}
+        canEdit={canEdit}
+        onChangeStatus={onChangeStatus}
+        onAssignLabel={onAssignLabel}
+        onAssignTeamMember={onAssignTeamMember}
+        onTimeline={onTimeline}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+        onDelete={onDelete}
+        onMarkRead={onMarkRead}
+        onMarkUnread={onMarkUnread}
+        onChangeExternalStatus={onChangeExternalStatus}
+        onConvertToTask={onConvertToTask}
+        filterParams={filterParams}
+        hasActiveFilter={hasActiveFilter}
+        onOpenFilter={onOpenFilter}
+        supportTicketFlag={supportTicketFlag}
+      />
     </QueryClientProvider>
   );
 

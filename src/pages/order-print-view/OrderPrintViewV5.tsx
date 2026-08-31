@@ -29,6 +29,7 @@ import "./OrderPrintView.css";
 import {
   fetchCurrency,
   fetchOrderByForPrintIdApi,
+  fetchPdfmeTemplatesForPicker,
   handleDownload,
 } from "./orderPrintController";
 
@@ -65,6 +66,9 @@ const OrderPrintViewV5 = () => {
   const [currency, setCurrency] = useState<ICurrency[]>([]);
   const [orderPrintList, setOrderPrintList] = useState<ItemDetails[]>([]);
   const [isOrderLoading, setIsOrderLoading] = useState(true);
+  const [downloadTemplateChoices, setDownloadTemplateChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
   const [whatsappConfigDetail, setWhatsappConfigDetail] = useState<number>(0);
 
   const { id, MobileToken, getID, printFlag } = useParams();
@@ -499,7 +503,7 @@ const OrderPrintViewV5 = () => {
     PERMISSION_TYPE.SHARE,
   );
 
-  const openPdf = () => {
+  const openPdf = async () => {
     const permissionMap: Record<number, boolean> = {
       1: canPdfQuo,
       2: canPdfOrder,
@@ -512,10 +516,23 @@ const OrderPrintViewV5 = () => {
       12: canPdfProfomaInvoice,
     };
     if (orderPrintById?.shareRights == true) {
-      handleDownload(id, MobileToken, getID, "downloadPdf");
+      // Download (not Print) is safe to reroute here even though V5's
+      // on-screen Print stays on the 80mm thermal layout untouched — /order-pdf
+      // already ignores viewFormate/print_version when a template_id is given.
+      const choices = await fetchPdfmeTemplatesForPicker(orderPrintById?.cart?.type);
+      if (choices.length > 1) {
+        setDownloadTemplateChoices(choices);
+      } else {
+        handleDownload(id, MobileToken, getID, "downloadPdf");
+      }
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
+  };
+
+  const downloadWithTemplate = (templateId: number) => {
+    setDownloadTemplateChoices([]);
+    handleDownload(id, MobileToken, getID, "downloadPdf", templateId);
   };
 
   const shareWhatsapp = () => {
@@ -2305,6 +2322,35 @@ const OrderPrintViewV5 = () => {
                 </span>
               </button>
             </div>
+            {downloadTemplateChoices.length > 0 && (
+              <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5>Choose Template</h5>
+                    <span
+                      className="close"
+                      onClick={() => setDownloadTemplateChoices([])}
+                    >
+                      &times;
+                    </span>
+                  </div>
+                  {downloadTemplateChoices.map((t) => (
+                    <div
+                      key={t.id}
+                      className="d-flex justify-content-between align-items-center border-bottom py-2"
+                    >
+                      <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => downloadWithTemplate(t.id)}
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ))}

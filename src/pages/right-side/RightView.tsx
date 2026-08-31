@@ -8,6 +8,8 @@ import React, {
 } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import androidStoreIcon from "../../assets/images/android.png";
+import appleStoreIcon from "../../assets/images/appleIos.png";
 import CsvIcon from "../../assets/images/CsvIcon.png";
 import deshFlow_log_icon from "../../assets/images/deshFlow_log.png";
 import docxIcon from "../../assets/images/docxIcon.png";
@@ -46,6 +48,7 @@ import RightSearch from "./Search";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import useSocketEvent from "../../hooks/useSocketEvent";
 import { AppContext } from "../../common/AppContext";
 import {
   formatDate,
@@ -78,6 +81,7 @@ import { whatsappToHtml } from "../../helpers/WhatsAppToHTMLConvert";
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../services/axiosInstance";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
+import useTrainingStore from "../../store/training/useTrainingStore";
 import AiModelView from "../aimodel/AiModelView";
 import DashboardView from "../dashboard/DashboardView";
 import { fetchLabelApi } from "../left-side/header/Setting/label/LabelController";
@@ -281,8 +285,6 @@ const RightView = ({
   const [moveForMsgId, setMoveForMsgId] = useState<number>();
 
   const [isClearConfirmation, setIsClearConfirmation] = useState(false);
-  const [isOrderCreateFromContactShow, setIsOrderCreateFromContactShow] =
-    useState(false);
   const [isOrderShow, setIsOrderShow] = useState(false);
 
   const [optionConfirmation, setOptionConfirmation] = useState(false);
@@ -305,6 +307,18 @@ const RightView = ({
   const [isToggledButton, setIsToggledButton] = useState(false);
   const [messageSide, setMessageSide] = useState(1);
   const [isLoadedMessage, setIsLoadedMessage] = useState(false);
+  // Bumped on every "contact-chat-changed" socket event to force the
+  // message fetch effect below to re-run, even if isLoadedMessage's value
+  // didn't change - covers messages arriving from another user/tab/WhatsApp
+  // reply, not just the ones this tab itself just sent.
+  const [chatSocketRefreshTick, setChatSocketRefreshTick] = useState(0);
+  useSocketEvent<{ contact_id?: number }>("contact-chat-changed", (payload) => {
+    // No contact_id on the payload (e.g. an edit/delete, not a new message)
+    // - fall back to always refreshing rather than risk missing an update.
+    if (!payload?.contact_id || payload.contact_id === getData?.id) {
+      setChatSocketRefreshTick((tick) => tick + 1);
+    }
+  });
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<
@@ -388,6 +402,7 @@ const RightView = ({
   const [messageId, setmessageId] = useState<any>();
   const [pinnedMessageContent, setPinnedMessageContent] = useState<string>("");
   const { advertisement } = useAdvertisementStore();
+  const { isTrainingDisabled } = useTrainingStore();
   const [focus, setFocus] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [hover, setHover] = useState(false);
@@ -742,7 +757,7 @@ const RightView = ({
       text: "View Insights",
       action: () => {
         canViewInsight
-          ? showDashboard()
+          ? window.open("/SideView", "_blank")
           : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
       },
     },
@@ -759,16 +774,9 @@ const RightView = ({
     {
       Number: "4",
       text: "All Reports",
-      action: () => handelChangeShowModelReport(),
+      action: () => window.open("/SideView?view=reports", "_blank"),
     },
     { Number: "5", text: "My Task", action: () => showMyTask() },
-    {
-      Number: "6",
-      text: "Side View",
-      action: () => {
-        window.open("/SideView", "_blank");
-      },
-    },
     {
       Number: "7",
       text: "Explore in google map",
@@ -2033,10 +2041,6 @@ const RightView = ({
     setDropdownOpenMsg(null);
   };
 
-  const handelChangeShowModelReport = () => {
-    setIsOrderCreateFromContactShow(true);
-  };
-
   const handelChangeShowModelExploreNearby = () => {
     setIsExploreNearbyShow(true);
   };
@@ -2818,6 +2822,7 @@ const RightView = ({
     selectDate,
     searchTerm,
     setNoDataFound1,
+    chatSocketRefreshTick,
   ]);
   const handleChangeEdit = (itemsDis: TMessage) => {
     if (canEdit) {
@@ -5308,6 +5313,39 @@ const RightView = ({
               ) : (
                 <div className="Intro-Left" id="Intro-Left">
 
+                  {!isTrainingDisabled && (
+                    <a
+                      href="https://deskflowcrm.com/software-training"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="software-training-btn"
+                      style={{
+                        position: "absolute",
+                        top: 16,
+                        right: 16,
+                        zIndex: 5,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "8px 18px",
+                        borderRadius: 6,
+                        background: "#FF7D12",
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        textDecoration: "none",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 11V6a2 2 0 0 1 4 0v5" />
+                        <path d="M13 9a2 2 0 0 1 4 0v2" />
+                        <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
+                      </svg>
+                      Scheduled Training &gt;&gt;
+                    </a>
+                  )}
+
                   <div className="intro">
                     <div
                       style={{ border: "0px solid black", width: "100%" }}
@@ -5626,13 +5664,12 @@ const RightView = ({
                             className="icons "
                             onClick={() =>
                               canViewInsight
-                                ? showDashboard()
+                                ? window.open("/SideView", "_blank")
                                 : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
                             }
                           >
                             <span title="View Insights">
                               <svg
-                                enable-background="new 0 0 20 20"
                                 height="30"
                                 viewBox="0 0 20 20"
                                 width="30"
@@ -5695,7 +5732,9 @@ const RightView = ({
                           <button
                             style={{ marginRight: "10px" }}
                             className="icons "
-                            onClick={() => handelChangeShowModelReport()}
+                            onClick={() =>
+                              window.open("/SideView?view=reports", "_blank")
+                            }
                           >
                             <span title="View Reports">
                               <svg
@@ -5943,29 +5982,6 @@ const RightView = ({
                                   ></div>
                                 )}
                               </button>
-                              <button
-                                className="icons right-icons"
-                                style={{
-                                  borderRadius: "50%",
-                                  padding: "10px",
-                                }}
-                                onClick={() =>
-                                  window.open("/SideView", "_blank")
-                                }
-                              >
-                                <span title="Side View">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="24px"
-                                    viewBox="0 -960 960 960"
-                                    width="24px"
-                                    fill="#1f1f1f"
-                                  >
-                                    <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h160v-560H200v560Zm240 0h320v-560H440v560Z" />
-                                  </svg>
-                                </span>
-                              </button>
-
                               <button
                                 className="icons right-icons"
                                 style={{
@@ -6413,12 +6429,6 @@ const RightView = ({
                           </h4>
                         </div>
                       </div>
-                      {/* <iframe
-                      src="https://tawk.to/chat/68a56c9d727c171927b34bce/1j3330irj"
-
-                      height="250"
-                      width="200"
-                    ></iframe> */}
                     </div>
                     {advertisement && (
                       <div className="text-center btn-mt">
@@ -6468,6 +6478,38 @@ const RightView = ({
                         )}
                       </div>
                     )}
+                    <div
+                      className="text-center btn-mt"
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <a
+                        href="https://apps.apple.com/in/app/deskflow-crm/id6757629548"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          height={32}
+                          alt="Download on the App Store"
+                          src={appleStoreIcon}
+                        />
+                      </a>
+                      <a
+                        href="https://play.google.com/store/apps/details?id=com.smalloffice"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          height={32}
+                          alt="Get it on Google Play"
+                          src={androidStoreIcon}
+                        />
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}
@@ -6631,17 +6673,6 @@ const RightView = ({
               opt1={"8 Hours"}
               opt2={"1 Week"}
               opt3={"Always"}
-            />
-          )}
-          {isOrderCreateFromContactShow && (
-            <ReportModal
-              show={isOrderCreateFromContactShow}
-              onHide={() => setIsOrderCreateFromContactShow(false)}
-              handleSubmit={() => setIsOrderCreateFromContactShow(false)}
-              titles={"Create"}
-              message={"Please Enter Your Order Details"}
-              btn1={"CANCEL"}
-              btn2={"Approve"}
             />
           )}
           {isReportShow && (

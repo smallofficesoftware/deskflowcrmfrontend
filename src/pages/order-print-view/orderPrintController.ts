@@ -195,11 +195,115 @@ export const fetchContactDetail = async (
   }
 };
 
+// §7: whenever the company's document_designer flag is on and it has 2+
+// templates for this cart's doc type, the caller should show a picker
+// before calling handleDownload — same rule Flutter's
+// pickDocumentTemplate() and V1's Print action already follow (skip the
+// picker below 2 templates). Mirrors orderServices.js's
+// PDFME_DOC_TYPE_BY_CART_TYPE — keep both in sync when adding a doc type.
+const PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+  1: "quotation",
+  2: "salesOrder",
+  3: "salesInvoice",
+  4: "purchaseInvoice",
+  5: "purchaseOrder",
+  6: "returnSalesInvoice",
+  7: "returnPurchaseInvoice",
+  8: "inward",
+  9: "dispatch",
+  12: "proformaInvoice",
+};
+
+export const isPdfmeSupportedCartType = (cartType: number | undefined): boolean =>
+  !!PDFME_DOC_TYPE_BY_CART_TYPE[Number(cartType)];
+
+export const fetchPdfmeTemplatesForPicker = async (
+  cartType: number | undefined,
+): Promise<{ id: number; template_name: string; is_default: number }[]> => {
+  const docType = PDFME_DOC_TYPE_BY_CART_TYPE[Number(cartType)];
+  if (!docType) return [];
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list", {
+      company_masters_id: companyMastersId,
+      doc_type: docType,
+    });
+    const templates = listData?.ack === 1 ? listData.data.item : [];
+    return templates.length > 1 ? templates : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
+// Same rule as fetchPdfmeTemplatesForPicker above, keyed by a literal
+// doc_type instead of a cart type -> doc_type map — for non-cart doc types
+// like shippingLabel that don't have their own cart type id.
+export const fetchTemplatesForDocType = async (
+  docType: string,
+): Promise<{ id: number; template_name: string; is_default: number }[]> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list", {
+      company_masters_id: companyMastersId,
+      doc_type: docType,
+    });
+    const templates = listData?.ack === 1 ? listData.data.item : [];
+    return templates.length > 1 ? templates : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
+// Company-wide, every doc_type — used by the "Document Designer Page"
+// custom field type (data_type 14) picker, which attaches ANY of a
+// company's own saved templates as a static extra page (not scoped to one
+// doc_type like the pickers above, which only show a doc_type's OWN
+// templates and only when it has 2+). No 2+ threshold here — the picker
+// itself decides whether to show, not this fetch.
+export const fetchAllDocumentTemplatesForPicker = async (): Promise<
+  { id: number; doc_type: string; template_name: string; is_default: number }[]
+> => {
+  const companyMastersId = localStorage.getItem("COMPANY_ID");
+  if (!companyMastersId) return [];
+  try {
+    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
+      company_masters_id: companyMastersId,
+      feature_key: "document_designer",
+    });
+    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+
+    const { data: listData } = await axiosInstance.post("document-templates/list-all", {
+      company_masters_id: companyMastersId,
+    });
+    return listData?.ack === 1 ? listData.data.item : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
 export const handleDownload = async (
   cartId: string | undefined,
   MobileToken: string | undefined,
   getID: string | undefined,
   request_flag?: string | number,
+  documentTemplateId?: number,
 ) => {
   try {
     const token = MobileToken || localStorage.getItem("token");
@@ -208,7 +312,10 @@ export const handleDownload = async (
     if (request_flag == "downloadPdf") {
       const resops = await axiosInstance.post(
         "/order-pdf",
-        { cart_id: cartId },
+        {
+          cart_id: cartId,
+          ...(documentTemplateId ? { document_template_id: documentTemplateId } : {}),
+        },
         {
           headers: {
             Authorization: `${token}`,

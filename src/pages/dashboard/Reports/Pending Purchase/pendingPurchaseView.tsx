@@ -22,6 +22,7 @@ import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -29,7 +30,12 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController";
-import { openPendingPrint, openPrint } from "../Quotations/QuotationController";
+import {
+  generateAndPrintPendingPdf,
+  openPendingPrint,
+  openPrint,
+  tryPendingPdfmePrint,
+} from "../Quotations/QuotationController";
 import {
   exportAllPurchaseOrderData,
   fetchCartReport,
@@ -37,6 +43,11 @@ import {
   handleDownload,
   IFlatCartItem,
 } from "./pendingPurchaseController";
+
+// PDFMerger holds every selected order's parsed PDF in memory at merge time -
+// cap Generate Multi Print's selection so an unbounded "select all" can't
+// blow up memory.
+const MAX_MULTI_PRINT_COUNT = 25;
 
 interface LazyTableState {
   first: number;
@@ -113,6 +124,40 @@ const PendingPurchaseReportsView = ({
 }: ITeamcartDataReports) => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
+  // Pending print template picker -- see tryPendingPdfmePrint's own
+  // click-time-check comment (QuotationController.ts).
+  const [pendingPrintChoices, setPendingPrintChoices] = useState<
+    { id: number; template_name: string; is_default: number }[]
+  >([]);
+  const [pendingPrintCartId, setPendingPrintCartId] = useState<
+    number | number[] | null
+  >(null);
+  // Generate Multi Print's round trip (N sequential PDF generations + merge)
+  // is long enough to look broken without a loading indicator.
+  const [isMultiPrintLoading, setIsMultiPrintLoading] = useState(false);
+  const handlePendingPrint = async (rowId: number) => {
+    const result = await tryPendingPdfmePrint(rowId, 5);
+    if (result.status === "picker") {
+      setPendingPrintChoices(result.choices);
+      setPendingPrintCartId(rowId);
+      return;
+    }
+    if (result.status === "handled") return;
+    openPendingPrint(rowId, 5);
+  };
+  const printWithPendingTemplate = async (templateId: number) => {
+    setPendingPrintChoices([]);
+    const cartIdOrIds = pendingPrintCartId;
+    setPendingPrintCartId(null);
+    if (cartIdOrIds == null) return;
+
+    setIsMultiPrintLoading(true);
+    try {
+      await generateAndPrintPendingPdf(cartIdOrIds, templateId);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
+  };
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<any[]>([]);
@@ -1244,10 +1289,31 @@ const PendingPurchaseReportsView = ({
       </div>
     );
   }
-  const handleMultiPrint = () => {
+  const handleMultiPrint = async () => {
     if (selectedIds.length === 0) return;
 
-    openPrint(selectedIds.join(","), viewFormate);
+    if (selectedIds.length > MAX_MULTI_PRINT_COUNT) {
+      toast.error(
+        `Please select at most ${MAX_MULTI_PRINT_COUNT} orders for Generate Multi Print.`,
+      );
+      return;
+    }
+
+    const cartIdOrIds = selectedIds.length === 1 ? selectedIds[0] : selectedIds;
+    setIsMultiPrintLoading(true);
+    try {
+      const result = await tryPendingPdfmePrint(cartIdOrIds, 5);
+      if (result.status === "picker") {
+        setPendingPrintChoices(result.choices);
+        setPendingPrintCartId(cartIdOrIds);
+        return;
+      }
+      if (result.status === "handled") return;
+
+      openPrint(selectedIds.join(","), viewFormate);
+    } finally {
+      setIsMultiPrintLoading(false);
+    }
   };
   return (
     <>
@@ -1492,7 +1558,7 @@ const PendingPurchaseReportsView = ({
                     className="listItem text-start"
                     role="button"
                     onClick={() => {
-                      if (selectedIds.length === 0) return;
+                      if (selectedIds.length === 0 || isMultiPrintLoading) return;
 
                       setIsExportDropdownOpen(false);
                       handleMultiPrint();
@@ -1511,12 +1577,12 @@ const PendingPurchaseReportsView = ({
                       }}
                     >
                       <i
-                        className="pi pi-copy"
+                        className={isMultiPrintLoading ? "pi pi-spin pi-spinner" : "pi pi-copy"}
                         style={{ marginRight: "4px" }}
                       />
 
                       <span style={{ marginRight: "auto" }}>
-                        Generate Multi Print
+                        {isMultiPrintLoading ? "Generating..." : "Generate Multi Print"}
                       </span>
                     </div>
                   </li>
@@ -1547,6 +1613,13 @@ const PendingPurchaseReportsView = ({
           </div>
           {/* )} */}
         </div>
+
+        <AppliedFilterBar
+          summary={filters.appliedFilterSummary}
+          dateRange={filters.selectedDateArray}
+          startDate={filters.startSearchDate}
+          endDate={filters.endSearchDate}
+        />
 
         <div
           className="report_card"
@@ -1702,7 +1775,7 @@ const PendingPurchaseReportsView = ({
                         // style={{ marginRight: "15px" }}
                         onClick={() => {
                           if (canPrintPurchaseInvoice) {
-                            openPendingPrint(rowData.id, 5);
+                            handlePendingPrint(rowData.id);
                           } else {
                             toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
                           }
@@ -1826,6 +1899,38 @@ const PendingPurchaseReportsView = ({
           />
         )}
       </div>
+      {pendingPrintChoices.length > 0 && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 360, marginTop: "10%" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Choose Template</h5>
+              <span
+                className="close"
+                onClick={() => {
+                  setPendingPrintChoices([]);
+                  setPendingPrintCartId(null);
+                }}
+              >
+                &times;
+              </span>
+            </div>
+            {pendingPrintChoices.map((t) => (
+              <div
+                key={t.id}
+                className="d-flex justify-content-between align-items-center border-bottom py-2"
+              >
+                <div>{t.template_name}{t.is_default ? " ★" : ""}</div>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => printWithPendingTemplate(t.id)}
+                >
+                  Print
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 };

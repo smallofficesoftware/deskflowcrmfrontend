@@ -36,6 +36,7 @@ export const DEFAULT_FILTER_PARAMS: FilterParams = {
 export type Priority = "High" | "Medium" | "Low" | "Critical";
 
 export interface Task {
+  id: number; // alias of task_id — the shared Kanban engine's drag/card mechanics operate on `.id` generically
   task_id: number; // mapped from raw.id
   task_name: string; // mapped from raw.task_title
   contact_name?: string;
@@ -68,6 +69,10 @@ export interface Task {
   task_enddate?: string; // raw.task_enddate (end/due date)
   label_name?: string; // raw.label_name
   label_color?: string; // raw.label_color
+
+  // ── Checklist (subtasks) progress badge ────────────────────────────────
+  checklist_total?: number; // raw.checklist_total
+  checklist_done?: number; // raw.checklist_done
 
   // ── Feature 4: edit needs ITaskView shape ──────────────────────────────
   raw?: Record<string, unknown>; // full raw API object for edit modal
@@ -179,7 +184,13 @@ export interface TaskKanbanModalProps {
   onAssignTeamMember?: (task: Task) => void;
   onTimeline?: (task: Task) => void;
   onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onMarkRead?: (task: Task) => void;
+  onMarkUnread?: (task: Task) => void;
+  // support-ticket only — pass only when allowed, presence = shown
+  onChangeExternalStatus?: (task: Task) => void;
+  onConvertToTask?: (task: Task) => void;
   filterParams?: FilterParams;
   hasActiveFilter?: boolean;
   onOpenFilter?: () => void;

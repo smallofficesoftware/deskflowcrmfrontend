@@ -81,21 +81,27 @@ const ItemDetailSection = ({
   return (
     <div>
       <div className="row g-3 mb-3">
-        {/* Contact Card */}
-        <div className="col-md-6">
-          <Card title="👤 CUSTOMER DETAILS" color="#f58634">
-            <DetailRow icon="🏢" label="Name" value={contactDetail?.name} />
-            <DetailRow icon="📞" label="Phone" value={contactDetail?.phone} />
-            <DetailRow icon="📧" label="Email" value={contactDetail?.email} />
-            <DetailRow icon="🏙️" label="City" value={contactDetail?.city} />
-            <DetailRow
-              icon="📍"
-              label="Address"
-              value={contactDetail?.address}
-            />
-            <DetailRow icon="🧾" label="GST No" value={contactDetail?.gst_no} />
-          </Card>
-        </div>
+        {/* Contact Card — hidden for direct-product job cards (no customer) */}
+        {contactDetail?.name ? (
+          <div className="col-md-6">
+            <Card title="👤 CUSTOMER DETAILS" color="#f58634">
+              <DetailRow icon="🏢" label="Name" value={contactDetail?.name} />
+              <DetailRow icon="📞" label="Phone" value={contactDetail?.phone} />
+              <DetailRow icon="📧" label="Email" value={contactDetail?.email} />
+              <DetailRow icon="🏙️" label="City" value={contactDetail?.city} />
+              <DetailRow
+                icon="📍"
+                label="Address"
+                value={contactDetail?.address}
+              />
+              <DetailRow
+                icon="🧾"
+                label="GST No"
+                value={contactDetail?.gst_no}
+              />
+            </Card>
+          </div>
+        ) : null}
 
         {/* Item Card */}
         <div className="col-md-6">
@@ -115,7 +121,7 @@ const ItemDetailSection = ({
               icon="📊"
               label="Order Qty"
               value={
-                itemDetail
+                itemDetail && itemDetail.order_qty > 0
                   ? `${itemDetail.order_qty} ${itemDetail.unit}`
                   : undefined
               }
@@ -124,7 +130,7 @@ const ItemDetailSection = ({
               icon="⏳"
               label="Pending Qty"
               value={
-                itemDetail?.pending_qty != null
+                itemDetail?.pending_qty
                   ? `${itemDetail.pending_qty} ${itemDetail?.unit}`
                   : undefined
               }

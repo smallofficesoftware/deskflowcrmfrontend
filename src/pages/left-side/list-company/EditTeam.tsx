@@ -1010,6 +1010,31 @@ const EditTeamMemberView = ({
                             </div>
                           </div>
 
+                          {/* Date Of Birth */}
+                          <div className="col-4">
+                            <div className="form-group">
+                              <label className="pb-2 form_label">
+                                Date Of Birth
+                              </label>
+
+                              <Field
+                                type="date"
+                                name="date_of_birth"
+                                className={`form-control font-size-15 rounded-1 ${errors.date_of_birth &&
+                                    touched.date_of_birth
+                                    ? "is-invalid input-box-error"
+                                    : ""
+                                  }`}
+                              />
+
+                              <ErrorMessage
+                                name="date_of_birth"
+                                component="div"
+                                className="field-error text-danger"
+                              />
+                            </div>
+                          </div>
+
                           {/* Employee PF No */}
                           <div className="col-4">
                             <div className="form-group">
