@@ -481,7 +481,7 @@ const SidebarView = ({
                 ))}
               </div>
             )}
-            <hr style={{ margin: "6px 8px", borderColor: "#c9c9c9" }} />
+            <hr style={{ margin: "6px 8px", borderColor: "#767474" }} />
           </div>
         ))}
       </div>
