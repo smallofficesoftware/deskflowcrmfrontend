@@ -735,6 +735,20 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [user1, setUsers1] = useState(false);
 
   const [contInfo, setcontInfo] = useState<IUserList>();
+  // contInfo is a one-time snapshot taken when a row is clicked to open
+  // RightView - it never re-reads `user` on its own, so a status/label/
+  // assignee change made elsewhere (Kanban drag, another teammate) while
+  // the chat panel is open never reached the panel's header, which kept
+  // showing the stale value until closed and reopened. Re-sync it from the
+  // list's own copy whenever a refresh (including the contact-changed
+  // socket listener below) brings in fresh data.
+  useEffect(() => {
+    if (!contInfo?.id) return;
+    const fresh = user.find((item) => item.id === contInfo.id);
+    if (fresh && fresh !== contInfo) {
+      setcontInfo(fresh);
+    }
+  }, [user]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState<string>("");

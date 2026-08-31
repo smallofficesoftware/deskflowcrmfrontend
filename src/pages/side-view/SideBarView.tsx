@@ -72,14 +72,14 @@ const SidebarView = ({
     padding: "10px 15px",
     cursor: "pointer",
     fontWeight: "bold",
-    color: "rgb(245, 134, 52)",
+    color: "#4B4B4D",
   };
 
   const subMenuItemStyle = {
     padding: "8px 10px",
     cursor: "pointer",
     fontSize: "14px",
-    color: "#6b7280",
+    color: "#4B4B4D",
   };
 
   const menuData = reportsMenuData;
@@ -130,8 +130,8 @@ const SidebarView = ({
         width: isOpen ? "250px" : "70px",
         transition: "0.3s",
         height: "99vh",
-        background: "linear-gradient(180deg, #fff7f0 0%, #ffe9d6 100%)",
-        borderRight: "1px solid #f3c99b",
+        background: "#E1E1E1",
+        borderRight: "1px solid #c9c9c9",
         display: "flex",
         flexDirection: "column",
       }}
@@ -167,7 +167,7 @@ const SidebarView = ({
                 onClick={() => setIsOpen(false)}
                 style={{
                   border: "none",
-                  color: "#6b7280",
+                  color: "#4B4B4D",
                   width: "32px",
                   height: "32px",
                   borderRadius: "8px",
@@ -184,7 +184,7 @@ const SidebarView = ({
                   height="24px"
                   viewBox="0 -960 960 960"
                   width="24px"
-                  fill="#5f6368"
+                  fill="#4B4B4D"
                 >
                   <path d="M660-320v-320L500-480l160 160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z" />
                 </svg>
@@ -207,7 +207,7 @@ const SidebarView = ({
                   onClick={() => setIsOpen(true)}
                   style={{
                     border: "none",
-                    color: "#6b7280",
+                    color: "#4B4B4D",
                     width: "32px",
                     height: "32px",
                     borderRadius: "8px",
@@ -224,7 +224,7 @@ const SidebarView = ({
                     height="24px"
                     viewBox="0 -960 960 960"
                     width="24px"
-                    fill="#5f6368"
+                    fill="#4B4B4D"
                   >
                     <path d="M500-640v320l160-160-160-160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z" />
                   </svg>
@@ -267,7 +267,7 @@ const SidebarView = ({
                   height="24px"
                   viewBox="0 -960 960 960"
                   width="24px"
-                  fill="#5f6368"
+                  fill="#4B4B4D"
                 >
                   <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                 </svg>
@@ -326,7 +326,7 @@ const SidebarView = ({
           </svg>
         </div>
         {isOpen && (
-          <span style={{ fontWeight: "bold", color: "#d9631a" }}>
+          <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
             Insights
           </span>
         )}
@@ -377,7 +377,7 @@ const SidebarView = ({
           </svg>
         </div>
         {isOpen && (
-          <span style={{ fontWeight: "bold", color: "#d9631a" }}>
+          <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
             Smart Reports
           </span>
         )}
@@ -426,7 +426,7 @@ const SidebarView = ({
                       height="20px"
                       viewBox="0 -960 960 960"
                       width="20px"
-                      fill="#5f6368"
+                      fill="#4B4B4D"
                     >
                       <path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" />
                     </svg>
@@ -436,7 +436,7 @@ const SidebarView = ({
                       height="20px"
                       viewBox="0 -960 960 960"
                       width="20px"
-                      fill="#5f6368"
+                      fill="#4B4B4D"
                     >
                       <path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" />
                     </svg>
@@ -457,7 +457,7 @@ const SidebarView = ({
                       ...subMenuItemStyle,
                       background:
                         activeReport === sub.value
-                          ? "#e5e7eb"
+                          ? "#F5F5F5"
                           : hoveredSubMenu === sub.label
                             ? "#f3f4f6"
                             : "transparent",
@@ -481,6 +481,7 @@ const SidebarView = ({
                 ))}
               </div>
             )}
+            <hr style={{ margin: "6px 8px", borderColor: "#767474" }} />
           </div>
         ))}
       </div>

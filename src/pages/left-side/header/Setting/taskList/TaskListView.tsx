@@ -207,6 +207,22 @@ const TaskListView = ({
   const [isOpenTaskChatModel, setOpenTaskChatModel] = useState(false);
   // const [GetSingleTaskData, setGetSingleTaskData] = useState<number | null>(null);
   const [GetSingleTaskData, setGetSingleTaskData] = useState<ITaskView>();
+  // GetSingleTaskData is a one-time snapshot taken when a row is clicked to
+  // open TaskChatRightSide - it never re-reads targetVsIncentiveList on its
+  // own, so a status/label/assignee change made elsewhere (Kanban drag,
+  // another teammate) while the chat panel is open never reached the
+  // panel's header, which kept showing the stale value until closed and
+  // reopened. Re-sync it from the list's own copy whenever a refresh
+  // (including the task-changed socket listener below) brings in fresh data.
+  useEffect(() => {
+    if (!GetSingleTaskData?.id) return;
+    const fresh = targetVsIncentiveList.find(
+      (task) => task.id === GetSingleTaskData.id,
+    );
+    if (fresh && fresh !== GetSingleTaskData) {
+      setGetSingleTaskData(fresh);
+    }
+  }, [targetVsIncentiveList]);
   const [showDashBoard, setshowDashBoard] = useState(false);
 
   //priority filter
