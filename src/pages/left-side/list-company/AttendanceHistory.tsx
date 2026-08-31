@@ -398,6 +398,19 @@ const AttendanceHistory = ({
                                       }}
                                     >
                                       {item.in_status}
+                                      {/* actual_late_minutes is against the real shift
+                                          start time; late_minutes_after_grace is what
+                                          actually earned the "Late In" status above (0
+                                          while still inside the grace window even if
+                                          actual_late_minutes > 0). */}
+                                      {!!item.actual_late_minutes && (
+                                        <div style={{ fontSize: "12px", color: "#888" }}>
+                                          {item.actual_late_minutes} min late
+                                          {!!item.late_minutes_after_grace && (
+                                            <> ({item.late_minutes_after_grace} min after grace)</>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {item.out_status && (
