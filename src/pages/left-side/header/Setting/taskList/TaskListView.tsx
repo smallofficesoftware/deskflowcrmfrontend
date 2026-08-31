@@ -127,12 +127,21 @@ const TaskListView = ({
   // that matches a row we already have loaded means an edit to something
   // visible here (also refresh). An id for a task we don't currently have
   // loaded is skipped - a filter-changing edit to an off-screen task won't
-  // pull it into view until the next manual refresh, a known tradeoff.
-  useSocketEvent<{ id?: number }>("task-changed", (payload) => {
-    if (
-      !payload?.id ||
-      targetVsIncentiveList.some((task) => task.id === payload.id)
-    ) {
+  // pull it into view until the next manual refresh, a known tradeoff -
+  // EXCEPT when assigned_to (baseController.js's attachTaskAssignees) says
+  // it's now mine: this view can be filtered to "My Tasks", and a brand new
+  // assignment is exactly the case that was never loaded before (it wasn't
+  // mine, so it never showed here) - gating on the loaded-check alone would
+  // silently skip it.
+  useSocketEvent<{ id?: number; assigned_to?: number[] }>("task-changed", (payload) => {
+    if (!payload?.id) {
+      setRefreshTaskBothSide((tick) => tick + 1);
+      return;
+    }
+    const alreadyLoaded = targetVsIncentiveList.some((task) => task.id === payload.id);
+    const myLoginId = Number(localStorage.getItem("UUID"));
+    const isMine = !!payload.assigned_to?.includes(myLoginId);
+    if (alreadyLoaded || isMine) {
       setRefreshTaskBothSide((tick) => tick + 1);
     }
   });
