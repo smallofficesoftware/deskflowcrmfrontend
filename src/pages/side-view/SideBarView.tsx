@@ -304,7 +304,7 @@ const SidebarView = ({
             height: "30px",
             minWidth: "30px",
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #F58634, #F5A623)",
+            background: "rgb(245, 134, 52)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -359,7 +359,7 @@ const SidebarView = ({
             height: "30px",
             minWidth: "30px",
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #F58634, #F5A623)",
+            background: "rgb(245, 134, 52)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -464,7 +464,7 @@ const SidebarView = ({
                       borderRadius: "8px",
                       marginBottom: "3px",
                       transition: "0.2s",
-                      fontWeight: activeReport === sub.value ? "500" : "400",
+                      fontWeight: "500",
                     }}
                     onClick={() => {
                       if (sub.value === "reviews_report") {

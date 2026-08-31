@@ -226,7 +226,7 @@ const BottomView = ({
         overflowY: "auto",
         scrollbarWidth: "none",
         padding: "10px",
-        background: "rgb(255, 255, 255)",
+        background: "#F5F5F5",
         minHeight: "30vh",
         borderBottom: "5px solid rgb(245, 134, 52)",
         flexShrink: 0,

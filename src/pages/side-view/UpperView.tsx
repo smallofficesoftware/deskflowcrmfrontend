@@ -263,11 +263,11 @@ const UpperView = ({ profileDetail }: IProp) => {
             <div
                 style={{
                     height: "8vh",
-                    background: "#E1E1E1",
+                    background: "#F5F5F5",
                     borderBottom: "1px solid #c9c9c9",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
                     padding: "0px 11px 2px 10px",
                     flexShrink: 0,
                     marginBottom: "10px"
@@ -275,16 +275,53 @@ const UpperView = ({ profileDetail }: IProp) => {
             >
                 <style>{`
                     .sideview-add-contact-btn.contact-btn-search {
-                        background: linear-gradient(135deg, #F58634, #F5A623) !important;
+                        background: rgb(245, 134, 52) !important;
                         border-color: transparent !important;
                     }
                     .sideview-add-contact-btn.contact-btn-search:hover {
-                        background: linear-gradient(135deg, #e5762a, #e39515) !important;
+                        background: rgb(229, 118, 42) !important;
                     }
                     .sideview-add-contact-btn .contact-btn-search-text {
                         color: #fff !important;
                     }
                 `}</style>
+                {/* LEFT SIDE */}
+                <button
+                    onClick={() => navigate("/")}
+                    title="Back to Main Panel"
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        height: "34px",
+                        padding: "0 14px 0 10px",
+                        borderRadius: "20px",
+                        border: "1px solid #c9c9c9",
+                        background: "#fff",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "#4B4B4D",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#4B4B4D"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    Back to Main Panel
+                </button>
                 {/* RIGHT SIDE */}
                 <div
                     style={{
