@@ -350,7 +350,7 @@ const SideView = ({ profileDetail }: IProp) => {
           if (response.data.data.PinNumber === 0) {
             const timer = setTimeout(() => {
               setShowPinSetModel(true);
-            }, 10000);
+            }, 3000);
             return () => clearTimeout(timer);
           }
         } else {
