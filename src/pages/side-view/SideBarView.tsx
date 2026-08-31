@@ -457,7 +457,7 @@ const SidebarView = ({
                       ...subMenuItemStyle,
                       background:
                         activeReport === sub.value
-                          ? "#e5e7eb"
+                          ? "#F5F5F5"
                           : hoveredSubMenu === sub.label
                             ? "#f3f4f6"
                             : "transparent",
