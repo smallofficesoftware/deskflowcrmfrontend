@@ -8,6 +8,8 @@ import React, {
 } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import androidStoreIcon from "../../assets/images/android.png";
+import appleStoreIcon from "../../assets/images/appleIos.png";
 import CsvIcon from "../../assets/images/CsvIcon.png";
 import deshFlow_log_icon from "../../assets/images/deshFlow_log.png";
 import docxIcon from "../../assets/images/docxIcon.png";
@@ -6476,6 +6478,38 @@ const RightView = ({
                         )}
                       </div>
                     )}
+                    <div
+                      className="text-center btn-mt"
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <a
+                        href="https://apps.apple.com/in/app/deskflow-crm/id6757629548"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          height={32}
+                          alt="Download on the App Store"
+                          src={appleStoreIcon}
+                        />
+                      </a>
+                      <a
+                        href="https://play.google.com/store/apps/details?id=com.smalloffice"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          height={32}
+                          alt="Get it on Google Play"
+                          src={androidStoreIcon}
+                        />
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}
