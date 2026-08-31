@@ -1265,7 +1265,7 @@ const ReportModal: React.FC<IOrderCreateModal> = ({
                             selectedSeries={filters.checkedOptionsSeries}
                             title={
                               title[0]?.proforma_invoice_title ||
-                              "Profoma Invoice"
+                              "Proforma Invoice"
                             }
                             viewFormate={
                               title[0]?.proforma_invoice_view_formate || 1
