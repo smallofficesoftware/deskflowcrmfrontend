@@ -158,14 +158,6 @@ const Setting = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   }
-  // No PAGE_ID/rights entry yet (report_builder's page_id/a_application_pages
-  // wiring is deferred, per plan) — access control is entirely server-side
-  // (company_feature_flags.report_builder + the shared owner+PIN gate), so
-  // this tile is always reachable; the page itself surfaces whichever gate
-  // blocks a given login via toast.
-  function openReportBuilder() {
-    navigate("/report-builder");
-  }
   const [optionConfirmation, setOptionConfirmation] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showopenNotification, setShownNotification] = useState(false);
@@ -718,34 +710,6 @@ const Setting = ({
                       <div className="head">
                         <h4 title="Document Designer" aria-label="Document Designer">
                           Document Designer
-                        </h4>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="block ps-3" onClick={openReportBuilder}>
-                    <div className="icon-Box">
-                      <button className="icons-setings">
-                        <span
-                          data-icon="settings-notifications"
-                          className=""
-                          title="Report Builder"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            height="24px"
-                            viewBox="0 -960 960 960"
-                            width="24px"
-                            fill="currentColor"
-                          >
-                            <path d="M280-280h80v-200h-80v200Zm160 0h80v-360h-80v360Zm160 0h80v-120h-80v120ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Z" />
-                          </svg>
-                        </span>
-                      </button>
-                    </div>
-                    <div className="h-text">
-                      <div className="head">
-                        <h4 title="Report Builder" aria-label="Report Builder">
-                          Report Builder
                         </h4>
                       </div>
                     </div>
