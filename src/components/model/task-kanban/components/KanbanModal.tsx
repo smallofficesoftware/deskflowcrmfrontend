@@ -368,8 +368,20 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   // (also refresh). An id for a task not currently loaded here is skipped -
   // a filter-changing edit to an off-board task won't pull it in until the
   // next manual refresh, a known tradeoff.
-  useSocketEvent<{ id?: number }>("task-changed", (payload) => {
-    if (!payload?.id || isTaskIdLoaded(payload.id)) {
+  //
+  // assigned_to (when present - baseController.js's attachTaskAssignees,
+  // skipped for the no-id/new-task case above) further narrows this to
+  // only MY assignments - a company can have several team members' boards
+  // open at once, each only caring about their own cards, not every
+  // task-changed event company-wide (same pattern ContactKanbanBoard uses).
+  useSocketEvent<{ id?: number; assigned_to?: number[] }>("task-changed", (payload) => {
+    if (!payload?.id) {
+      refreshAllTasks();
+      return;
+    }
+    const myLoginId = Number(localStorage.getItem("UUID"));
+    const isMine = !payload.assigned_to || payload.assigned_to.includes(myLoginId);
+    if (isMine && isTaskIdLoaded(payload.id)) {
       refreshAllTasks();
     }
   });
