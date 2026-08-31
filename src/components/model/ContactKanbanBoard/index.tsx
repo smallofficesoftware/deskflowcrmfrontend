@@ -477,17 +477,17 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
     // Live sync: any teammate adding/editing/moving a contact (including via
     // the drag-to-move commonUpdate path) refreshes this board too - but
     // only when it's worth it: no id on the payload means a new contact
-    // (always refresh, it might belong on this board), and an id we already
-    // have loaded in some column means an edit to a visible card (also
-    // refresh). An id for a contact not currently loaded here is skipped -
-    // a filter-changing edit to an off-board contact won't pull it in until
-    // the next manual refresh, a known tradeoff.
+    // (always refresh, it might belong on this board).
     //
-    // assigned_to (when present - baseController.js's attachContactAssignees,
-    // skipped for the no-id/new-contact case above) further narrows this to
-    // only MY assignments - a company can have several team members' boards
-    // open at once, each only caring about their own cards, not every
-    // contact-changed event company-wide.
+    // assigned_to (present whenever an id is - baseController.js's
+    // attachContactAssignees) is authoritative for who this concerns, so
+    // when it's there we trust it alone: refresh whenever it's mine, loaded
+    // or not - a BRAND NEW assignment is exactly the case where the contact
+    // was never loaded before (I wasn't assigned, so my board never fetched
+    // it), so gating on isContactIdLoaded here would silently skip the one
+    // case that matters most. Only fall back to the loaded-check when
+    // assigned_to is somehow missing (payload enrichment failed) - can't
+    // tell relevance, so use "was it already visible" as a weaker proxy.
     useSocketEvent<{ id?: number; assigned_to?: number[] }>(
         "contact-changed",
         (payload) => {
@@ -495,9 +495,14 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                 refreshBoard();
                 return;
             }
-            const myLoginId = Number(localStorage.getItem("UUID"));
-            const isMine = !payload.assigned_to || payload.assigned_to.includes(myLoginId);
-            if (isMine && isContactIdLoaded(payload.id)) {
+            if (payload.assigned_to) {
+                const myLoginId = Number(localStorage.getItem("UUID"));
+                if (payload.assigned_to.includes(myLoginId)) {
+                    refreshBoard();
+                }
+                return;
+            }
+            if (isContactIdLoaded(payload.id)) {
                 refreshBoard();
             }
         },
