@@ -30,6 +30,7 @@ const UpperView = ({ profileDetail }: IProp) => {
 
     const [supportTicketFlag, setSupportTicketFlag] = useState(0);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [addMenuOpen, setAddMenuOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
     const [isOpenCreateModel, setIsCreateModel] = useState(false);
@@ -111,6 +112,7 @@ const UpperView = ({ profileDetail }: IProp) => {
     useEffect(() => {
         const handleClickOutside = () => {
             setDropdownOpen(false);
+            setAddMenuOpen(false);
         };
 
         document.addEventListener("click", handleClickOutside);
@@ -265,100 +267,24 @@ const UpperView = ({ profileDetail }: IProp) => {
                     borderBottom: "1px solid #c9c9c9",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent: "flex-end",
                     padding: "0px 11px 2px 10px",
                     flexShrink: 0,
                     marginBottom: "10px"
                 }}
             >
-                {/* LEFT SIDE */}
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                    }}
-                >
-                    <style>{`
-                        .sideview-add-contact-btn.contact-btn-search {
-                            background: linear-gradient(135deg, #F58634, #F5A623) !important;
-                            border-color: transparent !important;
-                        }
-                        .sideview-add-contact-btn.contact-btn-search:hover {
-                            background: linear-gradient(135deg, #e5762a, #e39515) !important;
-                        }
-                        .sideview-add-contact-btn .contact-btn-search-text {
-                            color: #fff !important;
-                        }
-                    `}</style>
-                    <button
-                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
-                        onClick={() => addReminder()}
-                    >
-                        <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#fff">
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-                            <span className="contact-btn-search-text">
-
-                                Add Reminder
-                            </span>
-                        </span>
-
-                    </button>
-                    <button
-                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
-                        onClick={() => handleChangeAddContact()}
-                    >
-                        <span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#fff">
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-                            <span className="contact-btn-search-text">
-
-                                Add Contact
-                            </span>
-                        </span>
-                    </button>
-                    <button
-                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
-                        onClick={() => openCreateTask(0)}
-                    >
-                        <span>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="20px"
-                                viewBox="0 -960 960 960"
-                                width="20px"
-                                fill="#fff"
-                            >
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-
-                            <span className="contact-btn-search-text">Add Task</span>
-                        </span>
-                    </button>
-
-                    <button
-                        className="btn ms-1 sideview-add-contact-btn contact-btn-search rounded-4 fw_500"
-                        onClick={() => openCreateTask(1)}
-                    >
-                        <span>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="20px"
-                                viewBox="0 -960 960 960"
-                                width="20px"
-                                fill="#fff"
-                            >
-                                <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                            </svg>
-
-                            <span className="contact-btn-search-text">Add Support Ticket</span>
-                        </span>
-                    </button>
-                </div>
-
+                <style>{`
+                    .sideview-add-contact-btn.contact-btn-search {
+                        background: linear-gradient(135deg, #F58634, #F5A623) !important;
+                        border-color: transparent !important;
+                    }
+                    .sideview-add-contact-btn.contact-btn-search:hover {
+                        background: linear-gradient(135deg, #e5762a, #e39515) !important;
+                    }
+                    .sideview-add-contact-btn .contact-btn-search-text {
+                        color: #fff !important;
+                    }
+                `}</style>
                 {/* RIGHT SIDE */}
                 <div
                     style={{
@@ -422,6 +348,93 @@ const UpperView = ({ profileDetail }: IProp) => {
                                 </span>
                             </div>
                         )}
+                        <div style={{ position: "relative" }}>
+                            <button
+                                className="btn sideview-add-contact-btn contact-btn-search"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAddMenuOpen(!addMenuOpen);
+                                }}
+                                style={{
+                                    borderRadius: "50%",
+                                    width: "40px",
+                                    height: "40px",
+                                    padding: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                                title="Add"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" height="22px" viewBox="0 -960 960 960" width="22px" fill="#fff">
+                                    <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                </svg>
+                            </button>
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: "50px",
+                                    right: "0",
+                                    zIndex: 1001,
+                                    display: addMenuOpen ? "block" : "none",
+                                }}
+                            >
+                                <ul
+                                    className="dropLeft"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        listStyle: "none",
+                                        margin: 0,
+                                        padding: "5px 0",
+                                        background: "#fff",
+                                        borderRadius: "10px",
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                        minWidth: "170px",
+                                    }}
+                                >
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={() => {
+                                            addReminder();
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        Add Reminder
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={() => {
+                                            handleChangeAddContact();
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        Add Contact
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={() => {
+                                            openCreateTask(0);
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        Add Task
+                                    </li>
+                                    <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={() => {
+                                            openCreateTask(1);
+                                            setAddMenuOpen(false);
+                                        }}
+                                    >
+                                        Add Support Ticket
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                         <div>
                             <button
                                 onClick={handleAttendance}
