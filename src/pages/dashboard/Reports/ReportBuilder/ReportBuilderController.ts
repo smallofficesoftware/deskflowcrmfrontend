@@ -307,7 +307,12 @@ export const exportReportPdf = async (
 
 export const runReportDefinition = async (
   id: number,
-  options?: { limit?: number; offset?: number },
+  options?: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    sort?: { column: string; direction: "ASC" | "DESC" };
+  },
 ): Promise<{ rows: any[]; row_count: number; duration_ms: number } | null> => {
   try {
     const { data } = await axiosInstance.post(`report-definitions/${id}/run`, {

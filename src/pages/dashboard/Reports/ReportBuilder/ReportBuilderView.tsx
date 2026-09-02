@@ -260,13 +260,29 @@ const ReportBuilderView: React.FC = () => {
     }
   };
 
-  const handleRun = async (definition: IReportDefinition) => {
+  const [runSearch, setRunSearch] = useState("");
+
+  const handleRun = async (definition: IReportDefinition, search?: string) => {
     setRunningId(definition.id);
     setRunResult(null);
-    const result = await runReportDefinition(definition.id);
+    const result = await runReportDefinition(definition.id, search ? { search } : undefined);
     setRunningId(null);
     if (result) setRunResult({ definitionId: definition.id, ...result });
   };
+
+  // Debounced re-run of whichever report's result is currently showing,
+  // same 300ms convention the rest of this app's search boxes already use
+  // (see inquiryView.tsx's own debouncedSearchText). Only fires once a
+  // report has actually been run at least once — search has nothing to
+  // filter before that.
+  useEffect(() => {
+    if (!runResult) return;
+    const activeDefinition = definitions.find((d) => d.id === runResult.definitionId);
+    if (!activeDefinition) return;
+    const handler = setTimeout(() => handleRun(activeDefinition, runSearch), 300);
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runSearch]);
 
   const runResultColumns = runResult && runResult.rows.length > 0 ? Object.keys(runResult.rows[0]) : [];
 
@@ -617,7 +633,14 @@ const ReportBuilderView: React.FC = () => {
                       <td>{def.type}</td>
                       <td>{def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key}</td>
                       <td style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-sm btn-outline-primary" disabled={runningId === def.id} onClick={() => handleRun(def)}>
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={runningId === def.id}
+                          onClick={() => {
+                            setRunSearch("");
+                            handleRun(def);
+                          }}
+                        >
                           {runningId === def.id ? "Running..." : "Run"}
                         </button>
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => handleEdit(def)}>
@@ -640,8 +663,17 @@ const ReportBuilderView: React.FC = () => {
                     {runResult && runResult.definitionId === def.id && (
                       <tr>
                         <td colSpan={4}>
-                          <div style={{ fontSize: 12, marginBottom: 4 }}>
-                            {runResult.row_count} row(s) &middot; {runResult.duration_ms}ms
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                            <span style={{ fontSize: 12 }}>
+                              {runResult.row_count} row(s) &middot; {runResult.duration_ms}ms
+                            </span>
+                            <input
+                              className="form-control form-control-sm"
+                              style={{ width: 200 }}
+                              placeholder="Search..."
+                              value={runSearch}
+                              onChange={(e) => setRunSearch(e.target.value)}
+                            />
                           </div>
                           {runResult.rows.length > 0 ? (
                             <div style={{ overflowX: "auto" }}>
