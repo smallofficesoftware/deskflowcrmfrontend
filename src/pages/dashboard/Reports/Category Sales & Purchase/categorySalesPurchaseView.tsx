@@ -18,7 +18,7 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { exportReportExcel } from "../../../../services/reportExportService";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -27,9 +27,7 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllCategoryWiseMovementData,
   fetchCategoryReport,
-  fetchCategoryWiseMomentForExport,
   ICategorySalesData,
 } from "./categorySalesPurchaseController";
 
@@ -698,77 +696,6 @@ const CategorySalesPurchaseReport = ({
     doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
   };
 
-  // Same shape as Category Pending: getCategorySales&Purchase returns
-  // separately-paginated raw arrays, pivoted client-side only - keep the
-  // existing fetch+pivot, swap just the workbook-building tail for the
-  // shared server-side generator (rows sent explicitly, no reportType
-  // registry entry needed).
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allData = await exportAllCategoryWiseMovementData(
-        (offset, limit) =>
-          fetchCategoryWiseMomentForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            debouncedSearchText,
-            filters.selectedContactId,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const rows: Record<string, any>[] = (
-        selectedCustomers.length > 0
-          ? selectedCustomers
-          : isFilterApplied()
-            ? customers
-            : dataArray
-      ).map((item) => {
-        const row: Record<string, any> = {};
-        visibleColumns.forEach((col) => {
-          row[col.key] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const totalsRow: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        totalsRow[col.key] =
-          col.key === "item_category_name"
-            ? "Total"
-            : calculateColumnTotals(rows, col.key);
-      });
-
-      await exportReportExcel({
-        reportType: "category_sales_purchase_report",
-        filters: {},
-        columns: visibleColumns,
-        fileName: "Category_Wise_Movement",
-        rows,
-        footer: { sums: [], rows: [totalsRow] },
-      });
-
-      toast.success("Excel exported successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to export category data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // const exportExcel = () => {
   //      const filteredData = getFilteredData();
@@ -1046,25 +973,36 @@ const CategorySalesPurchaseReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="category_sales_purchase_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Category_Wise_Movement"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedCustomers.length > 0
+                      ? [
+                          ...selectedCustomers,
+                          {
+                            item_category_name: "Total",
+                            quotation: calculateColumnTotals(selectedCustomers, "quotation"),
+                            salesorder: calculateColumnTotals(selectedCustomers, "salesorder"),
+                            salesinvoice: calculateColumnTotals(selectedCustomers, "salesinvoice"),
+                            purchaseorder: calculateColumnTotals(selectedCustomers, "purchaseorder"),
+                            purchaseinvoice: calculateColumnTotals(selectedCustomers, "purchaseinvoice"),
+                          },
+                        ]
+                      : selectedCustomers
+                  }
+                />
 
                 <li
                   className="listItem text-start"

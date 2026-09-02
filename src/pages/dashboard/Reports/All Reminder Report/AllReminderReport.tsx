@@ -1022,7 +1022,23 @@ const AllReminderReport = ({
                   canShare={canShare}
                   disabled={reminders.length === 0}
                   onSelect={() => setIsExportDropdownOpen(false)}
-                  selectedRows={selectedReminders}
+                  selectedRows={
+                    selectedReminders.length > 0
+                      ? [
+                          ...selectedReminders,
+                          {
+                            id: `Total Reminders: ${selectedReminders.length}`,
+                            contact_name: "",
+                            reminder_data_time: "",
+                            status_display: "",
+                            completed_date_time: "",
+                            assigned_to_name: "",
+                            created_by_username: "",
+                            remark: "",
+                          },
+                        ]
+                      : selectedReminders
+                  }
                 />
 
                 <li
