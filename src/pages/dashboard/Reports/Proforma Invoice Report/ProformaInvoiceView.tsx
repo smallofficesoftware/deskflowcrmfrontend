@@ -1464,7 +1464,7 @@ const ProformaInvoiceView = ({
                       selectedProduct: filters.selectedProductId,
                       selectedCategory: filters.selectedCategoryId,
                     }}
-                    columns={visibleColumns}
+                    columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
                     fileName="Proforma_Invoice_Report"
                     canShare={canShare}
                     disabled={customers.length === 0}
