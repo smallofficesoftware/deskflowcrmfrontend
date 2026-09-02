@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -15,9 +14,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -27,8 +26,6 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import AttendanceDayWiseDetails from "./AttendanceDayWiseDetails";
 import {
-  exportAllAttendanceData,
-  fetchAttendanceForExport,
   fetchAttendanceReport,
   IAttendanceHistory,
 } from "./AttendanceReportController";
@@ -736,138 +733,69 @@ const TeamAttendanceReportsView = ({
     doc.save(`team_attendance_${Date.now()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      let allAttendance: IAttendanceHistory[] = [];
-
-      // ✅ If rows are selected → use only selected rows
-      if (selectedCustomers.length > 0) {
-        allAttendance = selectedCustomers;
-      } else {
-        // Otherwise fetch all from backend
-        allAttendance = await exportAllAttendanceData(
-          (offset, limit) =>
-            fetchAttendanceForExport(
-              filters.selectedDateArray,
-              filters.checkedOptionsUser,
-              MobileToken,
-              getID,
-              MobileFlag,
-              offset,
-              limit,
-              debouncedSearchText,
-            ),
-          50,
-        );
-      }
-
-      if (!allAttendance.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const sortedDates = [...allDates].sort(
-        (a, b) => a.getTime() - b.getTime(),
-      );
-
-      const EXCEL_COL_WIDTH: Record<string, number> = {
-        username: 180,
-        total_working_hours: 160,
-        company_paid_leave: 140,
-        employee_paid_leave: 140,
-        paid_days_paid_hours: 160,
-        salary: 120,
-      };
-
-      const leadingColumns = visibleColumns.filter((c) => c.key === "username");
-      const trailingColumns = visibleColumns.filter(
-        (c) => c.key !== "username",
-      );
-
-      const headers = [
-        ...leadingColumns.map((col) => col.label),
-        ...sortedDates.map(formatDateDisplay),
-        ...trailingColumns.map((col) => col.label),
-      ];
-
-      const rows = (
-        selectedCustomers.length > 0 ? selectedCustomers : allAttendance
-      ).map((customer) => {
-        const row: any[] = leadingColumns.map(() => customer.username || "-");
-
-        sortedDates.forEach((date) => {
-          const formattedDate = formatDate(date);
-          const attendance = customer.attendanceData?.find(
-            (a) => a.date === formattedDate,
-          );
-
-          let cellValue = "-";
-          if (attendance) {
-            const status =
-              attendance.status === "L" && attendance.leave_type
-                ? `${attendance.status} (${attendance.leave_type})`
-                : attendance.status;
-            const times =
-              attendance.messages
-                ?.filter((m) => m.attendanceDate === formattedDate)
-                .map((m) => m.attendanceTime) || [];
-
-            cellValue = status;
-            if (times.length) {
-              const pairs: string[] = [];
-              for (let i = 0; i < times.length; i += 2) {
-                pairs.push(times.slice(i, i + 2).join(" - "));
-              }
-              cellValue += ` (${pairs.join(", ")})`;
-            }
-          }
-
-          row.push(cellValue);
-        });
-
-        trailingColumns.forEach((col) => {
-          row.push(getExportCellValue(col, customer));
-        });
-
-        return row;
-      });
-
-      const worksheet = xlsx.utils.aoa_to_sheet([headers, ...rows]);
-
-      worksheet["!cols"] = [
-        ...leadingColumns.map(() => ({ wpx: EXCEL_COL_WIDTH.username })),
-        ...sortedDates.map(() => ({ wpx: 110 })),
-        ...trailingColumns.map((col) => ({
-          wpx: EXCEL_COL_WIDTH[col.key] ?? 140,
-        })),
-      ];
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      saveAsExcelFile(excelBuffer, "Team_Attendance_Report");
-
-      toast.success("Attendance Excel exported successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to export attendance data");
-    } finally {
-      setLoading(false);
-    }
+  // Export interleaves one column PER DATE in the selected range, which
+  // useColumnPreferences (fixed summary columns) can't express - build the
+  // export column list dynamically instead, matching the on-screen layout
+  // (username, then a column per date, then the rest).
+  const buildAttendanceExportColumns = () => {
+    const leadingColumns = visibleColumns.filter((c) => c.key === "username");
+    const trailingColumns = visibleColumns.filter((c) => c.key !== "username");
+    const sortedDates = [...allDates].sort((a, b) => a.getTime() - b.getTime());
+    return [
+      ...leadingColumns.map((col) => ({ key: col.key, label: col.label })),
+      ...sortedDates.map((date) => ({
+        key: formatDate(date),
+        label: formatDateDisplay(date),
+      })),
+      ...trailingColumns.map((col) => ({ key: col.key, label: col.label })),
+    ];
   };
 
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(data, `${fileName}_export_${Date.now()}${EXCEL_EXTENSION}`);
+  // Grid-selection export never reaches the server's DB fetch (rows are
+  // sent as-is), so the per-date flattening the backend does for a normal
+  // fetch has to happen here too, ported straight from the old exportExcel.
+  const flattenAttendanceForExport = (
+    customer: IAttendanceHistory,
+  ): Record<string, string> => {
+    const trailingColumns = visibleColumns.filter((c) => c.key !== "username");
+    const sortedDates = [...allDates].sort((a, b) => a.getTime() - b.getTime());
+    const row: Record<string, string> = { username: customer.username || "-" };
+
+    sortedDates.forEach((date) => {
+      const formattedDate = formatDate(date);
+      const attendance = customer.attendanceData?.find(
+        (a) => a.date === formattedDate,
+      );
+
+      let cellValue = "-";
+      if (attendance) {
+        const status =
+          attendance.status === "L" && attendance.leave_type
+            ? `${attendance.status} (${attendance.leave_type})`
+            : attendance.status;
+        const times =
+          attendance.messages
+            ?.filter((m) => m.attendanceDate === formattedDate)
+            .map((m) => m.attendanceTime) || [];
+
+        cellValue = status;
+        if (times.length) {
+          const pairs: string[] = [];
+          for (let i = 0; i < times.length; i += 2) {
+            pairs.push(times.slice(i, i + 2).join(" - "));
+          }
+          cellValue += ` (${pairs.join(", ")})`;
+        }
+      }
+
+      row[formattedDate] = cellValue;
+    });
+
+    trailingColumns.forEach((col) => {
+      row[col.key] = getExportCellValue(col, customer);
+    });
+
+    return row;
   };
 
   const printTable = () => {
@@ -1115,25 +1043,24 @@ const TeamAttendanceReportsView = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="attendance_report"
+                filters={{
+                  selectedDates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={buildAttendanceExportColumns()}
+                fileName="Team_Attendance_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={
+                  selectedCustomers.length > 0
+                    ? selectedCustomers.map(flattenAttendanceForExport)
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"
