@@ -155,6 +155,36 @@ export const listReportDefinitions = async (): Promise<IReportDefinition[]> => {
   }
 };
 
+// Trimmed, run-only shape — build internals (columns_json/filters_json/
+// group_by_json) stay private to the owner+PIN listReportDefinitions.
+export interface IRunnableReportDefinition {
+  id: number;
+  name: string;
+  type: string;
+  category: string | null;
+  description: string | null;
+  model_key: string | null;
+  plugin_key: string | null;
+}
+
+// "Custom Reports" (ReportsTileView's dynamic section) — visibility is
+// per-report_definition_team_rights grant only (Step 7), no page-level
+// fallback: a login sees exactly the reports it's been explicitly granted,
+// nothing else. No PIN needed to browse/run, only to build.
+export const listRunnableReportDefinitions = async (): Promise<IRunnableReportDefinition[]> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/list-runnable", {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load reports");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load reports");
+    return [];
+  }
+};
+
 export interface ISystemReportDefinition {
   id: number;
   name: string;

@@ -1,6 +1,11 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import {
+  IRunnableReportDefinition,
+  listRunnableReportDefinitions,
+} from "../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import { ReportIcon } from "./reportIcons";
 import { reportsMenuData } from "./reportsMenuData";
 
@@ -12,8 +17,30 @@ interface IProps {
 }
 
 const ReportsTileView = ({ onReportClick }: IProps) => {
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
   const { permissions } = useContext(AppContext)!;
+
+  // "Custom Reports" — the dynamic, per-tenant section (Report Builder's
+  // report_definitions, both the owner's own and any copied from the
+  // system gallery). Visibility is per-report_definition_team_rights grant
+  // only (Step 7 of the plan) — the backend already returns exactly what
+  // this login is allowed to see, nothing further to filter client-side.
+  // A separate fetch from the static reportsMenuData tiles above, not
+  // merged into that data shape — reportsMenuData stays untouched.
+  const [customReports, setCustomReports] = useState<IRunnableReportDefinition[]>([]);
+  const [loadingCustomReports, setLoadingCustomReports] = useState(true);
+
+  useEffect(() => {
+    listRunnableReportDefinitions().then((rows) => {
+      setCustomReports(rows);
+      setLoadingCustomReports(false);
+    });
+  }, []);
+
+  const filteredCustomReports = customReports.filter((r) =>
+    !searchValue || r.name.toLowerCase().includes(searchValue.toLowerCase()),
+  );
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -191,6 +218,91 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
           </div>
         </div>
       ))}
+
+      {!loadingCustomReports && (filteredCustomReports.length > 0 || (!searchValue && customReports.length === 0)) && (
+        <div style={{ marginBottom: "32px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              color: "#8a8a8a",
+              textTransform: "uppercase",
+              marginBottom: "12px",
+            }}
+          >
+            Custom Reports
+          </div>
+          {customReports.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: "13px" }}>No reports available yet.</div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {filteredCustomReports.map((def) => (
+                <button
+                  key={def.id}
+                  type="button"
+                  className="report-tile"
+                  onClick={() => navigate(`/report-builder/run/${def.id}`)}
+                  style={{
+                    textAlign: "left",
+                    padding: "16px",
+                    borderRadius: "10px",
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: def.description ? "8px" : 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        background: THEME_TINT,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <ReportIcon name="report" size={16} color={THEME_COLOR} />
+                    </div>
+                    <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
+                      {def.name}
+                    </span>
+                  </div>
+                  {def.description && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "12px",
+                        lineHeight: 1.5,
+                        color: "#8a8a8a",
+                      }}
+                    >
+                      {def.description}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

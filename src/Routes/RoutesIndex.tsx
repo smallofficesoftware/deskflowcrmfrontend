@@ -40,6 +40,7 @@ import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/Bom
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import ReportRunnerView from "../pages/dashboard/Reports/ReportBuilder/ReportRunnerView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
@@ -256,6 +257,10 @@ const RoutesIndex = () => {
             <Route
               path="/report-builder"
               element={<ReportBuilderView />}
+            />
+            <Route
+              path="/report-builder/run/:id"
+              element={<ReportRunnerView />}
             />
             <Route
               path="/custom-field/designer-page-sources"

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import noImage from "../../../../assets/images/no_image.jpeg";
+import { AppContext } from "../../../../common/AppContext";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import ReportModal from "../../../../components/model/ReportsModel";
@@ -154,6 +155,28 @@ const Setting = ({
   function openDocumentDesigner() {
     if (canViewDocumentDesigner) {
       navigate("/document-designer");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
+
+  // Owner-only, deliberately NOT the same view-right check Document
+  // Designer's own entry uses above — page-159 `view` is also exactly what
+  // a non-owner needs granted just to browse "Custom Reports" (the run
+  // screen), a completely different surface. Gating this on that same flag
+  // would show the build UI's menu entry to someone who only has view
+  // access for running reports, not building them. companyFlag (1 = owner,
+  // 2 = joined member — same convention reportPinAuth.js's isCompanyOwner
+  // already uses server-side) is already populated in AppContext at app
+  // load, no extra network call needed. Revisit back to a rights-based
+  // check once non-owner create/edit rights are un-deferred (see the
+  // plan's Step 6) — at that point `add`/`edit` would be the right gate,
+  // still distinct from Custom Reports' own `view`-based visibility.
+  const appContext = useContext(AppContext);
+  const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
+  function openReportBuilder() {
+    if (isCompanyOwnerForReportBuilder) {
+      navigate("/report-builder");
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
@@ -714,6 +737,32 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
+                  {isCompanyOwnerForReportBuilder && (
+                    <div className="block ps-3" onClick={openReportBuilder}>
+                      <div className="icon-Box">
+                        <button className="icons-setings">
+                          <span data-icon="settings-notifications" className="" title="Report Builder">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              height="24px"
+                              viewBox="0 -960 960 960"
+                              width="24px"
+                              fill="currentColor"
+                            >
+                              <path d="M120-120v-80h720v80H120Zm80-160v-280h100v280H200Zm160 0v-440h100v440H360Zm160 0v-360h100v360H520Zm160 0v-200h100v200H680Z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="h-text">
+                        <div className="head">
+                          <h4 title="Report Builder" aria-label="Report Builder">
+                            Report Builder
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="block ps-3" onClick={openInsights}>
                     <div className="icon-Box">
                       <button className="icons-setings">
