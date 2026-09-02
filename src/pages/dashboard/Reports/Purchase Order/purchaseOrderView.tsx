@@ -1503,7 +1503,11 @@ const TeamPurchaseOrderDataReportsView = ({
                       canShare={canShare}
                       disabled={customers.length === 0}
                       onSelect={() => setIsExportDropdownOpen(false)}
-                      selectedRows={selectedCustomers}
+                      selectedRows={selectedCustomers.map((item) => ({
+                        ...item,
+                        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
+                        to_customer_name: `${item.to_customer_company_name || ""}(${item.to_customer_name || "-"})`,
+                      }))}
                       footer={{
                         sums: [
                           { outputKey: "taxable_amt", sourceKey: "taxable_amt_wo_c" },

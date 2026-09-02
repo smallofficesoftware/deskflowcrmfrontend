@@ -558,7 +558,14 @@ const TeamSalesOrderDataReportsView = ({
         },
         columns: [...visibleColumns, ...EXTRA_EXPORT_COLUMNS],
         fileName: "Detailed_Order_Report",
-        rows: selectedCustomers.length > 0 ? selectedCustomers : undefined,
+        rows:
+          selectedCustomers.length > 0
+            ? selectedCustomers.map((item) => ({
+                ...item,
+                cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
+                to_customer_name: `${item.to_customer_company_name || ""}(${item.to_customer_name || "-"})`,
+              }))
+            : undefined,
       });
     } catch (e) {
       console.error(e);
