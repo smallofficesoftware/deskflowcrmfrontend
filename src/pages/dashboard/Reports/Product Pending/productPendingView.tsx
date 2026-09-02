@@ -18,7 +18,7 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { exportReportExcel } from "../../../../services/reportExportService";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -29,11 +29,7 @@ import {
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import {
-  exportAllProductPendingData,
-  fetchProductPendingForExport,
-  fetchProductReport,
-} from "./productPendingController";
+import { fetchProductReport } from "./productPendingController";
 
 export interface IProductSalesData {
   item_product_id: number;
@@ -996,72 +992,6 @@ const ProductPendingView = ({
   //   saveAsExcelFile(excelBuffer, "product_sales_purchase_pending");
   // };
 
-  // Same shape as Category Pending: backend endpoint returns separately-
-  // paginated raw arrays, pivoted client-side only - keep the existing
-  // fetch+pivot, swap the workbook-building tail for the shared
-  // server-side generator (rows sent explicitly, no reportType registry
-  // entry needed). The original totals row referenced column labels
-  // ("Quotation", "Order", "Invoice"...) that don't match this report's
-  // actual columns (salesorder/salesinvoice/purchaseorder/purchaseinvoice/
-  // pending_sales/pending_purchase) - it was already dead/no-op before
-  // this change, so it's dropped rather than migrated.
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await exportAllProductPendingData(
-        (offset, limit) =>
-          fetchProductPendingForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            debouncedSearchText,
-            filters.selectedContactId,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const rows = (
-        selectedCustomers.length > 0
-          ? selectedCustomers
-          : isFilterApplied()
-            ? customers
-            : dataArray
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.key] = getExportCellValue(col, item, "excel");
-        });
-        return row;
-      });
-
-      await exportReportExcel({
-        reportType: "product_pending_report",
-        filters: {},
-        columns: visibleColumns,
-        fileName: "Product_Pending_Report",
-        rows,
-      });
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const printTable = () => {
     const dataToExport =
@@ -1290,25 +1220,22 @@ const ProductPendingView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="product_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Product_Pending_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

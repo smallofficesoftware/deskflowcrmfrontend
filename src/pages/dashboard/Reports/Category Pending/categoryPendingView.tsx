@@ -18,7 +18,7 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { exportReportExcel } from "../../../../services/reportExportService";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -27,9 +27,7 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllCategoryPendingData,
   fetchCategoryReport,
-  fetchCategoryWisePendingForExport,
   ICategorySalesData,
 } from "./categoryPendingController";
 
@@ -734,76 +732,6 @@ const CategoryPendingReport = ({
     doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
   };
 
-  // This report's backend endpoint (getCategorySales&Purchase) returns 5
-  // separately-paginated raw arrays (quotation/salesOrder/salesInvoice/
-  // purchaseInvoice/purchaseOrder), pivoted into one row per category only
-  // client-side (pivotData in categoryPendingController.ts) - the generic
-  // export registry's page-length pagination loop can't drive that shape,
-  // so this keeps its own fetch+pivot, and only swaps the workbook-building
-  // tail for the shared server-side generator (rows sent explicitly rather
-  // than a reportType+filters DB fetch).
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allData = await exportAllCategoryPendingData(
-        (offset, limit) =>
-          fetchCategoryWisePendingForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            debouncedSearchText,
-            filters.selectedContactId,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const rows: Record<string, any>[] = (
-        selectedCustomers.length > 0 ? selectedCustomers : allData
-      ).map((item) => {
-        const row: Record<string, any> = {};
-        visibleColumns.forEach((col) => {
-          row[col.key] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const totalsRow: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        totalsRow[col.key] =
-          col.key === "item_category_name"
-            ? "Total"
-            : calculateColumnTotals(rows, col.key);
-      });
-
-      await exportReportExcel({
-        reportType: "category_pending_report",
-        filters: {},
-        columns: visibleColumns,
-        fileName: "category_wise_Pending",
-        rows,
-        footer: { sums: [], rows: [totalsRow] },
-      });
-
-      toast.success("Excel exported successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to export category data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // const exportExcel = () => {
   //    const filteredData = getFilteredData();
@@ -1079,25 +1007,37 @@ const CategoryPendingReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="category_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="category_wise_Pending"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedCustomers.length > 0
+                      ? [
+                          ...selectedCustomers,
+                          {
+                            item_category_name: "Total",
+                            salesorder: calculateColumnTotals(selectedCustomers, "salesorder"),
+                            salesinvoice: calculateColumnTotals(selectedCustomers, "salesinvoice"),
+                            pending_sales: calculateColumnTotals(selectedCustomers, "pending_sales"),
+                            purchaseorder: calculateColumnTotals(selectedCustomers, "purchaseorder"),
+                            purchaseinvoice: calculateColumnTotals(selectedCustomers, "purchaseinvoice"),
+                            pending_purchase: calculateColumnTotals(selectedCustomers, "pending_purchase"),
+                          },
+                        ]
+                      : selectedCustomers
+                  }
+                />
 
                 <li
                   className="listItem text-start"

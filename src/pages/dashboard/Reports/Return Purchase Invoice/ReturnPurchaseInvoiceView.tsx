@@ -1191,6 +1191,34 @@ const TeamReturnPurchaseDataReportsView = ({
     resetColumns,
   } = useColumnPreferences("return_purchase_invoice_report", baseColumnDefs);
 
+  // Relabels a few columns for export (document-type-specific number
+  // column, currency-suffixed money columns) and appends 3 export-only
+  // columns not shown on screen - ported from the old client-side
+  // exportExcel's per-report relabeling.
+  const cartExportColumns = visibleColumns
+    .map((col) => ({
+      key: col.key,
+      label:
+        col.key === "cart_number"
+          ? `${title} Number`
+          : col.key === "taxable_amt"
+            ? `Taxable Amount (${currencyName})`
+            : col.key === "gst_amt"
+              ? `Tax Amount (${currencyName})`
+              : col.key === "tcs_amt"
+                ? `TCS Amount (${currencyName})`
+                : col.key === "round_off"
+                  ? `Round Off (${currencyName})`
+                  : col.key === "grand_total"
+                    ? `Grand Total (${currencyName})`
+                    : col.label,
+    }))
+    .concat([
+      { key: "to_customer_phone", label: "Customer Phone" },
+      { key: "to_customer_company_name", label: "Company Name" },
+      { key: "is_approve.name", label: "Approval Status" },
+    ]);
+
   const getExportCellValue = (
     col: CartColumnDef,
     item: any,
@@ -1558,7 +1586,7 @@ const TeamReturnPurchaseDataReportsView = ({
                         selectedProduct: filters.selectedProductId,
                         selectedCategory: filters.selectedCategoryId,
                       }}
-                      columns={visibleColumns}
+                      columns={cartExportColumns}
                       fileName="Return_Purchase_Invoice_Report"
                       canShare={canShare}
                       disabled={customers.length === 0}
