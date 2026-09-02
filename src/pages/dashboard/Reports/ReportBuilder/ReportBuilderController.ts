@@ -58,6 +58,7 @@ export interface IReportDefinition {
   columns_json: string;
   filters_json: string | null;
   group_by_json: string | null;
+  source_system_report_definition_id?: number | null;
   created_date_time: string;
 }
 
@@ -151,6 +152,55 @@ export const listReportDefinitions = async (): Promise<IReportDefinition[]> => {
   } catch (error) {
     handleError(error, "Failed to load saved reports");
     return [];
+  }
+};
+
+export interface ISystemReportDefinition {
+  id: number;
+  name: string;
+  type: string;
+  category: string | null;
+  description: string | null;
+  priority: "critical" | "high" | "normal" | null;
+}
+
+// "Browse Report Library" gallery — flag-only, no PIN (same tier Document
+// Designer's own system-gallery/list uses, see documentPrintTemplateRouter.js).
+export const listSystemReportDefinitions = async (): Promise<ISystemReportDefinition[]> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/system-gallery/list", {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load report library");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load report library");
+    return [];
+  }
+};
+
+// Copying is a build action (writes a new report_definitions row) so it's
+// PIN-gated, same tier as create — the caller must already have a valid
+// x-report-pin-token, same as every other build route.
+export const copyFromSystemReportDefinition = async (
+  systemReportDefinitionId: number,
+): Promise<IReportDefinition | null> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/system-gallery/copy", {
+      a_application_login_id: loginId(),
+      company_masters_id: companyMastersId(),
+      system_report_definition_id: systemReportDefinitionId,
+    });
+    if (data?.ack === 1) {
+      toast.success("Report added to your company");
+      return data.data.item;
+    }
+    reportError(data, "Failed to add report");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to add report");
+    return null;
   }
 };
 

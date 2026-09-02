@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PromptModal from "../../../../components/model/PromptModal";
 import {
+  copyFromSystemReportDefinition,
   createReportDefinition,
   deleteReportDefinition,
   exportReportExcel,
@@ -14,7 +15,9 @@ import {
   IPluginRegistryEntry,
   IReportColumn,
   IReportDefinition,
+  ISystemReportDefinition,
   listReportDefinitions,
+  listSystemReportDefinitions,
   runReportDefinition,
   updateReportDefinition,
   verifyReportPin,
@@ -88,6 +91,11 @@ const ReportBuilderView: React.FC = () => {
   const [exportingId, setExportingId] = useState<number | null>(null);
   const [templatesForDef, setTemplatesForDef] = useState<IReportDefinition | null>(null);
 
+  const [showGallery, setShowGallery] = useState(false);
+  const [galleryReports, setGalleryReports] = useState<ISystemReportDefinition[]>([]);
+  const [loadingGallery, setLoadingGallery] = useState(false);
+  const [copyingId, setCopyingId] = useState<number | null>(null);
+
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
@@ -104,6 +112,42 @@ const ReportBuilderView: React.FC = () => {
   useEffect(() => {
     if (pinVerified) loadBuildData();
   }, [pinVerified]);
+
+  const openGallery = async () => {
+    setShowGallery(true);
+    setLoadingGallery(true);
+    const rows = await listSystemReportDefinitions();
+    setGalleryReports(rows);
+    setLoadingGallery(false);
+  };
+
+  // "Already Added" — checked against this company's own report_definitions
+  // via the source link every copy already carries, not a separate API call.
+  const alreadyAddedIds = new Set(
+    definitions
+      .map((d) => d.source_system_report_definition_id)
+      .filter((id): id is number => !!id),
+  );
+
+  const handleCopyFromGallery = async (systemReportDefinitionId: number) => {
+    setCopyingId(systemReportDefinitionId);
+    const created = await copyFromSystemReportDefinition(systemReportDefinitionId);
+    setCopyingId(null);
+    if (created) {
+      loadBuildData();
+      // Badge-only, re-copying is still allowed (Step 1's decision) — the
+      // modal stays open so the owner can add several at once.
+    }
+  };
+
+  // {category -> reports[]} — a company builds their own reports across
+  // many categories, so grouping the gallery the same way the PDF's own
+  // 15 sections are organized makes the picker scannable, not one flat list.
+  const galleryByCategory = galleryReports.reduce<Record<string, ISystemReportDefinition[]>>((acc, g) => {
+    const key = g.category || "Other";
+    (acc[key] = acc[key] || []).push(g);
+    return acc;
+  }, {});
 
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
@@ -263,7 +307,12 @@ const ReportBuilderView: React.FC = () => {
 
           {/* --- build form --- */}
           <div className="card p-3 mb-4">
-            <h6>{store.editingId ? "Edit Report" : "New Report"}</h6>
+            <div className="d-flex justify-content-between align-items-center">
+              <h6>{store.editingId ? "Edit Report" : "New Report"}</h6>
+              <button className="btn btn-sm btn-outline-primary" onClick={openGallery}>
+                Browse Report Library
+              </button>
+            </div>
 
             <div className="row g-2 mb-2 align-items-center">
               <div className="col-md-3">
@@ -627,6 +676,58 @@ const ReportBuilderView: React.FC = () => {
             </table>
           </div>
         </>
+      )}
+
+      {showGallery && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 480, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>System Report Library</h5>
+              <span className="close" onClick={() => setShowGallery(false)}>&times;</span>
+            </div>
+            {loadingGallery && <p>Loading...</p>}
+            {!loadingGallery && galleryReports.length === 0 ? <p>No reports in the library yet.</p> : null}
+            {Object.entries(galleryByCategory).map(([category, reports]) => (
+              <div key={category} className="mb-3">
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{category}</div>
+                <hr style={{ margin: "4px 0 8px" }} />
+                {reports.map((g) => {
+                  const alreadyAdded = alreadyAddedIds.has(g.id);
+                  return (
+                    <div key={g.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                      <div>
+                        <div style={{ fontWeight: 600 }}>
+                          {g.name}
+                          {alreadyAdded && (
+                            <span className="badge bg-light text-dark ms-2" style={{ fontSize: 10 }}>
+                              Already Added
+                            </span>
+                          )}
+                          {g.priority && (
+                            <span
+                              className={`badge ms-2 ${g.priority === "critical" ? "bg-danger" : g.priority === "high" ? "bg-warning text-dark" : "bg-secondary"}`}
+                              style={{ fontSize: 10 }}
+                            >
+                              {g.priority}
+                            </span>
+                          )}
+                        </div>
+                        {g.description && <div style={{ fontSize: 11, color: "#888" }}>{g.description}</div>}
+                      </div>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        disabled={copyingId === g.id}
+                        onClick={() => handleCopyFromGallery(g.id)}
+                      >
+                        {copyingId === g.id ? "Adding..." : "Use This"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {templatesForDef && (
