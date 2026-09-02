@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import PromptModal from "../../../../components/model/PromptModal";
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
   deleteReportDefinition,
-  exportReportExcel,
   exportReportPdf,
   getMetricsRegistry,
   getModelRegistry,
@@ -286,11 +286,39 @@ const ReportBuilderView: React.FC = () => {
 
   const runResultColumns = runResult && runResult.rows.length > 0 ? Object.keys(runResult.rows[0]) : [];
 
-  const handleExportExcel = async (definition: IReportDefinition) => {
-    setExportingId(definition.id);
-    const url = await exportReportExcel(definition.id);
-    setExportingId(null);
-    if (url) window.open(url, "_blank");
+  // Same key-derivation queryEngine.js's own resolveDisplayColumns() uses
+  // server-side (aggregate ? alias || `${aggregate}_${column}` : column) —
+  // kept in sync by hand since this is a client-side mirror for the export
+  // column list, not a shared module. showInGrid/showInExcel/showTotal
+  // per-column flags aren't in columns_json yet (a build-form addition,
+  // not built this pass) — every selected column is offered to Excel for
+  // now, same as the old exportReportExcel path already did.
+  const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const buildExportColumns = (definition: IReportDefinition): { key: string; label: string }[] => {
+    try {
+      const columns = JSON.parse(definition.columns_json || "[]");
+      if (Array.isArray(columns) && columns.length > 0) {
+        return columns.map((c: any) => {
+          // composite-type columns_json is a plain array of metric-key
+          // strings, not {column,aggregate?} objects — same "shape varies
+          // by type" precedent the backend already documents.
+          if (typeof c === "string") return { key: c, label: humanize(c) };
+          const key = c.aggregate ? c.alias || `${c.aggregate}_${c.column}` : c.column;
+          return { key, label: c.label || humanize(key) };
+        });
+      }
+    } catch {
+      // fall through to the sample-row fallback below
+    }
+    // plugin-type definitions always save columns_json as [] (no
+    // per-column config UI for that type yet, see the build form's own
+    // comment) — same graceful degradation the backend's
+    // resolveDisplayColumns() already has: derive columns from whatever
+    // keys the currently-shown preview row actually has, if there is one.
+    if (runResult && runResult.definitionId === definition.id && runResult.rows.length > 0) {
+      return Object.keys(runResult.rows[0]).map((key) => ({ key, label: humanize(key) }));
+    }
+    return [];
   };
 
   const handleExportPdf = async (definition: IReportDefinition) => {
@@ -649,9 +677,20 @@ const ReportBuilderView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(def)}>
                           Delete
                         </button>
-                        <button className="btn btn-sm btn-outline-success" disabled={exportingId === def.id} onClick={() => handleExportExcel(def)}>
-                          Excel
-                        </button>
+                        {/* display:contents keeps this <li> from breaking the flex
+                            button row's layout while staying valid HTML (a plain
+                            <li> outside a <ul>/<ol> renders fine in every browser
+                            but isn't valid markup) — same component every legacy
+                            report's own export dropdown already uses. */}
+                        <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
+                          <ExportExcelMenuItem
+                            reportType="report_builder"
+                            filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
+                            columns={buildExportColumns(def)}
+                            fileName={def.name}
+                            disabled={buildExportColumns(def).length === 0}
+                          />
+                        </ul>
                         <button className="btn btn-sm btn-outline-dark" disabled={exportingId === def.id} onClick={() => handleExportPdf(def)}>
                           PDF / Print
                         </button>
