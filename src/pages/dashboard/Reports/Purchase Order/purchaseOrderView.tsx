@@ -1498,7 +1498,7 @@ const TeamPurchaseOrderDataReportsView = ({
                         selectedProduct: filters.selectedProductId,
                         selectedCategory: filters.selectedCategoryId,
                       }}
-                      columns={visibleColumns}
+                      columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
                       fileName="Purchase_Order_Report"
                       canShare={canShare}
                       disabled={customers.length === 0}

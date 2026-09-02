@@ -556,7 +556,7 @@ const TeamSalesOrderDataReportsView = ({
           selectedSeries,
           selectedContactId,
         },
-        columns: visibleColumns,
+        columns: [...visibleColumns, ...EXTRA_EXPORT_COLUMNS],
         fileName: "Detailed_Order_Report",
         rows: selectedCustomers.length > 0 ? selectedCustomers : undefined,
       });

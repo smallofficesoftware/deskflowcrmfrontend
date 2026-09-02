@@ -1340,7 +1340,7 @@ const TeamDispatchDataReportsView = ({
                         selectedProduct: filters.selectedProductId,
                         selectedCategory: filters.selectedCategoryId,
                       }}
-                      columns={visibleColumns}
+                      columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
                       fileName="Dispatch_Report"
                       canShare={canShare}
                       disabled={customers.length === 0}
