@@ -23,8 +23,9 @@ import {
 //
 // Reuses the same DataTable + virtualScrollerOptions (scroll-load) +
 // onSort pattern every legacy report already uses (see inquiryView.tsx) —
-// not a bespoke table. Row-level per-column filters, ColumnsButton, and
-// AppliedFilterBar aren't wired in yet (Step 5's remaining pieces).
+// not a bespoke table. Free-text search is wired in too. Row-level
+// per-column filters, ColumnsButton, and AppliedFilterBar aren't yet
+// (Step 5/9's remaining pieces) — nor is Step 2's general filter modal.
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -47,18 +48,19 @@ const ReportRunnerView: React.FC = () => {
 
   const [sortField, setSortField] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<1 | -1 | null>(null);
+  const [search, setSearch] = useState("");
 
   const [exportingPdf, setExportingPdf] = useState(false);
 
   // Fresh run — resets pagination to page 1. Called on mount and whenever
-  // sort changes (a new order invalidates the relative position of
-  // whatever pages were already loaded, same reset rule search/filter
-  // changes already follow elsewhere in this app).
+  // sort or search changes (a new order/term invalidates the relative
+  // position of whatever pages were already loaded, same reset rule
+  // search/filter changes already follow elsewhere in this app).
   const runFromStart = async () => {
     setLoading(true);
     offsetRef.current = 0;
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: 0, sort });
+    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: 0, sort, search: search || undefined });
     setLoading(false);
     if (!data) {
       setAccessError("This report couldn't be run — you may not have access to it.");
@@ -77,7 +79,7 @@ const ReportRunnerView: React.FC = () => {
     if (loading || !hasMore) return;
     setLoading(true);
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: offsetRef.current, sort });
+    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: offsetRef.current, sort, search: search || undefined });
     setLoading(false);
     if (!data) return;
     setRows((prev) => [...prev, ...data.rows]);
@@ -103,6 +105,16 @@ const ReportRunnerView: React.FC = () => {
     if (definition) runFromStart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [definition, sortField, sortOrder]);
+
+  // Debounced (300ms, same convention every legacy report's own search box
+  // already uses) — separate effect from the sort/definition one above so
+  // typing doesn't re-fire on every keystroke.
+  useEffect(() => {
+    if (!definition) return;
+    const handler = setTimeout(() => runFromStart(), 300);
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const onSort = (e: DataTableSortEvent) => {
     setSortField(e.sortField || undefined);
@@ -142,7 +154,14 @@ const ReportRunnerView: React.FC = () => {
             <span className="text-muted" style={{ fontSize: 12 }}>
               {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded · ${durationMs}ms` : ""}
             </span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="form-control form-control-sm"
+                style={{ width: 200 }}
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem
                   reportType="report_builder"
