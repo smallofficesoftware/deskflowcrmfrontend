@@ -1734,14 +1734,22 @@ const AllTaskReportsView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="all_task_report"
-                    filters={{}}
+                    filters={{
+                      selectedDates,
+                      selectedTeamMembers,
+                      selectedStageStatus,
+                      globalSearch,
+                      is_support_ticket_flag,
+                      selectedContactId,
+                      referenceWiseContact,
+                    }}
                     columns={exportableColumns}
                     fileName={`${title}_Report`}
                     canShare={canShare}
                     disabled={allTasks.length === 0}
                     onSelect={() => setIsExportDropdownOpen(false)}
                     selectedRows={
-                      selectedTasks.length > 0 ? selectedTasks : displayTasks
+                      selectedTasks.length > 0 ? selectedTasks : undefined
                     }
                   />
 

@@ -322,31 +322,37 @@ const CustomerSalesPurchaseReport: React.FC<
       return `${currSym}${absVal}`;
     };
 
-    // Export functions with permission verification. NOTE: this report has
-    // no full-dataset re-fetch (unlike most others) - export was always
-    // limited to whatever's currently loaded (`customers`) or selected;
-    // preserved as-is, only the workbook generation moved server-side.
+    // Selection export sends the already-loaded rows as-is (server skips
+    // its own fetch); full export now goes through the backend registry
+    // (customer_sales_purchase_report) so it pulls the complete filtered
+    // dataset instead of only whatever's currently loaded on screen.
     const exportExcel = async () => {
       if (!canShare) {
         toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
         return;
       }
-      const dataToExport =
-        selectedCustomers.length > 0 ? selectedCustomers : customers;
-      if (dataToExport.length === 0) return;
+      if (selectedCustomers.length === 0 && customers.length === 0) return;
 
-      const rows = dataToExport.map((item, idx) => {
-        const row: Record<string, string | number> = {};
-        visibleColumns.forEach((col) => {
-          row[col.key] = getExportCellValue(col, item, idx);
-        });
-        return row;
-      });
+      const rows =
+        selectedCustomers.length > 0
+          ? selectedCustomers.map((item, idx) => {
+              const row: Record<string, string | number> = {};
+              visibleColumns.forEach((col) => {
+                row[col.key] = getExportCellValue(col, item, idx);
+              });
+              return row;
+            })
+          : undefined;
 
       try {
         await exportReportExcel({
           reportType: "customer_sales_purchase_report",
-          filters: {},
+          filters: {
+            selectedDates: reportSelectedDates,
+            selectedTeamMembers: selectedTeamMembers || filters.checkedOptionsUser,
+            selectedContactId: selectedContactId || filters.selectedContactId,
+            globalSearch: globalSearch || debouncedSearchText,
+          },
           columns: visibleColumns,
           fileName: "Customer_Wise_Sales_Purchase_Report",
           rows,
