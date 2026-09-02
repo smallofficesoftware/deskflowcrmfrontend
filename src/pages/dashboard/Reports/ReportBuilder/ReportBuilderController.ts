@@ -193,6 +193,30 @@ export const listRunnableReportDefinitions = async (): Promise<IRunnableReportDe
   }
 };
 
+// Step 2's non-PIN slice of the model registry (backend:
+// getGeneralFilterConfig) — just enough for CheckBoxFilterModal's adapter
+// to pick findInSet vs in per slot, without exposing the full build
+// surface getModelRegistry (PIN-gated) carries.
+export interface IGeneralFilterConfig {
+  generalFilters: Record<string, string | true>;
+  columnTypes: Record<string, string>;
+}
+
+export const getGeneralFilterConfig = async (model_key: string): Promise<IGeneralFilterConfig | null> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/general-filter-config", {
+      a_application_login_id: loginId(),
+      model_key,
+    });
+    if (data?.ack === 1) return data.data;
+    reportError(data, "Failed to load filter options");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to load filter options");
+    return null;
+  }
+};
+
 export interface ISystemReportDefinition {
   id: number;
   name: string;
@@ -350,6 +374,9 @@ export const runReportDefinition = async (
     offset?: number;
     search?: string;
     sort?: { column: string; direction: "ASC" | "DESC" };
+    // General-filter (CheckBoxFilterModal) translation, merged server-side
+    // with the definition's own saved filters_json — see generalFilterAdapter.ts.
+    filters?: { column: string; op: string; value: unknown; combinator?: "and" | "or"; includeBlank?: boolean }[];
   },
 ): Promise<{ rows: any[]; row_count: number; duration_ms: number } | null> => {
   try {

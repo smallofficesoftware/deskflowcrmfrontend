@@ -5,8 +5,15 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
+import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
+import { PAGE_ID } from "../../../../helpers/AppEnum";
+import { IFilterPayload } from "../../../../helpers/AppInterface";
+import { translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
+  getGeneralFilterConfig,
+  IGeneralFilterConfig,
   IRunnableReportDefinition,
   listRunnableReportDefinitions,
   runReportDefinition,
@@ -52,6 +59,17 @@ const ReportRunnerView: React.FC = () => {
 
   const [exportingPdf, setExportingPdf] = useState(false);
 
+  // Step 2 — CheckBoxFilterModal integration. Reused as-is (no edits to the
+  // shared component/store/bar — legacy reports keep working unchanged);
+  // this view only computes filtersToShow, translates the submitted
+  // payload, and merges it into the run call as an extra `filters` array
+  // alongside the definition's own saved filters_json (merged server-side).
+  const [filterConfig, setFilterConfig] = useState<IGeneralFilterConfig | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [appliedPayload, setAppliedPayload] = useState<IFilterPayload | null>(null);
+  const [generalFilters, setGeneralFilters] = useState<IGeneralFilter[]>([]);
+  const filtersToShow = filterConfig ? Object.keys(filterConfig.generalFilters).map(Number) : [];
+
   // Fresh run — resets pagination to page 1. Called on mount and whenever
   // sort or search changes (a new order/term invalidates the relative
   // position of whatever pages were already loaded, same reset rule
@@ -60,7 +78,13 @@ const ReportRunnerView: React.FC = () => {
     setLoading(true);
     offsetRef.current = 0;
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: 0, sort, search: search || undefined });
+    const data = await runReportDefinition(definitionId, {
+      limit: PAGE_SIZE,
+      offset: 0,
+      sort,
+      search: search || undefined,
+      filters: generalFilters.length > 0 ? generalFilters : undefined,
+    });
     setLoading(false);
     if (!data) {
       setAccessError("This report couldn't be run — you may not have access to it.");
@@ -79,7 +103,13 @@ const ReportRunnerView: React.FC = () => {
     if (loading || !hasMore) return;
     setLoading(true);
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, { limit: PAGE_SIZE, offset: offsetRef.current, sort, search: search || undefined });
+    const data = await runReportDefinition(definitionId, {
+      limit: PAGE_SIZE,
+      offset: offsetRef.current,
+      sort,
+      search: search || undefined,
+      filters: generalFilters.length > 0 ? generalFilters : undefined,
+    });
     setLoading(false);
     if (!data) return;
     setRows((prev) => [...prev, ...data.rows]);
@@ -101,10 +131,31 @@ const ReportRunnerView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [definitionId]);
 
+  // Only query-type definitions have a MODEL_REGISTRY model_key to look up
+  // generalFilters against — plugin/composite types have their own filter
+  // shape (filterSchema) or no general-filter concept at all, so the
+  // filter button simply doesn't appear for them (filtersToShow stays []).
+  useEffect(() => {
+    if (definition?.type === "query" && definition.model_key) {
+      getGeneralFilterConfig(definition.model_key).then(setFilterConfig);
+    } else {
+      setFilterConfig(null);
+    }
+  }, [definition]);
+
   useEffect(() => {
     if (definition) runFromStart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition, sortField, sortOrder]);
+  }, [definition, sortField, sortOrder, generalFilters]);
+
+  const columnType = (column: string) => filterConfig?.columnTypes[column];
+
+  const handleApplyGeneralFilters = (payload: IFilterPayload) => {
+    if (!filterConfig) return;
+    setAppliedPayload(payload);
+    setGeneralFilters(translateGeneralFilters(payload, filterConfig.generalFilters, columnType));
+    setShowFilterModal(false);
+  };
 
   // Debounced (300ms, same convention every legacy report's own search box
   // already uses) — separate effect from the sort/definition one above so
@@ -142,6 +193,14 @@ const ReportRunnerView: React.FC = () => {
 
       {definition?.description && <p className="text-muted" style={{ fontSize: 13 }}>{definition.description}</p>}
 
+      {filtersToShow.length > 0 && (
+        <AppliedFilterBar
+          summary={appliedPayload?.appliedFilterSummary}
+          startDate={appliedPayload?.startSearchDate}
+          endDate={appliedPayload?.endSearchDate}
+        />
+      )}
+
       {accessError && (
         <div className="alert alert-danger" style={{ fontSize: 14 }}>
           {accessError}
@@ -162,6 +221,11 @@ const ReportRunnerView: React.FC = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              {filtersToShow.length > 0 && (
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowFilterModal(true)}>
+                  Filter{generalFilters.length > 0 ? ` (${generalFilters.length})` : ""}
+                </button>
+              )}
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem
                   reportType="report_builder"
@@ -209,6 +273,38 @@ const ReportRunnerView: React.FC = () => {
             </DataTable>
           </div>
         </div>
+      )}
+
+      {showFilterModal && filterConfig && (
+        <CheckBoxFilterModal
+          show={showFilterModal}
+          onHide={() => setShowFilterModal(false)}
+          handleSubmit={handleApplyGeneralFilters}
+          title="Filter"
+          message="Apply filters to this report"
+          btn1="Cancel"
+          btn2="Apply"
+          filtersToShow={filtersToShow}
+          pageId={PAGE_ID.REPORT_BUILDER}
+          initialFilterData={appliedPayload?.filterData}
+          initialCheckedOptions={appliedPayload?.checkedOptionsLabel}
+          initialCheckedSourceTypes={appliedPayload?.checkedOptionsSourceType}
+          initialCheckedExpenseTypes={appliedPayload?.checkedOptionsExpenseType}
+          initialCheckedPaymentType={appliedPayload?.checkedPaymentType}
+          initialStartSearchDate={appliedPayload?.startSearchDate}
+          initialEndSearchDate={appliedPayload?.endSearchDate}
+          initialCheckedOptionsStageStatus={appliedPayload?.checkedOptionsStageStatus}
+          initialCheckedOptionsExpenseStatus={appliedPayload?.checkedOptionsExpenseStatus}
+          initialCheckedOptionsTaskType={appliedPayload?.checkedOptionsTaskType}
+          initialCheckedOptionsUser={appliedPayload?.checkedOptionsUser}
+          initialSelectedStockTypeId={appliedPayload?.selectedStockTypeId}
+          initialCheckedOptionsTaskAssignOrnot={appliedPayload?.checkedOptionsTaskassignOrNot}
+          labelFilderApplyAndOr={appliedPayload?.labelAndOr}
+          initialCheckedShowCreditData={appliedPayload?.initialCheckedShowCreditData}
+          initialCheckedShowDebitData={appliedPayload?.initialCheckedShowDebitData}
+          initialCheckedOptionsContactAssignOrnot={appliedPayload?.checkedOptionsContactassignOrNot}
+          initialReferenceWiseContact={appliedPayload?.referenceWiseContact}
+        />
       )}
     </div>
   );
