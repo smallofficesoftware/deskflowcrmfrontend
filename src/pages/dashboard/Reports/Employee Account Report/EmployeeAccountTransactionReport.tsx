@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -28,7 +27,6 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAccountReport,
   fetchEmployeeAccountTransactions,
   IEmployeeAccountTransaction,
   PDFemployeeAccountv1,
@@ -662,18 +660,18 @@ const EmployeeTransactionReports = ({
       visibleColumns.map((col) => getExportCellValue(col, txn)),
     );
 
-        tableData.push({
-      ID: "Closing Balance",
-      "Employee Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      "Contact Phone": "",
-      "Payment Type": "",
-      "Payment Mode": "",
-      [`Amount (${currencyName})`]: "",
-      "Payment Date & Time": "",
-      "Approved By": "",
-      "Created By": "",
-      Remark: "",
-    });
+    tableData.push(
+      visibleColumns.map((col) => {
+        if (col.key === "acc_series") return "Closing Balance";
+        if (col.key === "amount") {
+          return finalBalance.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+        return "";
+      }),
+    );
 
     if (tableData.length === 0) {
       const doc = new jsPDF();
@@ -711,86 +709,6 @@ const EmployeeTransactionReports = ({
     // return isNaN(date.getTime())
     //   ? ""
     //   : date.toISOString().split("T")[0];
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const allTransactions =
-        await exportAccountReport<IEmployeeAccountTransaction>(
-          (offset, limit) =>
-            fetchEmployeeAccountTransactions(
-              filters.selectedDateArray,
-              MobileToken,
-              getID,
-              MobileFlag,
-              filters.checkedOptionsUser,
-              offset,
-              limit,
-              setCurrencyName,
-            ),
-          500,
-        );
-
-      if (!allTransactions.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedTransactions.length > 0 ? selectedTransactions : allTransactions
-      ).map((txn) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, txn);
-        });
-        return row;
-      });
-
-            exportData.push({
-        ID: "Closing Balance",
-        "Employee Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        "Contact Phone": "",
-        "Payment Type": "",
-        "Payment Mode": "",
-        [`Amount (${currencyName})`]: "",
-        "Payment Date & Time": "",
-        "Approved By": "",
-        "Created By": "",
-        Remark: "",
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = {
-        Sheets: { Transactions: worksheet },
-        SheetNames: ["Transactions"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "employee_account_transactions_full");
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const printTable = () => {
@@ -1005,25 +923,28 @@ const EmployeeTransactionReports = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (transactions.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="employee_account_transaction_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={visibleColumns}
+                fileName="employee_account_transactions_full"
+                canShare={canShare}
+                disabled={transactions.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedTransactions}
+                footer={{
+                  sums: [],
+                  rows: [
+                    {
+                      acc_series: "Closing Balance",
+                      contact_masters_id: `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    },
+                  ],
+                }}
+              />
 
               <li
                 className="listItem text-start"

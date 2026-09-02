@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -9,9 +8,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -20,9 +19,7 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllStatusWiseData,
   fetchStatus,
-  fetchStatusWiseForExport,
   IStatusReport,
   IStatusWiseReportData,
 } from "./StatusWiseReportController";
@@ -341,75 +338,6 @@ const StatusWiseReport = ({
     doc.save(`status_wise_report_${Date.now()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await exportAllStatusWiseData(
-        (offset, limit) =>
-          fetchStatusWiseForExport(
-            filters.selectedDateArray,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.checkedOptionsStageStatus,
-            filters.checkedOptionsUser,
-            debouncedSearchText,
-            offset,
-            limit,
-          ),
-        50,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = allContacts.map((item: any) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = item[col.key] ?? "-";
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
-        wpx: 150,
-      }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Status Wise Task Or Supp. Ticket Report",
-      );
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      saveAsExcelFile(excelBuffer, "status_Wise_Report");
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export status wise data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(data, `${fileName}_export_${Date.now()}.xlsx`);
-  };
-
   const printTable = () => {
     const tableData = getExportRows();
     const printContent = `
@@ -586,23 +514,20 @@ const StatusWiseReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-                    if (!statusWiseReport) return;
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="status_wise_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="status_Wise_Report"
+                  canShare={canShare}
+                  disabled={!statusWiseReport}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                />
                 <li
                   className="listItem text-start"
                   role="button"

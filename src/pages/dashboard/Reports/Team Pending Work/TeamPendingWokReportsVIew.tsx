@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -15,9 +14,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -29,9 +28,7 @@ import {
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllTeamPendingWorkData,
   fetchPendingWork,
-  fetchTeamPendingWorkForExport,
   IPendingWork,
 } from "./TeamPendingWorkController";
 
@@ -572,78 +569,6 @@ const TeamPendingWorkReportsView = ({
   //     saveAsExcelFile(excelBuffer, "team_pending_work");
   //   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const allData = await exportAllTeamPendingWorkData(
-        (offset, limit) =>
-          fetchTeamPendingWorkForExport(
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : allData
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(excelRows);
-      worksheet["!cols"] = [
-        { wpx: 180 },
-        { wpx: 160 },
-        { wpx: 160 },
-        { wpx: 160 },
-        { wpx: 160 },
-        { wpx: 180 },
-      ];
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, "Team Pending Work");
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "Team_Pending_Work_Report");
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export pending work data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -991,25 +916,19 @@ const TeamPendingWorkReportsView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="team_pending_work_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Team_Pending_Work_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

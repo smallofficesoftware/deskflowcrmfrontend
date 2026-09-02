@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -18,9 +17,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
@@ -37,9 +36,7 @@ import {
   tryPendingPdfmePrint,
 } from "../Quotations/QuotationController";
 import {
-  exportAllPurchaseOrderData,
   fetchCartReport,
-  fetchReturnOrderReportForExport,
   handleDownload,
   IFlatCartItem,
 } from "./pendingPurchaseController";
@@ -1074,115 +1071,6 @@ const PendingPurchaseReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchReturnOrderReportForExport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      filters.checkedOptionsStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsSeries,
-      filters.selectedContactId,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData = await exportAllPurchaseOrderData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      // 🔹 collect custom fields
-      const customFields = Array.from(
-        new Set(
-          exportData.flatMap((item) =>
-            (item.customForm || []).map((cf) => cf.fieldName),
-          ),
-        ),
-      );
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = getExportCellValue(col as any, item);
-        });
-
-        customFields.forEach((field) => {
-          if (uniqueCustomFields.some((f: any) => f.fieldName === field)) return;
-          const found = item.customForm?.find(
-            (cf: any) => cf.fieldName === field,
-          );
-          row[field] = found?.value || "-";
-        });
-
-        return row;
-      });
-
-            const exportSource = selectedCustomers.length > 0 ? selectedCustomers : exportData;
-      const totalRow: any = {
-        ...(showProductDetails && { "Product Details": "" }),
-        "Purchase Order Number": "Total",
-        "Approval Status": "",
-        "Company Name": "",
-        "Customer Name": "",
-        "Customer Phone": "",
-        
-        "Created By": "",
-        Status: "",
-        "Created Date Time": "",
-        "Approve Date Time": "",
-        [`Taxable Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Grand Total (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      };
-      excelRows.push(totalRow);
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Purchase Order Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `purchase_order_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (e) {
-      console.error(e);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
       (filter) =>
@@ -1475,25 +1363,42 @@ const PendingPurchaseReportsView = ({
                     scrollbarWidth: "none",
                   }}
                 >
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-
-                      if (customers.length === 0) return;
-
-                      canShare
-                        ? exportExcel()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportExcelMenuItem
+                    reportType="pending_purchase_report"
+                    filters={{
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers: filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      selectedSeries: filters.checkedOptionsSeries,
+                      globalSearch: debouncedSearchText,
+                      selectedContactId: filters.selectedContactId,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-excel"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export Excel
-                  </li>
+                    columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                    fileName="Pending_Purchase_Order_Report"
+                    canShare={canShare}
+                    disabled={customers.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={selectedCustomers}
+                    footer={{
+                      sums: [
+                        { outputKey: "taxable_amt_wo_c", sourceKey: "taxable_amt_wo_c" },
+                        { outputKey: "gst_amt_wo_c", sourceKey: "gst_amt_wo_c" },
+                        { outputKey: "tcs_amt_wo_c", sourceKey: "tcs_amt_wo_c" },
+                        { outputKey: "round_off_wo_c", sourceKey: "round_off_wo_c" },
+                        { outputKey: "grand_total_wo_c", sourceKey: "grand_total_wo_c" },
+                      ],
+                      rows: [
+                        {
+                          cart_number: "Total",
+                          taxable_amt_wo_c: { fromSum: "taxable_amt_wo_c" },
+                          gst_amt_wo_c: { fromSum: "gst_amt_wo_c" },
+                          tcs_amt_wo_c: { fromSum: "tcs_amt_wo_c" },
+                          round_off_wo_c: { fromSum: "round_off_wo_c" },
+                          grand_total_wo_c: { fromSum: "grand_total_wo_c" },
+                        },
+                      ],
+                    }}
+                  />
 
                   <li
                     className="listItem text-start"

@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import moment from "moment";
@@ -16,9 +15,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -770,39 +769,6 @@ const AllTeamExpense = ({
     doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
   };
 
-  const exportExcel = () => {
-    const filteredData = getFilteredData();
-    const exportData = (
-      (selectedCustomers?.length ?? 0 > 0) ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.label] = getExportCellValue(col, customer, "plain");
-      });
-      return row;
-    });
-
-    const worksheet = xlsx.utils.json_to_sheet(exportData);
-    worksheet["!cols"] = visibleColumns.map(() => ({ wch: 20 }));
-
-    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
-    const excelBuffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    saveAsExcelFile(excelBuffer, "team_expense");
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1037,25 +1003,20 @@ const AllTeamExpense = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (dataArray.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="team_day_wise_expense_report"
+                filters={{
+                  selectedDates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={visibleColumns}
+                fileName="team_expense"
+                canShare={canShare}
+                disabled={dataArray.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+              />
 
               <li
                 className="listItem text-start"
@@ -1256,7 +1217,7 @@ const AllTeamExpense = ({
           onHide={() => setIsPass(false)}
           expenseToEdit={editExpenseStatusItem}
           headerName={`${statusFlag} Status`}
-          setRefreshExpense={setRefreshProduct}
+          handelRefreshExpense={() => setRefreshProduct(true)}
           status={statusFlag}
           pass_amount={editExpenseamount.toString()}
           setRefreshReport={() => setRefreshReport(true)}
@@ -1268,7 +1229,7 @@ const AllTeamExpense = ({
           onHide={() => setIsReject(false)}
           expenseToEdit={editExpenseStatusItem}
           headerName={`${statusFlag} Status`}
-          setRefreshExpense={setRefreshProduct}
+          handelRefreshExpense={() => setRefreshProduct(true)}
           status={statusFlag}
           pass_amount={editExpenseamount.toString()}
           setRefreshReport={() => setRefreshReport(true)}

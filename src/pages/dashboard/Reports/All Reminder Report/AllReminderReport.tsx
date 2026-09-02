@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
@@ -8,9 +7,9 @@ import { PrimeReactProvider } from "primereact/api";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ReminderModal from "../../../../components/model/ReminderModal";
@@ -35,11 +34,7 @@ import {
   updateInquiryFormReminder,
 } from "../../../left-side/header/list-reminder/ListReminderController";
 import { axiosInstance } from "../../../../services/axiosInstance";
-import {
-  exportTaskAndSupportTicketData,
-  fetchTaskReport,
-  IReminderItem,
-} from "./AllReminderController";
+import { fetchTaskReport, IReminderItem } from "./AllReminderController";
 // import { axiosInstance } from "../../../../services/axiosInstance";
 
 interface IReminderReportProps {
@@ -709,77 +704,6 @@ const AllReminderReport = ({
     doc.save(`${title}_report_${Date.now()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allReminders = await exportTaskAndSupportTicketData<IReminderItem>(
-        (offset, limit) =>
-          fetchTaskReport(
-            undefined,
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            MobileFlag,
-            undefined,
-            offset,
-            limit,
-            debouncedSearchText,
-            is_support_ticket_flag,
-            filters.selectedContactId,
-            filters.referenceWiseContact,
-            filterType,
-          ),
-        500,
-      );
-
-      if (!allReminders.length) {
-        toast.warn("No reminders to export");
-        return;
-      }
-
-      const exportData = (
-        selectedReminders.length > 0 ? selectedReminders : allReminders
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "plain");
-        });
-        return row;
-      });
-
-            exportData.push({
-        ID: `Total Reminders: ${exportData.length}`,
-        "Contact Name": "",
-        "Reminder Date & Time": "",
-        Status: "",
-        "Completed On": "",
-        "Assigned To": "",
-        "Created By": "",
-        Remark: "",
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      const workbook = {
-        Sheets: { Reminders: worksheet },
-        SheetNames: ["Reminders"],
-      };
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      saveAs(blob, `${title}_report_${Date.now()}.xlsx`);
-    } catch (err) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedReminders.length > 0 ? selectedReminders : displayReminders;
@@ -1082,25 +1006,24 @@ const AllReminderReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (reminders.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="all_reminder_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    is_support_ticket_flag: is_support_ticket_flag,
+                    selectedContactId: filters.selectedContactId,
+                    referenceWiseContact: filters.referenceWiseContact,
+                    typeFilter: filterType,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName={`${title}_Report`}
+                  canShare={canShare}
+                  disabled={reminders.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedReminders}
+                />
 
                 <li
                   className="listItem text-start"

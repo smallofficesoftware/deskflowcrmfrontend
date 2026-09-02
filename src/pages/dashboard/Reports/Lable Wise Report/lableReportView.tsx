@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -16,9 +15,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -482,73 +481,6 @@ const AlllableReport = ({
   //   saveAsExcelFile(excelBuffer, "labels");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const allContacts = await exportAllLabelWiseData(
-        (offset, limit) =>
-          fetchLabelWiseForExport(
-            filters.selectedDateArray,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.checkedOptions,
-            filters.checkedOptionsUser,
-            debouncedSearchText,
-            offset,
-            limit,
-          ),
-        50,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = visibleColumns.map(() => ({ wpx: 180 }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, "Label Wise Report");
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "label_Wise_Static_Report");
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export source wise data");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -750,25 +682,21 @@ const AlllableReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (dataArray.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="label_wise_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    selectedLabels: filters.checkedOptions,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="label_Wise_Static_Report"
+                  canShare={canShare}
+                  disabled={dataArray.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

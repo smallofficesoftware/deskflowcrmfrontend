@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -20,9 +19,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -42,10 +41,8 @@ import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
-  exportAllReturnSalesInvoiceData,
   fetchCartReport,
   fetchReturnSalesInvoicePdfmeTemplates,
-  fetchReturnSalesInvoiceReportForExport,
   generateAndPrintReturnSalesInvoicePdf,
   IFlatCartItem,
   isPdfmeEnabledForReturnSalesInvoice,
@@ -801,155 +798,6 @@ const TeamReturnSalesDataReportsView = ({
   //   });
   //   saveAsExcelFile(excelBuffer, "team_cart_report");
   // };
-
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchReturnSalesInvoiceReportForExport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      filters.checkedOptionsStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsSeries,
-      filters.selectedContactId,
-      filters.checkedGstOptions,
-      filters.checkedTrasactionMode,
-      filters.selectedProductId,
-      filters.selectedCategoryId,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData = await exportAllReturnSalesInvoiceData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      // collect custom fields
-      const customFieldMap: Record<string, string> = {};
-      exportData.forEach((item) => {
-        (item.customForm || [])
-          .filter((cf: any) => cf.report_print_or_not === 1)
-          .forEach((cf: any) => {
-            customFieldMap[cf.reference_column_name] =
-              cf.title || cf.reference_column_name;
-          });
-      });
-
-      const customFieldKeys = Object.keys(customFieldMap);
-      const customFieldColumnKeys = new Set(
-        uniqueCustomFields.map((field: any) => field.fieldName),
-      );
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-
-        visibleColumns.forEach((col) => {
-          if (customFieldColumnKeys.has(col.key)) return;
-
-          const label =
-            col.key === "cart_number"
-              ? `${title} Number`
-              : col.key === "taxable_amt"
-                ? `Taxable amount (${currencyName})`
-                : col.key === "gst_amt"
-                  ? `Tax Amount (${currencyName})`
-                  : col.key === "tcs_amt"
-                    ? `TCS Amount (${currencyName})`
-                    : col.key === "round_off"
-                      ? `Round Off (${currencyName})`
-                      : col.key === "grand_total"
-                        ? `Grand Total (${currencyName})`
-                        : col.label;
-
-          row[label] = getExportCellValue(col, item, "excel");
-        });
-
-        EXTRA_EXPORT_COLUMNS_EXCEL.forEach((extra) => {
-          row[extra.label] = getExtraExportValue(extra.key, item);
-        });
-
-        customFieldKeys.forEach((fieldName: string) => {
-          const label = customFieldMap[fieldName];
-          const val = item[fieldName];
-          row[label] =
-            val !== null && val !== undefined && val !== "" ? val : "-";
-        });
-
-        return row;
-      });
-
-            const exportSource = selectedCustomers.length > 0 ? selectedCustomers : exportData;
-      const totalRow: any = {
-        ...(showProductDetails && { "Product Details": "" }),
-        "Return Sales Invoice Number": "Total",
-        "Approval Status": "",
-        "Company Name": "",
-        "Customer Name": "",
-        "Customer Phone": "",
-        
-        "Created By": "",
-        Status: "",
-        "Created Date Time": "",
-        "Approve Date Time": "",
-        [`Taxable_Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Tax Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`TCS Amount (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Round Off (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-        [`Grand Total (${currencyName})`]: exportSource.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      };
-      excelRows.push(totalRow);
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Return Sales Invoice Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `returnSalesInvoice_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (e) {
-      console.error(e);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
@@ -1753,25 +1601,46 @@ const TeamReturnSalesDataReportsView = ({
                       scrollbarWidth: "none",
                     }}
                   >
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportExcel()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportExcelMenuItem
+                      reportType="return_sales_invoice_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedTrasactionModeOptions: filters.checkedTrasactionMode,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-excel"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export Excel
-                    </li>
+                      columns={visibleColumns}
+                      fileName="Return_Sales_Invoice_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers}
+                      footer={{
+                        sums: [
+                          { outputKey: "taxable_amt", sourceKey: "taxable_amt_wo_c" },
+                          { outputKey: "gst_amt", sourceKey: "gst_amt_wo_c" },
+                          { outputKey: "tcs_amt", sourceKey: "tcs_amt_wo_c" },
+                          { outputKey: "round_off", sourceKey: "round_off_wo_c" },
+                          { outputKey: "grand_total", sourceKey: "grand_total_wo_c" },
+                        ],
+                        rows: [
+                          {
+                            cart_number: "Total",
+                            taxable_amt: { fromSum: "taxable_amt" },
+                            gst_amt: { fromSum: "gst_amt" },
+                            tcs_amt: { fromSum: "tcs_amt" },
+                            round_off: { fromSum: "round_off" },
+                            grand_total: { fromSum: "grand_total" },
+                          },
+                        ],
+                      }}
+                    />
 
                     <li
                       className="listItem text-start"

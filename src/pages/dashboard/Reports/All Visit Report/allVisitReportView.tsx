@@ -4,7 +4,6 @@ import {
   Marker,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -23,9 +22,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -39,7 +38,6 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController"; // Adjust path as needed
 import {
-  exportAllVisitData,
   fetchVisitReport,
   IVisitData,
   IVisitItem,
@@ -1170,74 +1168,6 @@ const AllVisitReportsView = ({
   //   saveAsExcelFile(excelBuffer, "visit_report");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allVisitGroups = await exportAllVisitData<IVisitData>(
-        (offset, limit) =>
-          fetchVisitReport(
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            MobileFlag,
-            selectedDemography,
-            offset,
-            limit,
-            debouncedSearchText,
-            filters.selectedContactId,
-          ),
-        500,
-      );
-
-      const flattenedVisits = flattenVisitData(allVisitGroups);
-
-      if (!flattenedVisits.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedVisits.length > 0 ? selectedVisits : flattenedVisits
-      ).map((item) => {
-        const row: any = {};
-        exportableColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      const workbook = {
-        Sheets: { Visits: worksheet },
-        SheetNames: ["Visits"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "visit_report_full");
-    } catch {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedVisits.length > 0 ? selectedVisits : filteredData;
@@ -1475,25 +1405,22 @@ const AllVisitReportsView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (visits.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="all_visit_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={exportableColumns}
+                  fileName="Visit_Report"
+                  canShare={canShare}
+                  disabled={visits.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"

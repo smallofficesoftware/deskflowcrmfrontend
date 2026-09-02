@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -18,9 +17,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppContext } from "../../../../common/AppContext";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { truncateText, useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxModal from "../../../../components/model/CheckBoxModal";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
@@ -70,10 +69,7 @@ import {
 import { fetchLabelApi } from "../../../left-side/header/Setting/label/LabelController";
 import { taskPriorityList, taskTypesList } from "../../../right-side/create-task/CreateTaskController";
 import CreateTaskView from "../../../right-side/create-task/CreateTaskView";
-import {
-  exportTaskAndSupportTicketData,
-  ITaskitem,
-} from "./allTaskReportController";
+import { ITaskitem } from "./allTaskReportController";
 
 interface IVisitReportsProps {
   selectedDates?: Date[];
@@ -271,7 +267,7 @@ const AllTaskReportsView = ({
     fetchStageStatusContact(setStageStatusList);
     fetchTaskCategoryForTask(setTaskCategoryList);
     fetchLabel(setLabelList);
-    fetchAllCompanyApi(setOptionJoinCompany, setLoading);
+    fetchAllCompanyApi(setOptionJoinCompany);
   }, []);
 
   useEffect(() => {
@@ -1477,49 +1473,6 @@ const AllTaskReportsView = ({
   };
 
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-      const dataToExport = selectedTasks.length > 0 ? selectedTasks : displayTasks;
-
-      if (!dataToExport.length) {
-        toast.warn("No data to export");
-        return;
-      }
-      const exportData = dataToExport.map((item: any) => {
-        const row: any = {};
-        exportableColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
-        });
-        return row;
-      });
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
-        wch: 25,
-      }));
-
-      const workbook = {
-        Sheets: { Tasks: worksheet },
-        SheetNames: ["Tasks"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-      });
-
-      saveAs(blob, `${title}_report_${Date.now()}.xlsx`);
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedTasks.length > 0 ? selectedTasks : filteredAndSortedData;
@@ -1779,23 +1732,18 @@ const AllTaskReportsView = ({
                     scrollbarWidth: "none",
                   }}
                 >
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-                      if (allTasks.length === 0) return;
-                      canShare
-                        ? exportExcel()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }}
-                  >
-                    <i
-                      className="pi pi-file-excel"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export Excel
-                  </li>
+                  <ExportExcelMenuItem
+                    reportType="all_task_report"
+                    filters={{}}
+                    columns={exportableColumns}
+                    fileName={`${title}_Report`}
+                    canShare={canShare}
+                    disabled={allTasks.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={
+                      selectedTasks.length > 0 ? selectedTasks : displayTasks
+                    }
+                  />
 
                   <li
                     className="listItem text-start"

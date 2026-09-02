@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -731,51 +730,6 @@ const ExpenseDetailedReport = ({
     doc.save(`expense_detailed_report_${new Date().getTime()}.pdf`);
   };
 
-  const exportExcel = () => {
-    const filteredData = getFilteredData();
-    const exportData = (
-      (selectedExpenses?.length ?? 0 > 0) ? selectedExpenses : filteredData
-    ).map((exp) => {
-      const row: any = {};
-      exportableColumns.forEach((col) => {
-        row[col.label] = getExportCellValue(col, exp);
-      });
-      return row;
-    });
-
-        const totalAmount = exportData.reduce((sum: number, row: any) => sum + (Number(row.Amount) || 0), 0);
-    const totalPassAmount = exportData.reduce((sum: number, row: any) => sum + (Number(row["Pass Amount"]) || 0), 0);
-    exportData.push({
-      "Expense Type": "Total",
-      Amount: totalAmount.toFixed(2),
-      "Pass Amount": totalPassAmount.toFixed(2),
-      Remark: "",
-      Date: "",
-      "Employee Name": "",
-      Status: "",
-    });
-
-    const worksheet = xlsx.utils.json_to_sheet(exportData);
-    worksheet["!cols"] = [{ wch: 30 }, { wch: 20 }];
-
-    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
-    const excelBuffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    saveAsExcelFile(excelBuffer, "expense_detailed_report");
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1061,25 +1015,35 @@ const ExpenseDetailedReport = ({
                       scrollbarWidth: "none",
                     }}
                   >
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (dataArray.length === 0) return;
-
-                        canShare
-                          ? exportExcel()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportExcelMenuItem
+                      reportType="expense_detailed_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedExpenseTypes: filters.checkedExpenseTypes,
+                        selectedExpenseStatus: filters.checkedOptionsExpenseStatus,
+                        globalSearch: debouncedSearchText,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-excel"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export Excel
-                    </li>
+                      columns={exportableColumns}
+                      fileName="expense_detailed_report"
+                      canShare={canShare}
+                      disabled={dataArray.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedExpenses}
+                      footer={{
+                        sums: [
+                          { outputKey: "amount", sourceKey: "amount" },
+                          { outputKey: "pass_amount", sourceKey: "pass_amount" },
+                        ],
+                        rows: [
+                          {
+                            expense_name: "Total",
+                            amount: { fromSum: "amount" },
+                            pass_amount: { fromSum: "pass_amount" },
+                          },
+                        ],
+                      }}
+                    />
 
                     <li
                       className="listItem text-start"

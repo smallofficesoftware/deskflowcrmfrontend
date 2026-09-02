@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -9,14 +8,15 @@ import {
   type DataTableFilterEvent,
   type DataTableFilterMeta,
   type DataTableSortEvent,
+  type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -35,7 +35,7 @@ interface LazyTableState {
   rows: number;
   page: number;
   sortField?: string | null;
-  sortOrder?: number | null;
+  sortOrder?: SortOrder | null;
   filters: DataTableFilterMeta;
 }
 
@@ -303,39 +303,6 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   };
 
   // Export functions with permission verification & dynamic currency symbol
-  const exportExcel = () => {
-    if (!canShare) {
-      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      return;
-    }
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : customers;
-    if (dataToExport.length === 0) return;
-
-    const formattedData = dataToExport.map((item) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.label] = getExportCellValue(col, item);
-      });
-      EXTRA_EXPORT_COLUMNS.forEach((col) => {
-        row[col.label] = (item as any)[col.key] || "-";
-      });
-      return row;
-    });
-
-    const worksheet = xlsx.utils.json_to_sheet(formattedData);
-    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
-    const excelBuffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-    });
-    saveAs(blob, `Target_Incentive_Report_${new Date().getTime()}.xlsx`);
-    toast.success("Excel exported successfully!");
-  };
-
   const exportPdf = () => {
     if (!canShare) {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -722,23 +689,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-                    if (customers.length === 0) return;
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="target_incentive_report"
+                  filters={{
+                    selectedDates: reportSelectedDates,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="Target_Incentive_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

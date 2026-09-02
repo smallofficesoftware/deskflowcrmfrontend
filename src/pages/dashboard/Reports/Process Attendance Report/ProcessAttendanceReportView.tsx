@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
@@ -6,8 +5,8 @@ import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
@@ -19,9 +18,7 @@ import { useCommonFilterStore } from "../../../../store/report/useCommonFilterSt
 import ProcessAttendanceDayWiseDetails from "./ProcessAttendanceDayWiseDetails";
 import {
   DAY_STATUS,
-  exportAllAttendanceData,
   fetchProcessAttendance,
-  fetchProcessAttendanceForExport,
   IProcessAttendance,
 } from "./ProcessAttendanceReportController";
 
@@ -441,91 +438,6 @@ const ProcessAttendanceReportView = ({
     doc.save(`process_attendance_${Date.now()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      let allAttendance: IProcessAttendance[] = [];
-
-      // ✅ If rows are selected → use only selected rows
-      if (selectedEmployees.length > 0) {
-        allAttendance = selectedEmployees;
-      } else {
-        // Otherwise fetch all from backend
-        allAttendance = await exportAllAttendanceData(
-          (offset, limit) =>
-            fetchProcessAttendanceForExport(
-              filters.checkedOptionsUser,
-              MobileToken,
-              getID,
-              MobileFlag,
-              offset,
-              limit,
-              activeDayMonthYear,
-            ),
-          50,
-        );
-      }
-
-      if (!allAttendance.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const headers = visibleColumns.map((col) => col.label);
-
-      const rows = (
-        selectedEmployees.length > 0 ? selectedEmployees : allAttendance
-      ).map((emp) =>
-        visibleColumns.map((col) => getExportCellValue(col, emp)),
-      );
-
-      const worksheet = xlsx.utils.aoa_to_sheet([
-        ["monthName", "year", ...Array(Math.max(headers.length - 2, 0)).fill("")],
-        headers,
-        ...rows,
-      ]);
-
-      worksheet["A1"].v =
-        monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label ?? "";
-      worksheet["B1"].v = effectiveMonthYear.year;
-
-      worksheet["!cols"] = visibleColumns.map((col) => ({
-        wpx: col.key === "employee_name" ? 180 : 110,
-      }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Process Attendance Report",
-      );
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      saveAsExcelFile(
-        excelBuffer,
-        `Process_Attendance_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`,
-      );
-
-      toast.success("Attendance Excel exported successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to export attendance data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(data, `${fileName}_${Date.now()}${EXCEL_EXTENSION}`);
-  };
 
   const printTable = () => {
     const dataToPrint =
@@ -970,25 +882,20 @@ const ProcessAttendanceReportView = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (attendanceData.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="process_attendance_report"
+                filters={{
+                  request_flag: 2,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDayMonthYear: activeDayMonthYear,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={visibleColumns}
+                fileName={`Process_Attendance_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`}
+                canShare={canShare}
+                disabled={attendanceData.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedEmployees}
+              />
 
               <li
                 className="listItem text-start"

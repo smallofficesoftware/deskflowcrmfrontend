@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -29,7 +28,6 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { PDFaccountv1 } from "../../../right-side/list-account-transaction/ListAccounTransactionController";
 import {
-  exportAccountDebitData,
   fetchAccountTransactions,
   IAccountTransaction,
 } from "./AccountDebitReportController"; // Reuse same controller (assumes it supports debit flag)
@@ -743,111 +741,6 @@ const AccountDebitReport = ({
     return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   };
 
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
-  //  const exportExcel = () => {
-  //    const dataToExport =
-  //      selectedTransactions.length > 0
-  //        ? selectedTransactions
-  //        : filteredTransactions;
-
-  //    const exportData = dataToExport.map((txn: IAccountTransaction) => ({
-  //      ID: txn.id ?? "",
-  //      Contact_name: txn.contact_name ?? "",
-  //      // Login_ID: txn.a_application_login_id ?? "",
-  //      Company_name: txn.contact_companyName ?? "",
-  //      Type: txn.typeItem ?? "",
-  //      Mode: txn.modeItem ?? "",
-  //      Amount: txn.amountwithcurrency || txn.amount || "",
-  //      Payment_Date: formatDate(txn.payment_date_time),
-  //      Remark: txn.remark ?? "",
-  //      // Approver_ID: txn.approve_by_a_application_login_id ?? "",
-  //      Approved_By: txn.approved_name ?? "",
-  //      Approve_Date: formatDate(txn.approve_date_time),
-  //      // Ref_ID: txn.reference_id ?? "",
-  //      // Ref_Table: txn.reference_table ?? "",
-  //      Created_Date_Time: formatDate(txn.created_date_time),
-  //      // Timestamp: formatDate(txn.s_timestemp),
-  //      // Is_Active: txn.isActive === 1 ? "Yes" : "No",
-  //    }));
-
-  //    const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
-
-  //    const excelBuffer = xlsx.write(workbook, {
-  //      bookType: "xlsx",
-  //      type: "array",
-  //    });
-
-  //    saveAsExcelFile(excelBuffer, "account_transactions");
-  //  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allTransactions = await exportAccountDebitData<IAccountTransaction>(
-        (offset, limit) =>
-          fetchAccountTransactions(
-            filters.selectedDateArray,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.checkedOptionsUser,
-            offset,
-            limit,
-            debouncedSearchText,
-            credit_debit_flag,
-            setCurrencyName,
-            filters.selectedContactId,
-          ),
-        500,
-      );
-
-      if (!allTransactions.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedTransactions.length > 0 ? selectedTransactions : allTransactions
-      ).map((txn) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, txn);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = {
-        Sheets: { Transactions: worksheet },
-        SheetNames: ["Transactions"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "account_transactions_full");
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const dataExport = getExportData();
     const data =
@@ -1032,25 +925,22 @@ const AccountDebitReport = ({
                     scrollbarWidth: "none",
                   }}
                 >
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-
-                      if (transactions.length === 0) return;
-
-                      canShare
-                        ? exportExcel()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportExcelMenuItem
+                    reportType="account_debit_report"
+                    filters={{
+                      selected_dates: filters.selectedDateArray,
+                      selectedTeamMembers: filters.checkedOptionsUser,
+                      selectedContactId: filters.selectedContactId,
+                      globalSearch: debouncedSearchText,
+                      credit_debit_flag,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-excel"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export Excel
-                  </li>
+                    columns={visibleColumns}
+                    fileName="account_transactions_full"
+                    canShare={canShare}
+                    disabled={transactions.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={selectedTransactions}
+                  />
 
                   <li
                     className="listItem text-start"

@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -30,11 +29,7 @@ import {
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import {
-  exportInquiryAllData,
-  fetchInquiry,
-  IInquiryReport,
-} from "./inquiryController";
+import { fetchInquiry, IInquiryReport } from "./inquiryController";
 
 interface LazyTableState {
   first: number;
@@ -1003,83 +998,6 @@ const AllInqueryReport = ({
   //   saveAsExcelFile(excelBuffer, "inquiries");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allInquiries = await exportInquiryAllData<IInquiryReport>(
-        (offset, limit) =>
-          fetchInquiry(
-            filters.selectedDateArray,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.checkedOptions,
-            filters.checkedSourceTypes,
-            filters.checkedOptionsStageStatus,
-            filters.checkedOptionsUser,
-            selectedDemography
-              ? Object.values(selectedDemography).filter(Boolean)
-              : null,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            filters.selectedContactId,
-            offset,
-            limit,
-            debouncedSearchText,
-          ),
-        500,
-      );
-
-      if (!allInquiries.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allInquiries
-      ).map((customer) => {
-        const rowData: any = {};
-        visibleColumns.forEach((col) => {
-          rowData[col.label] = getExportCellValue(col, customer);
-        });
-        return rowData;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
-        wch: 25,
-      }));
-
-      const workbook = {
-        Sheets: { Inquiries: worksheet },
-        SheetNames: ["Inquiries"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "inquiries_full");
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1280,25 +1198,29 @@ const AllInqueryReport = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="all_inquiry_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  selectedLabels: filters.checkedOptions,
+                  selectedSourceTypes: filters.checkedSourceTypes,
+                  selectedStageStatus: filters.checkedOptionsStageStatus,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDemography: selectedDemography
+                    ? Object.values(selectedDemography).filter(Boolean)
+                    : null,
+                  selectedProduct: filters.selectedProductId,
+                  selectedCategory: filters.selectedCategoryId,
+                  selectedContactId: filters.selectedContactId,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={visibleColumns}
+                fileName="Inquiry_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+              />
 
               <li
                 className="listItem text-start"

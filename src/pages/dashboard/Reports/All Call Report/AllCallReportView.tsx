@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -15,9 +14,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -923,133 +922,6 @@ const AllCallReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
-  const exportAllCallData = async (): Promise<ICallData[]> => {
-    let offset = 0;
-    const limit = 500;
-
-    let allData: ICallData[] = [];
-
-    while (true) {
-      const response = await fetchCallHistoryApi(
-        () => { },
-        filters.selectedDateArray,
-        filters.checkedOptionsUser,
-        MobileToken,
-        getID,
-        MobileFlag,
-        offset,
-        limit,
-        debouncedSearchText,
-        filters.selectedContactId,
-        filters.checkedOptions,
-        filters.checkedSourceTypes,
-        filters.checkedOptionsStageStatus,
-      );
-
-      if (!response || response.length === 0) break;
-
-      allData = [...allData, ...response];
-
-      // 🔥 IMPORTANT FIX
-      offset += limit;
-
-      // stop condition
-      // const totalCalls = response.reduce(
-      //   (acc, user) => acc + user.calls.length,
-      //   0,
-      // );
-
-      // if (totalCalls < limit) break;
-    }
-
-    return allData;
-  };
-
-  const exportExcel = async () => {
-    try {
-      console.log("EXPORT START");
-      setLoading(true);
-
-      const allCallGroups = await exportAllCallData();
-      console.log("API DONE");
-
-      if (!allCallGroups || allCallGroups.length === 0) {
-        toast.warn("No data from API");
-        return;
-      }
-
-      const allRows = flattenVisitData(allCallGroups);
-      console.log("FLATTEN DONE", allRows.length);
-
-      if (!allRows.length) {
-        toast.warn("No rows after flatten");
-        return;
-      }
-
-      const finalData = selectedVisits.length > 0 ? selectedVisits : allRows;
-
-      const exportData = finalData.map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = item[col.key] ?? "-";
-        });
-        return row;
-      });
-
-      console.log("EXPORT DATA READY", exportData.length);
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-
-      // ✅ SAFE column width
-      if (exportData.length > 0) {
-        worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({
-          wch: 25,
-        }));
-      }
-
-      const workbook = {
-        Sheets: { Calls: worksheet },
-        SheetNames: ["Calls"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      console.log("BUFFER CREATED");
-
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-      });
-
-      console.log("BLOB CREATED");
-
-      saveAs(blob, `call_report_${Date.now()}.xlsx`);
-
-      console.log("FILE SAVED ✅");
-    } catch (error) {
-      console.error("EXPORT ERROR:", error);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     console.log("printTable");
     const isFilterApplied = Object.values(lazyState.filters).some(
@@ -1261,25 +1133,24 @@ const AllCallReportsView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (filteredData.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="all_call_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
+                    selectedLabels: filters.checkedOptions,
+                    selectedSourceTypes: filters.checkedSourceTypes,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="Call_Report"
+                  canShare={canShare}
+                  disabled={filteredData.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"

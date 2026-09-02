@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { Tooltip } from "primereact/tooltip";
 import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -28,7 +27,6 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportProductInventoryData,
   fetchProductInventory,
   IProductInventory,
 } from "./ProductInventoryController";
@@ -505,84 +503,6 @@ const ProductInventoryReport = ({
   //   });
   //   saveAsExcelFile(excelBuffer, "product_inventory");
   // };
-  const fetchProductInventoryForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IProductInventory[]> => {
-    const response = await fetchProductInventory(
-      filters.selectedDateArray,
-      MobileToken,
-      getID,
-      MobileFlag,
-      filters.selectedProductId,
-      filters.selectedCategoryId,
-      filters.selectedWarehouseIds,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.selectedStockTypeId,
-    );
-
-    // null safe
-    return response?.items ?? [];
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const allItems = await exportProductInventoryData<IProductInventory>(
-        fetchProductInventoryForExport,
-        500,
-      );
-
-      if (!allItems.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allItems
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = visibleColumns.map(() => ({ wpx: 120 }));
-
-      const workbook = {
-        Sheets: { Inventory: worksheet },
-        SheetNames: ["Inventory"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "product_inventory_full");
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedCustomers.length > 0 ? selectedCustomers : filteredData;
@@ -959,25 +879,23 @@ const ProductInventoryReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="product_inventory_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedWarehouseIds: filters.selectedWarehouseIds,
+                    globalSearch: debouncedSearchText,
+                    selectedStockTypeId: filters.selectedStockTypeId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="product_inventory_full"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

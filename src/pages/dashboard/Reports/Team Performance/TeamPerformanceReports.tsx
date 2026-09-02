@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -15,9 +14,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -29,9 +28,7 @@ import {
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllTeamPerformanceData,
   fetchTeamPerformance,
-  fetchTeamPerformanceForExport,
   IAttendanceData,
   ITaskPerformance,
 } from "./TeamPerformanceReportsController";
@@ -594,7 +591,7 @@ const TeamPerformanceReports = ({
     setCustomers([]);
     setTaskPerformance([]);
     setAttendanceData([]);
-    loadAttendance(0, 50, true);
+    loadMoreData(true);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1066,105 +1063,6 @@ const TeamPerformanceReports = ({
   //   saveAsExcelFile(excelBuffer, "team_performance");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const allContacts = await exportAllTeamPerformanceData(
-        (offset, limit) =>
-          fetchTeamPerformanceForExport(
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer);
-        });
-        return row;
-      });
-
-      const exportRowsSource =
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts;
-      excelRows.push({
-        "Team Member": "Total",
-        "New Contacts": exportRowsSource.reduce((sum, c) => sum + parseValue(c.contactCount), 0),
-        Inquiry: exportRowsSource.reduce((sum, c) => sum + parseValue(c.inquiryCount), 0),
-        [`${quotationTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.count), 0),
-        [`${quotationTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.quotation?.amount), 0),
-        [`${orderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.count), 0),
-        [`${orderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.order?.amount), 0),
-        [`${invoiceTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.count), 0),
-        [`${invoiceTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.sell_invoice?.amount), 0),
-        [`${purchaseOrderTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.count), 0),
-        [`${purchaseOrderTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_order?.amount), 0),
-        [`${purchaseTitle} Total`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.count), 0),
-        [`${purchaseTitle} Amount`]: exportRowsSource.reduce((sum, c) => sum + parseValue(c.purchase_invoice?.amount), 0),
-        Visits: exportRowsSource.reduce((sum, c) => sum + parseValue(c.visitCount), 0),
-        "Expense Passed": exportRowsSource.reduce((sum, c) => sum + parseValue(c.expense?.PassedAmount), 0),
-        "Pending Reminder Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.pendingReminder), 0),
-        "Total Due Task": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueTaskCount), 0),
-        "Total Due Support Ticket": exportRowsSource.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0),
-        "Credit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0),
-        "Credit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0),
-        "Debit Total": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0),
-        "Debit Amount": exportRowsSource.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0),
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(excelRows);
-      worksheet["!cols"] = Object.keys(excelRows[0]).map(() => ({
-        wch: 25,
-      }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, "Team Performance");
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `Team_Performance_Report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
       (filter) =>
@@ -1394,25 +1292,43 @@ const TeamPerformanceReports = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="team_performance_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Team_Performance_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                  footer={{
+                    // Composite count+amount columns (quotation/order/invoice/
+                    // expense/account) aren't summed here - a single total
+                    // number doesn't fit their merged "count (amount)" cell.
+                    sums: [
+                      { outputKey: "contactCount", sourceKey: "contactCount" },
+                      { outputKey: "inquiryCount", sourceKey: "inquiryCount" },
+                      { outputKey: "visitCount", sourceKey: "visitCount" },
+                      { outputKey: "pendingReminder", sourceKey: "pendingReminder" },
+                      { outputKey: "dueTaskCount", sourceKey: "dueTaskCount" },
+                      { outputKey: "dueSupportTicketCount", sourceKey: "dueSupportTicketCount" },
+                    ],
+                    rows: [
+                      {
+                        username: "Total",
+                        contactCount: { fromSum: "contactCount" },
+                        inquiryCount: { fromSum: "inquiryCount" },
+                        visitCount: { fromSum: "visitCount" },
+                        pendingReminder: { fromSum: "pendingReminder" },
+                        dueTaskCount: { fromSum: "dueTaskCount" },
+                        dueSupportTicketCount: { fromSum: "dueSupportTicketCount" },
+                      },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"
