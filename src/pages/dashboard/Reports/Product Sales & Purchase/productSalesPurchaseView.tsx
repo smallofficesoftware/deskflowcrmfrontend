@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -30,11 +29,7 @@ import {
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import {
-  exportAllProductWiseMovementData,
-  fetchProductReport,
-  fetchProductWiseMomentForExport,
-} from "./productSalesPurchaseController";
+import { fetchProductReport } from "./productSalesPurchaseController";
 
 export interface IProductSalesData {
   item_product_id: number;
@@ -836,99 +831,6 @@ const ProductSalesPurchaseReport = ({
   //   saveAsExcelFile(excelBuffer, "product_sales_purchase");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await exportAllProductWiseMovementData(
-        (offset, limit) =>
-          fetchProductWiseMomentForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            filters.selectedContactId,
-            debouncedSearchText,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      // ✅ Totals row
-      exportData.push({
-        "Product Name": "Total",
-        "Product Category": "",
-        Quotation: calculateColumnTotals(exportData, "Quotation"),
-        Order: calculateColumnTotals(exportData, "Order"),
-        Invoice: calculateColumnTotals(exportData, "Invoice"),
-        "Purchase Order": calculateColumnTotals(exportData, "Purchase Order"),
-        "Purchase Invoice": calculateColumnTotals(
-          exportData,
-          "Purchase Invoice",
-        ),
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Product Wise Movement",
-      );
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `Product_Wise_Movement_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1149,25 +1051,22 @@ const ProductSalesPurchaseReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="product_sales_purchase_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Product_Wise_Movement"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"

@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import { exportReportExcel } from "../../../../services/reportExportService";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -735,6 +734,14 @@ const CategoryPendingReport = ({
     doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
   };
 
+  // This report's backend endpoint (getCategorySales&Purchase) returns 5
+  // separately-paginated raw arrays (quotation/salesOrder/salesInvoice/
+  // purchaseInvoice/purchaseOrder), pivoted into one row per category only
+  // client-side (pivotData in categoryPendingController.ts) - the generic
+  // export registry's page-length pagination loop can't drive that shape,
+  // so this keeps its own fetch+pivot, and only swaps the workbook-building
+  // tail for the shared server-side generator (rows sent explicitly rather
+  // than a reportType+filters DB fetch).
   const exportExcel = async () => {
     try {
       setLoading(true);
@@ -762,49 +769,32 @@ const CategoryPendingReport = ({
         return;
       }
 
-      const excelRows: Record<string, any>[] = (
+      const rows: Record<string, any>[] = (
         selectedCustomers.length > 0 ? selectedCustomers : allData
       ).map((item) => {
         const row: Record<string, any> = {};
         visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
+          row[col.key] = getExportCellValue(col, item);
         });
         return row;
       });
 
-      // ✅ Totals row
       const totalsRow: Record<string, any> = {};
       visibleColumns.forEach((col) => {
-        totalsRow[col.label] =
+        totalsRow[col.key] =
           col.key === "item_category_name"
             ? "Total"
-            : calculateColumnTotals(excelRows, col.label);
-      });
-      excelRows.push(totalsRow);
-
-      const worksheet = xlsx.utils.json_to_sheet(excelRows);
-      worksheet["!cols"] = visibleColumns.map((col) => ({
-        wpx: col.key === "item_category_name" ? 180 : 130,
-      }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Category Wise Pending",
-      );
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
+            : calculateColumnTotals(rows, col.key);
       });
 
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `category_wise_Pending${Date.now()}.xlsx`,
-      );
+      await exportReportExcel({
+        reportType: "category_pending_report",
+        filters: {},
+        columns: visibleColumns,
+        fileName: "category_wise_Pending",
+        rows,
+        footer: { sums: [], rows: [totalsRow] },
+      });
 
       toast.success("Excel exported successfully");
     } catch (err) {
@@ -858,17 +848,6 @@ const CategoryPendingReport = ({
   //   });
   //   saveAsExcelFile(excelBuffer, "category_sales_purchase");
   // };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();

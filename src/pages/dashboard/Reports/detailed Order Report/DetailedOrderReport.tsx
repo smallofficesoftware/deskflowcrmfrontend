@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -18,9 +17,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import { exportReportExcel } from "../../../../services/reportExportService";
 import OrderCreateModal from "../../../../components/model/OrderCreateModel/OrderCreateModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -29,9 +28,7 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { IUserList } from "../../../left-side/LeftSideController";
 import { openPrint } from "../Quotations/QuotationController";
 import {
-  exportAllOrderData,
   fetchCartReport,
-  fetchCartReportForExport,
   handleDownload,
   ICartItem,
   IFlatCartItem,
@@ -541,68 +538,28 @@ const TeamSalesOrderDataReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchCartReportForExport(
-      selectedDates,
-      selectedTeamMembers,
-      selectedStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedGlobalSearch,
-      selectedSeries,
-      selectedContactId,
-    );
-  };
-
+  // NOTE: this whole report is currently unreachable - ReportsModel.tsx has
+  // its "detailed_order_report" entry, filterShowNumber branch, and render
+  // block all commented out, and BottomView.tsx never references it either.
+  // Converted anyway per the generic-export rollout, but nobody can click
+  // this today.
   const exportExcel = async () => {
     try {
       setLoading(false);
-
-      const exportData = await exportAllOrderData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
-        });
-        return row;
+      await exportReportExcel({
+        reportType: "detailed_order_report",
+        filters: {
+          selectedDates,
+          selectedTeamMembers,
+          selectedStageStatus,
+          globalSearch: debouncedGlobalSearch,
+          selectedSeries,
+          selectedContactId,
+        },
+        columns: visibleColumns,
+        fileName: "Detailed_Order_Report",
+        rows: selectedCustomers.length > 0 ? selectedCustomers : undefined,
       });
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Sales Order Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `salesorder_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
     } catch (e) {
       console.error(e);
       toast.error("Excel export failed");

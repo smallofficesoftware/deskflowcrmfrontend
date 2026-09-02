@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import { exportReportExcel } from "../../../../services/reportExportService";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -997,6 +996,15 @@ const ProductPendingView = ({
   //   saveAsExcelFile(excelBuffer, "product_sales_purchase_pending");
   // };
 
+  // Same shape as Category Pending: backend endpoint returns separately-
+  // paginated raw arrays, pivoted client-side only - keep the existing
+  // fetch+pivot, swap the workbook-building tail for the shared
+  // server-side generator (rows sent explicitly, no reportType registry
+  // entry needed). The original totals row referenced column labels
+  // ("Quotation", "Order", "Invoice"...) that don't match this report's
+  // actual columns (salesorder/salesinvoice/purchaseorder/purchaseinvoice/
+  // pending_sales/pending_purchase) - it was already dead/no-op before
+  // this change, so it's dropped rather than migrated.
   const exportExcel = async () => {
     try {
       setLoading(true);
@@ -1024,7 +1032,7 @@ const ProductPendingView = ({
         return;
       }
 
-      const exportData = (
+      const rows = (
         selectedCustomers.length > 0
           ? selectedCustomers
           : isFilterApplied()
@@ -1033,50 +1041,18 @@ const ProductPendingView = ({
       ).map((item) => {
         const row: any = {};
         visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
+          row[col.key] = getExportCellValue(col, item, "excel");
         });
         return row;
       });
 
-      // ✅ Totals row
-      exportData.push({
-        "Product Name": "Total",
-        "Product Category": "",
-        Quotation: calculateColumnTotals(exportData, "Quotation"),
-        Order: calculateColumnTotals(exportData, "Order"),
-        Invoice: calculateColumnTotals(exportData, "Invoice"),
-        "Purchase Order": calculateColumnTotals(exportData, "Purchase Order"),
-        "Purchase Invoice": calculateColumnTotals(
-          exportData,
-          "Purchase Invoice",
-        ),
-        "Pending Purchase": calculateColumnTotals(
-          exportData,
-          "Pending Purchase",
-        ),
+      await exportReportExcel({
+        reportType: "product_pending_report",
+        filters: {},
+        columns: visibleColumns,
+        fileName: "Product_Pending_Report",
+        rows,
       });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Product Wise Movement",
-      );
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `Product_Pending_Report_${Date.now()}.xlsx`,
-      );
 
       toast.success("Excel exported successfully");
     } catch (error) {
@@ -1085,17 +1061,6 @@ const ProductPendingView = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
   };
 
   const printTable = () => {

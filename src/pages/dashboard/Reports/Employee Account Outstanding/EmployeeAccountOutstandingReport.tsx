@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -16,9 +15,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -26,7 +25,7 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import { exportAllEmployeeAccountOutstadingData, fetchEmployeeAccountOutstanding, IEmployeeAccountOutstanding } from "./EmployeeAccountOutstandingReportContoller";
+import { fetchEmployeeAccountOutstanding, IEmployeeAccountOutstanding } from "./EmployeeAccountOutstandingReportContoller";
 // import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 
 interface LazyTableState {
@@ -583,133 +582,6 @@ const EmployeeAccountOutstandingReport = ({
   const exportData =
     selectedEmployees.length > 0 ? selectedEmployees : filteredData;
 
-  // const exportExcel = () => {
-  //     const data = exportData.map((row) => ({
-  //       "Contact Name": row.contact_name || "-",
-  //       "Total Outstanding": row.total_outstanding_amount ?? "-",
-  //       Type: row.outstanding_type || "-",
-  //     }));
-  // const parseAmount = (str: string): number => {
-  //     return parseFloat(str?.replace(/[^0-9.-]+/g, "") || "0") || 0;
-  //   };
-
-  //     const payable = exportData
-  //       .filter((r) => r.outstanding_type?.toLowerCase() === "payable")
-  //       .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-  //     const receivable = exportData
-  //       .filter((r) => r.outstanding_type?.toLowerCase() === "receivable")
-  //       .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-  //     const grand = payable + receivable;
-
-  //     const footer = [{
-  //       "Contact Name": "Payable",
-  //       "Total Outstanding": payable,
-  //       Type: "Receivable / Grand Total",
-  //     }, {
-  //       "Contact Name": "",
-  //       "Total Outstanding": receivable,
-  //       Type: grand,
-  //     }];
-
-  //     const ws = xlsx.utils.json_to_sheet([...data, ...footer]);
-  //     const wb = xlsx.utils.book_new();
-  //     xlsx.utils.book_append_sheet(wb, ws, "Outstanding");
-
-  //     const buffer = xlsx.write(wb, { bookType: "xlsx", type: "array" });
-  //     saveAs(
-  //       new Blob([buffer], { type: "application/octet-stream" }),
-  //       `account_outstanding_${Date.now()}.xlsx`
-  //     );
-  //   };
-
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IEmployeeAccountOutstanding[]> => {
-    return await fetchEmployeeAccountOutstanding(
-      filters.selectedDateArray,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsUser,
-      type,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData =
-        await exportAllEmployeeAccountOutstadingData<IEmployeeAccountOutstanding>(
-          fetchAccountOutstandingForExport,
-          500,
-        );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const data = (
-        selectedEmployees.length > 0 ? selectedEmployees : exportData
-      ).map((row) => ({
-        "Employee Name": row.employee_name || "-",
-        "Total Outstanding": row.total_outstanding_amount ?? "-",
-        Type: row.outstanding_type || "-",
-      }));
-
-      const parseAmount = (str: string): number => {
-        return parseFloat(str?.replace(/[^0-9.-]+/g, "") || "0") || 0;
-      };
-
-      const payable = exportData
-        .filter((r) => r.outstanding_type?.toLowerCase() === "payable")
-        .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-      const receivable = exportData
-        .filter((r) => r.outstanding_type?.toLowerCase() === "receivable")
-        .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-      const grand = payable + receivable;
-
-      const footer = [
-        {
-          "Employee Name": `Payable - ${payable}`,
-          "Total Outstanding": `Receivable - ${receivable}`,
-          Type: `Grand Total - ${grand}`,
-        },
-      ];
-
-      const ws = xlsx.utils.json_to_sheet([...data, ...footer]);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Outstanding");
-
-      const buffer = xlsx.write(wb, { bookType: "xlsx", type: "array" });
-      saveAs(
-        new Blob([buffer], { type: "application/octet-stream" }),
-        `employee_account_outstanding_${Date.now()}.xlsx`,
-      );
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1053,25 +925,41 @@ const EmployeeAccountOutstandingReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (employees.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="employee_account_outstanding_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    globalSearch: debouncedSearchText,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    Flag: type,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="employee_account_outstanding"
+                  canShare={canShare}
+                  disabled={employees.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedEmployees}
+                  footer={{
+                    sums: [
+                      {
+                        outputKey: "payable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Payable" },
+                      },
+                      {
+                        outputKey: "receivable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Receivable" },
+                      },
+                      { outputKey: "grand", sourceKey: "total_outstanding_amount" },
+                    ],
+                    rows: [
+                      { employee_name: "Payable", total_outstanding_amount: { fromSum: "payable" } },
+                      { employee_name: "Receivable", total_outstanding_amount: { fromSum: "receivable" } },
+                      { employee_name: "Grand Total", total_outstanding_amount: { fromSum: "grand" } },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"

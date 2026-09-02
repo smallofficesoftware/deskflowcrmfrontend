@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -16,9 +15,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -27,7 +26,6 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllAccountOutstadingData,
   fetchAccountOutstanding,
   IAccountOutstanding,
 } from "./AccountOutstandingReportsController";
@@ -650,109 +648,6 @@ const AccountOutstandingReports = ({
   //     );
   //   };
 
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IAccountOutstanding[]> => {
-    return await fetchAccountOutstanding(
-      filters.selectedDateArray,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.selectedContactId,
-      undefined,
-      type,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const rawExportData =
-        await exportAllAccountOutstadingData<IAccountOutstanding>(
-          fetchAccountOutstandingForExport,
-          500,
-        );
-
-      if (!rawExportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const dataToExport =
-        selectedCustomers.length > 0 ? selectedCustomers : rawExportData;
-
-      const data = dataToExport.map((row) => {
-        const rowObj: any = {};
-        visibleColumns.forEach((col) => {
-          rowObj[col.label] = getExportCellValue(col, row);
-        });
-        return rowObj;
-      });
-
-      const parseAmount = (str: string): number => {
-        return parseFloat(str?.replace(/[^0-9.-]+/g, "") || "0") || 0;
-      };
-
-      const payable = rawExportData
-        .filter((r) => r.outstanding_type?.toLowerCase() === "payable")
-        .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-      const receivable = rawExportData
-        .filter((r) => r.outstanding_type?.toLowerCase() === "receivable")
-        .reduce((s, r) => s + parseAmount(r.total_outstanding_amount), 0);
-
-      const grand = payable + receivable;
-
-      const buildFooterRow = (overrides: Record<string, any>) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = overrides[col.key] ?? "";
-        });
-        return row;
-      };
-
-      const footer = [
-        buildFooterRow({
-          contact_name: "Payable",
-          total_outstanding_amount: payable,
-          outstanding_type: "Receivable / Grand Total",
-        }),
-        buildFooterRow({
-          contact_name: "",
-          total_outstanding_amount: receivable,
-          outstanding_type: grand,
-        }),
-      ];
-
-      const ws = xlsx.utils.json_to_sheet([...data, ...footer]);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Outstanding");
-
-      const buffer = xlsx.write(wb, { bookType: "xlsx", type: "array" });
-      saveAs(
-        new Blob([buffer], { type: "application/octet-stream" }),
-        `account_outstanding_${Date.now()}.xlsx`,
-      );
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1087,25 +982,48 @@ const AccountOutstandingReports = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="account_outstanding_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
+                    Flag: type,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Account_Outstanding_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                  footer={{
+                    sums: [
+                      {
+                        outputKey: "payable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Payable" },
+                      },
+                      {
+                        outputKey: "receivable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Receivable" },
+                      },
+                      { outputKey: "grand", sourceKey: "total_outstanding_amount" },
+                    ],
+                    rows: [
+                      {
+                        contact_name: "Payable",
+                        total_outstanding_amount: { fromSum: "payable" },
+                        outstanding_type: "Receivable / Grand Total",
+                      },
+                      {
+                        contact_name: "",
+                        total_outstanding_amount: { fromSum: "receivable" },
+                        outstanding_type: { fromSum: "grand" },
+                      },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"

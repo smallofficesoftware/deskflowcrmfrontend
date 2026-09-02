@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -20,9 +19,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -39,10 +38,8 @@ import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
-  exportAllDispatchData,
   fetchCartReport,
   fetchDispatchPdfmeTemplates,
-  fetchDispatchReportForExport,
   generateAndPrintDispatchPdf,
   IFlatCartItem,
   isPdfmeEnabledForDispatch,
@@ -954,79 +951,6 @@ const TeamDispatchDataReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchDispatchReportForExport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      filters.checkedOptionsStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsSeries,
-      filters.selectedContactId,
-      filters.checkedGstOptions,
-      filters.selectedProductId,
-      filters.selectedCategoryId,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData = await exportAllDispatchData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Dispatch Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `dispatch_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (e) {
-      console.error(e);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
       (filter) =>
@@ -1403,25 +1327,26 @@ const TeamDispatchDataReportsView = ({
                       scrollbarWidth: "none",
                     }}
                   >
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportExcel()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportExcelMenuItem
+                      reportType="dispatch_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-excel"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export Excel
-                    </li>
+                      columns={visibleColumns}
+                      fileName="Dispatch_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers}
+                    />
 
                     <li
                       className="listItem text-start"
