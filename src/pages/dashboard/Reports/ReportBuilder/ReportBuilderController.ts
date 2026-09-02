@@ -357,7 +357,15 @@ export const exportReportExcel = async (id: number): Promise<string | null> => {
 
 export const exportReportPdf = async (
   id: number,
-  options?: { template_id?: number; disposition?: "inline" | "attachment" },
+  options?: {
+    template_id?: number;
+    disposition?: "inline" | "attachment";
+    // Same gap as the Excel export path had — runDefinitionByType reads
+    // these straight off req.body, so a run without them silently ignores
+    // whatever the on-screen grid is currently filtered/searched to.
+    search?: string;
+    filters?: { column: string; op: string; value: unknown; combinator?: "and" | "or"; includeBlank?: boolean }[];
+  },
 ): Promise<string | null> => {
   try {
     const { data } = await axiosInstance.post(`report-definitions/${id}/export/pdf`, {

@@ -183,7 +183,10 @@ const ReportRunnerView: React.FC = () => {
 
   const handleExportPdf = async () => {
     setExportingPdf(true);
-    const url = await exportReportPdf(definitionId);
+    const url = await exportReportPdf(definitionId, {
+      search: search || undefined,
+      filters: generalFilters.length > 0 ? generalFilters : undefined,
+    });
     setExportingPdf(false);
     if (url) window.open(url, "_blank");
   };
@@ -241,7 +244,18 @@ const ReportRunnerView: React.FC = () => {
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem
                   reportType="report_builder"
-                  filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: definitionId }}
+                  // genericReportExportService.js sends this object as the
+                  // ENTIRE request body to fetchReportBuilderExportPage —
+                  // not merged with anything else — so the applied general
+                  // filters and search term must ride along here too, or
+                  // the export would silently return every row regardless
+                  // of what the on-screen grid is currently filtered to.
+                  filters={{
+                    a_application_login_id: localStorage.getItem("UUID"),
+                    report_definition_id: definitionId,
+                    filters: generalFilters.length > 0 ? generalFilters : undefined,
+                    search: search || undefined,
+                  }}
                   columns={exportColumns}
                   fileName={definition.name}
                   disabled={exportColumns.length === 0}
