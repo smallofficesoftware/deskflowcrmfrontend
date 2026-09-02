@@ -357,3 +357,52 @@ export const runReportDefinition = async (
     return null;
   }
 };
+
+export type IDataScope = "own" | "all" | "chain";
+
+export interface IReportTeamRight {
+  a_application_login_id: number;
+  data_scope: IDataScope;
+}
+
+// Manage Access modal — current grants for one report (Step 7).
+export const getReportTeamRights = async (id: number): Promise<IReportTeamRight[]> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/team-rights/list`, {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load access list");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load access list");
+    return [];
+  }
+};
+
+// grants: who should have access, and what scope. removals: logins whose
+// grant row should be deleted — "no access" is row-absence, not a separate
+// blocked state (Step 7's simplified design), so removing someone here
+// really does make their Custom Reports tile disappear, guaranteed.
+export const saveReportTeamRights = async (
+  id: number,
+  grants: IReportTeamRight[],
+  removals: number[],
+): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/team-rights`, {
+      a_application_login_id: loginId(),
+      grants,
+      removals,
+    });
+    if (data?.ack === 1) {
+      toast.success("Access updated successfully");
+      return true;
+    }
+    reportError(data, "Failed to update access");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to update access");
+    return false;
+  }
+};

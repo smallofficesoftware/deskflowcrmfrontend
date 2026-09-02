@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import PromptModal from "../../../../components/model/PromptModal";
+import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
@@ -10,6 +11,8 @@ import {
   getMetricsRegistry,
   getModelRegistry,
   getPluginRegistry,
+  getReportTeamRights,
+  IDataScope,
   IMetricEntry,
   IModelRegistryEntry,
   IPluginRegistryEntry,
@@ -19,6 +22,7 @@ import {
   listReportDefinitions,
   listSystemReportDefinitions,
   runReportDefinition,
+  saveReportTeamRights,
   updateReportDefinition,
   verifyReportPin,
 } from "./ReportBuilderController";
@@ -96,6 +100,16 @@ const ReportBuilderView: React.FC = () => {
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [copyingId, setCopyingId] = useState<number | null>(null);
 
+  // Manage Access (Step 7) — "none" means no grant at all (removed or
+  // never granted); the map only ever holds one entry per login, no
+  // separate "blocked" state to track since row-absence IS the deny.
+  const [manageAccessForDef, setManageAccessForDef] = useState<IReportDefinition | null>(null);
+  const [teamMembers, setTeamMembers] = useState<ICompanyTeam[]>([]);
+  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [accessMap, setAccessMap] = useState<Record<number, IDataScope | "none">>({});
+  const [originalGrantedIds, setOriginalGrantedIds] = useState<Set<number>>(new Set());
+  const [savingAccess, setSavingAccess] = useState(false);
+
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
@@ -148,6 +162,39 @@ const ReportBuilderView: React.FC = () => {
     (acc[key] = acc[key] || []).push(g);
     return acc;
   }, {});
+
+  const openManageAccess = async (definition: IReportDefinition) => {
+    setManageAccessForDef(definition);
+    setLoadingAccess(true);
+    const companyId = Number(localStorage.getItem("COMPANY_ID"));
+    const [, grants] = await Promise.all([
+      fetchCompanyTeamApi(setTeamMembers, companyId, ""),
+      getReportTeamRights(definition.id),
+    ]);
+    const map: Record<number, IDataScope | "none"> = {};
+    const grantedIds = new Set<number>();
+    grants.forEach((g) => {
+      map[g.a_application_login_id] = g.data_scope;
+      grantedIds.add(g.a_application_login_id);
+    });
+    setAccessMap(map);
+    setOriginalGrantedIds(grantedIds);
+    setLoadingAccess(false);
+  };
+
+  const handleSaveAccess = async () => {
+    if (!manageAccessForDef) return;
+    setSavingAccess(true);
+    const grants = Object.entries(accessMap)
+      .filter(([, scope]) => scope !== "none")
+      .map(([loginId, scope]) => ({ a_application_login_id: Number(loginId), data_scope: scope as IDataScope }));
+    // Only logins that HAD a grant before and are now "none" need an
+    // explicit removal — someone who was already ungranted needs no call.
+    const removals = [...originalGrantedIds].filter((loginId) => accessMap[loginId] === "none" || accessMap[loginId] === undefined);
+    const ok = await saveReportTeamRights(manageAccessForDef.id, grants, removals);
+    setSavingAccess(false);
+    if (ok) setManageAccessForDef(null);
+  };
 
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
@@ -697,6 +744,9 @@ const ReportBuilderView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => setTemplatesForDef(def)}>
                           Manage Templates
                         </button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openManageAccess(def)}>
+                          Manage Access
+                        </button>
                       </td>
                     </tr>
                     {runResult && runResult.definitionId === def.id && (
@@ -797,6 +847,53 @@ const ReportBuilderView: React.FC = () => {
                 })}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {manageAccessForDef && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 480, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Manage Access — {manageAccessForDef.name}</h5>
+              <span className="close" onClick={() => setManageAccessForDef(null)}>&times;</span>
+            </div>
+            <p className="text-muted" style={{ fontSize: 12 }}>
+              Only team members granted access below can see this report in "Custom Reports." Removing access here
+              makes their tile disappear immediately, regardless of any other page-level rights they hold.
+            </p>
+            {loadingAccess && <p>Loading...</p>}
+            {!loadingAccess && teamMembers.length === 0 && <p className="text-muted">No team members found.</p>}
+            {!loadingAccess &&
+              teamMembers.map((member) => {
+                const scope = accessMap[member.id] ?? "none";
+                return (
+                  <div key={member.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <span style={{ fontSize: 13 }}>{member.username}</span>
+                    <select
+                      className="form-select form-select-sm"
+                      style={{ width: 160 }}
+                      value={scope}
+                      onChange={(e) =>
+                        setAccessMap((prev) => ({ ...prev, [member.id]: e.target.value as IDataScope | "none" }))
+                      }
+                    >
+                      <option value="none">No access</option>
+                      <option value="own">Own data</option>
+                      <option value="all">All data</option>
+                      <option value="chain">Chain (own + referrals)</option>
+                    </select>
+                  </div>
+                );
+              })}
+            <div className="d-flex gap-2 mt-3">
+              <button className="btn btn-sm btn-primary" disabled={savingAccess} onClick={handleSaveAccess}>
+                {savingAccess ? "Saving..." : "Save Access"}
+              </button>
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => setManageAccessForDef(null)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
