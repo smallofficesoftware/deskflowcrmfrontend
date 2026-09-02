@@ -30,6 +30,14 @@ export interface IModelRegistryEntry {
   // Whitelisted joins — select/display only (no filter/aggregate), see
   // backend/src/services/report_builder/modelRegistry.js and queryEngine.js.
   relations?: IModelRelation[];
+  // Step 2 of the plan — which CheckBoxFilterModal.tsx slot numbers apply
+  // to this table (keyed by slot number as a string, since JS object keys
+  // are always strings even when set with a numeric key server-side), and
+  // which whitelisted column (or `true` for slot 6, Demography) each
+  // resolves to. Typed here now so the data is visible/usable — the actual
+  // CheckBoxFilterModal wiring (a 4600+ line component) is its own
+  // follow-up, not built this pass.
+  generalFilters?: Record<string, string | true>;
 }
 
 export interface IPluginFilterField {
