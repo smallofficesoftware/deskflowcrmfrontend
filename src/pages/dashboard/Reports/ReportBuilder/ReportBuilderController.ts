@@ -67,6 +67,10 @@ export interface IReportDefinition {
   filters_json: string | null;
   group_by_json: string | null;
   source_system_report_definition_id?: number | null;
+  // JSON-stringified number[] of general-filter slots (see
+  // generalFilterAdapter.ts's SLOT_LABELS) the author picked as this
+  // report's default — null means "show every slot this table has."
+  filters_to_show?: string | null;
   created_date_time: string;
 }
 
@@ -173,6 +177,7 @@ export interface IRunnableReportDefinition {
   description: string | null;
   model_key: string | null;
   plugin_key: string | null;
+  filters_to_show: string | null;
 }
 
 // "Custom Reports" (ReportsTileView's dynamic section) — visibility is
@@ -276,6 +281,7 @@ export interface IReportDefinitionPayload {
   columns_json: any;
   filters_json?: any;
   group_by_json?: any;
+  filters_to_show?: number[];
 }
 
 export const createReportDefinition = async (payload: IReportDefinitionPayload): Promise<IReportDefinition | null> => {

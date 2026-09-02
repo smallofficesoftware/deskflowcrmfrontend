@@ -25,6 +25,12 @@ interface ReportBuilderFormState {
   // dimension (team members) is fixed server-side, no column/filter/groupBy
   // pickers apply.
   metricKeys: string[];
+  // Step 2 — author's default subset of the table's generalFilters slots
+  // (see generalFilterAdapter.ts's SLOT_LABELS). A run-tier viewer can
+  // still widen/narrow this for their own session; this is only the
+  // default they land on. Empty array (the default) means "show every
+  // slot this table has" — same as omitting it.
+  filtersToShow: number[];
 
   setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
@@ -38,6 +44,7 @@ interface ReportBuilderFormState {
   removeFilterRow: (index: number) => void;
   setFilterValue: (column: string, value: string) => void;
   toggleMetric: (metricKey: string) => void;
+  toggleFilterSlot: (slot: number) => void;
   loadForEdit: (definition: IReportDefinition) => void;
   reset: () => void;
 }
@@ -59,10 +66,11 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   filters: [],
   groupBy: [],
   metricKeys: [],
+  filtersToShow: [],
 
-  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [] }),
+  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [], filtersToShow: [] }),
   setName: (name) => set({ name }),
-  setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [] }),
+  setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [], filtersToShow: [] }),
   setPluginKey: (pluginKey) => set({ pluginKey, filters: [] }),
 
   toggleColumn: (columnKey) =>
@@ -107,6 +115,11 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       metricKeys: state.metricKeys.includes(metricKey) ? state.metricKeys.filter((k) => k !== metricKey) : [...state.metricKeys, metricKey],
     })),
 
+  toggleFilterSlot: (slot) =>
+    set((state) => ({
+      filtersToShow: state.filtersToShow.includes(slot) ? state.filtersToShow.filter((s) => s !== slot) : [...state.filtersToShow, slot],
+    })),
+
   loadForEdit: (definition) => {
     // composite-type columns_json is already the metric-keys string array —
     // no {column,op,value} shape to reconstruct, unlike query/plugin below.
@@ -122,6 +135,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         filters: [],
         groupBy: [],
         metricKeys,
+        filtersToShow: [],
       });
       return;
     }
@@ -152,6 +166,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filters,
       groupBy,
       metricKeys: [],
+      filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
     });
   },
 
@@ -166,5 +181,6 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filters: [],
       groupBy: [],
       metricKeys: [],
+      filtersToShow: [],
     }),
 }));

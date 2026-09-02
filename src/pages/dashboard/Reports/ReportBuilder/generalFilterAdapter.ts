@@ -17,6 +17,43 @@ import { IFilterPayload } from "../../../../helpers/AppInterface";
 // - "unassigned" (slots 10/20) is expressed as value:[] + includeBlank:true
 //   on whichever shape (csv or scalar) the target column actually is —
 //   same mechanism, not a separate concept.
+// The full 29-slot CheckBoxFilterModal catalog, traced from its own JSX
+// (see the plan doc's Step 2 table) — used to label checkboxes in both the
+// build UI's "default filters to show" picker and (if ever needed) the run
+// screen's own widen/narrow picker. Only slots a table actually maps in
+// its generalFilters get shown anywhere; this is the full reference set.
+export const SLOT_LABELS: Record<number, string> = {
+  1: "Date Range",
+  2: "Label",
+  3: "Source Type",
+  4: "Stage and Status",
+  5: "Team Member",
+  6: "Demography",
+  7: "Category / Product",
+  8: "Active / Deactivate",
+  9: "Multi Team Member",
+  10: "Unassign Task",
+  11: "Task Type",
+  12: "Show Only Template Task",
+  13: "Credit",
+  14: "Debit",
+  15: "Series",
+  16: "Warehouse",
+  17: "Stock Type",
+  18: "Search Contact",
+  19: "Product Search",
+  20: "Unassign Contacts",
+  21: "External Stage/Status",
+  22: "GST",
+  23: "Date Selection",
+  24: "Transaction Mode",
+  25: "Payment Type",
+  26: "Payment By",
+  27: "Expense Type",
+  28: "Expense Status",
+  29: "Lead Ageing",
+};
+
 export interface IGeneralFilter {
   column: string;
   op: string;

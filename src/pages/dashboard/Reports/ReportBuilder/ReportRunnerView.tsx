@@ -68,7 +68,13 @@ const ReportRunnerView: React.FC = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedPayload, setAppliedPayload] = useState<IFilterPayload | null>(null);
   const [generalFilters, setGeneralFilters] = useState<IGeneralFilter[]>([]);
-  const filtersToShow = filterConfig ? Object.keys(filterConfig.generalFilters).map(Number) : [];
+  // "Show all filters" widens past the author's default set — a per-session
+  // choice, never written back to the definition (Step 2's "default, not a
+  // cap" decision).
+  const [showAllFilterSlots, setShowAllFilterSlots] = useState(false);
+  const allFilterSlots = filterConfig ? Object.keys(filterConfig.generalFilters).map(Number) : [];
+  const authorDefaultSlots = definition?.filters_to_show ? (JSON.parse(definition.filters_to_show) as number[]) : [];
+  const filtersToShow = showAllFilterSlots || authorDefaultSlots.length === 0 ? allFilterSlots : authorDefaultSlots.filter((s) => allFilterSlots.includes(s));
 
   // Fresh run — resets pagination to page 1. Called on mount and whenever
   // sort or search changes (a new order/term invalidates the relative
@@ -221,10 +227,16 @@ const ReportRunnerView: React.FC = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {filtersToShow.length > 0 && (
+              {allFilterSlots.length > 0 && (
                 <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowFilterModal(true)}>
                   Filter{generalFilters.length > 0 ? ` (${generalFilters.length})` : ""}
                 </button>
+              )}
+              {authorDefaultSlots.length > 0 && authorDefaultSlots.length < allFilterSlots.length && (
+                <label style={{ fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                  <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
+                  Show all filters
+                </label>
               )}
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem

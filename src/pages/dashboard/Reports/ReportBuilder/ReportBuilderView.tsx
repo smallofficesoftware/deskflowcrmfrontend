@@ -26,6 +26,7 @@ import {
   updateReportDefinition,
   verifyReportPin,
 } from "./ReportBuilderController";
+import { SLOT_LABELS } from "./generalFilterAdapter";
 import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
@@ -281,6 +282,7 @@ const ReportBuilderView: React.FC = () => {
         columns_json: store.columns,
         filters_json: store.filters.filter((f) => f.value !== ""),
         group_by_json: store.groupBy,
+        filters_to_show: store.filtersToShow,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -557,6 +559,31 @@ const ReportBuilderView: React.FC = () => {
                       ))}
                   </div>
                 </div>
+
+                {selectedModel.generalFilters && Object.keys(selectedModel.generalFilters).length > 0 && (
+                  <div className="mb-2">
+                    <strong style={{ fontSize: 13 }}>General filters shown by default</strong>
+                    <div className="text-muted" style={{ fontSize: 11, marginBottom: 4 }}>
+                      A viewer running this report can still widen or narrow this for themselves — this only picks what they start with.
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                      {Object.keys(selectedModel.generalFilters)
+                        .map(Number)
+                        .sort((a, b) => a - b)
+                        .map((slot) => (
+                          <label key={slot} style={{ fontSize: 13, margin: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={store.filtersToShow.includes(slot)}
+                              onChange={() => store.toggleFilterSlot(slot)}
+                              style={{ marginRight: 4 }}
+                            />
+                            {SLOT_LABELS[slot] || `Slot ${slot}`}
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mb-2">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
