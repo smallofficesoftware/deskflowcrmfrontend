@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PromptModal from "../../../../components/model/PromptModal";
 import {
+  createReportDefinition,
   getMetricsRegistry,
   getModelRegistry,
   getPluginRegistry,
@@ -10,10 +11,12 @@ import {
   IPluginRegistryEntry,
   IReportDefinition,
   listReportDefinitions,
+  updateReportDefinition,
   verifyReportPin,
 } from "./ReportBuilderController";
 import StepColumns from "./StepColumns";
 import StepFilters from "./StepFilters";
+import StepOrganize from "./StepOrganize";
 import StepSource from "./StepSource";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 import WizardRail, { IWizardStep } from "./WizardRail";
@@ -55,6 +58,7 @@ const ReportBuilderWizardView: React.FC = () => {
   const [loadingRegistry, setLoadingRegistry] = useState(false);
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
+  const [saving, setSaving] = useState(false);
 
   const [step, setStep] = useState(1);
   // Create mode: steps unlock as completed, same "can't skip ahead of
@@ -136,6 +140,72 @@ const ReportBuilderWizardView: React.FC = () => {
     (store.type === "composite" || (store.type === "query" && !!store.modelKey) || (store.type === "plugin" && !!store.pluginKey));
   const canContinueStep2 = store.type === "composite" ? store.metricKeys.length > 0 : store.type === "query" ? store.columns.length > 0 : true;
   const canContinue = step === 1 ? canContinueStep1 : step === 2 ? canContinueStep2 : true;
+  const canSave = canContinueStep1 && canContinueStep2;
+
+  // Ported field-for-field from ReportBuilderView.tsx's existing handleSave
+  // — same per-type payload shape (query/plugin/composite), same
+  // create-vs-update branch on store.editingId. Differs only in what
+  // happens after a successful save: the old form resets and stays on the
+  // same page (list + form share one screen); this route navigates back
+  // to the list, since Add/Edit now live on their own screen.
+  const handleSave = async () => {
+    if (!canSave) return;
+    setSaving(true);
+
+    let created;
+    if (store.type === "composite") {
+      const payload = {
+        name: store.name.trim(),
+        type: "composite" as const,
+        columns_json: store.metricKeys,
+        report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
+        icon: store.icon || null,
+      };
+      created = store.editingId ? await updateReportDefinition(store.editingId, payload) : await createReportDefinition(payload);
+    } else if (store.type === "plugin") {
+      const filtersObject = Object.fromEntries(
+        store.filters
+          .filter((f) => f.value !== "")
+          .map((f) => {
+            const fieldDef = selectedPlugin?.filterSchema.find((s) => s.key === f.column);
+            const value = fieldDef?.type === "date" ? f.value.split(",").map((v) => v.trim()) : f.value;
+            return [f.column, value];
+          }),
+      );
+      const payload = {
+        name: store.name.trim(),
+        type: "plugin" as const,
+        plugin_key: store.pluginKey,
+        columns_json: [],
+        filters_json: filtersObject,
+        report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
+        icon: store.icon || null,
+      };
+      created = store.editingId ? await updateReportDefinition(store.editingId, payload) : await createReportDefinition(payload);
+    } else {
+      const payload = {
+        name: store.name.trim(),
+        type: "query" as const,
+        model_key: store.modelKey,
+        columns_json: store.columns,
+        filters_json: store.filters.filter((f) => f.value !== ""),
+        group_by_json: store.groupBy,
+        filters_to_show: store.filtersToShow,
+        report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
+        icon: store.icon || null,
+      };
+      created = store.editingId ? await updateReportDefinition(store.editingId, payload) : await createReportDefinition(payload);
+    }
+
+    setSaving(false);
+    if (created) {
+      store.reset();
+      navigate("/report-builder");
+    }
+  };
 
   return (
     <div style={{ padding: 20 }}>
@@ -196,15 +266,7 @@ const ReportBuilderWizardView: React.FC = () => {
                   )}
                   {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced={advanced} />}
                   {step === 3 && <StepFilters selectedModel={selectedModel} selectedPlugin={selectedPlugin} />}
-                  {/* Placeholder — piece 5 replaces this with the real
-                      Organize & Save content ported from
-                      ReportBuilderView.tsx. */}
-                  {step > 3 && (
-                    <p className="text-muted" style={{ fontSize: 13 }}>
-                      Step {step} content isn't built yet in this pass — this is
-                      the navigation scaffolding only.
-                    </p>
-                  )}
+                  {step === 4 && <StepOrganize />}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                     <button className="btn btn-outline-secondary btn-sm" disabled={step === 1} onClick={() => goto(nextApplicableStep(step, -1))}>
@@ -215,8 +277,8 @@ const ReportBuilderWizardView: React.FC = () => {
                         Continue
                       </button>
                     ) : (
-                      <button className="btn btn-sm rb-btn-primary" disabled title="Save isn't wired up yet — piece 5">
-                        Save report
+                      <button className="btn btn-sm rb-btn-primary" disabled={!canSave || saving} onClick={handleSave}>
+                        {saving ? "Saving..." : isEdit ? "Update Report" : "Save Report"}
                       </button>
                     )}
                   </div>
