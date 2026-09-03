@@ -131,7 +131,13 @@ const ReportBuilderView: React.FC = () => {
   const navigate = useNavigate();
   const store = useReportBuilderStore();
 
-  const [pinVerified, setPinVerified] = useState(false);
+  // A verified PIN already left a REPORT_PIN_TOKEN in localStorage (axios
+  // interceptor sends it on every gated call automatically) — trust it
+  // optimistically instead of re-prompting on every mount/reload. If it
+  // turns out stale/expired, the first gated call below just fails with
+  // its usual error toast, same as any other failed load; no separate
+  // retry-prompt flow, that's unchanged from before this fix.
+  const [pinVerified, setPinVerified] = useState(() => !!localStorage.getItem("REPORT_PIN_TOKEN"));
   const [showPinModal, setShowPinModal] = useState(true);
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);

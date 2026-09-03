@@ -323,7 +323,11 @@ const DocumentDesignerView: React.FC = () => {
   // (DocumentDesignerController.ts) can re-prompt right here and retry the
   // one call, instead of failing outright. Same verifyReportPin
   // ReportBuilderView.tsx uses — one PIN, either page.
-  const [pinVerified, setPinVerified] = useState(false);
+  // A verified PIN already left a REPORT_PIN_TOKEN in localStorage — trust
+  // it optimistically instead of re-prompting on every mount/reload. A
+  // stale/expired one is already handled by postGated's retry above, not a
+  // new failure mode this introduces.
+  const [pinVerified, setPinVerified] = useState(() => !!localStorage.getItem("REPORT_PIN_TOKEN"));
   const [showPinModal, setShowPinModal] = useState(false);
   const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
   useEffect(() => {
