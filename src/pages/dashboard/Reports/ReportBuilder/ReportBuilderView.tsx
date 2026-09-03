@@ -13,6 +13,8 @@ import {
   deleteReportGroup,
   deleteReportSchedule,
   duplicateReportDefinition,
+  exportReportDefinitionJson,
+  importReportDefinitionFile,
   exportReportPdf,
   getMetricsRegistry,
   getModelRegistry,
@@ -184,6 +186,7 @@ const ReportBuilderView: React.FC = () => {
   // more cluttered than the table it's replacing.
   const [openMoreMenuId, setOpenMoreMenuId] = useState<number | null>(null);
   const moreMenuCardRef = useRef<HTMLDivElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (moreMenuCardRef.current && !moreMenuCardRef.current.contains(event.target as Node)) {
@@ -531,6 +534,14 @@ const ReportBuilderView: React.FC = () => {
     if (created) loadBuildData();
   };
 
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file name back-to-back
+    if (!file) return;
+    const created = await importReportDefinitionFile(file);
+    if (created) loadBuildData();
+  };
+
   // Same key-derivation queryEngine.js's own resolveDisplayColumns() uses
   // server-side (aggregate ? alias || `${aggregate}_${column}` : column) —
   // kept in sync by hand since this is a client-side mirror for the export
@@ -647,9 +658,21 @@ const ReportBuilderView: React.FC = () => {
           <div className="card p-3 mb-4">
             <div className="d-flex justify-content-between align-items-center">
               <h6>{store.editingId ? "Edit Report" : "New Report"}</h6>
-              <button className="btn btn-sm rb-btn-outline-primary" onClick={openGallery}>
-                Browse Report Library
-              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn btn-sm rb-btn-outline-primary" onClick={openGallery}>
+                  Browse Report Library
+                </button>
+                <button className="btn btn-sm rb-btn-outline-primary" onClick={() => importFileInputRef.current?.click()}>
+                  Import
+                </button>
+                <input
+                  ref={importFileInputRef}
+                  type="file"
+                  accept="application/json"
+                  style={{ display: "none" }}
+                  onChange={handleImportFile}
+                />
+              </div>
             </div>
 
             <div className="row g-2 mb-2 align-items-center">
@@ -1231,6 +1254,15 @@ const ReportBuilderView: React.FC = () => {
                           }}
                         >
                           Duplicate
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            exportReportDefinitionJson(def.id, def.name);
+                          }}
+                        >
+                          Export JSON
                         </button>
                         <button
                           className="btn btn-sm btn-outline-secondary"

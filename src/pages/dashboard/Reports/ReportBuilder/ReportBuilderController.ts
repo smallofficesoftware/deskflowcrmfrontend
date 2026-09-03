@@ -530,6 +530,53 @@ export const duplicateReportDefinition = async (id: number): Promise<IReportDefi
   }
 };
 
+// Backup/portability of one of this company's own reports as a downloadable
+// .json file — the same build shape a "New Report" form fills in, so it
+// round-trips through importReportDefinitionFile below (same company or a
+// different one this login also owns).
+export const exportReportDefinitionJson = async (id: number, fileName: string): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/export-json`, {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) {
+      const { saveAs } = await import("file-saver");
+      const blob = new Blob([JSON.stringify(data.data.item, null, 2)], { type: "application/json" });
+      saveAs(blob, `${fileName}.report.json`);
+      return true;
+    }
+    reportError(data, "Failed to export report");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to export report");
+    return false;
+  }
+};
+
+// Companion to exportReportDefinitionJson — `file` is the .json a user just
+// picked, read client-side and posted as-is (createReportDefinition's own
+// validation, e.g. model_key/plugin_key whitelisted, runs server-side same
+// as any other create).
+export const importReportDefinitionFile = async (file: File): Promise<IReportDefinition | null> => {
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const { data } = await axiosInstance.post("report-definitions/import", {
+      a_application_login_id: loginId(),
+      ...parsed,
+    });
+    if (data?.ack === 1) {
+      toast.success("Report imported successfully");
+      return data.data.item;
+    }
+    reportError(data, "Failed to import report");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to import report — is this a valid report file?");
+    return null;
+  }
+};
+
 export const deleteReportDefinition = async (id: number): Promise<boolean> => {
   try {
     const { data } = await axiosInstance.post(`report-definitions/${id}/delete`, {
