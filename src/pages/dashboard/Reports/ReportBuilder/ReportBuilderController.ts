@@ -178,6 +178,12 @@ export interface IRunnableReportDefinition {
   model_key: string | null;
   plugin_key: string | null;
   filters_to_show: string | null;
+  // Composite is always per-team-member aggregates; a query-type report
+  // is aggregated iff it has a group_by_json set (the raw column list
+  // itself stays build-internal — this is just the derived boolean).
+  // Drives Step 9's Compare Period, which has no clean meaning against a
+  // raw ungrouped row listing.
+  is_aggregated: boolean;
 }
 
 // "Custom Reports" (ReportsTileView's dynamic section) — visibility is

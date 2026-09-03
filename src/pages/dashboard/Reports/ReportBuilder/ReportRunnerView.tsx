@@ -12,7 +12,7 @@ import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { useReportFilterPresetsStore } from "../../../../store/report/useReportFilterPresetsStore";
-import { mapColumnTypeToExportFormat, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
+import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
   getGeneralFilterConfig,
@@ -33,9 +33,11 @@ import {
 //
 // Reuses the same DataTable + virtualScrollerOptions (scroll-load) +
 // onSort pattern every legacy report already uses (see inquiryView.tsx) —
-// not a bespoke table. Free-text search is wired in too. Row-level
-// per-column filters, ColumnsButton, and AppliedFilterBar aren't yet
-// (Step 5/9's remaining pieces) — nor is Step 2's general filter modal.
+// not a bespoke table. Full toolbar shell: free-text search, the
+// CheckBoxFilterModal general filter (Step 2) + Save Filter presets
+// (Step 9), row-level per-column filters, ColumnsButton, row selection +
+// selected-rows export, AppliedFilterBar, and Compare Period (Step 9,
+// aggregated reports only) are all wired in.
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -101,6 +103,80 @@ const ReportRunnerView: React.FC = () => {
       return { column, op: type === "string" ? "like" : "eq", value: value.trim() };
     });
   const effectiveFilters = [...generalFilters, ...columnFilterList];
+
+  // Step 9 — Compare Period, scoped to aggregated reports only
+  // (definition.is_aggregated) with an active date-range filter applied —
+  // there's no period to shift otherwise. Simplified from the plan's
+  // per-row "each aggregate column renders as two values + a delta"
+  // design down to a period-TOTALS comparison (sum each numeric column
+  // across the whole result set, current vs. shifted period) —
+  // deliberately: matching individual rows between two independently
+  // fetched result sets (which team member is "the same" row across two
+  // periods, for an arbitrary grouped query-type report with no known
+  // dimension-column metadata here) is real, correctness-sensitive work
+  // this run screen doesn't have enough column metadata to do safely yet;
+  // a wrong per-row delta on a financial-style report is worse than not
+  // offering per-row deltas at all. Totals-level comparison needs none of
+  // that — just two full-set fetches and a sum per column.
+  const dateColumn = typeof filterConfig?.generalFilters["1"] === "string" ? (filterConfig.generalFilters["1"] as string) : undefined;
+  const canCompare = !!definition?.is_aggregated && !!dateColumn && !!appliedPayload?.startSearchDate && !!appliedPayload?.endSearchDate;
+  const [compareMode, setCompareMode] = useState<"" | "previous" | "lastYear">("");
+  const [compareRows, setCompareRows] = useState<any[] | null>(null);
+  const [currentTotalsRows, setCurrentTotalsRows] = useState<any[] | null>(null);
+  const [loadingCompare, setLoadingCompare] = useState(false);
+
+  const shiftedDateFilters = (mode: "previous" | "lastYear"): IGeneralFilter[] => {
+    const start = parseFilterDate(appliedPayload?.startSearchDate);
+    const end = parseFilterDate(appliedPayload?.endSearchDate);
+    if (!start || !end || !dateColumn) return [];
+    let newStart: Date, newEnd: Date;
+    if (mode === "lastYear") {
+      newStart = new Date(start);
+      newStart.setFullYear(newStart.getFullYear() - 1);
+      newEnd = new Date(end);
+      newEnd.setFullYear(newEnd.getFullYear() - 1);
+    } else {
+      const spanMs = end.getTime() - start.getTime();
+      newEnd = new Date(start.getTime() - 24 * 60 * 60 * 1000); // day before current start
+      newStart = new Date(newEnd.getTime() - spanMs);
+    }
+    return [
+      { column: dateColumn, op: "gte", value: formatDateForBackend(newStart) },
+      { column: dateColumn, op: "lte", value: formatDateForBackend(newEnd) },
+    ];
+  };
+
+  // Non-date filters (general + column) carry over unchanged into both
+  // the comparison fetch and the current-period totals fetch — only the
+  // date range itself differs between the three.
+  const nonDateEffectiveFilters = effectiveFilters.filter((f) => f.column !== dateColumn);
+
+  useEffect(() => {
+    if (!compareMode || !canCompare) {
+      setCompareRows(null);
+      setCurrentTotalsRows(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingCompare(true);
+    Promise.all([
+      runReportDefinition(definitionId, { limit: 500, offset: 0, search: search || undefined, filters: [...nonDateEffectiveFilters, ...effectiveFilters.filter((f) => f.column === dateColumn)] }),
+      runReportDefinition(definitionId, { limit: 500, offset: 0, search: search || undefined, filters: [...nonDateEffectiveFilters, ...shiftedDateFilters(compareMode)] }),
+    ]).then(([current, compare]) => {
+      if (cancelled) return;
+      setCurrentTotalsRows(current?.rows || []);
+      setCompareRows(compare?.rows || []);
+      setLoadingCompare(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareMode, canCompare, definitionId, search, JSON.stringify(effectiveFilters)]);
+
+  const numericColumnKeys = (rows: any[]): string[] =>
+    rows.length === 0 ? [] : Object.keys(rows[0]).filter((k) => typeof rows[0][k] === "number");
+  const sumColumn = (rows: any[], key: string) => rows.reduce((acc, r) => acc + (typeof r[key] === "number" ? r[key] : 0), 0);
 
   // Fresh run — resets pagination to page 1. Called on mount and whenever
   // sort or search changes (a new order/term invalidates the relative
@@ -169,6 +245,7 @@ const ReportRunnerView: React.FC = () => {
     setAppliedPayload(null);
     setColumnFilterValues({});
     setSelectedPresetName("");
+    setCompareMode("");
     setSearch("");
     setSortField(undefined);
     setSortOrder(null);
@@ -360,6 +437,18 @@ const ReportRunnerView: React.FC = () => {
                   )}
                 </>
               )}
+              {canCompare && (
+                <select
+                  className="form-select form-select-sm"
+                  style={{ width: 170 }}
+                  value={compareMode}
+                  onChange={(e) => setCompareMode(e.target.value as "" | "previous" | "lastYear")}
+                >
+                  <option value="">Compare to...</option>
+                  <option value="previous">Previous period</option>
+                  <option value="lastYear">Same period last year</option>
+                </select>
+              )}
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem
                   reportType="report_builder"
@@ -412,6 +501,36 @@ const ReportRunnerView: React.FC = () => {
                     onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
                   />
                 ))}
+            </div>
+          )}
+
+          {compareMode && (
+            <div className="card p-2" style={{ marginBottom: 8, fontSize: 12 }}>
+              {loadingCompare && <span>Comparing...</span>}
+              {!loadingCompare && currentTotalsRows && compareRows && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                  {numericColumnKeys(currentTotalsRows).length === 0 ? (
+                    <span className="text-muted">No numeric columns to compare.</span>
+                  ) : (
+                    numericColumnKeys(currentTotalsRows).map((key) => {
+                      const currentTotal = sumColumn(currentTotalsRows, key);
+                      const compareTotal = sumColumn(compareRows, key);
+                      const pctChange = compareTotal !== 0 ? ((currentTotal - compareTotal) / Math.abs(compareTotal)) * 100 : null;
+                      return (
+                        <div key={key}>
+                          <strong>{humanize(key)}:</strong> {currentTotal.toLocaleString()} vs {compareTotal.toLocaleString()}{" "}
+                          {pctChange !== null && (
+                            <span style={{ color: pctChange >= 0 ? "#198754" : "#dc3545" }}>
+                              ({pctChange >= 0 ? "+" : ""}
+                              {pctChange.toFixed(1)}%)
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
 

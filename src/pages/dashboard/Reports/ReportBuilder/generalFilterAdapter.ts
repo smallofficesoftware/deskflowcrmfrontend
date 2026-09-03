@@ -1,4 +1,4 @@
-import { IFilterPayload } from "../../../../helpers/AppInterface";
+import { IFilterPayload, TFilterDate } from "../../../../helpers/AppInterface";
 
 // Step 2 of the plan — translates CheckBoxFilterModal's submitted
 // IFilterPayload into the {column,op,value}[] shape queryEngine.js's
@@ -61,6 +61,35 @@ export const SLOT_LABELS: Record<number, string> = {
 // today's plain stringified export.
 export const mapColumnTypeToExportFormat = (type: string | undefined): "date" | "number" | "currency" | undefined =>
   type === "date" || type === "number" || type === "currency" ? type : undefined;
+
+// Same "a bare react-multi-date-picker DateObject exposes toDate(), a
+// plain string/Date also works" parsing AppliedFilterBar.tsx's own toDate()
+// already does (not imported from there — that file is one of the three
+// shared components this whole integration deliberately never edits) —
+// used by Step 9's Compare Period to shift an applied date range without
+// caring which of TFilterDate's several shapes it actually got.
+export const parseFilterDate = (value: TFilterDate): Date | null => {
+  if (!value) return null;
+  if (typeof (value as any)?.toDate === "function") {
+    try {
+      return (value as any).toDate();
+    } catch {
+      return null;
+    }
+  }
+  const d = new Date(value as string | number | Date);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// "YYYY-MM-DD" — what a gte/lte filter against a DATE/DATETIME column
+// already expects (the same shape CheckBoxFilterModal's own
+// startSearchDate/endSearchDate submit as, per queryEngine.js's plain
+// Sequelize Op.gte/Op.lte comparison — no special date parsing there to
+// match).
+export const formatDateForBackend = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 export interface IGeneralFilter {
   column: string;
