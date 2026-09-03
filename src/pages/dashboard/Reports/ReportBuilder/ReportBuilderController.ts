@@ -71,6 +71,9 @@ export interface IReportDefinition {
   // generalFilterAdapter.ts's SLOT_LABELS) the author picked as this
   // report's default — null means "show every slot this table has."
   filters_to_show?: string | null;
+  // Step 10 — tenant-defined organization (report_groups.id). Distinct
+  // from the system gallery's admin-fixed `category`. null = ungrouped.
+  report_group_id?: number | null;
   created_date_time: string;
 }
 
@@ -187,7 +190,70 @@ export interface IRunnableReportDefinition {
   // Step 9's Drill Down — query-type only (empty for plugin/composite).
   // Just the column-key list, no aggregate/having internals.
   group_by_columns: string[];
+  // Step 10 — which report_groups bucket this falls into on the "Custom
+  // Reports" tile grid; null = the "Ungrouped" bucket.
+  report_group_id: number | null;
 }
+
+// Step 10 — Report groups. Flat, single-level; read (list) is flag-only/
+// no-PIN (group names sit at the same non-sensitive tier `category`/
+// `description` already do — every viewer needs them to render tile
+// bucket headers, not just the owner); create/update/delete stay
+// build-tier owner+PIN.
+export interface IReportGroup {
+  id: number;
+  company_masters_id: number;
+  group_name: string;
+  display_order: number;
+}
+
+export const listReportGroups = async (): Promise<IReportGroup[]> => {
+  try {
+    const { data } = await axiosInstance.post("report-groups/list", { a_application_login_id: loginId() });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load report groups");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load report groups");
+    return [];
+  }
+};
+
+export const createReportGroup = async (group_name: string, display_order?: number): Promise<IReportGroup | null> => {
+  try {
+    const { data } = await axiosInstance.post("report-groups/create", { a_application_login_id: loginId(), group_name, display_order });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to create report group");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to create report group");
+    return null;
+  }
+};
+
+export const updateReportGroup = async (id: number, group_name: string, display_order?: number): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-groups/${id}/update`, { a_application_login_id: loginId(), group_name, display_order });
+    if (data?.ack === 1) return true;
+    reportError(data, "Failed to update report group");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to update report group");
+    return false;
+  }
+};
+
+export const deleteReportGroup = async (id: number): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-groups/${id}/delete`, { a_application_login_id: loginId() });
+    if (data?.ack === 1) return true;
+    reportError(data, "Failed to delete report group");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to delete report group");
+    return false;
+  }
+};
 
 // "Custom Reports" (ReportsTileView's dynamic section) — visibility is
 // per-report_definition_team_rights grant only (Step 7), no page-level
@@ -297,6 +363,7 @@ export interface IReportDefinitionPayload {
   filters_json?: any;
   group_by_json?: any;
   filters_to_show?: number[];
+  report_group_id?: number | null;
 }
 
 export const createReportDefinition = async (payload: IReportDefinitionPayload): Promise<IReportDefinition | null> => {

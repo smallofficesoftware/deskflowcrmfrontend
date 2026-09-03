@@ -6,7 +6,9 @@ import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-compa
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
+  createReportGroup,
   deleteReportDefinition,
+  deleteReportGroup,
   exportReportPdf,
   getMetricsRegistry,
   getModelRegistry,
@@ -18,14 +20,17 @@ import {
   IPluginRegistryEntry,
   IReportColumn,
   IReportDefinition,
+  IReportGroup,
   IReportRun,
   ISystemReportDefinition,
   listReportDefinitions,
+  listReportGroups,
   listReportRuns,
   listSystemReportDefinitions,
   runReportDefinition,
   saveReportTeamRights,
   updateReportDefinition,
+  updateReportGroup,
   verifyReportPin,
 } from "./ReportBuilderController";
 import { mapColumnTypeToExportFormat, SLOT_LABELS } from "./generalFilterAdapter";
@@ -121,6 +126,16 @@ const ReportBuilderView: React.FC = () => {
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
+  // Step 10 — report groups. Own state, not folded into loadBuildData's
+  // Promise.all: Manage Groups needs to reload just this list after a
+  // create/rename/delete without re-fetching the whole registry.
+  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
+  const [showManageGroups, setShowManageGroups] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const loadReportGroups = async () => setReportGroups(await listReportGroups());
+
   const loadBuildData = async () => {
     setLoadingRegistry(true);
     const [reg, plg, mtr, defs] = await Promise.all([getModelRegistry(), getPluginRegistry(), getMetricsRegistry(), listReportDefinitions()]);
@@ -129,6 +144,7 @@ const ReportBuilderView: React.FC = () => {
     setMetrics(mtr);
     setDefinitions(defs);
     setLoadingRegistry(false);
+    loadReportGroups();
   };
 
   useEffect(() => {
@@ -218,6 +234,31 @@ const ReportBuilderView: React.FC = () => {
 
   const teamMemberName = (loginId: number) => teamMembers.find((m) => m.id === loginId)?.username || `#${loginId}`;
 
+  const handleAddGroup = async () => {
+    if (!newGroupName.trim()) return;
+    const created = await createReportGroup(newGroupName.trim(), reportGroups.length);
+    if (created) {
+      setNewGroupName("");
+      loadReportGroups();
+    }
+  };
+  const handleStartRenameGroup = (group: IReportGroup) => {
+    setEditingGroupId(group.id);
+    setEditingGroupName(group.group_name);
+  };
+  const handleSaveRenameGroup = async () => {
+    if (editingGroupId === null || !editingGroupName.trim()) return;
+    const ok = await updateReportGroup(editingGroupId, editingGroupName.trim());
+    if (ok) {
+      setEditingGroupId(null);
+      loadReportGroups();
+    }
+  };
+  const handleDeleteGroup = async (id: number) => {
+    const ok = await deleteReportGroup(id);
+    if (ok) loadReportGroups();
+  };
+
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
     if (ok) {
@@ -250,6 +291,7 @@ const ReportBuilderView: React.FC = () => {
         name: store.name.trim(),
         type: "composite" as const,
         columns_json: store.metricKeys,
+        report_group_id: store.reportGroupId,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -287,6 +329,7 @@ const ReportBuilderView: React.FC = () => {
         // yet. Stored honestly empty rather than a fake placeholder value.
         columns_json: [],
         filters_json: filtersObject,
+        report_group_id: store.reportGroupId,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -304,6 +347,7 @@ const ReportBuilderView: React.FC = () => {
         filters_json: store.filters.filter((f) => f.value !== ""),
         group_by_json: store.groupBy,
         filters_to_show: store.filtersToShow,
+        report_group_id: store.reportGroupId,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -447,6 +491,23 @@ const ReportBuilderView: React.FC = () => {
                   value={store.name}
                   onChange={(e) => store.setName(e.target.value)}
                 />
+              </div>
+              <div className="col-md-2 d-flex gap-1">
+                <select
+                  className="form-select form-select-sm"
+                  value={store.reportGroupId ?? ""}
+                  onChange={(e) => store.setReportGroupId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Ungrouped</option>
+                  {reportGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.group_name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setShowManageGroups(true)}>
+                  Groups
+                </button>
               </div>
               <div className="col-md-3">
                 <div className="btn-group btn-group-sm" role="group">
@@ -756,6 +817,7 @@ const ReportBuilderView: React.FC = () => {
                   <th>Name</th>
                   <th>Type</th>
                   <th>Source</th>
+                  <th>Group</th>
                   <th></th>
                 </tr>
               </thead>
@@ -766,6 +828,7 @@ const ReportBuilderView: React.FC = () => {
                       <td>{def.name}</td>
                       <td>{def.type}</td>
                       <td>{def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key}</td>
+                      <td>{reportGroups.find((g) => g.id === def.report_group_id)?.group_name || "—"}</td>
                       <td style={{ display: "flex", gap: 6 }}>
                         <button
                           className="btn btn-sm btn-outline-primary"
@@ -813,7 +876,7 @@ const ReportBuilderView: React.FC = () => {
                     </tr>
                     {runResult && runResult.definitionId === def.id && (
                       <tr>
-                        <td colSpan={4}>
+                        <td colSpan={5}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                             <span style={{ fontSize: 12 }}>
                               {runResult.row_count} row(s) &middot; {runResult.duration_ms}ms
@@ -1004,6 +1067,59 @@ const ReportBuilderView: React.FC = () => {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {showManageGroups && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 420, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Manage Groups</h5>
+              <span className="close" onClick={() => setShowManageGroups(false)}>&times;</span>
+            </div>
+            {reportGroups.length === 0 && <p className="text-muted">No groups yet.</p>}
+            {reportGroups.map((g) => (
+              <div key={g.id} className="d-flex justify-content-between align-items-center border-bottom py-2 gap-2">
+                {editingGroupId === g.id ? (
+                  <input
+                    className="form-control form-control-sm"
+                    value={editingGroupName}
+                    onChange={(e) => setEditingGroupName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveRenameGroup()}
+                    autoFocus
+                  />
+                ) : (
+                  <span style={{ fontSize: 13 }}>{g.group_name}</span>
+                )}
+                <div className="d-flex gap-1">
+                  {editingGroupId === g.id ? (
+                    <button className="btn btn-sm btn-outline-primary" onClick={handleSaveRenameGroup}>
+                      Save
+                    </button>
+                  ) : (
+                    <button className="btn btn-sm btn-outline-secondary" onClick={() => handleStartRenameGroup(g)}>
+                      Rename
+                    </button>
+                  )}
+                  <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteGroup(g.id)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="d-flex gap-2 mt-3">
+              <input
+                className="form-control form-control-sm"
+                placeholder="New group name"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddGroup()}
+              />
+              <button className="btn btn-sm btn-primary" onClick={handleAddGroup}>
+                Add
+              </button>
+            </div>
           </div>
         </div>
       )}

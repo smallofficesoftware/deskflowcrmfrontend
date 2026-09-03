@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
 import {
+  IReportGroup,
   IRunnableReportDefinition,
+  listReportGroups,
   listRunnableReportDefinitions,
 } from "../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import { ReportIcon } from "./reportIcons";
@@ -30,17 +32,40 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
   // merged into that data shape — reportsMenuData stays untouched.
   const [customReports, setCustomReports] = useState<IRunnableReportDefinition[]>([]);
   const [loadingCustomReports, setLoadingCustomReports] = useState(true);
+  // Step 10 — report groups. Flag-only/no-PIN read (same tier
+  // list-runnable's own category/description already sit at), so any
+  // run-tier viewer can render group headers, not just the owner.
+  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
 
   useEffect(() => {
     listRunnableReportDefinitions().then((rows) => {
       setCustomReports(rows);
       setLoadingCustomReports(false);
     });
+    listReportGroups().then(setReportGroups);
   }, []);
 
   const filteredCustomReports = customReports.filter((r) =>
     !searchValue || r.name.toLowerCase().includes(searchValue.toLowerCase()),
   );
+
+  // Bucketed by report_group_id, in the tenant's own display_order, with
+  // an "Ungrouped" bucket last for anything with no group_id (or one that
+  // no longer resolves to a live group). When no groups exist at all,
+  // this collapses to a single "Ungrouped" bucket — rendered as one flat
+  // section below (no sub-heading), so a tenant who never created groups
+  // sees no visual change from before this feature existed.
+  const sortedGroups = [...reportGroups].sort((a, b) => a.display_order - b.display_order);
+  const reportsByGroup: { group: IReportGroup | null; reports: IRunnableReportDefinition[] }[] = [
+    ...sortedGroups.map((group) => ({
+      group,
+      reports: filteredCustomReports.filter((r) => r.report_group_id === group.id),
+    })),
+    {
+      group: null,
+      reports: filteredCustomReports.filter((r) => !sortedGroups.some((g) => g.id === r.report_group_id)),
+    },
+  ].filter((bucket) => bucket.reports.length > 0);
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -236,70 +261,83 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
           {customReports.length === 0 ? (
             <div className="text-muted" style={{ fontSize: "13px" }}>No reports available yet.</div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              {filteredCustomReports.map((def) => (
-                <button
-                  key={def.id}
-                  type="button"
-                  className="report-tile"
-                  onClick={() => navigate(`/report-builder/run/${def.id}`)}
+            reportsByGroup.map(({ group, reports }) => (
+              <div key={group?.id ?? "ungrouped"} style={{ marginBottom: "20px" }}>
+                {/* A sub-heading appears only once this tenant actually has
+                    groups — a tenant who never created any sees the exact
+                    same flat grid as before this feature existed (single
+                    bucket, group: null, no heading rendered). */}
+                {sortedGroups.length > 0 && (
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#4a4a4a", marginBottom: "8px" }}>
+                    {group?.group_name ?? "Ungrouped"}
+                  </div>
+                )}
+                <div
                   style={{
-                    textAlign: "left",
-                    padding: "16px",
-                    borderRadius: "10px",
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                    cursor: "pointer",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                    gap: "16px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      marginBottom: def.description ? "8px" : 0,
-                    }}
-                  >
-                    <div
+                  {reports.map((def) => (
+                    <button
+                      key={def.id}
+                      type="button"
+                      className="report-tile"
+                      onClick={() => navigate(`/report-builder/run/${def.id}`)}
                       style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        background: THEME_TINT,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
+                        textAlign: "left",
+                        padding: "16px",
+                        borderRadius: "10px",
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                        cursor: "pointer",
                       }}
                     >
-                      <ReportIcon name="report" size={16} color={THEME_COLOR} />
-                    </div>
-                    <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
-                      {def.name}
-                    </span>
-                  </div>
-                  {def.description && (
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "12px",
-                        lineHeight: 1.5,
-                        color: "#8a8a8a",
-                      }}
-                    >
-                      {def.description}
-                    </p>
-                  )}
-                </button>
-              ))}
-            </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: def.description ? "8px" : 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            background: THEME_TINT,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <ReportIcon name="report" size={16} color={THEME_COLOR} />
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
+                          {def.name}
+                        </span>
+                      </div>
+                      {def.description && (
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            lineHeight: 1.5,
+                            color: "#8a8a8a",
+                          }}
+                        >
+                          {def.description}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}

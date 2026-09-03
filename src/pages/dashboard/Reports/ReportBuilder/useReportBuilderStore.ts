@@ -31,6 +31,10 @@ interface ReportBuilderFormState {
   // default they land on. Empty array (the default) means "show every
   // slot this table has" — same as omitting it.
   filtersToShow: number[];
+  // Step 10 — tenant-defined organization (report_groups.id), orthogonal
+  // to type/model_key so it's never reset when either changes. null =
+  // ungrouped.
+  reportGroupId: number | null;
 
   setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
@@ -45,6 +49,7 @@ interface ReportBuilderFormState {
   setFilterValue: (column: string, value: string) => void;
   toggleMetric: (metricKey: string) => void;
   toggleFilterSlot: (slot: number) => void;
+  setReportGroupId: (id: number | null) => void;
   loadForEdit: (definition: IReportDefinition) => void;
   reset: () => void;
 }
@@ -67,6 +72,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   groupBy: [],
   metricKeys: [],
   filtersToShow: [],
+  reportGroupId: null,
 
   setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [], filtersToShow: [] }),
   setName: (name) => set({ name }),
@@ -120,6 +126,8 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filtersToShow: state.filtersToShow.includes(slot) ? state.filtersToShow.filter((s) => s !== slot) : [...state.filtersToShow, slot],
     })),
 
+  setReportGroupId: (reportGroupId) => set({ reportGroupId }),
+
   loadForEdit: (definition) => {
     // composite-type columns_json is already the metric-keys string array —
     // no {column,op,value} shape to reconstruct, unlike query/plugin below.
@@ -136,6 +144,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         groupBy: [],
         metricKeys,
         filtersToShow: [],
+        reportGroupId: definition.report_group_id ?? null,
       });
       return;
     }
@@ -167,6 +176,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       groupBy,
       metricKeys: [],
       filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
+      reportGroupId: definition.report_group_id ?? null,
     });
   },
 
@@ -182,5 +192,6 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       groupBy: [],
       metricKeys: [],
       filtersToShow: [],
+      reportGroupId: null,
     }),
 }));
