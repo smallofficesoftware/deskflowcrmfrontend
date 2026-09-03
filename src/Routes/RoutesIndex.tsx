@@ -40,6 +40,7 @@ import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/Bom
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
 import ReportRunnerView from "../pages/dashboard/Reports/ReportBuilder/ReportRunnerView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
@@ -257,6 +258,19 @@ const RoutesIndex = () => {
             <Route
               path="/report-builder"
               element={<ReportBuilderView />}
+            />
+            {/* Step 12 (wizard rebuild) — additive so far, not yet linked
+                from anywhere in the UI. /report-builder above still owns
+                both list AND the inline build form until piece 6 splits
+                that out; these routes are reachable directly for now while
+                each step's real content gets ported in. */}
+            <Route
+              path="/report-builder/new"
+              element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/report-builder/:id/edit"
+              element={<ReportBuilderWizardView />}
             />
             <Route
               path="/report-builder/run/:id"
