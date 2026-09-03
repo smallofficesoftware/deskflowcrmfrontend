@@ -326,6 +326,21 @@ const ReportRunnerView: React.FC = () => {
     presetsStore.savePreset(presetReportKey, name.trim(), appliedPayload);
   };
   const [selectedPresetName, setSelectedPresetName] = useState("");
+
+  // Toolbar "More" dropdown — same click-outside-to-close pattern
+  // ColumnsButton.tsx already uses internally, replicated here since this
+  // menu isn't that component.
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const handleApplyPreset = (name: string) => {
     setSelectedPresetName(name);
     const payload = presets[name];
@@ -436,80 +451,118 @@ const ReportRunnerView: React.FC = () => {
                   Filter{generalFilters.length > 0 ? ` (${generalFilters.length})` : ""}
                 </button>
               )}
-              {authorDefaultSlots.length > 0 && authorDefaultSlots.length < allFilterSlots.length && (
-                <label style={{ fontSize: 12, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                  <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
-                  Show all filters
-                </label>
-              )}
-              {allFilterSlots.length > 0 && appliedPayload && (
-                <button className="btn btn-sm btn-outline-secondary" onClick={handleSaveFilterPreset} title="Save the currently applied filter for reuse">
-                  Save filter...
+              {/* Everything below is secondary/less-frequent — collapsed into
+                  one "More" dropdown (the plan's own canonical toolbar shell:
+                  search + filter + an ellipsis "more" menu + columns, not a
+                  flat row of every action) instead of competing for space
+                  with Search/Filter/Columns on every render. */}
+              <div ref={moreMenuRef} style={{ position: "relative" }}>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowMoreMenu((v) => !v)}>
+                  &#8942; More
                 </button>
-              )}
-              {allFilterSlots.length > 0 && Object.keys(presets).length > 0 && (
-                <>
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ width: 160 }}
-                    value={selectedPresetName}
-                    onChange={(e) => handleApplyPreset(e.target.value)}
+                {showMoreMenu && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: 34,
+                      zIndex: 1000,
+                      width: 260,
+                      background: "#fff",
+                      borderRadius: 8,
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                      padding: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
                   >
-                    <option value="" disabled>
-                      Saved filters...
-                    </option>
-                    {Object.keys(presets).map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedPresetName && (
-                    <button className="btn btn-sm btn-outline-danger" title="Delete this saved filter" onClick={handleDeleteSelectedPreset}>
-                      &times;
+                    {authorDefaultSlots.length > 0 && authorDefaultSlots.length < allFilterSlots.length && (
+                      <label style={{ fontSize: 13, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                        <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
+                        Show all filters
+                      </label>
+                    )}
+                    {allFilterSlots.length > 0 && appliedPayload && (
+                      <button className="btn btn-sm btn-outline-secondary" onClick={handleSaveFilterPreset} title="Save the currently applied filter for reuse">
+                        Save filter...
+                      </button>
+                    )}
+                    {allFilterSlots.length > 0 && Object.keys(presets).length > 0 && (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <select
+                          className="form-select form-select-sm"
+                          value={selectedPresetName}
+                          onChange={(e) => handleApplyPreset(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Saved filters...
+                          </option>
+                          {Object.keys(presets).map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedPresetName && (
+                          <button className="btn btn-sm btn-outline-danger" title="Delete this saved filter" onClick={handleDeleteSelectedPreset}>
+                            &times;
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {canCompare && (
+                      <select
+                        className="form-select form-select-sm"
+                        value={compareMode}
+                        onChange={(e) => setCompareMode(e.target.value as "" | "previous" | "lastYear")}
+                      >
+                        <option value="">Compare to...</option>
+                        <option value="previous">Previous period</option>
+                        <option value="lastYear">Same period last year</option>
+                      </select>
+                    )}
+                    <hr style={{ margin: "2px 0" }} />
+                    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                      <ExportExcelMenuItem
+                        reportType="report_builder"
+                        // genericReportExportService.js sends this object as
+                        // the ENTIRE request body to
+                        // fetchReportBuilderExportPage — not merged with
+                        // anything else — so the applied general filters and
+                        // search term must ride along here too, or the
+                        // export would silently return every row regardless
+                        // of what the on-screen grid is currently filtered to.
+                        filters={{
+                          a_application_login_id: localStorage.getItem("UUID"),
+                          report_definition_id: definitionId,
+                          filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
+                          search: search || undefined,
+                        }}
+                        columns={exportColumns}
+                        fileName={definition.name}
+                        disabled={exportColumns.length === 0}
+                        // Checking specific rows exports exactly those
+                        // instead of the full filtered/searched result set —
+                        // same convention every legacy report's own export
+                        // already has.
+                        selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
+                        onSelect={() => setShowMoreMenu(false)}
+                      />
+                    </ul>
+                    <button
+                      className="btn btn-sm btn-outline-dark"
+                      disabled={exportingPdf}
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        handleExportPdf();
+                      }}
+                    >
+                      {exportingPdf ? "Exporting..." : "PDF / Print"}
                     </button>
-                  )}
-                </>
-              )}
-              {canCompare && (
-                <select
-                  className="form-select form-select-sm"
-                  style={{ width: 170 }}
-                  value={compareMode}
-                  onChange={(e) => setCompareMode(e.target.value as "" | "previous" | "lastYear")}
-                >
-                  <option value="">Compare to...</option>
-                  <option value="previous">Previous period</option>
-                  <option value="lastYear">Same period last year</option>
-                </select>
-              )}
-              <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
-                <ExportExcelMenuItem
-                  reportType="report_builder"
-                  // genericReportExportService.js sends this object as the
-                  // ENTIRE request body to fetchReportBuilderExportPage —
-                  // not merged with anything else — so the applied general
-                  // filters and search term must ride along here too, or
-                  // the export would silently return every row regardless
-                  // of what the on-screen grid is currently filtered to.
-                  filters={{
-                    a_application_login_id: localStorage.getItem("UUID"),
-                    report_definition_id: definitionId,
-                    filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
-                    search: search || undefined,
-                  }}
-                  columns={exportColumns}
-                  fileName={definition.name}
-                  disabled={exportColumns.length === 0}
-                  // Checking specific rows exports exactly those instead
-                  // of the full filtered/searched result set — same
-                  // convention every legacy report's own export already has.
-                  selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
-                />
-              </ul>
-              <button className="btn btn-sm btn-outline-dark" disabled={exportingPdf} onClick={handleExportPdf}>
-                {exportingPdf ? "Exporting..." : "PDF / Print"}
-              </button>
+                  </div>
+                )}
+              </div>
               <ColumnsButton columns={orderedColumns} hiddenKeys={hiddenKeys} onToggle={toggleColumn} onReorder={reorderColumns} onReset={resetColumns} />
             </div>
           </div>
