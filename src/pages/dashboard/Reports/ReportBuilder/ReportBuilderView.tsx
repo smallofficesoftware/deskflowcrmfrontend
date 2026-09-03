@@ -530,6 +530,14 @@ const ReportBuilderView: React.FC = () => {
       <style>{`
         .report-tile { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
         .report-tile:hover { border-color: #d1d5db; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        /* Bootstrap's default .btn-primary is blue — doesn't match this
+           app's own accent (the same orange ReportsTileView.tsx's tile
+           icons already use). Scoped to this page only. */
+        .rb-btn-primary { background-color: #F58634; border-color: #F58634; color: #fff; }
+        .rb-btn-primary:hover, .rb-btn-primary:focus { background-color: #e0752a; border-color: #e0752a; color: #fff; }
+        .rb-btn-primary:disabled { background-color: #f5ab7a; border-color: #f5ab7a; }
+        .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
+        .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
       `}</style>
       <PromptModal
         show={showPinModal && !pinVerified}
@@ -554,7 +562,7 @@ const ReportBuilderView: React.FC = () => {
           <div className="card p-3 mb-4">
             <div className="d-flex justify-content-between align-items-center">
               <h6>{store.editingId ? "Edit Report" : "New Report"}</h6>
-              <button className="btn btn-sm btn-outline-primary" onClick={openGallery}>
+              <button className="btn btn-sm rb-btn-outline-primary" onClick={openGallery}>
                 Browse Report Library
               </button>
             </div>
@@ -589,21 +597,21 @@ const ReportBuilderView: React.FC = () => {
                 <div className="btn-group btn-group-sm" role="group">
                   <button
                     type="button"
-                    className={`btn ${store.type === "query" ? "btn-primary" : "btn-outline-primary"}`}
+                    className={`btn ${store.type === "query" ? "rb-btn-primary" : "rb-btn-outline-primary"}`}
                     onClick={() => store.setType("query")}
                   >
                     Query
                   </button>
                   <button
                     type="button"
-                    className={`btn ${store.type === "plugin" ? "btn-primary" : "btn-outline-primary"}`}
+                    className={`btn ${store.type === "plugin" ? "rb-btn-primary" : "rb-btn-outline-primary"}`}
                     onClick={() => store.setType("plugin")}
                   >
                     Plugin
                   </button>
                   <button
                     type="button"
-                    className={`btn ${store.type === "composite" ? "btn-primary" : "btn-outline-primary"}`}
+                    className={`btn ${store.type === "composite" ? "rb-btn-primary" : "rb-btn-outline-primary"}`}
                     onClick={() => store.setType("composite")}
                   >
                     Team Metrics
@@ -872,7 +880,7 @@ const ReportBuilderView: React.FC = () => {
               store.type === "composite") && (
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  className="btn btn-sm btn-primary"
+                  className="btn btn-sm rb-btn-primary"
                   disabled={
                     saving ||
                     !store.name.trim() ||
@@ -1093,7 +1101,7 @@ const ReportBuilderView: React.FC = () => {
                         {g.description && <div style={{ fontSize: 11, color: "#888" }}>{g.description}</div>}
                       </div>
                       <button
-                        className="btn btn-sm btn-outline-primary"
+                        className="btn btn-sm rb-btn-outline-primary"
                         disabled={copyingId === g.id}
                         onClick={() => handleCopyFromGallery(g.id)}
                       >
@@ -1144,7 +1152,7 @@ const ReportBuilderView: React.FC = () => {
                 );
               })}
             <div className="d-flex gap-2 mt-3">
-              <button className="btn btn-sm btn-primary" disabled={savingAccess} onClick={handleSaveAccess}>
+              <button className="btn btn-sm rb-btn-primary" disabled={savingAccess} onClick={handleSaveAccess}>
                 {savingAccess ? "Saving..." : "Save Access"}
               </button>
               <button className="btn btn-sm btn-outline-secondary" onClick={() => setManageAccessForDef(null)}>
@@ -1336,7 +1344,7 @@ const ReportBuilderView: React.FC = () => {
             </div>
 
             <button
-              className="btn btn-sm btn-primary"
+              className="btn btn-sm rb-btn-primary"
               disabled={savingSchedule || (scheduleLoginIds.size === 0 && !scheduleExternalEmails.trim())}
               onClick={handleCreateSchedule}
             >
@@ -1369,7 +1377,7 @@ const ReportBuilderView: React.FC = () => {
                 )}
                 <div className="d-flex gap-1">
                   {editingGroupId === g.id ? (
-                    <button className="btn btn-sm btn-outline-primary" onClick={handleSaveRenameGroup}>
+                    <button className="btn btn-sm rb-btn-outline-primary" onClick={handleSaveRenameGroup}>
                       Save
                     </button>
                   ) : (
@@ -1391,7 +1399,7 @@ const ReportBuilderView: React.FC = () => {
                 onChange={(e) => setNewGroupName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddGroup()}
               />
-              <button className="btn btn-sm btn-primary" onClick={handleAddGroup}>
+              <button className="btn btn-sm rb-btn-primary" onClick={handleAddGroup}>
                 Add
               </button>
             </div>
