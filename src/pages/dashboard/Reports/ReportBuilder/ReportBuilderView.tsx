@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
-import { ReportIcon } from "../../../side-view/reportIcons";
+import { REPORT_ICON_PATHS, ReportIcon } from "../../../side-view/reportIcons";
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
@@ -386,6 +386,7 @@ const ReportBuilderView: React.FC = () => {
         columns_json: store.metricKeys,
         report_group_id: store.reportGroupId,
         description: store.description.trim() || null,
+        icon: store.icon || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -425,6 +426,7 @@ const ReportBuilderView: React.FC = () => {
         filters_json: filtersObject,
         report_group_id: store.reportGroupId,
         description: store.description.trim() || null,
+        icon: store.icon || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -444,6 +446,7 @@ const ReportBuilderView: React.FC = () => {
         filters_to_show: store.filtersToShow,
         report_group_id: store.reportGroupId,
         description: store.description.trim() || null,
+        icon: store.icon || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -659,13 +662,42 @@ const ReportBuilderView: React.FC = () => {
               )}
             </div>
 
-            <div className="mb-2">
+            <div className="mb-2 d-flex gap-2">
               <input
                 className="form-control form-control-sm"
                 placeholder="Description (optional — shown on the Custom Reports tile, also matched by search)"
                 value={store.description}
                 onChange={(e) => store.setDescription(e.target.value)}
               />
+              <div className="d-flex align-items-center gap-1" style={{ flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: "#fff3eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <ReportIcon name={store.icon || "report"} size={14} color="#F58634" />
+                </div>
+                <select
+                  className="form-select form-select-sm"
+                  style={{ width: 150 }}
+                  value={store.icon}
+                  onChange={(e) => store.setIcon(e.target.value)}
+                >
+                  <option value="">Default icon</option>
+                  {Object.keys(REPORT_ICON_PATHS).map((iconName) => (
+                    <option key={iconName} value={iconName}>
+                      {iconName}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {store.type === "query" && selectedModel && (
@@ -940,7 +972,7 @@ const ReportBuilderView: React.FC = () => {
                           flexShrink: 0,
                         }}
                       >
-                        <ReportIcon name="report" size={16} color="#F58634" />
+                        <ReportIcon name={def.icon || "report"} size={16} color="#F58634" />
                       </div>
                       <a
                         href={`/report-builder/run/${def.id}`}

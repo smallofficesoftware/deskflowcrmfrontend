@@ -38,10 +38,14 @@ interface ReportBuilderFormState {
   // Report-picker search matches name + description (Step 5's "Search
   // scope" decision) — orthogonal to type/model_key, same as reportGroupId.
   description: string;
+  // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) for this report's
+  // tile — "" means "use the default (report)".
+  icon: string;
 
   setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
   setDescription: (description: string) => void;
+  setIcon: (icon: string) => void;
   setModelKey: (key: string) => void;
   setPluginKey: (key: string) => void;
   toggleColumn: (columnKey: string) => void;
@@ -78,10 +82,12 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   filtersToShow: [],
   reportGroupId: null,
   description: "",
+  icon: "",
 
   setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [], filtersToShow: [] }),
   setName: (name) => set({ name }),
   setDescription: (description) => set({ description }),
+  setIcon: (icon) => set({ icon }),
   setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [], filtersToShow: [] }),
   setPluginKey: (pluginKey) => set({ pluginKey, filters: [] }),
 
@@ -152,6 +158,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         filtersToShow: [],
         reportGroupId: definition.report_group_id ?? null,
         description: definition.description || "",
+        icon: definition.icon || "",
       });
       return;
     }
@@ -185,6 +192,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
       reportGroupId: definition.report_group_id ?? null,
       description: definition.description || "",
+      icon: definition.icon || "",
     });
   },
 
@@ -202,5 +210,6 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filtersToShow: [],
       reportGroupId: null,
       description: "",
+      icon: "",
     }),
 }));

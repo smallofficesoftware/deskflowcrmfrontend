@@ -315,7 +315,7 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
                             flexShrink: 0,
                           }}
                         >
-                          <ReportIcon name="report" size={16} color={THEME_COLOR} />
+                          <ReportIcon name={def.icon || "report"} size={16} color={THEME_COLOR} />
                         </div>
                         <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
                           {def.name}

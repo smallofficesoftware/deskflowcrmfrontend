@@ -75,6 +75,9 @@ export interface IReportDefinition {
   // from the system gallery's admin-fixed `category`. null = ungrouped.
   report_group_id?: number | null;
   description?: string | null;
+  // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) shown on this
+  // report's tile — null falls back to "report".
+  icon?: string | null;
   created_date_time: string;
 }
 
@@ -181,6 +184,9 @@ export interface IRunnableReportDefinition {
   // system gallery, never on a tenant's own report_definitions. Tenant
   // organization uses report_group_id instead (Step 10).
   description: string | null;
+  // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) — null falls
+  // back to "report".
+  icon: string | null;
   model_key: string | null;
   plugin_key: string | null;
   filters_to_show: string | null;
@@ -452,6 +458,7 @@ export interface IReportDefinitionPayload {
   filters_to_show?: number[];
   report_group_id?: number | null;
   description?: string | null;
+  icon?: string | null;
 }
 
 export const createReportDefinition = async (payload: IReportDefinitionPayload): Promise<IReportDefinition | null> => {
