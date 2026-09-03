@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PromptModal from "../../../../components/model/PromptModal";
-import { IReportDefinition, listReportDefinitions, verifyReportPin } from "./ReportBuilderController";
+import {
+  getModelRegistry,
+  getPluginRegistry,
+  IModelRegistryEntry,
+  IPluginRegistryEntry,
+  IReportDefinition,
+  listReportDefinitions,
+  verifyReportPin,
+} from "./ReportBuilderController";
+import StepSource from "./StepSource";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 import WizardRail, { IWizardStep } from "./WizardRail";
 
@@ -12,10 +21,11 @@ const STEPS: IWizardStep[] = [
   { n: 4, label: "Organize & save", sub: "Group, icon, save" },
 ];
 
-// Piece 1 (scaffolding) of Step 12's wizard rebuild — the rail + routing +
-// PIN gate + edit-mode prefill all work end to end here; each step panel is
-// still a placeholder (real content is pieces 2-5, ported from
-// ReportBuilderView.tsx's existing form piece by piece, not rewritten).
+// Step 12's wizard rebuild. Piece 1 (scaffolding): rail + routing + PIN
+// gate + edit-mode prefill. Piece 2 (this pass): Step 1's real content
+// (StepSource.tsx) — name/type/source/description, ported field-for-field
+// from ReportBuilderView.tsx's existing form, not rewritten. Steps 2-4 are
+// still placeholders (pieces 3-5).
 // Mounted at /report-builder/new (create) and /report-builder/:id/edit
 // (edit) — see RoutesIndex.tsx. /report-builder itself still points at the
 // old single-page ReportBuilderView.tsx, untouched, until piece 6 splits
@@ -35,6 +45,10 @@ const ReportBuilderWizardView: React.FC = () => {
   const [loadingDefinition, setLoadingDefinition] = useState(isEdit);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
+  const [plugins, setPlugins] = useState<IPluginRegistryEntry[]>([]);
+  const [loadingRegistry, setLoadingRegistry] = useState(false);
+
   const [step, setStep] = useState(1);
   // Create mode: steps unlock as completed, same "can't skip ahead of
   // what's filled in" shape the mock's rail already has. Edit mode: the
@@ -53,6 +67,14 @@ const ReportBuilderWizardView: React.FC = () => {
 
   useEffect(() => {
     if (!pinVerified) return;
+
+    setLoadingRegistry(true);
+    Promise.all([getModelRegistry(), getPluginRegistry()]).then(([reg, plg]) => {
+      setRegistry(reg);
+      setPlugins(plg);
+      setLoadingRegistry(false);
+    });
+
     if (!isEdit) {
       store.reset();
       return;
@@ -79,6 +101,14 @@ const ReportBuilderWizardView: React.FC = () => {
     setStep(target);
     setFurthest((f) => Math.max(f, target));
   };
+
+  // Same per-step gating a linear wizard needs so "Continue" never
+  // advances past an incomplete step — only Step 1 has a real check so
+  // far (pieces 2-5 add the rest as their own content lands).
+  const canContinueStep1 =
+    !!store.name.trim() &&
+    (store.type === "composite" || (store.type === "query" && !!store.modelKey) || (store.type === "plugin" && !!store.pluginKey));
+  const canContinue = step === 1 ? canContinueStep1 : true;
 
   return (
     <div style={{ padding: 20 }}>
@@ -133,19 +163,24 @@ const ReportBuilderWizardView: React.FC = () => {
                     <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>{STEPS[step - 1].sub}</p>
                   </div>
 
-                  {/* Placeholder — pieces 2-5 replace this per step with the
+                  {step === 1 && (
+                    <StepSource registry={registry} plugins={plugins} loadingRegistry={loadingRegistry} advanced={advanced} />
+                  )}
+                  {/* Placeholder — pieces 3-5 replace these per step with the
                       real form content ported from ReportBuilderView.tsx. */}
-                  <p className="text-muted" style={{ fontSize: 13 }}>
-                    Step {step} content isn't built yet in this pass — this is the
-                    navigation scaffolding only.
-                  </p>
+                  {step !== 1 && (
+                    <p className="text-muted" style={{ fontSize: 13 }}>
+                      Step {step} content isn't built yet in this pass — this is
+                      the navigation scaffolding only.
+                    </p>
+                  )}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                     <button className="btn btn-outline-secondary btn-sm" disabled={step === 1} onClick={() => goto(step - 1)}>
                       Back
                     </button>
                     {step < STEPS.length ? (
-                      <button className="btn btn-sm rb-btn-primary" onClick={() => goto(step + 1)}>
+                      <button className="btn btn-sm rb-btn-primary" disabled={!canContinue} onClick={() => goto(step + 1)}>
                         Continue
                       </button>
                     ) : (
