@@ -187,6 +187,10 @@ const ReportBuilderView: React.FC = () => {
   const [openMoreMenuId, setOpenMoreMenuId] = useState<number | null>(null);
   const moreMenuCardRef = useRef<HTMLDivElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  // Saved Reports search — client-side, same "the list is already scoped
+  // and small (a company's own report count)" reasoning ReportsTileView.tsx's
+  // own search box already relies on. Matches name + description.
+  const [savedSearch, setSavedSearch] = useState("");
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (moreMenuCardRef.current && !moreMenuCardRef.current.contains(event.target as Node)) {
@@ -1131,14 +1135,33 @@ const ReportBuilderView: React.FC = () => {
           <div className="card p-3">
             <h6>Saved Reports</h6>
             {definitions.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>No reports yet — build one above.</p>}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {definitions.map((def) => {
+            {definitions.length > 0 && (
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Search saved reports..."
+                value={savedSearch}
+                onChange={(e) => setSavedSearch(e.target.value)}
+                style={{ maxWidth: 320, marginBottom: 12 }}
+              />
+            )}
+            {(() => {
+              const q = savedSearch.trim().toLowerCase();
+              const filteredDefinitions = q
+                ? definitions.filter((d) => d.name.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q))
+                : definitions;
+              if (definitions.length > 0 && filteredDefinitions.length === 0) {
+                return <p className="text-muted" style={{ fontSize: 13 }}>No saved reports match "{savedSearch}".</p>;
+              }
+              return (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                    gap: 16,
+                  }}
+                >
+                  {filteredDefinitions.map((def) => {
                 const group = reportGroups.find((g) => g.id === def.report_group_id)?.group_name;
                 const source = def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key;
                 return (
@@ -1305,7 +1328,9 @@ const ReportBuilderView: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
+                </div>
+              );
+            })()}
           </div>
         </>
       )}
