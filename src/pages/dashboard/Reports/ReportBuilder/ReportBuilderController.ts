@@ -455,3 +455,33 @@ export const saveReportTeamRights = async (
     return false;
   }
 };
+
+// Run History (small addition — report_runs already gets a row on every
+// run, nothing read it back until now). executed_by comes back as a raw
+// login id — resolved to a display name client-side off the same
+// team-member list Manage Access already fetches, not joined server-side.
+export interface IReportRun {
+  id: number;
+  executed_by: number;
+  executed_at: string;
+  row_count: number | null;
+  duration_ms: number | null;
+  success: 0 | 1;
+  error_message: string | null;
+}
+
+export const listReportRuns = async (id: number, limit = 50, offset = 0): Promise<IReportRun[]> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/run-history/list`, {
+      a_application_login_id: loginId(),
+      limit,
+      offset,
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load run history");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load run history");
+    return [];
+  }
+};

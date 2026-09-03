@@ -18,8 +18,10 @@ import {
   IPluginRegistryEntry,
   IReportColumn,
   IReportDefinition,
+  IReportRun,
   ISystemReportDefinition,
   listReportDefinitions,
+  listReportRuns,
   listSystemReportDefinitions,
   runReportDefinition,
   saveReportTeamRights,
@@ -111,6 +113,11 @@ const ReportBuilderView: React.FC = () => {
   const [originalGrantedIds, setOriginalGrantedIds] = useState<Set<number>>(new Set());
   const [savingAccess, setSavingAccess] = useState(false);
 
+  // Run History
+  const [runHistoryForDef, setRunHistoryForDef] = useState<IReportDefinition | null>(null);
+  const [runHistory, setRunHistory] = useState<IReportRun[]>([]);
+  const [loadingRunHistory, setLoadingRunHistory] = useState(false);
+
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
@@ -196,6 +203,20 @@ const ReportBuilderView: React.FC = () => {
     setSavingAccess(false);
     if (ok) setManageAccessForDef(null);
   };
+
+  const openRunHistory = async (definition: IReportDefinition) => {
+    setRunHistoryForDef(definition);
+    setLoadingRunHistory(true);
+    const companyId = Number(localStorage.getItem("COMPANY_ID"));
+    const [, runs] = await Promise.all([
+      fetchCompanyTeamApi(setTeamMembers, companyId, ""),
+      listReportRuns(definition.id),
+    ]);
+    setRunHistory(runs);
+    setLoadingRunHistory(false);
+  };
+
+  const teamMemberName = (loginId: number) => teamMembers.find((m) => m.id === loginId)?.username || `#${loginId}`;
 
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
@@ -774,6 +795,9 @@ const ReportBuilderView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => openManageAccess(def)}>
                           Manage Access
                         </button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openRunHistory(def)}>
+                          Run History
+                        </button>
                       </td>
                     </tr>
                     {runResult && runResult.definitionId === def.id && (
@@ -921,6 +945,54 @@ const ReportBuilderView: React.FC = () => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {runHistoryForDef && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 640, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Run History — {runHistoryForDef.name}</h5>
+              <span className="close" onClick={() => setRunHistoryForDef(null)}>&times;</span>
+            </div>
+            {loadingRunHistory && <p>Loading...</p>}
+            {!loadingRunHistory && runHistory.length === 0 && <p className="text-muted">No runs recorded yet.</p>}
+            {!loadingRunHistory && runHistory.length > 0 && (
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Run by</th>
+                    <th>Rows</th>
+                    <th>Duration</th>
+                    <th>Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runHistory.map((run) => (
+                    <React.Fragment key={run.id}>
+                      <tr>
+                        <td style={{ fontSize: 12 }}>{run.executed_at}</td>
+                        <td style={{ fontSize: 12 }}>{teamMemberName(run.executed_by)}</td>
+                        <td style={{ fontSize: 12 }}>{run.row_count ?? "-"}</td>
+                        <td style={{ fontSize: 12 }}>{run.duration_ms !== null ? `${run.duration_ms}ms` : "-"}</td>
+                        <td>
+                          <span className={`badge ${run.success ? "bg-success" : "bg-danger"}`}>
+                            {run.success ? "Success" : "Failed"}
+                          </span>
+                        </td>
+                      </tr>
+                      {!run.success && run.error_message && (
+                        <tr>
+                          <td colSpan={5} style={{ fontSize: 11, color: "#b02a37" }}>{run.error_message}</td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
