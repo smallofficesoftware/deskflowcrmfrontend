@@ -178,6 +178,38 @@ const ReportRunnerView: React.FC = () => {
     rows.length === 0 ? [] : Object.keys(rows[0]).filter((k) => typeof rows[0][k] === "number");
   const sumColumn = (rows: any[], key: string) => rows.reduce((acc, r) => acc + (typeof r[key] === "number" ? r[key] : 0), 0);
 
+  // Step 9 — Drill Down, scoped to query-type reports with group_by_json
+  // set (definition.group_by_columns.length > 0), per the plan's v1 scope
+  // ("composite could extend the same idea later, not designed further
+  // here"). Reuses /report-definitions/:id/run unchanged — no new
+  // endpoint — with the clicked group row's own group-by column values
+  // merged in as equality filters, and suppressGroupBy:true so
+  // queryEngine.js returns the underlying raw rows instead of another
+  // aggregate for that one call.
+  const canDrillDown = definition?.type === "query" && (definition?.group_by_columns?.length ?? 0) > 0;
+  const [drillDownRow, setDrillDownRow] = useState<any | null>(null);
+  const [drillDownRows, setDrillDownRows] = useState<any[] | null>(null);
+  const [loadingDrillDown, setLoadingDrillDown] = useState(false);
+
+  const handleRowClick = async (e: { data: any }) => {
+    if (!canDrillDown || !definition) return;
+    const row = e.data;
+    setDrillDownRow(row);
+    setDrillDownRows(null);
+    setLoadingDrillDown(true);
+    const groupFilters: IGeneralFilter[] = definition.group_by_columns
+      .filter((col) => row[col] !== undefined && row[col] !== null)
+      .map((col) => ({ column: col, op: "eq", value: row[col] }));
+    const data = await runReportDefinition(definitionId, {
+      limit: 200,
+      offset: 0,
+      filters: [...effectiveFilters, ...groupFilters],
+      suppressGroupBy: true,
+    });
+    setDrillDownRows(data?.rows || []);
+    setLoadingDrillDown(false);
+  };
+
   // Fresh run — resets pagination to page 1. Called on mount and whenever
   // sort or search changes (a new order/term invalidates the relative
   // position of whatever pages were already loaded, same reset rule
@@ -246,6 +278,7 @@ const ReportRunnerView: React.FC = () => {
     setColumnFilterValues({});
     setSelectedPresetName("");
     setCompareMode("");
+    setDrillDownRow(null);
     setSearch("");
     setSortField(undefined);
     setSortOrder(null);
@@ -368,6 +401,7 @@ const ReportRunnerView: React.FC = () => {
       </div>
 
       {definition?.description && <p className="text-muted" style={{ fontSize: 13 }}>{definition.description}</p>}
+      {canDrillDown && <p className="text-muted" style={{ fontSize: 12 }}>Click a row to see its underlying detail rows.</p>}
 
       {filtersToShow.length > 0 && (
         <AppliedFilterBar
@@ -567,6 +601,7 @@ const ReportRunnerView: React.FC = () => {
               // equality instead, which works because `rows` state is only
               // ever appended to, never recreated per render.
               onSelectionChange={(e) => setSelectedRows(e.value as any[])}
+              onRowClick={canDrillDown ? handleRowClick : undefined}
             >
               <Column selectionMode="multiple" headerStyle={{ width: "3rem" }} />
               {visibleColumns.map((c) => (
@@ -607,6 +642,41 @@ const ReportRunnerView: React.FC = () => {
           initialCheckedOptionsContactAssignOrnot={appliedPayload?.checkedOptionsContactassignOrNot}
           initialReferenceWiseContact={appliedPayload?.referenceWiseContact}
         />
+      )}
+
+      {drillDownRow && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 800, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Detail Rows</h5>
+              <span className="close" onClick={() => setDrillDownRow(null)}>&times;</span>
+            </div>
+            {loadingDrillDown && <p>Loading...</p>}
+            {!loadingDrillDown && drillDownRows && drillDownRows.length === 0 && <p className="text-muted">No underlying rows found.</p>}
+            {!loadingDrillDown && drillDownRows && drillDownRows.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="table table-sm table-bordered">
+                  <thead>
+                    <tr>
+                      {Object.keys(drillDownRows[0]).map((key) => (
+                        <th key={key}>{humanize(key)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillDownRows.map((row, idx) => (
+                      <tr key={idx}>
+                        {Object.keys(drillDownRows[0]).map((key) => (
+                          <td key={key}>{String(row[key] ?? "")}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

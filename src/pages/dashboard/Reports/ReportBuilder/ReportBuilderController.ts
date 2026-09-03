@@ -184,6 +184,9 @@ export interface IRunnableReportDefinition {
   // Drives Step 9's Compare Period, which has no clean meaning against a
   // raw ungrouped row listing.
   is_aggregated: boolean;
+  // Step 9's Drill Down — query-type only (empty for plugin/composite).
+  // Just the column-key list, no aggregate/having internals.
+  group_by_columns: string[];
 }
 
 // "Custom Reports" (ReportsTileView's dynamic section) — visibility is
@@ -403,6 +406,11 @@ export const runReportDefinition = async (
     // General-filter (CheckBoxFilterModal) translation, merged server-side
     // with the definition's own saved filters_json — see generalFilterAdapter.ts.
     filters?: { column: string; op: string; value: unknown; combinator?: "and" | "or"; includeBlank?: boolean }[];
+    // Step 9's Drill Down — runs the definition ungrouped/unaggregated for
+    // this one call (queryEngine.js's suppressGroupBy), returning the raw
+    // rows a grouped/aggregated row was built from instead of another
+    // aggregate. Query-type only; meaningless for plugin/composite.
+    suppressGroupBy?: boolean;
   },
 ): Promise<{ rows: any[]; row_count: number; duration_ms: number } | null> => {
   try {
