@@ -211,7 +211,7 @@ const ReportBuilderWizardView: React.FC = () => {
     <div style={{ padding: 20 }}>
       <style>{`
         .rb-btn-primary { background-color: #F58634; border-color: #F58634; color: #fff; }
-        .rb-btn-primary:hover, .rb-btn-primary:focus { background-color: #DC6A1C; border-color: #DC6A1C; color: #fff; }
+        .rb-btn-primary:hover, .rb-btn-primary:focus { background-color: #e0752a; border-color: #e0752a; color: #fff; }
         .rb-btn-primary:disabled { background-color: #f5ab7a; border-color: #f5ab7a; }
         .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
         .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
@@ -252,12 +252,21 @@ const ReportBuilderWizardView: React.FC = () => {
               />
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="card p-3">
-                  <div style={{ marginBottom: 16 }}>
+                <div
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    padding: 20,
+                    minHeight: 380,
+                  }}
+                >
+                  <div style={{ marginBottom: 18 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#F58634" }}>
                       Step {step} of {STEPS.length}
                     </div>
-                    <h5 style={{ margin: "4px 0 4px" }}>{STEPS[step - 1].label}</h5>
+                    <h5 style={{ margin: "4px 0 4px", fontWeight: 700 }}>{STEPS[step - 1].label}</h5>
                     <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>{STEPS[step - 1].sub}</p>
                   </div>
 

@@ -47,7 +47,17 @@ const LivePreview: React.FC = () => {
 
   return (
     <div style={{ width: 300, flexShrink: 0 }}>
-      <div className="card p-2" style={{ position: "sticky", top: 12 }}>
+      <div
+        style={{
+          position: "sticky",
+          top: 12,
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          padding: 12,
+        }}
+      >
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#8a8a8a", marginBottom: 6 }}>
           Live preview
         </div>
