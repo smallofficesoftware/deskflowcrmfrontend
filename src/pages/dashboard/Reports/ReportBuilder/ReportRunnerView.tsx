@@ -4,11 +4,13 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
+import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
@@ -47,6 +49,7 @@ const ReportRunnerView: React.FC = () => {
   const [accessError, setAccessError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<any[]>([]);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [rowCount, setRowCount] = useState<number | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,6 +85,7 @@ const ReportRunnerView: React.FC = () => {
   // search/filter changes already follow elsewhere in this app).
   const runFromStart = async () => {
     setLoading(true);
+    setSelectedRows([]); // a re-run invalidates any prior selection's row objects
     offsetRef.current = 0;
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
     const data = await runReportDefinition(definitionId, {
@@ -179,7 +183,16 @@ const ReportRunnerView: React.FC = () => {
   };
 
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-  const exportColumns = columns.map((key) => ({ key, label: humanize(key) }));
+  const defaultColumns = columns.map((key) => ({ key, label: humanize(key) }));
+  // Same reportKey convention useCommonFilterStore's slot would use
+  // (report_${id}) — server-persisted show/hide/reorder per report, shared
+  // with every legacy report through the same hook/component, not a
+  // bespoke picker.
+  const { orderedColumns, visibleColumns, hiddenKeys, toggleColumn, reorderColumns, resetColumns } = useColumnPreferences(
+    `report_${definitionId}`,
+    defaultColumns,
+  );
+  const exportColumns = visibleColumns.map((c) => ({ key: c.key, label: c.label }));
 
   const handleExportPdf = async () => {
     setExportingPdf(true);
@@ -259,11 +272,16 @@ const ReportRunnerView: React.FC = () => {
                   columns={exportColumns}
                   fileName={definition.name}
                   disabled={exportColumns.length === 0}
+                  // Checking specific rows exports exactly those instead
+                  // of the full filtered/searched result set — same
+                  // convention every legacy report's own export already has.
+                  selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
                 />
               </ul>
               <button className="btn btn-sm btn-outline-dark" disabled={exportingPdf} onClick={handleExportPdf}>
                 {exportingPdf ? "Exporting..." : "PDF / Print"}
               </button>
+              <ColumnsButton columns={orderedColumns} hiddenKeys={hiddenKeys} onToggle={toggleColumn} onReorder={reorderColumns} onReset={resetColumns} />
             </div>
           </div>
 
@@ -292,9 +310,18 @@ const ReportRunnerView: React.FC = () => {
               loading={loading && rows.length === 0}
               tableStyle={{ tableLayout: "fixed", width: "100%" }}
               emptyMessage="No data."
+              selectionMode="checkbox"
+              selection={selectedRows}
+              // No dataKey — row identity varies per report (no field name
+              // is guaranteed present across every model_key's columns_json
+              // picks), so this relies on PrimeReact's default reference
+              // equality instead, which works because `rows` state is only
+              // ever appended to, never recreated per render.
+              onSelectionChange={(e) => setSelectedRows(e.value as any[])}
             >
-              {columns.map((c) => (
-                <Column key={c} field={c} header={humanize(c)} sortable body={(row) => String(row[c] ?? "")} />
+              <Column selectionMode="multiple" headerStyle={{ width: "3rem" }} />
+              {visibleColumns.map((c) => (
+                <Column key={c.key} field={c.key} header={c.label} sortable body={(row) => String(row[c.key] ?? "")} />
               ))}
             </DataTable>
           </div>
