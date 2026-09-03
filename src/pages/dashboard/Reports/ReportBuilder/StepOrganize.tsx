@@ -50,34 +50,53 @@ const StepOrganize: React.FC = () => {
         <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>
           Icon
         </label>
-        <div className="d-flex align-items-center gap-2">
-          <div
+        {/* Clickable icon grid — matches the approved wizard mock's own
+            icon-grid design, over this app's real REPORT_ICON_PATHS set
+            (every icon the old <select> offered, none dropped) rather than
+            the mock's own smaller placeholder set. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: 8, maxWidth: 420 }}>
+          <button
+            type="button"
+            title="Default"
+            aria-label="Default icon"
+            onClick={() => store.setIcon("")}
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              background: "#fff3eb",
+              aspectRatio: "1",
+              borderRadius: 9,
+              border: `1.5px solid ${!store.icon ? "#F58634" : "#e5e7eb"}`,
+              background: !store.icon ? "#fff3eb" : "#fff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              flexShrink: 0,
+              cursor: "pointer",
             }}
           >
-            <ReportIcon name={store.icon || "report"} size={14} color="#F58634" />
-          </div>
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 200 }}
-            value={store.icon}
-            onChange={(e) => store.setIcon(e.target.value)}
-          >
-            <option value="">Default icon</option>
-            {Object.keys(REPORT_ICON_PATHS).map((iconName) => (
-              <option key={iconName} value={iconName}>
-                {iconName}
-              </option>
-            ))}
-          </select>
+            <ReportIcon name="report" size={15} color={!store.icon ? "#F58634" : "#6b7280"} />
+          </button>
+          {Object.keys(REPORT_ICON_PATHS).map((iconName) => {
+            const selected = store.icon === iconName;
+            return (
+              <button
+                key={iconName}
+                type="button"
+                title={iconName}
+                aria-label={iconName}
+                onClick={() => store.setIcon(iconName)}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: 9,
+                  border: `1.5px solid ${selected ? "#F58634" : "#e5e7eb"}`,
+                  background: selected ? "#fff3eb" : "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <ReportIcon name={iconName} size={15} color={selected ? "#F58634" : "#6b7280"} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
