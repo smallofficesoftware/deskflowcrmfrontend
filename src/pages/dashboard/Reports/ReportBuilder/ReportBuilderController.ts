@@ -506,6 +506,23 @@ export const updateReportDefinition = async (
   }
 };
 
+export const duplicateReportDefinition = async (id: number): Promise<IReportDefinition | null> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/duplicate`, {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) {
+      toast.success("Report duplicated successfully");
+      return data.data.item;
+    }
+    reportError(data, "Failed to duplicate report");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to duplicate report");
+    return null;
+  }
+};
+
 export const deleteReportDefinition = async (id: number): Promise<boolean> => {
   try {
     const { data } = await axiosInstance.post(`report-definitions/${id}/delete`, {

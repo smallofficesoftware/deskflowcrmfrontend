@@ -12,6 +12,7 @@ import {
   deleteReportDefinition,
   deleteReportGroup,
   deleteReportSchedule,
+  duplicateReportDefinition,
   exportReportPdf,
   getMetricsRegistry,
   getModelRegistry,
@@ -488,6 +489,11 @@ const ReportBuilderView: React.FC = () => {
       if (store.editingId === definition.id) store.reset();
       loadBuildData();
     }
+  };
+
+  const handleDuplicate = async (definition: IReportDefinition) => {
+    const created = await duplicateReportDefinition(definition.id);
+    if (created) loadBuildData();
   };
 
   // Same key-derivation queryEngine.js's own resolveDisplayColumns() uses
@@ -1139,6 +1145,15 @@ const ReportBuilderView: React.FC = () => {
                           }}
                         >
                           {exportingId === def.id ? "Exporting..." : "PDF / Print"}
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            handleDuplicate(def);
+                          }}
+                        >
+                          Duplicate
                         </button>
                         <button
                           className="btn btn-sm btn-outline-secondary"
