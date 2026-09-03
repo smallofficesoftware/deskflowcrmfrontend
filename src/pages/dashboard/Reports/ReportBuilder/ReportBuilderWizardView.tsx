@@ -2,14 +2,17 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PromptModal from "../../../../components/model/PromptModal";
 import {
+  getMetricsRegistry,
   getModelRegistry,
   getPluginRegistry,
+  IMetricEntry,
   IModelRegistryEntry,
   IPluginRegistryEntry,
   IReportDefinition,
   listReportDefinitions,
   verifyReportPin,
 } from "./ReportBuilderController";
+import StepColumns from "./StepColumns";
 import StepSource from "./StepSource";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 import WizardRail, { IWizardStep } from "./WizardRail";
@@ -47,7 +50,9 @@ const ReportBuilderWizardView: React.FC = () => {
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
   const [plugins, setPlugins] = useState<IPluginRegistryEntry[]>([]);
+  const [metrics, setMetrics] = useState<IMetricEntry[]>([]);
   const [loadingRegistry, setLoadingRegistry] = useState(false);
+  const selectedModel = registry.find((m) => m.key === store.modelKey);
 
   const [step, setStep] = useState(1);
   // Create mode: steps unlock as completed, same "can't skip ahead of
@@ -69,9 +74,10 @@ const ReportBuilderWizardView: React.FC = () => {
     if (!pinVerified) return;
 
     setLoadingRegistry(true);
-    Promise.all([getModelRegistry(), getPluginRegistry()]).then(([reg, plg]) => {
+    Promise.all([getModelRegistry(), getPluginRegistry(), getMetricsRegistry()]).then(([reg, plg, mtr]) => {
       setRegistry(reg);
       setPlugins(plg);
+      setMetrics(mtr);
       setLoadingRegistry(false);
     });
 
@@ -102,13 +108,32 @@ const ReportBuilderWizardView: React.FC = () => {
     setFurthest((f) => Math.max(f, target));
   };
 
+  // Step 2 (columns/metrics) doesn't apply to plugin-type — its output
+  // shape is server-defined, nothing to pick. Step 3 (filters, piece 4)
+  // won't apply to composite-type — dimension is fixed server-side, no
+  // filters today. Marked N/A rather than removed from the rail so the
+  // 4-step shape stays constant regardless of type.
+  const notApplicableSteps = new Set<number>();
+  if (store.type === "plugin") notApplicableSteps.add(2);
+  if (store.type === "composite") notApplicableSteps.add(3);
+
+  // Continue/Back skip straight over an N/A step instead of landing on it
+  // — direct rail clicks can't reach one anyway (WizardRail disables it),
+  // this is just the sequential-nav path.
+  const nextApplicableStep = (from: number, dir: 1 | -1) => {
+    let s = from + dir;
+    while (s >= 1 && s <= STEPS.length && notApplicableSteps.has(s)) s += dir;
+    return Math.min(Math.max(s, 1), STEPS.length);
+  };
+
   // Same per-step gating a linear wizard needs so "Continue" never
-  // advances past an incomplete step — only Step 1 has a real check so
-  // far (pieces 2-5 add the rest as their own content lands).
+  // advances past an incomplete step — pieces 4-5 add Step 3/4's own
+  // checks as their content lands.
   const canContinueStep1 =
     !!store.name.trim() &&
     (store.type === "composite" || (store.type === "query" && !!store.modelKey) || (store.type === "plugin" && !!store.pluginKey));
-  const canContinue = step === 1 ? canContinueStep1 : true;
+  const canContinueStep2 = store.type === "composite" ? store.metricKeys.length > 0 : store.type === "query" ? store.columns.length > 0 : true;
+  const canContinue = step === 1 ? canContinueStep1 : step === 2 ? canContinueStep2 : true;
 
   return (
     <div style={{ padding: 20 }}>
@@ -148,6 +173,7 @@ const ReportBuilderWizardView: React.FC = () => {
                 steps={STEPS}
                 activeStep={step}
                 furthest={furthest}
+                notApplicableSteps={notApplicableSteps}
                 advanced={advanced}
                 onAdvancedChange={setAdvanced}
                 onGoto={goto}
@@ -166,9 +192,10 @@ const ReportBuilderWizardView: React.FC = () => {
                   {step === 1 && (
                     <StepSource registry={registry} plugins={plugins} loadingRegistry={loadingRegistry} advanced={advanced} />
                   )}
-                  {/* Placeholder — pieces 3-5 replace these per step with the
+                  {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced={advanced} />}
+                  {/* Placeholder — pieces 4-5 replace these per step with the
                       real form content ported from ReportBuilderView.tsx. */}
-                  {step !== 1 && (
+                  {step > 2 && (
                     <p className="text-muted" style={{ fontSize: 13 }}>
                       Step {step} content isn't built yet in this pass — this is
                       the navigation scaffolding only.
@@ -176,11 +203,11 @@ const ReportBuilderWizardView: React.FC = () => {
                   )}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
-                    <button className="btn btn-outline-secondary btn-sm" disabled={step === 1} onClick={() => goto(step - 1)}>
+                    <button className="btn btn-outline-secondary btn-sm" disabled={step === 1} onClick={() => goto(nextApplicableStep(step, -1))}>
                       Back
                     </button>
                     {step < STEPS.length ? (
-                      <button className="btn btn-sm rb-btn-primary" disabled={!canContinue} onClick={() => goto(step + 1)}>
+                      <button className="btn btn-sm rb-btn-primary" disabled={!canContinue} onClick={() => goto(nextApplicableStep(step, 1))}>
                         Continue
                       </button>
                     ) : (

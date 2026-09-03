@@ -4,6 +4,7 @@ import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
 import { REPORT_ICON_PATHS, ReportIcon } from "../../../side-view/reportIcons";
+import ColumnFlagsMini from "./ColumnFlagsMini";
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
@@ -43,7 +44,7 @@ import {
 } from "./ReportBuilderController";
 import { mapColumnTypeToExportFormat, SLOT_LABELS } from "./generalFilterAdapter";
 import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
-import { IColumnPick, useReportBuilderStore } from "./useReportBuilderStore";
+import { useReportBuilderStore } from "./useReportBuilderStore";
 
 // Operator choices per column type — mirrors queryEngine.js's ALLOWED_OPERATORS
 // exactly (backend/src/services/report_builder/queryEngine.js). Only used
@@ -86,41 +87,6 @@ const AGGREGATE_LABELS: Record<string, string> = {
   max: "Max",
   count: "Count",
 };
-
-// Compact per-column presentation toggles — Grid/Excel visibility (both
-// default to on, so an existing saved report with no flags at all shows
-// its columns everywhere, exactly like before this feature existed) and an
-// opt-in Total row for Excel exports (defaults off, independent of whether
-// the column has an `aggregate` set — a column can be summed IN the grid
-// and still not want a grand-total row, or vice versa). Shared by the base
-// column picker and both relation-column pickers below, so the 3 spots
-// don't hand-roll 3 slightly different checkbox rows.
-const ColumnFlagsMini = ({
-  pick,
-  allowTotal,
-  onFlag,
-}: {
-  pick: IColumnPick;
-  allowTotal: boolean;
-  onFlag: (flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
-}) => (
-  <span style={{ display: "inline-flex", gap: 8, marginLeft: 8, fontSize: 10, color: "#8a8a8a" }}>
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
-      <input type="checkbox" checked={pick.showInGrid !== false} onChange={(e) => onFlag("showInGrid", e.target.checked)} />
-      Grid
-    </label>
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
-      <input type="checkbox" checked={pick.showInExcel !== false} onChange={(e) => onFlag("showInExcel", e.target.checked)} />
-      Excel
-    </label>
-    {allowTotal && (
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
-        <input type="checkbox" checked={!!pick.showTotal} onChange={(e) => onFlag("showTotal", e.target.checked)} />
-        Total
-      </label>
-    )}
-  </span>
-);
 
 // Report Builder — query-type (Phase 1 slice) + plugin-type (wraps the 2
 // proof complex-report services, unmodified) in one form. No PAGE_ID/rights
