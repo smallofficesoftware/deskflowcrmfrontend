@@ -39,7 +39,7 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
-import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
 import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
 import ReportRunnerView from "../pages/dashboard/Reports/ReportBuilder/ReportRunnerView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
@@ -255,15 +255,14 @@ const RoutesIndex = () => {
               path="/document-designer"
               element={<DocumentDesignerView />}
             />
+            {/* Step 12 (wizard rebuild), piece 6 — /report-builder is now
+                list-only (ReportBuilderListView.tsx); Add/Edit live on
+                their own screen (ReportBuilderWizardView.tsx), reached via
+                "New Report" / a card's "Edit" button. */}
             <Route
               path="/report-builder"
-              element={<ReportBuilderView />}
+              element={<ReportBuilderListView />}
             />
-            {/* Step 12 (wizard rebuild) — additive so far, not yet linked
-                from anywhere in the UI. /report-builder above still owns
-                both list AND the inline build form until piece 6 splits
-                that out; these routes are reachable directly for now while
-                each step's real content gets ported in. */}
             <Route
               path="/report-builder/new"
               element={<ReportBuilderWizardView />}
