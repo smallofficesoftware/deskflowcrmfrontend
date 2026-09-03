@@ -634,6 +634,32 @@ export const exportReportPdf = async (
   }
 };
 
+// Live preview of an in-progress, unsaved query-type build (Step 12 visual
+// pass #3) — POST /report-definitions/preview, backed by
+// previewReportDefinition (reportDefinitionServices.js). Deliberately
+// silent on failure (no toast) rather than using reportError/handleError
+// like every other call here — a wizard author will legitimately hit a
+// non-runnable in-progress state constantly while still picking fields or
+// mid-typing a filter value, and a toast on every one of those would be
+// exhausting. The caller (LivePreview.tsx) shows its own quiet inline
+// message instead.
+export const previewReportDefinition = async (payload: {
+  model_key: string;
+  columns_json: unknown;
+  filters_json?: unknown;
+  group_by_json?: unknown;
+}): Promise<{ rows: any[]; row_count: number; duration_ms: number } | null> => {
+  try {
+    const { data } = await axiosInstance.post("report-definitions/preview", {
+      a_application_login_id: loginId(),
+      ...payload,
+    });
+    return data?.ack === 1 ? data.data : null;
+  } catch {
+    return null;
+  }
+};
+
 export const runReportDefinition = async (
   id: number,
   options?: {

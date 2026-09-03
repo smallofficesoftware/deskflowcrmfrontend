@@ -1,4 +1,5 @@
 import React from "react";
+import LivePreview from "./LivePreview";
 import { IModelRegistryEntry, IPluginRegistryEntry } from "./ReportBuilderController";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
@@ -87,7 +88,8 @@ const StepFilters: React.FC<StepFiltersProps> = ({ selectedModel, selectedPlugin
   }
 
   return (
-    <div>
+    <div style={{ display: "flex", gap: 20 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button className="btn btn-sm btn-link" onClick={addFilterRow}>
           + Add condition
@@ -144,6 +146,8 @@ const StepFilters: React.FC<StepFiltersProps> = ({ selectedModel, selectedPlugin
           </div>
         );
       })}
+      </div>
+      <LivePreview />
     </div>
   );
 };

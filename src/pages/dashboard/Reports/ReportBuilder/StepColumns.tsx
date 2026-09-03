@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ColumnFlagsMini from "./ColumnFlagsMini";
+import LivePreview from "./LivePreview";
 import { IMetricEntry, IModelRegistryEntry, IReportColumn } from "./ReportBuilderController";
 import { SLOT_LABELS } from "./generalFilterAdapter";
 import { useReportBuilderStore } from "./useReportBuilderStore";
@@ -64,7 +65,8 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
   }
 
   return (
-    <div>
+    <div style={{ display: "flex", gap: 20 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div className="mb-2">
         <input
           type="text"
@@ -248,6 +250,8 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
           </div>
         </div>
       )}
+      </div>
+      <LivePreview />
     </div>
   );
 };
