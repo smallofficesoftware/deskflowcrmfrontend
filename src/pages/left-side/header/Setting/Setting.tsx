@@ -6,6 +6,7 @@ import { AppContext } from "../../../../common/AppContext";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import ReportModal from "../../../../components/model/ReportsModel";
+import { axiosInstance } from "../../../../services/axiosInstance";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
@@ -174,8 +175,29 @@ const Setting = ({
   // still distinct from Custom Reports' own `view`-based visibility.
   const appContext = useContext(AppContext);
   const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
+  // Report Builder has no fallback path (unlike Document Designer's own
+  // pdfme flag, which only swaps a rendering path) — the backend rejects
+  // every single Report Builder call outright when
+  // company_feature_flags.report_builder isn't set
+  // (requireReportBuilderFlag, reportDefinitionRouter.js), so the menu
+  // entry itself must not show for a company where it's off either,
+  // not just gate on ownership. Only fetched for an owner — a non-owner
+  // never sees this entry regardless of the flag, so there's nothing to
+  // check for them.
+  const [reportBuilderEnabled, setReportBuilderEnabled] = useState(false);
+  useEffect(() => {
+    if (!isCompanyOwnerForReportBuilder) return;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!companyMastersId) return;
+    axiosInstance
+      .post("get-feature-flag", { company_masters_id: companyMastersId, feature_key: "report_builder" })
+      .then(({ data }) => setReportBuilderEnabled(data?.ack === 1 && !!data.data.item.is_enabled))
+      .catch(() => setReportBuilderEnabled(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompanyOwnerForReportBuilder]);
+  const showReportBuilderMenu = isCompanyOwnerForReportBuilder && reportBuilderEnabled;
   function openReportBuilder() {
-    if (isCompanyOwnerForReportBuilder) {
+    if (showReportBuilderMenu) {
       navigate("/report-builder");
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -737,7 +759,7 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
-                  {isCompanyOwnerForReportBuilder && (
+                  {showReportBuilderMenu && (
                     <div className="block ps-3" onClick={openReportBuilder}>
                       <div className="icon-Box">
                         <button className="icons-setings">
