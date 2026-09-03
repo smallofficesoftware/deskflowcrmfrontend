@@ -205,6 +205,12 @@ export const listRunnableReportDefinitions = async (): Promise<IRunnableReportDe
 export interface IGeneralFilterConfig {
   generalFilters: Record<string, string | true>;
   columnTypes: Record<string, string>;
+  // Every filterable base column on the table (not just the ones a
+  // generalFilters slot targets) — drives the run screen's row-level
+  // per-column filters, so it only offers a filter on a column
+  // queryEngine.js will actually accept (it throws hard on a
+  // non-filterable one, e.g. any aggregate alias or relation-dotted key).
+  filterableColumns: Record<string, { type: string; label: string }>;
 }
 
 export const getGeneralFilterConfig = async (model_key: string): Promise<IGeneralFilterConfig | null> => {

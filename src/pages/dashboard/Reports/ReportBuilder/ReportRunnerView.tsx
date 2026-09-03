@@ -79,6 +79,28 @@ const ReportRunnerView: React.FC = () => {
   const authorDefaultSlots = definition?.filters_to_show ? (JSON.parse(definition.filters_to_show) as number[]) : [];
   const filtersToShow = showAllFilterSlots || authorDefaultSlots.length === 0 ? allFilterSlots : authorDefaultSlots.filter((s) => allFilterSlots.includes(s));
 
+  // Row-level per-column filters — a separate, finer-grained layer from
+  // the general filter above (Step 5's plan), not a replacement for it.
+  // Only offered on a column that's both currently visible AND in
+  // filterConfig.filterableColumns — csv-type columns are excluded
+  // entirely (findInSet needs a value picker this simple text input can't
+  // provide) since a plain "contains" against a comma-joined string would
+  // silently match partial/wrong values.
+  const [columnFilterValues, setColumnFilterValues] = useState<Record<string, string>>({});
+  const columnFilterList: IGeneralFilter[] = Object.entries(columnFilterValues)
+    // filterConfig?.filterableColumns is the only source of truth for what
+    // queryEngine.js will accept — a stale value left over from switching
+    // to a different report (different filterableColumns set) must be
+    // dropped here, not just relied on the input no longer being rendered,
+    // or a leftover value could send a filter on a column this report
+    // can't filter at all and make the whole run throw.
+    .filter(([column, value]) => value.trim() !== "" && !!filterConfig?.filterableColumns[column])
+    .map(([column, value]) => {
+      const type = filterConfig?.filterableColumns[column]?.type;
+      return { column, op: type === "string" ? "like" : "eq", value: value.trim() };
+    });
+  const effectiveFilters = [...generalFilters, ...columnFilterList];
+
   // Fresh run — resets pagination to page 1. Called on mount and whenever
   // sort or search changes (a new order/term invalidates the relative
   // position of whatever pages were already loaded, same reset rule
@@ -93,7 +115,7 @@ const ReportRunnerView: React.FC = () => {
       offset: 0,
       sort,
       search: search || undefined,
-      filters: generalFilters.length > 0 ? generalFilters : undefined,
+      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setLoading(false);
     if (!data) {
@@ -118,7 +140,7 @@ const ReportRunnerView: React.FC = () => {
       offset: offsetRef.current,
       sort,
       search: search || undefined,
-      filters: generalFilters.length > 0 ? generalFilters : undefined,
+      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setLoading(false);
     if (!data) return;
@@ -138,6 +160,16 @@ const ReportRunnerView: React.FC = () => {
         setAccessError("You don't have access to this report, or it no longer exists.");
       }
     });
+    // Navigating from one report's run screen straight to another's
+    // (same routed component, no remount) must not carry over the prior
+    // report's applied filters/sort/search — a stale filter on a column
+    // this new report can't filter would make its first run throw.
+    setGeneralFilters([]);
+    setAppliedPayload(null);
+    setColumnFilterValues({});
+    setSearch("");
+    setSortField(undefined);
+    setSortOrder(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [definitionId]);
 
@@ -177,6 +209,16 @@ const ReportRunnerView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  // Same debounce, separate effect — a column filter keystroke shouldn't
+  // re-fire on every character either.
+  const columnFilterKey = columnFilterList.map((f) => `${f.column}=${f.value}`).join("|");
+  useEffect(() => {
+    if (!definition) return;
+    const handler = setTimeout(() => runFromStart(), 300);
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnFilterKey]);
+
   const onSort = (e: DataTableSortEvent) => {
     setSortField(e.sortField || undefined);
     setSortOrder((e.sortOrder as 1 | -1 | null) ?? null);
@@ -198,7 +240,7 @@ const ReportRunnerView: React.FC = () => {
     setExportingPdf(true);
     const url = await exportReportPdf(definitionId, {
       search: search || undefined,
-      filters: generalFilters.length > 0 ? generalFilters : undefined,
+      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setExportingPdf(false);
     if (url) window.open(url, "_blank");
@@ -266,7 +308,7 @@ const ReportRunnerView: React.FC = () => {
                   filters={{
                     a_application_login_id: localStorage.getItem("UUID"),
                     report_definition_id: definitionId,
-                    filters: generalFilters.length > 0 ? generalFilters : undefined,
+                    filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
                     search: search || undefined,
                   }}
                   columns={exportColumns}
@@ -284,6 +326,30 @@ const ReportRunnerView: React.FC = () => {
               <ColumnsButton columns={orderedColumns} hiddenKeys={hiddenKeys} onToggle={toggleColumn} onReorder={reorderColumns} onReset={resetColumns} />
             </div>
           </div>
+
+          {/* Row-level per-column filters — a separate, finer-grained layer
+              from the general filter modal above (Step 5's plan), shipped
+              alongside it rather than instead of it. Only offered for a
+              visible column that's in filterConfig.filterableColumns (real,
+              queryEngine-whitelisted base columns) — an aggregate alias or
+              relation-dotted display column simply gets no input here,
+              since filtering on either would make the run throw. */}
+          {filterConfig && visibleColumns.some((c) => filterConfig.filterableColumns[c.key]) && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              {visibleColumns
+                .filter((c) => filterConfig.filterableColumns[c.key])
+                .map((c) => (
+                  <input
+                    key={c.key}
+                    className="form-control form-control-sm"
+                    style={{ width: 140 }}
+                    placeholder={c.label}
+                    value={columnFilterValues[c.key] || ""}
+                    onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
+                  />
+                ))}
+            </div>
+          )}
 
           <div style={{ flex: 1, minHeight: 0 }}>
             <DataTable
