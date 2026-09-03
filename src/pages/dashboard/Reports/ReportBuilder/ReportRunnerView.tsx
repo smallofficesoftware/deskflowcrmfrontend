@@ -11,6 +11,7 @@ import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
+import { useReportFilterPresetsStore } from "../../../../store/report/useReportFilterPresetsStore";
 import { mapColumnTypeToExportFormat, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
@@ -167,6 +168,7 @@ const ReportRunnerView: React.FC = () => {
     setGeneralFilters([]);
     setAppliedPayload(null);
     setColumnFilterValues({});
+    setSelectedPresetName("");
     setSearch("");
     setSortField(undefined);
     setSortOrder(null);
@@ -197,6 +199,32 @@ const ReportRunnerView: React.FC = () => {
     setAppliedPayload(payload);
     setGeneralFilters(translateGeneralFilters(payload, filterConfig.generalFilters, columnType));
     setShowFilterModal(false);
+  };
+
+  // Step 9 — Save Filter. Presets hold the raw submitted IFilterPayload
+  // verbatim (see useReportFilterPresetsStore's own comment on why), so
+  // applying one goes through the exact same translate path a fresh
+  // modal submission does — no separate "load a preset" code path to
+  // drift out of sync with the adapter.
+  const presetsStore = useReportFilterPresetsStore();
+  const presetReportKey = `report_${definitionId}`;
+  const presets = presetsStore.getPresets(presetReportKey);
+  const handleSaveFilterPreset = () => {
+    if (!appliedPayload) return;
+    const name = window.prompt("Save current filter as:");
+    if (!name || !name.trim()) return;
+    presetsStore.savePreset(presetReportKey, name.trim(), appliedPayload);
+  };
+  const [selectedPresetName, setSelectedPresetName] = useState("");
+  const handleApplyPreset = (name: string) => {
+    setSelectedPresetName(name);
+    const payload = presets[name];
+    if (payload) handleApplyGeneralFilters(payload);
+  };
+  const handleDeleteSelectedPreset = () => {
+    if (!selectedPresetName) return;
+    presetsStore.deletePreset(presetReportKey, selectedPresetName);
+    setSelectedPresetName("");
   };
 
   // Debounced (300ms, same convention every legacy report's own search box
@@ -302,6 +330,35 @@ const ReportRunnerView: React.FC = () => {
                   <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
                   Show all filters
                 </label>
+              )}
+              {allFilterSlots.length > 0 && appliedPayload && (
+                <button className="btn btn-sm btn-outline-secondary" onClick={handleSaveFilterPreset} title="Save the currently applied filter for reuse">
+                  Save filter...
+                </button>
+              )}
+              {allFilterSlots.length > 0 && Object.keys(presets).length > 0 && (
+                <>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ width: 160 }}
+                    value={selectedPresetName}
+                    onChange={(e) => handleApplyPreset(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Saved filters...
+                    </option>
+                    {Object.keys(presets).map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedPresetName && (
+                    <button className="btn btn-sm btn-outline-danger" title="Delete this saved filter" onClick={handleDeleteSelectedPreset}>
+                      &times;
+                    </button>
+                  )}
+                </>
               )}
               <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                 <ExportExcelMenuItem
