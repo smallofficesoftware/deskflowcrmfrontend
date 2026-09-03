@@ -28,7 +28,7 @@ import {
   updateReportDefinition,
   verifyReportPin,
 } from "./ReportBuilderController";
-import { SLOT_LABELS } from "./generalFilterAdapter";
+import { mapColumnTypeToExportFormat, SLOT_LABELS } from "./generalFilterAdapter";
 import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
@@ -364,17 +364,28 @@ const ReportBuilderView: React.FC = () => {
   // not built this pass) — every selected column is offered to Excel for
   // now, same as the old exportReportExcel path already did.
   const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  const buildExportColumns = (definition: IReportDefinition): { key: string; label: string }[] => {
+  const buildExportColumns = (definition: IReportDefinition): { key: string; label: string; format?: "date" | "number" | "currency" }[] => {
     try {
       const columns = JSON.parse(definition.columns_json || "[]");
       if (Array.isArray(columns) && columns.length > 0) {
+        // Looked up per-definition (not the form's own selectedModel,
+        // which only reflects whatever model_key is currently being
+        // edited) — this runs over every saved report's own row.
+        const modelEntry = registry.find((m) => m.key === definition.model_key);
         return columns.map((c: any) => {
           // composite-type columns_json is a plain array of metric-key
           // strings, not {column,aggregate?} objects — same "shape varies
-          // by type" precedent the backend already documents.
-          if (typeof c === "string") return { key: c, label: humanize(c) };
+          // by type" precedent the backend already documents. Metric
+          // values are always numeric, so "number" is a safe default.
+          if (typeof c === "string") return { key: c, label: humanize(c), format: "number" as const };
           const key = c.aggregate ? c.alias || `${c.aggregate}_${c.column}` : c.column;
-          return { key, label: c.label || humanize(key) };
+          const columnType = modelEntry?.columns.find((col) => col.key === c.column)?.type;
+          // An aggregate (sum/avg/count/...) over any column is itself a
+          // number, even when the underlying column is a plain "number" —
+          // "currency" is the one type worth preserving through an
+          // aggregate (a summed currency column is still money).
+          const format = c.aggregate ? (columnType === "currency" ? "currency" : "number") : mapColumnTypeToExportFormat(columnType);
+          return { key, label: c.label || humanize(key), format };
         });
       }
     } catch {

@@ -4,6 +4,10 @@ import { axiosInstance } from "./axiosInstance";
 export interface ExportColumn {
   key: string;
   label: string;
+  // Drives a real typed Excel cell + numFmt in exporter.js (date/number/
+  // currency) instead of a stringified value. Omit for string/lookup
+  // columns - unchanged, today's exact behavior.
+  format?: "date" | "number" | "currency";
 }
 
 // One named aggregate over the exported row set - optionally restricted to

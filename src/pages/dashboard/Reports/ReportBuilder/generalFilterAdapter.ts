@@ -54,6 +54,14 @@ export const SLOT_LABELS: Record<number, string> = {
   29: "Lead Ageing",
 };
 
+// Shared by both views' export-column builders — a modelRegistry column
+// `type` maps straight onto ExportColumn's `format` for exporter.js's
+// type-aware Excel cells (date/number/currency get a real typed cell +
+// numFmt); string/lookup/csv/unknown columns get no format, same as
+// today's plain stringified export.
+export const mapColumnTypeToExportFormat = (type: string | undefined): "date" | "number" | "currency" | undefined =>
+  type === "date" || type === "number" || type === "currency" ? type : undefined;
+
 export interface IGeneralFilter {
   column: string;
   op: string;

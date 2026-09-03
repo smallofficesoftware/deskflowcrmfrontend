@@ -11,7 +11,7 @@ import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
-import { translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
+import { mapColumnTypeToExportFormat, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
   getGeneralFilterConfig,
@@ -234,7 +234,14 @@ const ReportRunnerView: React.FC = () => {
     `report_${definitionId}`,
     defaultColumns,
   );
-  const exportColumns = visibleColumns.map((c) => ({ key: c.key, label: c.label }));
+  const exportColumns = visibleColumns.map((c) => ({
+    key: c.key,
+    label: c.label,
+    // Only known for a real base column (filterConfig.filterableColumns) —
+    // an aggregate alias or relation-dotted display column has no type
+    // info available here, so it falls back to unformatted (unchanged).
+    format: mapColumnTypeToExportFormat(filterConfig?.filterableColumns[c.key]?.type),
+  }));
 
   const handleExportPdf = async () => {
     setExportingPdf(true);
