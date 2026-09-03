@@ -74,6 +74,7 @@ export interface IReportDefinition {
   // Step 10 — tenant-defined organization (report_groups.id). Distinct
   // from the system gallery's admin-fixed `category`. null = ungrouped.
   report_group_id?: number | null;
+  description?: string | null;
   created_date_time: string;
 }
 
@@ -176,7 +177,9 @@ export interface IRunnableReportDefinition {
   id: number;
   name: string;
   type: string;
-  category: string | null;
+  // No "category" here — that column only ever existed on the master-DB
+  // system gallery, never on a tenant's own report_definitions. Tenant
+  // organization uses report_group_id instead (Step 10).
   description: string | null;
   model_key: string | null;
   plugin_key: string | null;
@@ -448,6 +451,7 @@ export interface IReportDefinitionPayload {
   group_by_json?: any;
   filters_to_show?: number[];
   report_group_id?: number | null;
+  description?: string | null;
 }
 
 export const createReportDefinition = async (payload: IReportDefinitionPayload): Promise<IReportDefinition | null> => {

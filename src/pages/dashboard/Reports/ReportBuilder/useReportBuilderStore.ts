@@ -35,9 +35,13 @@ interface ReportBuilderFormState {
   // to type/model_key so it's never reset when either changes. null =
   // ungrouped.
   reportGroupId: number | null;
+  // Report-picker search matches name + description (Step 5's "Search
+  // scope" decision) — orthogonal to type/model_key, same as reportGroupId.
+  description: string;
 
   setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
+  setDescription: (description: string) => void;
   setModelKey: (key: string) => void;
   setPluginKey: (key: string) => void;
   toggleColumn: (columnKey: string) => void;
@@ -73,9 +77,11 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   metricKeys: [],
   filtersToShow: [],
   reportGroupId: null,
+  description: "",
 
   setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [], filtersToShow: [] }),
   setName: (name) => set({ name }),
+  setDescription: (description) => set({ description }),
   setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [], filtersToShow: [] }),
   setPluginKey: (pluginKey) => set({ pluginKey, filters: [] }),
 
@@ -145,6 +151,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         metricKeys,
         filtersToShow: [],
         reportGroupId: definition.report_group_id ?? null,
+        description: definition.description || "",
       });
       return;
     }
@@ -177,6 +184,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       metricKeys: [],
       filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
       reportGroupId: definition.report_group_id ?? null,
+      description: definition.description || "",
     });
   },
 
@@ -193,5 +201,6 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       metricKeys: [],
       filtersToShow: [],
       reportGroupId: null,
+      description: "",
     }),
 }));

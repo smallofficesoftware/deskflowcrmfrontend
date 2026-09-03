@@ -368,6 +368,7 @@ const ReportBuilderView: React.FC = () => {
         type: "composite" as const,
         columns_json: store.metricKeys,
         report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -406,6 +407,7 @@ const ReportBuilderView: React.FC = () => {
         columns_json: [],
         filters_json: filtersObject,
         report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -424,6 +426,7 @@ const ReportBuilderView: React.FC = () => {
         group_by_json: store.groupBy,
         filters_to_show: store.filtersToShow,
         report_group_id: store.reportGroupId,
+        description: store.description.trim() || null,
       };
       created = store.editingId
         ? await updateReportDefinition(store.editingId, payload)
@@ -649,6 +652,15 @@ const ReportBuilderView: React.FC = () => {
                   One row per team member — pick metrics below.
                 </div>
               )}
+            </div>
+
+            <div className="mb-2">
+              <input
+                className="form-control form-control-sm"
+                placeholder="Description (optional — shown on the Custom Reports tile, also matched by search)"
+                value={store.description}
+                onChange={(e) => store.setDescription(e.target.value)}
+              />
             </div>
 
             {store.type === "query" && selectedModel && (
