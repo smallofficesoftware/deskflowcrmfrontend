@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
+import { ReportIcon } from "../../../side-view/reportIcons";
 import {
   copyFromSystemReportDefinition,
   createReportDefinition,
@@ -31,7 +32,6 @@ import {
   listReportRuns,
   listReportSchedules,
   listSystemReportDefinitions,
-  runReportDefinition,
   saveReportTeamRights,
   updateReportDefinition,
   updateReportGroup,
@@ -103,8 +103,6 @@ const ReportBuilderView: React.FC = () => {
   const [loadingRegistry, setLoadingRegistry] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [runningId, setRunningId] = useState<number | null>(null);
-  const [runResult, setRunResult] = useState<{ definitionId: number; rows: any[]; row_count: number; duration_ms: number } | null>(null);
   const [exportingId, setExportingId] = useState<number | null>(null);
   const [templatesForDef, setTemplatesForDef] = useState<IReportDefinition | null>(null);
 
@@ -140,6 +138,25 @@ const ReportBuilderView: React.FC = () => {
   const [scheduleFormat, setScheduleFormat] = useState<"excel" | "pdf" | "both">("excel");
   const [scheduleLoginIds, setScheduleLoginIds] = useState<Set<number>>(new Set());
   const [scheduleExternalEmails, setScheduleExternalEmails] = useState("");
+
+  // Saved Reports tile grid — matches ReportsTileView.tsx's own card style
+  // (Custom Reports tiles at /SideView?view=reports) instead of a plain
+  // Bootstrap table, so the build UI reads as "part of this app" the same
+  // way the run screen already does. Secondary actions collapse into one
+  // "More" dropdown per card (same click-outside pattern the run screen's
+  // toolbar already uses) — a card with 7 visible action buttons would be
+  // more cluttered than the table it's replacing.
+  const [openMoreMenuId, setOpenMoreMenuId] = useState<number | null>(null);
+  const moreMenuCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuCardRef.current && !moreMenuCardRef.current.contains(event.target as Node)) {
+        setOpenMoreMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
@@ -453,32 +470,6 @@ const ReportBuilderView: React.FC = () => {
     }
   };
 
-  const [runSearch, setRunSearch] = useState("");
-
-  const handleRun = async (definition: IReportDefinition, search?: string) => {
-    setRunningId(definition.id);
-    setRunResult(null);
-    const result = await runReportDefinition(definition.id, search ? { search } : undefined);
-    setRunningId(null);
-    if (result) setRunResult({ definitionId: definition.id, ...result });
-  };
-
-  // Debounced re-run of whichever report's result is currently showing,
-  // same 300ms convention the rest of this app's search boxes already use
-  // (see inquiryView.tsx's own debouncedSearchText). Only fires once a
-  // report has actually been run at least once — search has nothing to
-  // filter before that.
-  useEffect(() => {
-    if (!runResult) return;
-    const activeDefinition = definitions.find((d) => d.id === runResult.definitionId);
-    if (!activeDefinition) return;
-    const handler = setTimeout(() => handleRun(activeDefinition, runSearch), 300);
-    return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runSearch]);
-
-  const runResultColumns = runResult && runResult.rows.length > 0 ? Object.keys(runResult.rows[0]) : [];
-
   // Same key-derivation queryEngine.js's own resolveDisplayColumns() uses
   // server-side (aggregate ? alias || `${aggregate}_${column}` : column) —
   // kept in sync by hand since this is a client-side mirror for the export
@@ -512,16 +503,14 @@ const ReportBuilderView: React.FC = () => {
         });
       }
     } catch {
-      // fall through to the sample-row fallback below
+      // fall through
     }
     // plugin-type definitions always save columns_json as [] (no
     // per-column config UI for that type yet, see the build form's own
-    // comment) — same graceful degradation the backend's
-    // resolveDisplayColumns() already has: derive columns from whatever
-    // keys the currently-shown preview row actually has, if there is one.
-    if (runResult && runResult.definitionId === definition.id && runResult.rows.length > 0) {
-      return Object.keys(runResult.rows[0]).map((key) => ({ key, label: humanize(key) }));
-    }
+    // comment) — nothing to export from here without a sample row.
+    // Exporting a plugin-type report now happens from its own run screen
+    // (ReportRunnerView.tsx), which derives columns from the real fetched
+    // rows instead.
     return [];
   };
 
@@ -534,6 +523,14 @@ const ReportBuilderView: React.FC = () => {
 
   return (
     <div style={{ padding: 20 }}>
+      {/* Same .report-tile hover effect ReportsTileView.tsx already defines
+          for the Custom Reports tile grid — duplicated here (not shared,
+          each screen already owns its own inline styles in this app)
+          so Saved Reports' cards read the same way. */}
+      <style>{`
+        .report-tile { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        .report-tile:hover { border-color: #d1d5db; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+      `}</style>
       <PromptModal
         show={showPinModal && !pinVerified}
         onHide={() => navigate(-1)}
@@ -899,45 +896,99 @@ const ReportBuilderView: React.FC = () => {
           <div className="card p-3">
             <h6>Saved Reports</h6>
             {definitions.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>No reports yet — build one above.</p>}
-            <table className="table table-sm">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Source</th>
-                  <th>Group</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {definitions.map((def) => (
-                  <React.Fragment key={def.id}>
-                    <tr>
-                      <td>{def.name}</td>
-                      <td>{def.type}</td>
-                      <td>{def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key}</td>
-                      <td>{reportGroups.find((g) => g.id === def.report_group_id)?.group_name || "—"}</td>
-                      <td style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          disabled={runningId === def.id}
-                          onClick={() => {
-                            setRunSearch("");
-                            handleRun(def);
-                          }}
-                        >
-                          {runningId === def.id ? "Running..." : "Run"}
-                        </button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={() => handleEdit(def)}>
-                          Edit
-                        </button>
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(def)}>
-                          Delete
-                        </button>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {definitions.map((def) => {
+                const group = reportGroups.find((g) => g.id === def.report_group_id)?.group_name;
+                const source = def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key;
+                return (
+                  <div
+                    key={def.id}
+                    className="report-tile"
+                    style={{
+                      position: "relative",
+                      padding: 16,
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: "#fff3eb",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <ReportIcon name="report" size={16} color="#F58634" />
+                      </div>
+                      <a
+                        href={`/report-builder/run/${def.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate(`/report-builder/run/${def.id}`);
+                        }}
+                        style={{ fontWeight: 600, fontSize: 14, color: "#1a1a1a", textDecoration: "none" }}
+                      >
+                        {def.name}
+                      </a>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#8a8a8a", marginBottom: def.description ? 4 : 8 }}>
+                      {def.type}
+                      {source ? ` · ${source}` : ""}
+                      {group ? ` · ${group}` : ""}
+                    </div>
+                    {def.description && (
+                      <p style={{ margin: 0, marginBottom: 8, fontSize: 12, lineHeight: 1.5, color: "#8a8a8a" }}>{def.description}</p>
+                    )}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={() => handleEdit(def)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(def)}>
+                        Delete
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => setOpenMoreMenuId((v) => (v === def.id ? null : def.id))}
+                      >
+                        &#8942; More
+                      </button>
+                    </div>
+                    {openMoreMenuId === def.id && (
+                      <div
+                        ref={moreMenuCardRef}
+                        style={{
+                          position: "absolute",
+                          right: 16,
+                          top: "100%",
+                          zIndex: 1000,
+                          width: 200,
+                          background: "#fff",
+                          borderRadius: 8,
+                          boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                          padding: 8,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
                         {/* display:contents keeps this <li> from breaking the flex
-                            button row's layout while staying valid HTML (a plain
-                            <li> outside a <ul>/<ol> renders fine in every browser
-                            but isn't valid markup) — same component every legacy
+                            column's layout while staying valid HTML (a plain <li>
+                            outside a <ul>/<ol> renders fine in every browser but
+                            isn't valid markup) — same component every legacy
                             report's own export dropdown already uses. */}
                         <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
                           <ExportExcelMenuItem
@@ -946,71 +997,61 @@ const ReportBuilderView: React.FC = () => {
                             columns={buildExportColumns(def)}
                             fileName={def.name}
                             disabled={buildExportColumns(def).length === 0}
+                            onSelect={() => setOpenMoreMenuId(null)}
                           />
                         </ul>
-                        <button className="btn btn-sm btn-outline-dark" disabled={exportingId === def.id} onClick={() => handleExportPdf(def)}>
-                          PDF / Print
+                        <button
+                          className="btn btn-sm btn-outline-dark"
+                          disabled={exportingId === def.id}
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            handleExportPdf(def);
+                          }}
+                        >
+                          {exportingId === def.id ? "Exporting..." : "PDF / Print"}
                         </button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setTemplatesForDef(def)}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            setTemplatesForDef(def);
+                          }}
+                        >
                           Manage Templates
                         </button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openManageAccess(def)}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            openManageAccess(def);
+                          }}
+                        >
                           Manage Access
                         </button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openRunHistory(def)}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            openRunHistory(def);
+                          }}
+                        >
                           Run History
                         </button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openSchedule(def)}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setOpenMoreMenuId(null);
+                            openSchedule(def);
+                          }}
+                        >
                           Schedule
                         </button>
-                      </td>
-                    </tr>
-                    {runResult && runResult.definitionId === def.id && (
-                      <tr>
-                        <td colSpan={5}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                            <span style={{ fontSize: 12 }}>
-                              {runResult.row_count} row(s) &middot; {runResult.duration_ms}ms
-                            </span>
-                            <input
-                              className="form-control form-control-sm"
-                              style={{ width: 200 }}
-                              placeholder="Search..."
-                              value={runSearch}
-                              onChange={(e) => setRunSearch(e.target.value)}
-                            />
-                          </div>
-                          {runResult.rows.length > 0 ? (
-                            <div style={{ overflowX: "auto" }}>
-                              <table className="table table-sm table-bordered">
-                                <thead>
-                                  <tr>
-                                    {runResultColumns.map((c) => (
-                                      <th key={c}>{c}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {runResult.rows.map((row, i) => (
-                                    <tr key={i}>
-                                      {runResultColumns.map((c) => (
-                                        <td key={c}>{String(row[c])}</td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <span className="text-muted" style={{ fontSize: 12 }}>No data.</span>
-                          )}
-                        </td>
-                      </tr>
+                      </div>
                     )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
