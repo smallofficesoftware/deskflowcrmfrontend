@@ -21,6 +21,11 @@ export interface IModelRelation {
   key: string; // plain relation key, e.g. "customer" — each column below carries the dotted "customer.person_name" key
   label: string;
   columns: IReportColumn[];
+  // Second hop, e.g. task_managements' "contact" relation exposing contacts'
+  // OWN "label" relation as "contact.label.lable_name" — only ever populated
+  // for a modelKey-backed, plain scalar relation (see resolveRelationRelations
+  // in modelRegistry.js). Empty array, never undefined, when there's none.
+  relations: IModelRelation[];
 }
 
 export interface IModelRegistryEntry {

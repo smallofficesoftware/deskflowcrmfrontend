@@ -161,6 +161,23 @@ const ReportBuilderView: React.FC = () => {
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
+  // Field-picker search + collapse — related-table fields (and their own
+  // one-more-hop relations, e.g. Contact -> Labels) are tucked behind a
+  // collapsed section by default rather than dumped flat the moment a model
+  // is picked; the search box filters everything (base + related + nested)
+  // and auto-opens any section that has a match, without changing what the
+  // user has manually expanded.
+  const [columnSearch, setColumnSearch] = useState("");
+  const [expandedRelKeys, setExpandedRelKeys] = useState<Set<string>>(new Set());
+  const toggleRelExpanded = (key: string) =>
+    setExpandedRelKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const matchesSearch = (label: string) => !columnSearch.trim() || label.toLowerCase().includes(columnSearch.trim().toLowerCase());
+
   // Step 10 — report groups. Own state, not folded into loadBuildData's
   // Promise.all: Manage Groups needs to reload just this list after a
   // create/rename/delete without re-fetching the whole registry.
@@ -626,7 +643,11 @@ const ReportBuilderView: React.FC = () => {
                   <select
                     className="form-select form-select-sm"
                     value={store.modelKey}
-                    onChange={(e) => store.setModelKey(e.target.value)}
+                    onChange={(e) => {
+                      store.setModelKey(e.target.value);
+                      setColumnSearch("");
+                      setExpandedRelKeys(new Set());
+                    }}
                     disabled={loadingRegistry}
                   >
                     <option value="">Select data source...</option>
@@ -703,59 +724,128 @@ const ReportBuilderView: React.FC = () => {
             {store.type === "query" && selectedModel && (
               <>
                 <div className="mb-2">
-                  <strong style={{ fontSize: 13 }}>Columns</strong>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
-                    {selectedModel.columns.map((col: IReportColumn) => {
-                      const picked = store.columns.find((c) => c.column === col.key);
-                      return (
-                        <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <label style={{ fontSize: 13, margin: 0 }}>
-                            <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                            {col.label}
-                            {col.dynamic && <span className="badge bg-info text-dark ms-1" style={{ fontSize: 10 }}>Custom</span>}
-                          </label>
-                          {picked && col.aggregatable && col.aggregatable.length > 0 && (
-                            <select
-                              className="form-select form-select-sm"
-                              style={{ width: 110 }}
-                              value={picked.aggregate || ""}
-                              onChange={(e) => store.setColumnAggregate(col.key, e.target.value)}
-                            >
-                              <option value="">(no aggregate)</option>
-                              {col.aggregatable.map((agg) => (
-                                <option key={agg} value={agg}>
-                                  {AGGREGATE_LABELS[agg] || agg}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      );
-                    })}
+                  <strong style={{ fontSize: 13 }}>What should the report show?</strong>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Search fields (e.g. contact, label, amount)..."
+                    value={columnSearch}
+                    onChange={(e) => setColumnSearch(e.target.value)}
+                    style={{ maxWidth: 320, marginTop: 6, marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    {selectedModel.columns
+                      .filter((col) => matchesSearch(col.label))
+                      .map((col: IReportColumn) => {
+                        const picked = store.columns.find((c) => c.column === col.key);
+                        return (
+                          <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <label style={{ fontSize: 13, margin: 0 }}>
+                              <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                              {col.label}
+                              {col.dynamic && <span className="badge bg-info text-dark ms-1" style={{ fontSize: 10 }}>Custom</span>}
+                            </label>
+                            {picked && col.aggregatable && col.aggregatable.length > 0 && (
+                              <select
+                                className="form-select form-select-sm"
+                                style={{ width: 110 }}
+                                value={picked.aggregate || ""}
+                                onChange={(e) => store.setColumnAggregate(col.key, e.target.value)}
+                              >
+                                <option value="">(no aggregate)</option>
+                                {col.aggregatable.map((agg) => (
+                                  <option key={agg} value={agg}>
+                                    {AGGREGATE_LABELS[agg] || agg}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
 
                 {/* Whitelisted joins — select/display only, no aggregate,
                     never appear in the filter/group-by pickers below (those
-                    only iterate selectedModel.columns, not .relations). */}
+                    only iterate selectedModel.columns, not .relations).
+                    Collapsed by default (Related: Contact's field list can be
+                    long since it now borrows contacts' FULL whitelist, not a
+                    hand-picked subset — see modelRegistry.js's modelKey reuse)
+                    — a section only renders its field checkboxes once the
+                    user expands it, or once a search term matches something
+                    inside it. Contact's own one-more-hop relations (e.g.
+                    Labels) render as their own nested collapsed section,
+                    never flattened into Contact's own field list. */}
                 {selectedModel.relations && selectedModel.relations.length > 0 && (
                   <div className="mb-2">
-                    {selectedModel.relations.map((rel) => (
-                      <div key={rel.key} style={{ marginBottom: 6 }}>
-                        <strong style={{ fontSize: 12, color: "#666" }}>Related: {rel.label}</strong>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
-                          {rel.columns.map((col: IReportColumn) => {
-                            const picked = store.columns.some((c) => c.column === col.key);
-                            return (
-                              <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
-                                <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                                {col.label}
-                              </label>
-                            );
-                          })}
+                    {selectedModel.relations.map((rel) => {
+                      const filteredCols = rel.columns.filter((col) => matchesSearch(col.label));
+                      const nestedRels = (rel.relations || []).map((sub) => ({
+                        sub,
+                        filteredCols: sub.columns.filter((col) => matchesSearch(col.label)),
+                      }));
+                      const hasSearchMatch = columnSearch.trim() && (filteredCols.length > 0 || nestedRels.some((n) => n.filteredCols.length > 0));
+                      const isOpen = expandedRelKeys.has(rel.key) || !!hasSearchMatch;
+                      const pickedCount = rel.columns.filter((col) => store.columns.some((c) => c.column === col.key)).length;
+                      return (
+                        <div key={rel.key} style={{ marginBottom: 6, border: "1px solid #eee", borderRadius: 6, padding: "4px 8px" }}>
+                          <div
+                            onClick={() => toggleRelExpanded(rel.key)}
+                            style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#666" }}
+                          >
+                            <span>{isOpen ? "▾" : "▸"}</span>
+                            <strong>Related: {rel.label}</strong>
+                            {pickedCount > 0 && <span className="badge bg-secondary" style={{ fontSize: 10 }}>{pickedCount} selected</span>}
+                          </div>
+                          {isOpen && (
+                            <>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
+                                {filteredCols.map((col: IReportColumn) => {
+                                  const picked = store.columns.some((c) => c.column === col.key);
+                                  return (
+                                    <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
+                                      <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                                      {col.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                              {nestedRels.map(({ sub, filteredCols: subFilteredCols }) => {
+                                const subKey = `${rel.key}.${sub.key}`;
+                                const subPickedCount = sub.columns.filter((col) => store.columns.some((c) => c.column === col.key)).length;
+                                const subOpen = expandedRelKeys.has(subKey) || !!(columnSearch.trim() && subFilteredCols.length > 0);
+                                return (
+                                  <div key={subKey} style={{ marginTop: 6, marginLeft: 16, borderLeft: "2px solid #eee", paddingLeft: 8 }}>
+                                    <div
+                                      onClick={() => toggleRelExpanded(subKey)}
+                                      style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#888" }}
+                                    >
+                                      <span>{subOpen ? "▾" : "▸"}</span>
+                                      <span>Related: {rel.label} → {sub.label}</span>
+                                      {subPickedCount > 0 && <span className="badge bg-secondary" style={{ fontSize: 10 }}>{subPickedCount} selected</span>}
+                                    </div>
+                                    {subOpen && (
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
+                                        {subFilteredCols.map((col: IReportColumn) => {
+                                          const picked = store.columns.some((c) => c.column === col.key);
+                                          return (
+                                            <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
+                                              <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                                              {col.label}
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
