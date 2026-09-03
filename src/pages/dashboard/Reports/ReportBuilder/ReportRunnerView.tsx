@@ -2,7 +2,7 @@ import { Column } from "primereact/column";
 import { DataTable, DataTableSortEvent } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
@@ -377,7 +377,11 @@ const ReportRunnerView: React.FC = () => {
     setSortOrder((e.sortOrder as 1 | -1 | null) ?? null);
   };
 
-  const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+  // Build-time showInGrid:false picks — the row data still carries these
+  // keys (queryEngine.js is untouched, still returns every selected
+  // column), they just never become a Column/ColumnsButton option here.
+  const hiddenGridKeys = useMemo(() => new Set(definition?.hidden_grid_columns || []), [definition?.hidden_grid_columns]);
+  const columns = rows.length > 0 ? Object.keys(rows[0]).filter((k) => !hiddenGridKeys.has(k)) : [];
   const defaultColumns = columns.map((key) => ({ key, label: humanize(key) }));
   // Same reportKey convention useCommonFilterStore's slot would use
   // (report_${id}) — server-persisted show/hide/reorder per report, shared

@@ -207,6 +207,13 @@ export interface IRunnableReportDefinition {
   // Step 10 — which report_groups bucket this falls into on the "Custom
   // Reports" tile grid; null = the "Ungrouped" bucket.
   report_group_id: number | null;
+  // Build-time showInGrid:false picks, reduced to bare display-keys (same
+  // key-derivation the backend's resolveDisplayColumns() uses) — the run
+  // screen derives its column list from the returned ROWS, not from
+  // columns_json (which stays build-internal), so this is what lets an
+  // author-hidden column actually disappear from the grid. Always [] for
+  // plugin/composite (no per-column flags exist for those types).
+  hidden_grid_columns: string[];
 }
 
 // Step 10 — Report groups. Flat, single-level; read (list) is flag-only/

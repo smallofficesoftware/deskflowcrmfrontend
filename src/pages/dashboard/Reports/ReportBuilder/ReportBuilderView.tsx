@@ -41,7 +41,7 @@ import {
 } from "./ReportBuilderController";
 import { mapColumnTypeToExportFormat, SLOT_LABELS } from "./generalFilterAdapter";
 import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
-import { useReportBuilderStore } from "./useReportBuilderStore";
+import { IColumnPick, useReportBuilderStore } from "./useReportBuilderStore";
 
 // Operator choices per column type — mirrors queryEngine.js's ALLOWED_OPERATORS
 // exactly (backend/src/services/report_builder/queryEngine.js). Only used
@@ -84,6 +84,41 @@ const AGGREGATE_LABELS: Record<string, string> = {
   max: "Max",
   count: "Count",
 };
+
+// Compact per-column presentation toggles — Grid/Excel visibility (both
+// default to on, so an existing saved report with no flags at all shows
+// its columns everywhere, exactly like before this feature existed) and an
+// opt-in Total row for Excel exports (defaults off, independent of whether
+// the column has an `aggregate` set — a column can be summed IN the grid
+// and still not want a grand-total row, or vice versa). Shared by the base
+// column picker and both relation-column pickers below, so the 3 spots
+// don't hand-roll 3 slightly different checkbox rows.
+const ColumnFlagsMini = ({
+  pick,
+  allowTotal,
+  onFlag,
+}: {
+  pick: IColumnPick;
+  allowTotal: boolean;
+  onFlag: (flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
+}) => (
+  <span style={{ display: "inline-flex", gap: 8, marginLeft: 8, fontSize: 10, color: "#8a8a8a" }}>
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
+      <input type="checkbox" checked={pick.showInGrid !== false} onChange={(e) => onFlag("showInGrid", e.target.checked)} />
+      Grid
+    </label>
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
+      <input type="checkbox" checked={pick.showInExcel !== false} onChange={(e) => onFlag("showInExcel", e.target.checked)} />
+      Excel
+    </label>
+    {allowTotal && (
+      <label style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: 0 }}>
+        <input type="checkbox" checked={!!pick.showTotal} onChange={(e) => onFlag("showTotal", e.target.checked)} />
+        Total
+      </label>
+    )}
+  </span>
+);
 
 // Report Builder — query-type (Phase 1 slice) + plugin-type (wraps the 2
 // proof complex-report services, unmodified) in one form. No PAGE_ID/rights
@@ -499,12 +534,12 @@ const ReportBuilderView: React.FC = () => {
   // Same key-derivation queryEngine.js's own resolveDisplayColumns() uses
   // server-side (aggregate ? alias || `${aggregate}_${column}` : column) —
   // kept in sync by hand since this is a client-side mirror for the export
-  // column list, not a shared module. showInGrid/showInExcel/showTotal
-  // per-column flags aren't in columns_json yet (a build-form addition,
-  // not built this pass) — every selected column is offered to Excel for
-  // now, same as the old exportReportExcel path already did.
+  // column list, not a shared module. showInExcel:false drops a column from
+  // this list entirely (defaults to included, same as before this flag
+  // existed); showTotal rides along per-column so buildExportFooter below
+  // can build the totals row without re-parsing columns_json itself.
   const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  const buildExportColumns = (definition: IReportDefinition): { key: string; label: string; format?: "date" | "number" | "currency" }[] => {
+  const buildExportColumns = (definition: IReportDefinition): { key: string; label: string; format?: "date" | "number" | "currency"; showTotal?: boolean }[] => {
     try {
       const columns = JSON.parse(definition.columns_json || "[]");
       if (Array.isArray(columns) && columns.length > 0) {
@@ -512,21 +547,23 @@ const ReportBuilderView: React.FC = () => {
         // which only reflects whatever model_key is currently being
         // edited) — this runs over every saved report's own row.
         const modelEntry = registry.find((m) => m.key === definition.model_key);
-        return columns.map((c: any) => {
-          // composite-type columns_json is a plain array of metric-key
-          // strings, not {column,aggregate?} objects — same "shape varies
-          // by type" precedent the backend already documents. Metric
-          // values are always numeric, so "number" is a safe default.
-          if (typeof c === "string") return { key: c, label: humanize(c), format: "number" as const };
-          const key = c.aggregate ? c.alias || `${c.aggregate}_${c.column}` : c.column;
-          const columnType = modelEntry?.columns.find((col) => col.key === c.column)?.type;
-          // An aggregate (sum/avg/count/...) over any column is itself a
-          // number, even when the underlying column is a plain "number" —
-          // "currency" is the one type worth preserving through an
-          // aggregate (a summed currency column is still money).
-          const format = c.aggregate ? (columnType === "currency" ? "currency" : "number") : mapColumnTypeToExportFormat(columnType);
-          return { key, label: c.label || humanize(key), format };
-        });
+        return columns
+          .filter((c: any) => typeof c === "string" || c.showInExcel !== false)
+          .map((c: any) => {
+            // composite-type columns_json is a plain array of metric-key
+            // strings, not {column,aggregate?} objects — same "shape varies
+            // by type" precedent the backend already documents. Metric
+            // values are always numeric, so "number" is a safe default.
+            if (typeof c === "string") return { key: c, label: humanize(c), format: "number" as const };
+            const key = c.aggregate ? c.alias || `${c.aggregate}_${c.column}` : c.column;
+            const columnType = modelEntry?.columns.find((col) => col.key === c.column)?.type;
+            // An aggregate (sum/avg/count/...) over any column is itself a
+            // number, even when the underlying column is a plain "number" —
+            // "currency" is the one type worth preserving through an
+            // aggregate (a summed currency column is still money).
+            const format = c.aggregate ? (columnType === "currency" ? "currency" : "number") : mapColumnTypeToExportFormat(columnType);
+            return { key, label: c.label || humanize(key), format, showTotal: !!c.showTotal };
+          });
       }
     } catch {
       // fall through
@@ -538,6 +575,28 @@ const ReportBuilderView: React.FC = () => {
     // (ReportRunnerView.tsx), which derives columns from the real fetched
     // rows instead.
     return [];
+  };
+
+  // One grand-total row, computed over whichever columns got showTotal:true
+  // at build time — undefined (not an empty FooterSpec) when none did, so
+  // ExportExcelMenuItem's own "no footer passed" behavior is unchanged for
+  // every report that doesn't use this. The label lands in the first
+  // exported column that ISN'T itself being summed (falls back to the
+  // first summed column's own row if every exported column has a total,
+  // an edge case rather than a crash).
+  const buildExportFooter = (definition: IReportDefinition) => {
+    const exportCols = buildExportColumns(definition);
+    const totalCols = exportCols.filter((c) => c.showTotal);
+    if (totalCols.length === 0) return undefined;
+    const labelKey = exportCols.find((c) => !c.showTotal)?.key ?? totalCols[0].key;
+    const row: Record<string, string | number | { fromSum: string }> = { [labelKey]: "Total" };
+    totalCols.forEach((c) => {
+      row[c.key] = { fromSum: c.key };
+    });
+    return {
+      sums: totalCols.map((c) => ({ outputKey: c.key, sourceKey: c.key })),
+      rows: [row],
+    };
   };
 
   const handleExportPdf = async (definition: IReportDefinition) => {
@@ -766,6 +825,13 @@ const ReportBuilderView: React.FC = () => {
                                 ))}
                               </select>
                             )}
+                            {picked && (
+                              <ColumnFlagsMini
+                                pick={picked}
+                                allowTotal={col.type === "number" || col.type === "currency"}
+                                onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)}
+                              />
+                            )}
                           </div>
                         );
                       })}
@@ -808,12 +874,17 @@ const ReportBuilderView: React.FC = () => {
                             <>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
                                 {filteredCols.map((col: IReportColumn) => {
-                                  const picked = store.columns.some((c) => c.column === col.key);
+                                  const picked = store.columns.find((c) => c.column === col.key);
                                   return (
-                                    <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
-                                      <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                                      {col.label}
-                                    </label>
+                                    <div key={col.key} style={{ display: "flex", alignItems: "center" }}>
+                                      <label style={{ fontSize: 13, margin: 0 }}>
+                                        <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                                        {col.label}
+                                      </label>
+                                      {picked && (
+                                        <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                      )}
+                                    </div>
                                   );
                                 })}
                               </div>
@@ -834,12 +905,17 @@ const ReportBuilderView: React.FC = () => {
                                     {subOpen && (
                                       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
                                         {subFilteredCols.map((col: IReportColumn) => {
-                                          const picked = store.columns.some((c) => c.column === col.key);
+                                          const picked = store.columns.find((c) => c.column === col.key);
                                           return (
-                                            <label key={col.key} style={{ fontSize: 13, margin: 0 }}>
-                                              <input type="checkbox" checked={picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                                              {col.label}
-                                            </label>
+                                            <div key={col.key} style={{ display: "flex", alignItems: "center" }}>
+                                              <label style={{ fontSize: 13, margin: 0 }}>
+                                                <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
+                                                {col.label}
+                                              </label>
+                                              {picked && (
+                                                <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                              )}
+                                            </div>
                                           );
                                         })}
                                       </div>
@@ -1131,6 +1207,7 @@ const ReportBuilderView: React.FC = () => {
                             reportType="report_builder"
                             filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
                             columns={buildExportColumns(def)}
+                            footer={buildExportFooter(def)}
                             fileName={def.name}
                             disabled={buildExportColumns(def).length === 0}
                             onSelect={() => setOpenMoreMenuId(null)}

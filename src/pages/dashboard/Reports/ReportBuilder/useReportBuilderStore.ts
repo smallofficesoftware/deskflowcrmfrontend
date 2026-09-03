@@ -4,6 +4,15 @@ import { IReportDefinition } from "./ReportBuilderController";
 export interface IColumnPick {
   column: string;
   aggregate?: string;
+  // Presentation-only flags, independent of `aggregate` (a column can be
+  // grouped/aggregated in the results AND still be excluded from Excel, or
+  // vice versa). Undefined means "on" for showInGrid/showInExcel (so an
+  // existing saved report with no flags at all needs no backfill — every
+  // picked column already shows everywhere, today's exact behavior) and
+  // "off" for showTotal (no report shows a totals row today).
+  showInGrid?: boolean;
+  showInExcel?: boolean;
+  showTotal?: boolean;
 }
 
 export interface IFilterRow {
@@ -50,6 +59,7 @@ interface ReportBuilderFormState {
   setPluginKey: (key: string) => void;
   toggleColumn: (columnKey: string) => void;
   setColumnAggregate: (columnKey: string, aggregate: string) => void;
+  setColumnFlag: (columnKey: string, flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
   toggleGroupBy: (columnKey: string) => void;
   addFilterRow: (row: IFilterRow) => void;
   updateFilterRow: (index: number, patch: Partial<IFilterRow>) => void;
@@ -101,6 +111,11 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   setColumnAggregate: (columnKey, aggregate) =>
     set((state) => ({
       columns: state.columns.map((c) => (c.column === columnKey ? { ...c, aggregate: aggregate || undefined } : c)),
+    })),
+
+  setColumnFlag: (columnKey, flag, value) =>
+    set((state) => ({
+      columns: state.columns.map((c) => (c.column === columnKey ? { ...c, [flag]: value } : c)),
     })),
 
   toggleGroupBy: (columnKey) =>
