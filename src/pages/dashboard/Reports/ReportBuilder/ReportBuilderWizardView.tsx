@@ -13,6 +13,7 @@ import {
   verifyReportPin,
 } from "./ReportBuilderController";
 import StepColumns from "./StepColumns";
+import StepFilters from "./StepFilters";
 import StepSource from "./StepSource";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 import WizardRail, { IWizardStep } from "./WizardRail";
@@ -53,6 +54,7 @@ const ReportBuilderWizardView: React.FC = () => {
   const [metrics, setMetrics] = useState<IMetricEntry[]>([]);
   const [loadingRegistry, setLoadingRegistry] = useState(false);
   const selectedModel = registry.find((m) => m.key === store.modelKey);
+  const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
 
   const [step, setStep] = useState(1);
   // Create mode: steps unlock as completed, same "can't skip ahead of
@@ -193,9 +195,11 @@ const ReportBuilderWizardView: React.FC = () => {
                     <StepSource registry={registry} plugins={plugins} loadingRegistry={loadingRegistry} advanced={advanced} />
                   )}
                   {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced={advanced} />}
-                  {/* Placeholder — pieces 4-5 replace these per step with the
-                      real form content ported from ReportBuilderView.tsx. */}
-                  {step > 2 && (
+                  {step === 3 && <StepFilters selectedModel={selectedModel} selectedPlugin={selectedPlugin} />}
+                  {/* Placeholder — piece 5 replaces this with the real
+                      Organize & Save content ported from
+                      ReportBuilderView.tsx. */}
+                  {step > 3 && (
                     <p className="text-muted" style={{ fontSize: 13 }}>
                       Step {step} content isn't built yet in this pass — this is
                       the navigation scaffolding only.
