@@ -7,8 +7,10 @@ import {
   copyFromSystemReportDefinition,
   createReportDefinition,
   createReportGroup,
+  createReportSchedule,
   deleteReportDefinition,
   deleteReportGroup,
+  deleteReportSchedule,
   exportReportPdf,
   getMetricsRegistry,
   getModelRegistry,
@@ -22,15 +24,18 @@ import {
   IReportDefinition,
   IReportGroup,
   IReportRun,
+  IReportSchedule,
   ISystemReportDefinition,
   listReportDefinitions,
   listReportGroups,
   listReportRuns,
+  listReportSchedules,
   listSystemReportDefinitions,
   runReportDefinition,
   saveReportTeamRights,
   updateReportDefinition,
   updateReportGroup,
+  updateReportSchedule,
   verifyReportPin,
 } from "./ReportBuilderController";
 import { mapColumnTypeToExportFormat, SLOT_LABELS } from "./generalFilterAdapter";
@@ -122,6 +127,19 @@ const ReportBuilderView: React.FC = () => {
   const [runHistoryForDef, setRunHistoryForDef] = useState<IReportDefinition | null>(null);
   const [runHistory, setRunHistory] = useState<IReportRun[]>([]);
   const [loadingRunHistory, setLoadingRunHistory] = useState(false);
+
+  // Schedules (Step 8a)
+  const [scheduleForDef, setScheduleForDef] = useState<IReportDefinition | null>(null);
+  const [schedules, setSchedules] = useState<IReportSchedule[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [scheduleSendTime, setScheduleSendTime] = useState("09:00");
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
+  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1);
+  const [scheduleFormat, setScheduleFormat] = useState<"excel" | "pdf" | "both">("excel");
+  const [scheduleLoginIds, setScheduleLoginIds] = useState<Set<number>>(new Set());
+  const [scheduleExternalEmails, setScheduleExternalEmails] = useState("");
 
   const selectedModel = registry.find((m) => m.key === store.modelKey);
   const selectedPlugin = plugins.find((p) => p.key === store.pluginKey);
@@ -233,6 +251,64 @@ const ReportBuilderView: React.FC = () => {
   };
 
   const teamMemberName = (loginId: number) => teamMembers.find((m) => m.id === loginId)?.username || `#${loginId}`;
+
+  const openSchedule = async (definition: IReportDefinition) => {
+    setScheduleForDef(definition);
+    setLoadingSchedules(true);
+    const companyId = Number(localStorage.getItem("COMPANY_ID"));
+    const [, rows] = await Promise.all([
+      fetchCompanyTeamApi(setTeamMembers, companyId, ""),
+      listReportSchedules(definition.id),
+    ]);
+    setSchedules(rows);
+    setLoadingSchedules(false);
+    // Reset the "new schedule" form each time the modal opens
+    setScheduleFrequency("daily");
+    setScheduleSendTime("09:00");
+    setScheduleDayOfWeek(1);
+    setScheduleDayOfMonth(1);
+    setScheduleFormat("excel");
+    setScheduleLoginIds(new Set());
+    setScheduleExternalEmails("");
+  };
+
+  const handleCreateSchedule = async () => {
+    if (!scheduleForDef) return;
+    setSavingSchedule(true);
+    const ok = await createReportSchedule(scheduleForDef.id, {
+      frequency: scheduleFrequency,
+      send_time: scheduleSendTime,
+      day_of_week: scheduleFrequency === "weekly" ? scheduleDayOfWeek : undefined,
+      day_of_month: scheduleFrequency === "monthly" ? scheduleDayOfMonth : undefined,
+      delivery_format: scheduleFormat,
+      recipients: {
+        logins: [...scheduleLoginIds],
+        emails: scheduleExternalEmails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean),
+      },
+    });
+    setSavingSchedule(false);
+    if (ok) {
+      const rows = await listReportSchedules(scheduleForDef.id);
+      setSchedules(rows);
+      setScheduleLoginIds(new Set());
+      setScheduleExternalEmails("");
+    }
+  };
+
+  const handleToggleScheduleActive = async (schedule: IReportSchedule) => {
+    const ok = await updateReportSchedule(schedule.id, { isActive: schedule.isActive ? 0 : 1 });
+    if (ok && scheduleForDef) setSchedules(await listReportSchedules(scheduleForDef.id));
+  };
+
+  const handleDeleteSchedule = async (scheduleId: number) => {
+    const ok = await deleteReportSchedule(scheduleId);
+    if (ok && scheduleForDef) setSchedules(await listReportSchedules(scheduleForDef.id));
+  };
+
+  const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const handleAddGroup = async () => {
     if (!newGroupName.trim()) return;
@@ -872,6 +948,9 @@ const ReportBuilderView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => openRunHistory(def)}>
                           Run History
                         </button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => openSchedule(def)}>
+                          Schedule
+                        </button>
                       </td>
                     </tr>
                     {runResult && runResult.definitionId === def.id && (
@@ -1067,6 +1146,149 @@ const ReportBuilderView: React.FC = () => {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {scheduleForDef && (
+        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <div className="modal-content1" style={{ width: 560, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5>Schedule — {scheduleForDef.name}</h5>
+              <span className="close" onClick={() => setScheduleForDef(null)}>&times;</span>
+            </div>
+
+            {loadingSchedules && <p>Loading...</p>}
+
+            {!loadingSchedules && schedules.length > 0 && (
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Frequency</th>
+                    <th>Time</th>
+                    <th>Format</th>
+                    <th>Next Run</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedules.map((s) => (
+                    <tr key={s.id}>
+                      <td style={{ fontSize: 12 }}>
+                        {s.frequency === "weekly" && s.day_of_week !== null
+                          ? `Weekly · ${WEEKDAY_LABELS[s.day_of_week]}`
+                          : s.frequency === "monthly" && s.day_of_month !== null
+                            ? `Monthly · day ${s.day_of_month}`
+                            : "Daily"}
+                      </td>
+                      <td style={{ fontSize: 12 }}>{s.send_time}</td>
+                      <td style={{ fontSize: 12 }}>{s.delivery_format}</td>
+                      <td style={{ fontSize: 12 }}>{s.isActive ? s.next_run_at : <span className="text-muted">Paused</span>}</td>
+                      <td style={{ display: "flex", gap: 4 }}>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => handleToggleScheduleActive(s)}>
+                          {s.isActive ? "Pause" : "Resume"}
+                        </button>
+                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteSchedule(s.id)}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <hr />
+            <h6>New Schedule</h6>
+            <div className="row g-2 mb-2">
+              <div className="col-md-4">
+                <label className="form-label" style={{ fontSize: 12 }}>Frequency</label>
+                <select className="form-select form-select-sm" value={scheduleFrequency} onChange={(e) => setScheduleFrequency(e.target.value as any)}>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" style={{ fontSize: 12 }}>Time</label>
+                <input type="time" className="form-control form-control-sm" value={scheduleSendTime} onChange={(e) => setScheduleSendTime(e.target.value)} />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" style={{ fontSize: 12 }}>Format</label>
+                <select className="form-select form-select-sm" value={scheduleFormat} onChange={(e) => setScheduleFormat(e.target.value as any)}>
+                  <option value="excel">Excel</option>
+                  <option value="pdf">PDF</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              {scheduleFrequency === "weekly" && (
+                <div className="col-md-6">
+                  <label className="form-label" style={{ fontSize: 12 }}>Day of week</label>
+                  <select className="form-select form-select-sm" value={scheduleDayOfWeek} onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}>
+                    {WEEKDAY_LABELS.map((label, idx) => (
+                      <option key={idx} value={idx}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {scheduleFrequency === "monthly" && (
+                <div className="col-md-6">
+                  <label className="form-label" style={{ fontSize: 12 }}>Day of month</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={28}
+                    className="form-control form-control-sm"
+                    value={scheduleDayOfMonth}
+                    onChange={(e) => setScheduleDayOfMonth(Math.min(Math.max(Number(e.target.value) || 1, 1), 28))}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mb-2">
+              <label className="form-label" style={{ fontSize: 12 }}>Team members</label>
+              <div style={{ maxHeight: 120, overflowY: "auto", border: "1px solid #eee", borderRadius: 4, padding: 6 }}>
+                {teamMembers.map((m) => (
+                  <label key={m.id} style={{ display: "block", fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={scheduleLoginIds.has(m.id)}
+                      onChange={() =>
+                        setScheduleLoginIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(m.id)) next.delete(m.id);
+                          else next.add(m.id);
+                          return next;
+                        })
+                      }
+                      style={{ marginRight: 6 }}
+                    />
+                    {m.username}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label" style={{ fontSize: 12 }}>External emails (comma-separated)</label>
+              <input
+                className="form-control form-control-sm"
+                placeholder="accountant@example.com, boss@example.com"
+                value={scheduleExternalEmails}
+                onChange={(e) => setScheduleExternalEmails(e.target.value)}
+              />
+            </div>
+
+            <button
+              className="btn btn-sm btn-primary"
+              disabled={savingSchedule || (scheduleLoginIds.size === 0 && !scheduleExternalEmails.trim())}
+              onClick={handleCreateSchedule}
+            >
+              {savingSchedule ? "Saving..." : "Add Schedule"}
+            </button>
           </div>
         </div>
       )}

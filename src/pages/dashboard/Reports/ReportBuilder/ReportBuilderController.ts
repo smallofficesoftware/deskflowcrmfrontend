@@ -255,6 +255,90 @@ export const deleteReportGroup = async (id: number): Promise<boolean> => {
   }
 };
 
+// Step 8a — Scheduling. recipients mixes internal team members (logins,
+// picked from the same team-member list Manage Access already fetches)
+// and raw external email addresses in one delivery — a scheduled report
+// can go to someone who couldn't open it on-demand themselves, per the
+// plan's decision (the owner scheduling it is trusted to decide who
+// receives it).
+export interface IReportScheduleRecipients {
+  logins: number[];
+  emails: string[];
+}
+
+export interface IReportSchedule {
+  id: number;
+  report_definition_id: number;
+  a_application_login_id: number;
+  frequency: "daily" | "weekly" | "monthly";
+  send_time: string;
+  day_of_week: number | null;
+  day_of_month: number | null;
+  delivery_format: "excel" | "pdf" | "both";
+  recipients: string; // JSON-stringified IReportScheduleRecipients
+  next_run_at: string;
+  last_run_at: string | null;
+  isActive: number;
+}
+
+export interface IReportSchedulePayload {
+  frequency: "daily" | "weekly" | "monthly";
+  send_time: string;
+  day_of_week?: number;
+  day_of_month?: number;
+  delivery_format: "excel" | "pdf" | "both";
+  recipients: IReportScheduleRecipients;
+  isActive?: number;
+}
+
+export const listReportSchedules = async (reportDefinitionId: number): Promise<IReportSchedule[]> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${reportDefinitionId}/schedules/list`, { a_application_login_id: loginId() });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load schedules");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load schedules");
+    return [];
+  }
+};
+
+export const createReportSchedule = async (reportDefinitionId: number, payload: IReportSchedulePayload): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${reportDefinitionId}/schedules/create`, { a_application_login_id: loginId(), ...payload });
+    if (data?.ack === 1) return true;
+    reportError(data, "Failed to create schedule");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to create schedule");
+    return false;
+  }
+};
+
+export const updateReportSchedule = async (scheduleId: number, payload: Partial<IReportSchedulePayload>): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-schedules/${scheduleId}/update`, { a_application_login_id: loginId(), ...payload });
+    if (data?.ack === 1) return true;
+    reportError(data, "Failed to update schedule");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to update schedule");
+    return false;
+  }
+};
+
+export const deleteReportSchedule = async (scheduleId: number): Promise<boolean> => {
+  try {
+    const { data } = await axiosInstance.post(`report-schedules/${scheduleId}/delete`, { a_application_login_id: loginId() });
+    if (data?.ack === 1) return true;
+    reportError(data, "Failed to delete schedule");
+    return false;
+  } catch (error) {
+    handleError(error, "Failed to delete schedule");
+    return false;
+  }
+};
+
 // "Custom Reports" (ReportsTileView's dynamic section) — visibility is
 // per-report_definition_team_rights grant only (Step 7), no page-level
 // fallback: a login sees exactly the reports it's been explicitly granted,
