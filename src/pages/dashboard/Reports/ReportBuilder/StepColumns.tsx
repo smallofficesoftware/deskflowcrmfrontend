@@ -15,6 +15,37 @@ const AGGREGATE_LABELS: Record<string, string> = {
   count: "Count",
 };
 
+// Same card treatment as Step 1's source picker / Step 4's icon grid —
+// applied here to every field toggle (base/relation/nested-relation
+// columns, composite metrics) so "What to show" doesn't read as a step
+// behind the other three. Group-by and general-filters-to-show (both
+// Advanced-only, secondary) stay plain checkboxes — a deliberate scope
+// line, not an oversight: they're tucked behind a toggle already, less
+// visually prominent than the default field list.
+const FieldChip: React.FC<{ label: string; picked: boolean; onClick: () => void; custom?: boolean }> = ({ label, picked, onClick, custom }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "6px 12px",
+      borderRadius: 20,
+      border: `1.5px solid ${picked ? "#F58634" : "#e5e7eb"}`,
+      background: picked ? "#fff3eb" : "#fff",
+      fontSize: 13,
+      fontWeight: picked ? 600 : 400,
+      color: picked ? "#DC6A1C" : "#1a1a1a",
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {label}
+    {custom && <span className="badge bg-info text-dark" style={{ fontSize: 10 }}>Custom</span>}
+  </button>
+);
+
 interface StepColumnsProps {
   selectedModel?: IModelRegistryEntry;
   metrics: IMetricEntry[];
@@ -50,10 +81,7 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
         <strong style={{ fontSize: 13 }}>Metrics</strong>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
           {metrics.map((m) => (
-            <label key={m.key} style={{ fontSize: 13, margin: 0 }}>
-              <input type="checkbox" checked={store.metricKeys.includes(m.key)} onChange={() => store.toggleMetric(m.key)} style={{ marginRight: 4 }} />
-              {m.label}
-            </label>
+            <FieldChip key={m.key} label={m.label} picked={store.metricKeys.includes(m.key)} onClick={() => store.toggleMetric(m.key)} />
           ))}
         </div>
       </div>
@@ -82,12 +110,8 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
             .map((col: IReportColumn) => {
               const picked = store.columns.find((c) => c.column === col.key);
               return (
-                <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <label style={{ fontSize: 13, margin: 0 }}>
-                    <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                    {col.label}
-                    {col.dynamic && <span className="badge bg-info text-dark ms-1" style={{ fontSize: 10 }}>Custom</span>}
-                  </label>
+                <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <FieldChip label={col.label} picked={!!picked} custom={col.dynamic} onClick={() => store.toggleColumn(col.key)} />
                   {picked && col.aggregatable && col.aggregatable.length > 0 && (
                     <select
                       className="form-select form-select-sm"
@@ -150,11 +174,8 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                       {filteredCols.map((col: IReportColumn) => {
                         const picked = store.columns.find((c) => c.column === col.key);
                         return (
-                          <div key={col.key} style={{ display: "flex", alignItems: "center" }}>
-                            <label style={{ fontSize: 13, margin: 0 }}>
-                              <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                              {col.label}
-                            </label>
+                          <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                             {picked && (
                               <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
                             )}
@@ -181,11 +202,8 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                               {subFilteredCols.map((col: IReportColumn) => {
                                 const picked = store.columns.find((c) => c.column === col.key);
                                 return (
-                                  <div key={col.key} style={{ display: "flex", alignItems: "center" }}>
-                                    <label style={{ fontSize: 13, margin: 0 }}>
-                                      <input type="checkbox" checked={!!picked} onChange={() => store.toggleColumn(col.key)} style={{ marginRight: 4 }} />
-                                      {col.label}
-                                    </label>
+                                  <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                                     {picked && (
                                       <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
                                     )}
