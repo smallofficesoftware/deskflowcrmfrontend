@@ -13,6 +13,7 @@ const SOURCE_GROUPS: { title: string; keys: string[] }[] = [
   { title: "Sales & Orders", keys: ["carts", "cart_items"] },
   { title: "Money & Accounts", keys: ["account_transactions", "account_outstanding", "employee_transactions", "employee_outstanding", "expenses"] },
   { title: "Products & Stock", keys: ["products", "stock_ledger"] },
+  { title: "Production & BOM", keys: ["job_cards", "production_transactions", "production_transaction_items", "bom_process_costs", "bom_material_norms"] },
 ];
 
 // One real reportIcons.tsx icon per table — this app's own icon set, not
@@ -38,6 +39,11 @@ const SOURCE_ICON: Record<string, string> = {
   expenses: "bolt",
   products: "inventory",
   stock_ledger: "warehouse",
+  job_cards: "checklist",
+  production_transactions: "factory",
+  production_transaction_items: "straighten",
+  bom_process_costs: "settingsCog",
+  bom_material_norms: "book",
 };
 
 interface StepSourceProps {
