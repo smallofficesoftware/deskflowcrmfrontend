@@ -185,10 +185,18 @@ export const duplicateDashboard = async (id: number): Promise<IDashboard | null>
 // capped server-side (see dashboardServices.js's runDashboard). No toast on
 // failure — a single widget failing (source report deleted, etc.) is
 // rendered inline on that widget's own tile, not as a page-level error.
-export const runDashboard = async (id: number): Promise<{ dashboard: IDashboard; widgets: IDashboardWidgetResult[] } | null> => {
+// dateRange/teamMemberIds — same "Date Range"/"Team Member" general-filter
+// slots (1 and 5/9) modelRegistry.js already defines per model; resolved
+// per-widget server-side (dashboardServices.js's buildDashboardScopeFilters)
+// since each widget's report can be a different model_key.
+export const runDashboard = async (
+  id: number,
+  scope?: { dateRange?: { start?: string; end?: string }; teamMemberIds?: number[] },
+): Promise<{ dashboard: IDashboard; widgets: IDashboardWidgetResult[] } | null> => {
   try {
     const { data } = await axiosInstance.post(`dashboards/${id}/run`, {
       a_application_login_id: loginId(),
+      ...scope,
     });
     if (data?.ack === 1) return data.data.item;
     return null;

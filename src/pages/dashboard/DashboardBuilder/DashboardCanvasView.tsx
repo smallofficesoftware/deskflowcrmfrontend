@@ -1,8 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import GridLayout, { Layout, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useNavigate, useParams } from "react-router-dom";
+import DateTimeRangePicker from "../../../components/DateTimeRangePicker";
+import MultiSelect, { Option } from "../../../components/MultiSelect";
+import { fetchCompanyTeamApi, ICompanyTeam } from "../../left-side/LeftSideController";
+import { formatDateForBackend } from "../Reports/ReportBuilder/generalFilterAdapter";
 import AddWidgetModal from "./AddWidgetModal";
 import {
   deleteWidget,
@@ -22,25 +26,62 @@ const ROW_HEIGHT = 60;
 // react-grid-layout's own documented HOC for exactly this.
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 
+interface IDashboardCanvasViewProps {
+  // Set when embedded inline (e.g. NewDashboardView.tsx's "Dashboard:"
+  // combo, alongside CRM/HRMS/Production) instead of mounted at its own
+  // /dashboard-builder/:id route — the id then comes from this prop, not
+  // useParams, and the "Back" button (meaningless when there's no route to
+  // go back to) is hidden.
+  dashboardIdOverride?: number;
+  embedded?: boolean;
+}
+
 // One dashboard's canvas — react-grid-layout owns drag/resize (the only
 // piece @dnd-kit, already used elsewhere in this app, can't do: it's
 // drag-only, no resize/collision handling). Its layout shape
 // [{i,x,y,w,h}] maps directly onto dashboard_widgets' own
 // position_x/position_y/width/height columns, so no translation layer
 // is needed between what the grid emits and what gets saved.
-const DashboardCanvasView: React.FC = () => {
+const DashboardCanvasView: React.FC<IDashboardCanvasViewProps> = ({ dashboardIdOverride, embedded = false }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const dashboardId = Number(id);
+  const dashboardId = dashboardIdOverride ?? Number(id);
 
   const [dashboard, setDashboard] = useState<IDashboardWithWidgets | null>(null);
   const [results, setResults] = useState<Record<number, IDashboardWidgetResult>>({});
   const [loading, setLoading] = useState(true);
   const [showAddWidget, setShowAddWidget] = useState(false);
 
+  // Same "Date Range"/"Team Member" filter the CRM Insights dashboard
+  // already has — applied dashboard-wide (every widget's own report gets
+  // it, resolved server-side per-widget's model, see
+  // dashboardServices.js's buildDashboardScopeFilters).
+  const [selectedDates, setSelectedDates] = useState<Date[] | undefined>(undefined);
+  const [selectedTeamOptions, setSelectedTeamOptions] = useState<Option[]>([]);
+  const [teamList, setTeamList] = useState<ICompanyTeam[]>([]);
+
+  useEffect(() => {
+    const companyMastersId = Number(localStorage.getItem("COMPANY_ID"));
+    if (companyMastersId) fetchCompanyTeamApi(setTeamList, companyMastersId, "");
+  }, []);
+
+  const teamOptions: Option[] = useMemo(
+    () => teamList.map((t) => ({ value: t.id, label: t.username })),
+    [teamList],
+  );
+
+  const dateRange = useMemo(() => {
+    if (!selectedDates || selectedDates.length !== 2) return undefined;
+    return { start: formatDateForBackend(selectedDates[0]), end: formatDateForBackend(selectedDates[1]) };
+  }, [selectedDates]);
+  const teamMemberIds = useMemo(() => selectedTeamOptions.map((o) => Number(o.value)), [selectedTeamOptions]);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [dashboardData, runData] = await Promise.all([getDashboard(dashboardId), runDashboard(dashboardId)]);
+    const [dashboardData, runData] = await Promise.all([
+      getDashboard(dashboardId),
+      runDashboard(dashboardId, { dateRange, teamMemberIds }),
+    ]);
     setDashboard(dashboardData);
     if (runData) {
       const byId: Record<number, IDashboardWidgetResult> = {};
@@ -50,7 +91,12 @@ const DashboardCanvasView: React.FC = () => {
       setResults(byId);
     }
     setLoading(false);
-  }, [dashboardId]);
+    // dateRange/teamMemberIds are derived (useMemo) from selectedDates/
+    // selectedTeamOptions — depending on those directly instead avoids an
+    // infinite-loop risk from the derived objects' own identity changing
+    // every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardId, selectedDates, selectedTeamOptions]);
 
   useEffect(() => {
     if (dashboardId) load();
@@ -83,13 +129,28 @@ const DashboardCanvasView: React.FC = () => {
   }));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #eee" }}>
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate("/dashboard-builder")}>
-          &larr; Back
-        </button>
+        {!embedded && (
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate("/dashboard-builder")}>
+            &larr; Back
+          </button>
+        )}
         <strong style={{ fontSize: 14 }}>{dashboard.name}</strong>
         <div style={{ flex: 1 }} />
+        <div style={{ width: 220 }}>
+          <DateTimeRangePicker value={selectedDates} onChange={setSelectedDates} numberOfMonthsShow={1} />
+        </div>
+        <div style={{ width: 220 }}>
+          <MultiSelect
+            options={teamOptions}
+            value={selectedTeamOptions}
+            onChange={setSelectedTeamOptions}
+            isSelectAll
+            menuPlacement="auto"
+            placeholder="Team Members"
+          />
+        </div>
         <button className="btn btn-sm btn-outline-secondary" onClick={load}>
           Refresh
         </button>
