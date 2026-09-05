@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import { createReportGroup, deleteReportGroup, IReportGroup, listReportGroups, updateReportGroup } from "./ReportBuilderController";
 
 interface ManageGroupsModalProps {
@@ -19,6 +20,10 @@ const ManageGroupsModal: React.FC<ManageGroupsModalProps> = ({ show, onClose, on
   const [newGroupName, setNewGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
+  // Themed replacement for window.confirm() — same pattern
+  // ReportBuilderListView.tsx uses for its own delete buttons.
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
 
   const load = async () => setReportGroups(await listReportGroups());
 
@@ -89,7 +94,12 @@ const ManageGroupsModal: React.FC<ManageGroupsModalProps> = ({ show, onClose, on
                   Rename
                 </button>
               )}
-              <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteGroup(g.id)}>
+              <button
+                className="btn btn-sm btn-outline-danger"
+                onClick={() =>
+                  askConfirm(`Delete group "${g.group_name}"? Reports in it aren't deleted.`, () => handleDeleteGroup(g.id))
+                }
+              >
                 Delete
               </button>
             </div>
@@ -108,6 +118,19 @@ const ManageGroupsModal: React.FC<ManageGroupsModalProps> = ({ show, onClose, on
           </button>
         </div>
       </div>
+
+      <ConfirmationModal
+        show={!!confirmDialog}
+        onHide={() => setConfirmDialog(null)}
+        handleSubmit={() => {
+          confirmDialog?.onConfirm();
+          setConfirmDialog(null);
+        }}
+        title="Please Confirm"
+        message={confirmDialog?.message}
+        btn1="Cancel"
+        btn2="Delete"
+      />
     </div>
   );
 };

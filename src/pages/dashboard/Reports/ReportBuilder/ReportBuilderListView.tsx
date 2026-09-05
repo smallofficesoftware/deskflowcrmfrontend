@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
 import { ReportIcon } from "../../../side-view/reportIcons";
@@ -283,6 +284,15 @@ const ReportBuilderListView: React.FC = () => {
     }
   };
 
+  // Themed replacement for window.confirm() — same pattern
+  // DocumentDesignerView.tsx already uses (one shared pending-action slot,
+  // driven by the app's own ConfirmationModal instead of a native dialog).
+  // Deleting a report or a schedule are the only two destructive actions on
+  // this screen (Manage Groups' own delete lives in ManageGroupsModal.tsx,
+  // gets its own copy of this same pattern).
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
+
   const handleDelete = async (definition: IReportDefinition) => {
     const ok = await deleteReportDefinition(definition.id);
     if (ok) loadListData();
@@ -516,7 +526,10 @@ const ReportBuilderListView: React.FC = () => {
                           <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(`/report-builder/${def.id}/edit`)}>
                             Edit
                           </button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(def)}>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => askConfirm(`Delete "${def.name}"? This can't be undone.`, () => handleDelete(def))}
+                          >
                             Delete
                           </button>
                           <button
@@ -826,7 +839,10 @@ const ReportBuilderListView: React.FC = () => {
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => handleToggleScheduleActive(s)}>
                           {s.isActive ? "Pause" : "Resume"}
                         </button>
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteSchedule(s.id)}>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => askConfirm("Delete this schedule? This can't be undone.", () => handleDeleteSchedule(s.id))}
+                        >
                           Delete
                         </button>
                       </td>
@@ -932,6 +948,19 @@ const ReportBuilderListView: React.FC = () => {
       )}
 
       <ManageGroupsModal show={showManageGroups} onClose={() => setShowManageGroups(false)} onChanged={loadReportGroups} />
+
+      <ConfirmationModal
+        show={!!confirmDialog}
+        onHide={() => setConfirmDialog(null)}
+        handleSubmit={() => {
+          confirmDialog?.onConfirm();
+          setConfirmDialog(null);
+        }}
+        title="Please Confirm"
+        message={confirmDialog?.message}
+        btn1="Cancel"
+        btn2="Delete"
+      />
 
       {templatesForDef && (
         <ReportPdfTemplateDesigner
