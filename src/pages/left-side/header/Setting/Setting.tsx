@@ -174,28 +174,14 @@ const Setting = ({
   // plan's Step 6) — at that point `add`/`edit` would be the right gate,
   // still distinct from Custom Reports' own `view`-based visibility.
   const appContext = useContext(AppContext);
+  // Report Builder / Dashboard Builder have no company feature flag —
+  // enabled for every company, gated only by ownership here + rights/PIN
+  // server-side. Revisit back to a rights-based check once non-owner
+  // create/edit rights are un-deferred (see the plan's Step 6) — at that
+  // point `add`/`edit` would be the right gate, still distinct from
+  // Custom Reports' own `view`-based visibility.
   const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
-  // Report Builder has no fallback path (unlike Document Designer's own
-  // pdfme flag, which only swaps a rendering path) — the backend rejects
-  // every single Report Builder call outright when
-  // company_feature_flags.report_builder isn't set
-  // (requireReportBuilderFlag, reportDefinitionRouter.js), so the menu
-  // entry itself must not show for a company where it's off either,
-  // not just gate on ownership. Only fetched for an owner — a non-owner
-  // never sees this entry regardless of the flag, so there's nothing to
-  // check for them.
-  const [reportBuilderEnabled, setReportBuilderEnabled] = useState(false);
-  useEffect(() => {
-    if (!isCompanyOwnerForReportBuilder) return;
-    const companyMastersId = localStorage.getItem("COMPANY_ID");
-    if (!companyMastersId) return;
-    axiosInstance
-      .post("get-feature-flag", { company_masters_id: companyMastersId, feature_key: "report_builder" })
-      .then(({ data }) => setReportBuilderEnabled(data?.ack === 1 && !!data.data.item.is_enabled))
-      .catch(() => setReportBuilderEnabled(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCompanyOwnerForReportBuilder]);
-  const showReportBuilderMenu = isCompanyOwnerForReportBuilder && reportBuilderEnabled;
+  const showReportBuilderMenu = isCompanyOwnerForReportBuilder;
   function openReportBuilder() {
     if (showReportBuilderMenu) {
       navigate("/report-builder");
@@ -204,21 +190,7 @@ const Setting = ({
     }
   }
 
-  // Same gating as Report Builder above — independent feature_key
-  // ("dashboard_builder"), independent rights id (PAGE_ID.DASHBOARD_BUILDER),
-  // so a company can have one without the other.
-  const [dashboardBuilderEnabled, setDashboardBuilderEnabled] = useState(false);
-  useEffect(() => {
-    if (!isCompanyOwnerForReportBuilder) return;
-    const companyMastersId = localStorage.getItem("COMPANY_ID");
-    if (!companyMastersId) return;
-    axiosInstance
-      .post("get-feature-flag", { company_masters_id: companyMastersId, feature_key: "dashboard_builder" })
-      .then(({ data }) => setDashboardBuilderEnabled(data?.ack === 1 && !!data.data.item.is_enabled))
-      .catch(() => setDashboardBuilderEnabled(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCompanyOwnerForReportBuilder]);
-  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder && dashboardBuilderEnabled;
+  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder;
   function openDashboardBuilder() {
     if (showDashboardBuilderMenu) {
       navigate("/dashboard-builder");
