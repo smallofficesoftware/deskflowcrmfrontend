@@ -1,5 +1,7 @@
 import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppContext } from "../../common/AppContext";
+import { IDashboard, listDashboards } from "../dashboard/DashboardBuilder/DashboardBuilderController";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
 import {
   IReportGroup,
@@ -27,6 +29,24 @@ interface IProps {
 const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
   const [searchValue, setSearchValue] = useState("");
   const { permissions } = useContext(AppContext)!;
+  const navigate = useNavigate();
+
+  // Dashboards (Dashboard Builder) — same "own dynamic section, own fetch,
+  // not merged into reportsMenuData/customReports" pattern Custom Reports
+  // already uses below. Clicking a tile navigates straight to its canvas
+  // route (/dashboard-builder/:id) — a real URL, not another fixed-name
+  // dispatch callback, so no plumbing through BottomView/SideView needed.
+  const [dashboards, setDashboards] = useState<IDashboard[]>([]);
+  const [loadingDashboards, setLoadingDashboards] = useState(true);
+  useEffect(() => {
+    listDashboards().then((rows) => {
+      setDashboards(rows);
+      setLoadingDashboards(false);
+    });
+  }, []);
+  const filteredDashboards = dashboards.filter((d) =>
+    !searchValue || d.name.toLowerCase().includes(searchValue.toLowerCase()),
+  );
 
   // "Custom Reports" — the dynamic, per-tenant section (Report Builder's
   // report_definitions, both the owner's own and any copied from the
@@ -248,6 +268,92 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
           </div>
         </div>
       ))}
+
+      {!loadingDashboards && (filteredDashboards.length > 0 || (!searchValue && dashboards.length === 0)) && (
+        <div style={{ marginBottom: "32px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              color: "#8a8a8a",
+              textTransform: "uppercase",
+              marginBottom: "12px",
+            }}
+          >
+            Dashboards
+          </div>
+          {dashboards.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: "13px" }}>No dashboards created yet.</div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {filteredDashboards.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className="report-tile"
+                  onClick={() => navigate(`/dashboard-builder/${d.id}`)}
+                  style={{
+                    textAlign: "left",
+                    padding: "16px",
+                    borderRadius: "10px",
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: d.description ? "8px" : 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        background: THEME_TINT,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <ReportIcon name={d.icon || "report"} size={16} color={THEME_COLOR} />
+                    </div>
+                    <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
+                      {!!d.is_default && "★ "}
+                      {d.name}
+                    </span>
+                  </div>
+                  {d.description && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "12px",
+                        lineHeight: 1.5,
+                        color: "#8a8a8a",
+                      }}
+                    >
+                      {d.description}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {!loadingCustomReports && (filteredCustomReports.length > 0 || (!searchValue && customReports.length === 0)) && (
         <div style={{ marginBottom: "32px" }}>
