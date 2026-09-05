@@ -41,6 +41,8 @@ import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-ad
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
 import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
+import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
+import DashboardCanvasView from "../pages/dashboard/DashboardBuilder/DashboardCanvasView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
@@ -269,6 +271,14 @@ const RoutesIndex = () => {
             <Route
               path="/report-builder/:id/edit"
               element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/dashboard-builder"
+              element={<DashboardListView />}
+            />
+            <Route
+              path="/dashboard-builder/:id"
+              element={<DashboardCanvasView />}
             />
             <Route
               path="/custom-field/designer-page-sources"

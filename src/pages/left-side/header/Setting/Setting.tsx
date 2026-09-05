@@ -203,6 +203,29 @@ const Setting = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   }
+
+  // Same gating as Report Builder above — independent feature_key
+  // ("dashboard_builder"), independent rights id (PAGE_ID.DASHBOARD_BUILDER),
+  // so a company can have one without the other.
+  const [dashboardBuilderEnabled, setDashboardBuilderEnabled] = useState(false);
+  useEffect(() => {
+    if (!isCompanyOwnerForReportBuilder) return;
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (!companyMastersId) return;
+    axiosInstance
+      .post("get-feature-flag", { company_masters_id: companyMastersId, feature_key: "dashboard_builder" })
+      .then(({ data }) => setDashboardBuilderEnabled(data?.ack === 1 && !!data.data.item.is_enabled))
+      .catch(() => setDashboardBuilderEnabled(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompanyOwnerForReportBuilder]);
+  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder && dashboardBuilderEnabled;
+  function openDashboardBuilder() {
+    if (showDashboardBuilderMenu) {
+      navigate("/dashboard-builder");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
   const [optionConfirmation, setOptionConfirmation] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showopenNotification, setShownNotification] = useState(false);
@@ -780,6 +803,32 @@ const Setting = ({
                         <div className="head">
                           <h4 title="Report Builder" aria-label="Report Builder">
                             Report Builder
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {showDashboardBuilderMenu && (
+                    <div className="block ps-3" onClick={openDashboardBuilder}>
+                      <div className="icon-Box">
+                        <button className="icons-setings">
+                          <span data-icon="settings-notifications" className="" title="Dashboard Builder">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              height="24px"
+                              viewBox="0 -960 960 960"
+                              width="24px"
+                              fill="currentColor"
+                            >
+                              <path d="M120-520v-320h320v320H120Zm0 400v-320h320v320H120Zm400-400v-320h320v320H520Zm0 400v-320h320v320H520ZM200-600h160v-160H200v160Zm400 0h160v-160H600v160Zm0 400h160v-160H600v160ZM200-200h160v-160H200v160Z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="h-text">
+                        <div className="head">
+                          <h4 title="Dashboard Builder" aria-label="Dashboard Builder">
+                            Dashboard Builder
                           </h4>
                         </div>
                       </div>
