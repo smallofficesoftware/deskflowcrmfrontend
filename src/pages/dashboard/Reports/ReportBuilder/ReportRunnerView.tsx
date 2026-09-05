@@ -12,6 +12,7 @@ import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { useReportFilterPresetsStore } from "../../../../store/report/useReportFilterPresetsStore";
+import { ReportIcon } from "../../../side-view/reportIcons";
 import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
@@ -412,9 +413,32 @@ const ReportRunnerView: React.FC = () => {
 
   return (
     <div style={{ padding: 20, height: "100vh", display: "flex", flexDirection: "column" }}>
+      <style>{`
+        .rb-btn-primary { background-color: #F58634; border-color: #F58634; color: #fff; }
+        .rb-btn-primary:hover, .rb-btn-primary:focus { background-color: #e0752a; border-color: #e0752a; color: #fff; }
+        .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
+        .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
+      `}</style>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h4 style={{ margin: 0 }}>{definition?.name || (loadingMeta ? "Loading..." : "Report")}</h4>
-        <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate(-1)}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "#fff3eb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <ReportIcon name={definition?.icon || "report"} size={17} color="#F58634" />
+          </div>
+          <h4 style={{ margin: 0 }}>{definition?.name || (loadingMeta ? "Loading..." : "Report")}</h4>
+        </div>
+        <button className="btn btn-sm rb-btn-outline-primary" onClick={() => navigate(-1)}>
           Back
         </button>
       </div>
@@ -437,7 +461,19 @@ const ReportRunnerView: React.FC = () => {
       )}
 
       {!accessError && definition && (
-        <div className="card p-3" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            padding: 16,
+          }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <span className="text-muted" style={{ fontSize: 12 }}>
               {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded · ${durationMs}ms` : ""}
@@ -451,7 +487,10 @@ const ReportRunnerView: React.FC = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
               {allFilterSlots.length > 0 && (
-                <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowFilterModal(true)}>
+                <button
+                  className={`btn btn-sm ${generalFilters.length > 0 ? "rb-btn-primary" : "rb-btn-outline-primary"}`}
+                  onClick={() => setShowFilterModal(true)}
+                >
                   Filter{generalFilters.length > 0 ? ` (${generalFilters.length})` : ""}
                 </button>
               )}
@@ -473,8 +512,9 @@ const ReportRunnerView: React.FC = () => {
                       zIndex: 1000,
                       width: 260,
                       background: "#fff",
-                      borderRadius: 8,
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 10,
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
                       padding: 10,
                       display: "flex",
                       flexDirection: "column",
@@ -596,26 +636,33 @@ const ReportRunnerView: React.FC = () => {
           )}
 
           {compareMode && (
-            <div className="card p-2" style={{ marginBottom: 8, fontSize: 12 }}>
-              {loadingCompare && <span>Comparing...</span>}
+            <div style={{ marginBottom: 12, padding: 12, background: "#fafafa", border: "1px solid #eee", borderRadius: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#8a8a8a", marginBottom: 8 }}>
+                Compare — {compareMode === "previous" ? "Previous period" : "Same period last year"}
+              </div>
+              {loadingCompare && <span className="text-muted" style={{ fontSize: 12 }}>Comparing...</span>}
               {!loadingCompare && currentTotalsRows && compareRows && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
                   {numericColumnKeys(currentTotalsRows).length === 0 ? (
-                    <span className="text-muted">No numeric columns to compare.</span>
+                    <span className="text-muted" style={{ fontSize: 12 }}>No numeric columns to compare.</span>
                   ) : (
                     numericColumnKeys(currentTotalsRows).map((key) => {
                       const currentTotal = sumColumn(currentTotalsRows, key);
                       const compareTotal = sumColumn(compareRows, key);
                       const pctChange = compareTotal !== 0 ? ((currentTotal - compareTotal) / Math.abs(compareTotal)) * 100 : null;
                       return (
-                        <div key={key}>
-                          <strong>{humanize(key)}:</strong> {currentTotal.toLocaleString()} vs {compareTotal.toLocaleString()}{" "}
-                          {pctChange !== null && (
-                            <span style={{ color: pctChange >= 0 ? "#198754" : "#dc3545" }}>
-                              ({pctChange >= 0 ? "+" : ""}
-                              {pctChange.toFixed(1)}%)
-                            </span>
-                          )}
+                        <div key={key} style={{ fontSize: 13 }}>
+                          <div style={{ fontSize: 11, color: "#8a8a8a" }}>{humanize(key)}</div>
+                          <div>
+                            <strong>{currentTotal.toLocaleString()}</strong>
+                            <span className="text-muted"> vs {compareTotal.toLocaleString()}</span>{" "}
+                            {pctChange !== null && (
+                              <span style={{ color: pctChange >= 0 ? "#198754" : "#dc3545", fontWeight: 600 }}>
+                                ({pctChange >= 0 ? "+" : ""}
+                                {pctChange.toFixed(1)}%)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })
