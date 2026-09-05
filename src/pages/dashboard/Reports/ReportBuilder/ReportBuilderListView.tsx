@@ -45,11 +45,13 @@ import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 const ReportBuilderListView: React.FC = () => {
   const navigate = useNavigate();
 
-  // See ReportBuilderWizardView.tsx's own copy of this comment — trusts an
-  // already-stored REPORT_PIN_TOKEN instead of re-prompting on every
-  // mount/reload; a stale token just fails the first gated call normally.
-  const [pinVerified, setPinVerified] = useState(() => !!localStorage.getItem("REPORT_PIN_TOKEN"));
-  const [showPinModal, setShowPinModal] = useState(true);
+  // Report Builder's backend routes no longer require the owner PIN
+  // (reportDefinitionRouter.js dropped requireReportPin) — always treated
+  // as verified here too, no prompt. setPinVerified/setShowPinModal are
+  // kept (unused now) only because handleVerifyPin below still calls them;
+  // that flow is simply unreachable with showPinModal permanently false.
+  const [pinVerified, setPinVerified] = useState(true);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
   const [definitions, setDefinitions] = useState<IReportDefinition[]>([]);

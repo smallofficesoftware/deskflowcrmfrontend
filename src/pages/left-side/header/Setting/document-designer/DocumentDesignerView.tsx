@@ -372,7 +372,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // it optimistically instead of re-prompting on every mount/reload. A
   // stale/expired one is already handled by postGated's retry above, not a
   // new failure mode this introduces.
-  const [pinVerified, setPinVerified] = useState(() => !!localStorage.getItem("REPORT_PIN_TOKEN"));
+  // reportMode is the one exception — dashboardRouter.js's backend routes
+  // dropped requireReportPin entirely (Dashboard no longer needs the owner
+  // PIN at all), so that mode always starts pre-verified. Document
+  // Designer's own routes (document_print_templates) still require it,
+  // unchanged.
+  const [pinVerified, setPinVerified] = useState(() => !!reportMode || !!localStorage.getItem("REPORT_PIN_TOKEN"));
   const [showPinModal, setShowPinModal] = useState(false);
   const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
   useEffect(() => {

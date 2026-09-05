@@ -44,11 +44,10 @@ const ReportBuilderWizardView: React.FC = () => {
   const store = useReportBuilderStore();
   const isEdit = !!id;
 
-  // See ReportBuilderView.tsx's own copy of this comment — trusts an
-  // already-stored REPORT_PIN_TOKEN instead of re-prompting on every
-  // mount/reload; a stale token just fails the first gated call normally.
-  const [pinVerified, setPinVerified] = useState(() => !!localStorage.getItem("REPORT_PIN_TOKEN"));
-  const [showPinModal, setShowPinModal] = useState(true);
+  // Report Builder's backend routes no longer require the owner PIN — see
+  // ReportBuilderListView.tsx's own copy of this comment.
+  const [pinVerified, setPinVerified] = useState(true);
+  const [showPinModal, setShowPinModal] = useState(false);
   const [loadingDefinition, setLoadingDefinition] = useState(isEdit);
   const [loadError, setLoadError] = useState<string | null>(null);
 
