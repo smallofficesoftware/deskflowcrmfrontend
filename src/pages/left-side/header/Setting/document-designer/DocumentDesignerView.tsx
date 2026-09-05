@@ -10,13 +10,14 @@ import {
   setFieldSettingsDictionary,
 } from "../../../../../common/pdfmeDesigner/pdfmeFieldSettingsPlugin";
 import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesigner/pdfmeStyles";
+import TemplateSidebar from "../../../../../common/pdfmeDesigner/TemplateSidebar";
 import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
 import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
-import { verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
+import { previewReportPdf, verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import {
   IDocumentTemplateFull,
   IDocumentTemplateListItem,
@@ -212,7 +213,23 @@ const plugins = {
   list,
 };
 
-const DocumentDesignerView: React.FC = () => {
+interface IDocumentDesignerViewProps {
+  // Report Builder's "Manage Templates" (ReportPdfTemplateDesigner.tsx used
+  // to be a separate, hand-copied component) now mounts THIS component
+  // instead, in report mode — same toolbar/sidebar/canvas/page-manipulation/
+  // field-settings/version-history, just doc_type fixed to "report_<id>"
+  // (no doc-type switcher, no Browse Gallery/Import — no report analogue
+  // for either) and a different Generate Preview data source (live report
+  // rows, not a cart-order picker). Rendered as a modal overlay instead of
+  // the full-page route in this mode.
+  reportMode?: {
+    docType: string;
+    reportName: string;
+    onClose: () => void;
+  };
+}
+
+const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode }) => {
   const navigate = useNavigate();
   // AppContext.permissions is only populated by LeftSideView's onLoad call —
   // this page is reached as its own top-level route (not one of the
@@ -222,18 +239,26 @@ const DocumentDesignerView: React.FC = () => {
   // stay empty forever. Fetch this page's own rights independently instead —
   // same pattern PrintSettingModal already uses for the same reason
   // (see newRightsForPrint in SharedFunction.tsx).
+  //
+  // reportMode bypasses this entirely rather than gating on
+  // DOCUMENT_DESIGNER_RIGHTS — Report Builder's Manage Templates has its own,
+  // separate rights concept (report_definition_team_rights); a login granted
+  // report-builder access but with no Document Designer permission row would
+  // otherwise be silently locked out of a screen they could already reach.
   const [rights, setRights] = useState<any>(null);
   useEffect(() => {
+    if (reportMode) return;
     (async () => {
       const result = await newRightsForPrint(PAGE_ID.DOCUMENT_DESIGNER_RIGHTS, localStorage.getItem("UUID"));
       setRights(result || {});
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const canView = rights?.view === 1;
-  const canEdit = rights?.edit === 1;
-  const canAdd = rights?.add === 1;
+  const canView = reportMode ? true : rights?.view === 1;
+  const canEdit = reportMode ? true : rights?.edit === 1;
+  const canAdd = reportMode ? true : rights?.add === 1;
 
-  const [docType, setDocType] = useState<string>("quotation");
+  const [docType, setDocType] = useState<string>(reportMode?.docType || "quotation");
   const [templates, setTemplates] = useState<IDocumentTemplateListItem[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<number | null>(null);
   const [currentTemplateFull, setCurrentTemplateFull] = useState<IDocumentTemplateFull | null>(null);
@@ -250,8 +275,20 @@ const DocumentDesignerView: React.FC = () => {
   // Draft" contract as dragging/resizing a field. Kept outside
   // CART_SHAPED_DOC_TYPES since page size is universal, not cart-specific.
   const [pageSizeMode, setPageSizeMode] = useState<"A4" | "A5" | "custom">("A4");
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [customPageWidth, setCustomPageWidth] = useState(210);
   const [customPageHeight, setCustomPageHeight] = useState(297);
+  // basePdf.padding order is [top, right, bottom, left] (buildTemplate.js's
+  // own convention) — reflects whatever's mounted, editable independently of
+  // page size/orientation. A cart doc's top/bottom start out computed from
+  // its header/footer banner height (buildDocTemplate) — overriding them
+  // here is a deliberate manual choice with the same "no auto-reflow"
+  // caveat orientation/custom page size already have: fields don't move
+  // themselves to clear a shrunk margin.
+  const [marginTop, setMarginTop] = useState(15);
+  const [marginRight, setMarginRight] = useState(10);
+  const [marginBottom, setMarginBottom] = useState(15);
+  const [marginLeft, setMarginLeft] = useState(10);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -261,6 +298,14 @@ const DocumentDesignerView: React.FC = () => {
   const [previewSearch, setPreviewSearch] = useState("");
   const [previewOrders, setPreviewOrders] = useState<any[]>([]);
   const [hasAnyOrders, setHasAnyOrders] = useState<boolean | null>(null);
+  // Report mode's own Generate Preview (live report rows, not a cart-order
+  // picker) — the /report-definitions/:id/... routes are report-definition-
+  // scoped, not doc_type-scoped like the template CRUD routes are, so the
+  // raw id needs recovering from reportMode.docType's "report_<id>" convention
+  // (ReportBuilderListView.tsx's own construction of it, mirrored backend-side
+  // by reportPdfExport.js's reportDocType()).
+  const reportDefinitionId = reportMode ? Number(reportMode.docType.replace(/^report_/, "")) : null;
+  const [reportPreviewing, setReportPreviewing] = useState(false);
 
   // Data-binding + visibility panel for the currently-selected canvas field
   // (§3/§6 — "Static Text / Bound to Data" toggle sourced from the real
@@ -376,16 +421,36 @@ const DocumentDesignerView: React.FC = () => {
     const width = template?.basePdf?.width;
     const height = template?.basePdf?.height;
     if (typeof width !== "number" || typeof height !== "number") return;
-    const presetMatch = (Object.keys(PAGE_SIZE_PRESETS) as ("A4" | "A5")[]).find(
+    const presetKeys = Object.keys(PAGE_SIZE_PRESETS) as ("A4" | "A5")[];
+    const portraitMatch = presetKeys.find(
       (key) => PAGE_SIZE_PRESETS[key].width === width && PAGE_SIZE_PRESETS[key].height === height,
     );
-    if (presetMatch) {
-      setPageSizeMode(presetMatch);
+    // A preset rotated 90° (e.g. A4 saved as 297x210) still counts as that
+    // preset — just in landscape — rather than falling through to "Custom".
+    const landscapeMatch = presetKeys.find(
+      (key) => PAGE_SIZE_PRESETS[key].width === height && PAGE_SIZE_PRESETS[key].height === width,
+    );
+    if (portraitMatch) {
+      setPageSizeMode(portraitMatch);
+      setOrientation("portrait");
+    } else if (landscapeMatch) {
+      setPageSizeMode(landscapeMatch);
+      setOrientation("landscape");
     } else {
       setPageSizeMode("custom");
+      setOrientation(width > height ? "landscape" : "portrait");
     }
     setCustomPageWidth(width);
     setCustomPageHeight(height);
+
+    const padding = template?.basePdf?.padding;
+    if (Array.isArray(padding) && padding.length === 4) {
+      const [top, right, bottom, left] = padding;
+      setMarginTop(top);
+      setMarginRight(right);
+      setMarginBottom(bottom);
+      setMarginLeft(left);
+    }
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -400,11 +465,39 @@ const DocumentDesignerView: React.FC = () => {
     await saveDraftSilently();
   };
 
+  // Margins are independent of page size/orientation — changing one never
+  // touches the other via this function.
+  const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
+    if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const updated = { ...template, basePdf: { ...template.basePdf, padding: [top, right, bottom, left] } };
+    designerRef.current.updateTemplate(updated);
+    await saveDraftSilently();
+  };
+
+  // Width/height for a given size preset (or the current custom values) in
+  // the given orientation — swaps the two dimensions only when the base
+  // shape doesn't already match the requested orientation, so re-picking the
+  // SAME orientation twice is a no-op rather than an accidental double-swap.
+  const dimensionsFor = (mode: "A4" | "A5" | "custom", orient: "portrait" | "landscape") => {
+    const base = mode === "custom" ? { width: customPageWidth, height: customPageHeight } : PAGE_SIZE_PRESETS[mode];
+    const isLandscape = base.width > base.height;
+    if ((orient === "landscape") === isLandscape) return base;
+    return { width: base.height, height: base.width };
+  };
+
   const handlePageSizeModeChange = (mode: "A4" | "A5" | "custom") => {
     setPageSizeMode(mode);
     if (mode === "A4" || mode === "A5") {
-      applyPageSize(PAGE_SIZE_PRESETS[mode].width, PAGE_SIZE_PRESETS[mode].height);
+      const { width, height } = dimensionsFor(mode, orientation);
+      applyPageSize(width, height);
     }
+  };
+
+  const handleOrientationChange = (orient: "portrait" | "landscape") => {
+    setOrientation(orient);
+    const { width, height } = dimensionsFor(pageSizeMode, orient);
+    applyPageSize(width, height);
   };
 
   // Page Before/After/Remove Page — shared with CustomFieldDesignerPageEditorView.tsx
@@ -761,6 +854,27 @@ const DocumentDesignerView: React.FC = () => {
     setPreviewOrders(data?.data?.item || data?.data || []);
   };
 
+  // Report mode's Generate Preview — live report rows (a report has no fixed
+  // schema to fake sample rows against, unlike the cart doc types' own
+  // getSampleDataForPreview), draft template, no file/disk write.
+  const handleReportGeneratePreview = async () => {
+    if (!currentTemplateId || !reportDefinitionId) return;
+    setReportPreviewing(true);
+    try {
+      await saveDraftSilently();
+      const pdfBase64 = await previewReportPdf(reportDefinitionId, currentTemplateId);
+      if (!pdfBase64) return;
+      const byteChars = atob(pdfBase64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } finally {
+      setReportPreviewing(false);
+    }
+  };
+
   const runPreview = async (cart_id?: number) => {
     if (!currentTemplateId) return;
     setStatus("Generating preview...");
@@ -788,7 +902,7 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  if (rights === null) {
+  if (!reportMode && rights === null) {
     return <div className="p-4">Loading...</div>;
   }
 
@@ -796,10 +910,20 @@ const DocumentDesignerView: React.FC = () => {
     return <div className="p-4">You don't have permission to view this page.</div>;
   }
 
-  return (
-    <div className="dd-page">
+  // reportMode renders this whole screen inside a modal overlay instead of
+  // as a full-page route — everything else (topbar/body/every modal below)
+  // is completely unchanged between the two modes.
+  const screen = (
+    <div className={reportMode ? "dd-page dd-page--modal" : "dd-page"}>
       <style>{`
         .dd-page { display: flex; flex-direction: column; height: 100vh; }
+        /* reportMode mounts this inside a fixed-position modal overlay
+           (below) instead of as its own routed page — 100vh there would
+           blow past the overlay's own bounds, so this mode fills its
+           flex parent's actual height instead. Higher specificity
+           (two classes) wins over the plain .dd-page rule above regardless
+           of source order. */
+        .dd-page.dd-page--modal { height: 100%; }
         .dd-topbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #ddd; flex-wrap: wrap; flex-shrink: 0; }
         .dd-body { flex: 1; min-height: 0; display: flex; }
         .dd-canvas-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -825,12 +949,18 @@ const DocumentDesignerView: React.FC = () => {
         ${PDFME_HIDE_NATIVE_PAGE_MENU_CSS}
       `}</style>
       <div className="dd-topbar">
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
-          &larr; Back
-        </button>
-        <strong style={{ fontSize: 14 }}>
-          {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
-        </strong>
+        {reportMode ? (
+          <strong style={{ fontSize: 14 }}>PDF Templates — {reportMode.reportName}</strong>
+        ) : (
+          <>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
+              &larr; Back
+            </button>
+            <strong style={{ fontSize: 14 }}>
+              {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
+            </strong>
+          </>
+        )}
         <div style={{ flex: 1 }} />
         <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }} title="Page these buttons act on">
           Page
@@ -874,6 +1004,11 @@ const DocumentDesignerView: React.FC = () => {
         {CART_SHAPED_DOC_TYPES.has(docType) && (
           <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
         )}
+        {reportMode && (
+          <button className="btn btn-sm btn-outline-primary" onClick={handleReportGeneratePreview} disabled={!currentTemplateId || reportPreviewing}>
+            {reportPreviewing ? "Generating..." : "Generate Preview"}
+          </button>
+        )}
         <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
           Publish
         </button>
@@ -884,6 +1019,11 @@ const DocumentDesignerView: React.FC = () => {
         >
           {showAccordionPanel ? "Hide Panel ▶" : "Show Panel ◀"}
         </button>
+        {reportMode && (
+          <button className="btn btn-sm btn-outline-secondary" onClick={reportMode.onClose}>
+            Close
+          </button>
+        )}
       </div>
 
       <div className="dd-body">
@@ -898,80 +1038,56 @@ const DocumentDesignerView: React.FC = () => {
             <Accordion.Item eventKey="templates">
               <Accordion.Header>Templates</Accordion.Header>
               <Accordion.Body>
-                <select
-                  className="form-select form-select-sm mb-2"
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                >
-                  {SUPPORTED_DOC_TYPES.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
+                {!reportMode && (
+                  <select
+                    className="form-select form-select-sm mb-2"
+                    value={docType}
+                    onChange={(e) => setDocType(e.target.value)}
+                  >
+                    {SUPPORTED_DOC_TYPES.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <div className="d-flex flex-column gap-2 mb-3">
                   <button className="btn btn-sm btn-primary" onClick={handleNewTemplate} disabled={!canAdd && !canEdit}>
                     + New Template
                   </button>
-                  <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
-                    Browse Gallery
-                  </button>
-                  <label className="btn btn-sm btn-outline-secondary mb-0">
-                    Import
-                    <input
-                      type="file"
-                      accept="application/json"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImportFile(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
+                  {!reportMode && (
+                    <>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
+                        Browse Gallery
+                      </button>
+                      <label className="btn btn-sm btn-outline-secondary mb-0">
+                        Import
+                        <input
+                          type="file"
+                          accept="application/json"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImportFile(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
 
-                {templates.map((t, index) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      border: currentTemplateId === t.id ? "2px solid #f58634" : "1px solid #ddd",
-                      borderRadius: 4,
-                      padding: 8,
-                      marginBottom: 8,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => openTemplate(t.id)}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      {t.is_default ? "★ " : ""}
-                      {t.template_name}
-                      {t.has_unpublished_changes ? (
-                        <span className="badge bg-warning text-dark ms-1" style={{ fontSize: 9 }}>
-                          unpublished changes
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="d-flex flex-wrap gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, -1)} disabled={index === 0}>▲</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, 1)} disabled={index === templates.length - 1}>▼</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleRename(t.id, t.template_name)}>Rename</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleDuplicate(t.id)}>Duplicate</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleExport(t.id, t.template_name)}>Export</button>
-                      {!t.is_default ? (
-                        <button className="btn btn-sm btn-link p-0" onClick={() => handleSetDefault(t.id)}>Set Default</button>
-                      ) : null}
-                      <button
-                        className="btn btn-sm btn-link p-0 text-danger"
-                        onClick={() => handleDelete(t.id)}
-                        disabled={templates.length <= 1}
-                        title={templates.length <= 1 ? "Can't delete the only remaining template" : ""}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                <TemplateSidebar
+                  templates={templates}
+                  currentTemplateId={currentTemplateId}
+                  onOpen={openTemplate}
+                  onMove={moveTemplate}
+                  onRename={handleRename}
+                  onDuplicate={handleDuplicate}
+                  onExport={handleExport}
+                  onSetDefault={handleSetDefault}
+                  onDelete={handleDelete}
+                />
               </Accordion.Body>
             </Accordion.Item>
 
@@ -1020,6 +1136,24 @@ const DocumentDesignerView: React.FC = () => {
                   <option value="A5">Page: A5</option>
                   <option value="custom">Page: Custom</option>
                 </select>
+                <div className="btn-group btn-group-sm mb-2" role="group">
+                  <button
+                    type="button"
+                    className={`btn ${orientation === "portrait" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleOrientationChange("portrait")}
+                    disabled={!currentTemplateId}
+                  >
+                    Portrait
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${orientation === "landscape" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleOrientationChange("landscape")}
+                    disabled={!currentTemplateId}
+                  >
+                    Landscape
+                  </button>
+                </div>
                 {pageSizeMode === "custom" && (
                   <div className="d-flex align-items-center gap-2">
                     <input
@@ -1045,13 +1179,80 @@ const DocumentDesignerView: React.FC = () => {
                     />
                     <button
                       className="btn btn-sm btn-outline-secondary"
-                      onClick={() => applyPageSize(customPageWidth, customPageHeight)}
+                      onClick={() => {
+                        setOrientation(customPageWidth > customPageHeight ? "landscape" : "portrait");
+                        applyPageSize(customPageWidth, customPageHeight);
+                      }}
                       disabled={!currentTemplateId}
                     >
                       Apply
                     </button>
                   </div>
                 )}
+
+                <hr />
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Margins (mm)</div>
+                <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Top
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginTop}
+                      onChange={(e) => setMarginTop(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Right
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginRight}
+                      onChange={(e) => setMarginRight(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Bottom
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginBottom}
+                      onChange={(e) => setMarginBottom(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Left
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginLeft}
+                      onChange={(e) => setMarginLeft(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => applyMargins(marginTop, marginRight, marginBottom, marginLeft)}
+                    disabled={!currentTemplateId}
+                  >
+                    Apply
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: "#888", margin: "4px 0 0" }}>
+                  Fields don't reposition themselves when a margin shrinks or grows — same as
+                  page size/orientation above, this only changes the page's own padding.
+                </p>
               </Accordion.Body>
             </Accordion.Item>
           </Accordion>
@@ -1153,7 +1354,7 @@ const DocumentDesignerView: React.FC = () => {
 
       <PromptModal
         show={!pinVerified || showPinModal}
-        onHide={pinVerified ? handlePinCancel : () => navigate(-1)}
+        onHide={pinVerified ? handlePinCancel : () => (reportMode ? reportMode.onClose() : navigate(-1))}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
         message={
@@ -1172,6 +1373,17 @@ const DocumentDesignerView: React.FC = () => {
       )}
     </div>
   );
+
+  if (reportMode) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1050, display: "flex" }}>
+        <div style={{ background: "#fff", margin: 20, flex: 1, display: "flex", flexDirection: "column", borderRadius: 6, overflow: "hidden" }}>
+          {screen}
+        </div>
+      </div>
+    );
+  }
+  return screen;
 };
 
 export default DocumentDesignerView;

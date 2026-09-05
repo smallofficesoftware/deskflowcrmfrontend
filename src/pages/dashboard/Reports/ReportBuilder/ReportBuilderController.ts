@@ -643,6 +643,25 @@ export const exportReportPdf = async (
   }
 };
 
+// Report Designer's own "Generate Preview" — draft template (whatever's
+// currently saved via Save Draft, same "preview reads the DB, not the live
+// canvas" contract Document Designer's own preview already has), live report
+// data, base64 straight back (no fileUrl — nothing written to disk).
+export const previewReportPdf = async (id: number, template_id: number): Promise<string | null> => {
+  try {
+    const { data } = await axiosInstance.post(`report-definitions/${id}/preview-pdf`, {
+      a_application_login_id: loginId(),
+      template_id,
+    });
+    if (data?.ack === 1) return data.data.item.pdfBase64;
+    reportError(data, "Failed to generate preview");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to generate preview");
+    return null;
+  }
+};
+
 // Live preview of an in-progress, unsaved query-type build (Step 12 visual
 // pass #3) — POST /report-definitions/preview, backed by
 // previewReportDefinition (reportDefinitionServices.js). Deliberately
