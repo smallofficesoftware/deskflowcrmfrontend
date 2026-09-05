@@ -1,6 +1,21 @@
 import { create } from "zustand";
 import { IReportDefinition } from "./ReportBuilderController";
 
+// Display-only formatting for a date/number/currency-typed column — never
+// affects the underlying value queryEngine.js returns, only how
+// ReportRunnerView.tsx's grid (and, for a later pass, Excel export) renders
+// it. `date` is a date-fns format pattern (or the literal "relative", e.g.
+// "3 days ago") — a curated preset list in the picker UI, not free text.
+// `currencySymbol` is a literal string the author picks (e.g. "₹"), not a
+// resolved company setting — keeps this self-contained, no dependency on
+// company currency lookup from the grid.
+export interface IColumnFormat {
+  date?: string;
+  decimals?: number;
+  thousands?: boolean;
+  currencySymbol?: string;
+}
+
 export interface IColumnPick {
   column: string;
   aggregate?: string;
@@ -13,6 +28,7 @@ export interface IColumnPick {
   showInGrid?: boolean;
   showInExcel?: boolean;
   showTotal?: boolean;
+  format?: IColumnFormat;
 }
 
 export interface IFilterRow {
@@ -60,6 +76,7 @@ interface ReportBuilderFormState {
   toggleColumn: (columnKey: string) => void;
   setColumnAggregate: (columnKey: string, aggregate: string) => void;
   setColumnFlag: (columnKey: string, flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
+  setColumnFormat: (columnKey: string, patch: Partial<IColumnFormat>) => void;
   // Step 4's reorder control — the author's saved display order (what
   // columns_json's own array order drives at run/export time), distinct
   // from the run screen's own per-viewer ColumnsButton reorder.
@@ -121,6 +138,11 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   setColumnFlag: (columnKey, flag, value) =>
     set((state) => ({
       columns: state.columns.map((c) => (c.column === columnKey ? { ...c, [flag]: value } : c)),
+    })),
+
+  setColumnFormat: (columnKey, patch) =>
+    set((state) => ({
+      columns: state.columns.map((c) => (c.column === columnKey ? { ...c, format: { ...c.format, ...patch } } : c)),
     })),
 
   moveColumn: (index, direction) =>

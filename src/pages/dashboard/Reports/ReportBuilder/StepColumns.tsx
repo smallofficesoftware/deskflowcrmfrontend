@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ColumnFlagsMini from "./ColumnFlagsMini";
+import ColumnFormatMini from "./ColumnFormatMini";
 import LivePreview from "./LivePreview";
 import { IMetricEntry, IModelRegistryEntry, IReportColumn } from "./ReportBuilderController";
 import { SLOT_LABELS } from "./generalFilterAdapter";
@@ -155,11 +156,14 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                     </select>
                   )}
                   {picked && (
-                    <ColumnFlagsMini
-                      pick={picked}
-                      allowTotal={col.type === "number" || col.type === "currency"}
-                      onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)}
-                    />
+                    <>
+                      <ColumnFlagsMini
+                        pick={picked}
+                        allowTotal={col.type === "number" || col.type === "currency"}
+                        onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)}
+                      />
+                      <ColumnFormatMini pick={picked} colType={col.type} onFormat={(patch) => store.setColumnFormat(col.key, patch)} />
+                    </>
                   )}
                 </div>
               );
@@ -209,7 +213,10 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                               <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                                 {picked && (
-                                  <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                  <>
+                                    <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                    <ColumnFormatMini pick={picked} colType={col.type} onFormat={(patch) => store.setColumnFormat(col.key, patch)} />
+                                  </>
                                 )}
                               </div>
                             );
@@ -241,7 +248,10 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                                       <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                         <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                                         {picked && (
-                                          <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                          <>
+                                            <ColumnFlagsMini pick={picked} allowTotal={false} onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)} />
+                                            <ColumnFormatMini pick={picked} colType={col.type} onFormat={(patch) => store.setColumnFormat(col.key, patch)} />
+                                          </>
                                         )}
                                       </div>
                                     );

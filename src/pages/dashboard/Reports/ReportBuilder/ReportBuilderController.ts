@@ -1,5 +1,8 @@
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../services/axiosInstance";
+// Type-only — avoids a real circular runtime import (useReportBuilderStore.ts
+// itself imports IReportDefinition from this file).
+import type { IColumnFormat } from "./useReportBuilderStore";
 
 const companyMastersId = () => localStorage.getItem("COMPANY_ID");
 const loginId = () => localStorage.getItem("UUID");
@@ -214,6 +217,12 @@ export interface IRunnableReportDefinition {
   // author-hidden column actually disappear from the grid. Always [] for
   // plugin/composite (no per-column flags exist for those types).
   hidden_grid_columns: string[];
+  // Step 4's per-column display format (date pattern / decimals /
+  // thousands separator / currency symbol), keyed by the same bare
+  // display-key hidden_grid_columns above uses — only present for a column
+  // the author actually set a format on. Grid-rendering only for now (see
+  // ReportRunnerView.tsx); Excel export doesn't read this yet.
+  column_formats: Record<string, IColumnFormat>;
 }
 
 // Step 10 — Report groups. Flat, single-level; read (list) is flag-only/

@@ -1,3 +1,4 @@
+import { format as formatDateFns, formatDistanceToNow } from "date-fns";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable, DataTableSortEvent } from "primereact/datatable";
@@ -52,6 +53,33 @@ interface ReportRunnerViewProps {
 
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Step 4's per-column display format, applied here at render time only —
+// queryEngine.js's own row values are untouched, this never affects what
+// gets exported/computed, just what the grid cell shows. A malformed/empty
+// date value ("0000-00-00", null) falls through to the plain String()
+// path rather than throwing or showing "Invalid Date".
+const formatCellValue = (value: unknown, fmt?: IRunnableReportDefinition["column_formats"][string]): string => {
+  if (value === null || value === undefined || value === "") return "";
+  if (fmt?.date) {
+    const d = new Date(value as string);
+    if (!isNaN(d.getTime())) {
+      return fmt.date === "relative" ? formatDistanceToNow(d, { addSuffix: true }) : formatDateFns(d, fmt.date);
+    }
+    return String(value);
+  }
+  if (fmt?.decimals !== undefined || fmt?.thousands || fmt?.currencySymbol) {
+    const num = Number(value);
+    if (isNaN(num)) return String(value);
+    let out = fmt.decimals !== undefined ? num.toFixed(fmt.decimals) : String(num);
+    if (fmt.thousands) {
+      const [intPart, decPart] = out.split(".");
+      out = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (decPart ? `.${decPart}` : "");
+    }
+    return fmt.currencySymbol ? `${fmt.currencySymbol}${out}` : out;
+  }
+  return String(value);
+};
 
 const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHide }) => {
   const dt = useRef<DataTable<any[]>>(null);
@@ -719,7 +747,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
                 sortable
                 headerStyle={{ width: "150px", whiteSpace: "pre-wrap", position: "sticky", top: 0, zIndex: 1, fontSize: "14px" }}
                 bodyStyle={{ fontSize: "14px" }}
-                body={(row) => String(row[c.key] ?? "")}
+                body={(row) => formatCellValue(row[c.key], definition?.column_formats?.[c.key])}
               />
             ))}
           </DataTable>
