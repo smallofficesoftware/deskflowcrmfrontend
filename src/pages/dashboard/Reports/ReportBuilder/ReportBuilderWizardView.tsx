@@ -275,7 +275,7 @@ const ReportBuilderWizardView: React.FC = () => {
                   )}
                   {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced={advanced} />}
                   {step === 3 && <StepFilters selectedModel={selectedModel} selectedPlugin={selectedPlugin} />}
-                  {step === 4 && <StepOrganize />}
+                  {step === 4 && <StepOrganize selectedModel={selectedModel} metrics={metrics} />}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                     <button className="btn btn-outline-secondary btn-sm" disabled={step === 1} onClick={() => goto(nextApplicableStep(step, -1))}>

@@ -60,6 +60,11 @@ interface ReportBuilderFormState {
   toggleColumn: (columnKey: string) => void;
   setColumnAggregate: (columnKey: string, aggregate: string) => void;
   setColumnFlag: (columnKey: string, flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
+  // Step 4's reorder control — the author's saved display order (what
+  // columns_json's own array order drives at run/export time), distinct
+  // from the run screen's own per-viewer ColumnsButton reorder.
+  moveColumn: (index: number, direction: -1 | 1) => void;
+  moveMetric: (index: number, direction: -1 | 1) => void;
   toggleGroupBy: (columnKey: string) => void;
   addFilterRow: (row: IFilterRow) => void;
   updateFilterRow: (index: number, patch: Partial<IFilterRow>) => void;
@@ -117,6 +122,24 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
     set((state) => ({
       columns: state.columns.map((c) => (c.column === columnKey ? { ...c, [flag]: value } : c)),
     })),
+
+  moveColumn: (index, direction) =>
+    set((state) => {
+      const target = index + direction;
+      if (target < 0 || target >= state.columns.length) return state;
+      const columns = [...state.columns];
+      [columns[index], columns[target]] = [columns[target], columns[index]];
+      return { columns };
+    }),
+
+  moveMetric: (index, direction) =>
+    set((state) => {
+      const target = index + direction;
+      if (target < 0 || target >= state.metricKeys.length) return state;
+      const metricKeys = [...state.metricKeys];
+      [metricKeys[index], metricKeys[target]] = [metricKeys[target], metricKeys[index]];
+      return { metricKeys };
+    }),
 
   toggleGroupBy: (columnKey) =>
     set((state) => ({
