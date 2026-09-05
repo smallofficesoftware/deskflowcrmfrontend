@@ -62,6 +62,7 @@ export const useColumnPreferences = <T extends ColumnDef>(
     isLoaded,
     setPreference,
     markLoaded,
+    hasHydrated,
   } = useColumnPreferenceStore();
 
   const defaultKeys = useMemo(
@@ -80,9 +81,25 @@ export const useColumnPreferences = <T extends ColumnDef>(
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Load from backend once per report, reconcile with current default columns
+  // Load from backend once per report, reconcile with current default
+  // columns. Gated on hasHydrated, not just isLoaded — persist's own
+  // rehydration from localStorage is asynchronous, so on this component's
+  // very first render `isLoaded`/`getPreference` can still be reading the
+  // store's bare pre-hydration state (order's own useState initializer
+  // above already raced the same way). Once hydration actually finishes,
+  // re-sync local state from whatever the store now holds for this
+  // reportKey before deciding whether a real backend fetch is even needed.
   useEffect(() => {
-    if (isLoaded(reportKey)) return;
+    if (!hasHydrated) return;
+
+    if (isLoaded(reportKey)) {
+      const rehydrated = getPreference(reportKey);
+      setOrder(reconcileOrder(rehydrated?.column_order, defaultColumns));
+      setHidden(
+        new Set((rehydrated?.hidden_columns ?? []).filter((key) => defaultKeys.includes(key))),
+      );
+      return;
+    }
 
     let cancelled = false;
 
@@ -109,7 +126,7 @@ export const useColumnPreferences = <T extends ColumnDef>(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportKey]);
+  }, [reportKey, hasHydrated]);
 
   // Keep order in sync if defaultColumns gain/lose keys (e.g. conditional columns)
   useEffect(() => {

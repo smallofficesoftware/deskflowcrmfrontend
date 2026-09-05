@@ -9,6 +9,14 @@ interface ColumnPreferenceEntry {
 interface ColumnPreferenceState {
   preferences: Record<string, ColumnPreferenceEntry>;
   loaded: Record<string, boolean>;
+  // persist's own rehydration from localStorage happens asynchronously
+  // (a microtask after this store's bare initial state has already been
+  // read by any component that mounted synchronously) — a consumer must
+  // wait on this flag before trusting `loaded`/`getPreference`, or it can
+  // capture the pre-hydration empty state into its own local React state
+  // and never revisit it (isLoaded looking "already true" once hydration
+  // does land is exactly what makes that stick).
+  hasHydrated: boolean;
 
   getPreference: (reportKey: string) => ColumnPreferenceEntry | undefined;
   isLoaded: (reportKey: string) => boolean;
@@ -19,6 +27,7 @@ interface ColumnPreferenceState {
   ) => void;
 
   markLoaded: (reportKey: string) => void;
+  setHasHydrated: (value: boolean) => void;
 }
 
 export const useColumnPreferenceStore = create<ColumnPreferenceState>()(
@@ -26,6 +35,7 @@ export const useColumnPreferenceStore = create<ColumnPreferenceState>()(
     (set, get) => ({
       preferences: {},
       loaded: {},
+      hasHydrated: false,
 
       getPreference: (reportKey) => get().preferences[reportKey],
 
@@ -46,9 +56,14 @@ export const useColumnPreferenceStore = create<ColumnPreferenceState>()(
             [reportKey]: true,
           },
         })),
+
+      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: "report-column-preferences",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
