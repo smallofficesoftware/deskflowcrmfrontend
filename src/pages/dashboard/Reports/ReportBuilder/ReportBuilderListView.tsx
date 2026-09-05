@@ -504,10 +504,10 @@ const ReportBuilderListView: React.FC = () => {
                             <ReportIcon name={def.icon || "report"} size={16} color="#F58634" />
                           </div>
                           <a
-                            href={`/report-builder/run/${def.id}`}
+                            href={`/SideView?view=reports&customReportId=${def.id}`}
                             onClick={(e) => {
                               e.preventDefault();
-                              navigate(`/report-builder/run/${def.id}`);
+                              navigate(`/SideView?view=reports&customReportId=${def.id}`);
                             }}
                             style={{ fontWeight: 600, fontSize: 14, color: "#1a1a1a", textDecoration: "none" }}
                           >

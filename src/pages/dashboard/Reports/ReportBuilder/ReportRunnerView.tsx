@@ -1,9 +1,10 @@
+import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable, DataTableSortEvent } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
@@ -12,7 +13,6 @@ import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import { useReportFilterPresetsStore } from "../../../../store/report/useReportFilterPresetsStore";
-import { ReportIcon } from "../../../side-view/reportIcons";
 import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
   exportReportPdf,
@@ -23,30 +23,39 @@ import {
   runReportDefinition,
 } from "./ReportBuilderController";
 
-// The run screen for ONE report_definition_id, reached only from a
-// "Custom Reports" tile click (ReportsTileView.tsx) — own routed URL
-// (/report-builder/run/:id), matching how every legacy report is already
-// its own route: deep-linkable, shareable, browser back works naturally.
-// No PIN here at all — reachability itself is already the gate (a login
-// with no report_definition_team_rights grant for this id never gets a
-// tile to click, and the backend's own getReportDataScope check denies
-// the run regardless of how someone got here).
+// The content pane for ONE report_definition_id — mounted by BottomView.tsx
+// exactly like every legacy report (all_visit_report, all_call_report,
+// etc.): a plain {definitionId, onHide} component, not its own route. A
+// Custom Reports tile sets appliedReportType to `custom_report:${id}` (see
+// ReportsTileView.tsx's onCustomReportClick) instead of one of the ~50
+// fixed names handleSingleReportShow (SideView.tsx) already switches on —
+// that function's fallback branch toasts a permission error for anything
+// it doesn't recognize, so a dynamic numeric id could never route through
+// it directly. onHide mirrors every legacy report's own closing convention
+// (BottomView's handleonHide: back to the Insights dashboard), and
+// useEscapeKey(onHide) matches allVisitReportView.tsx's own Escape-to-close.
 //
-// Reuses the same DataTable + virtualScrollerOptions (scroll-load) +
-// onSort pattern every legacy report already uses (see inquiryView.tsx) —
-// not a bespoke table. Full toolbar shell: free-text search, the
-// CheckBoxFilterModal general filter (Step 2) + Save Filter presets
-// (Step 9), row-level per-column filters, ColumnsButton, row selection +
-// selected-rows export, AppliedFilterBar, and Compare Period (Step 9,
-// aggregated reports only) are all wired in.
+// Visual chrome deliberately matches the legacy toolbar shell exactly
+// (report_card/report_button/custom-centered-table/dash-board-text-count —
+// see allVisitReportView.tsx), not a bespoke Report-Builder-only style.
+// One deliberate divergence: row-level per-column filters stay a separate
+// server-side input row (below) rather than PrimeReact's own
+// filterDisplay="row" mechanism legacy reports use — that mechanism
+// filters only the rows already loaded into the browser, which is wrong
+// for a scroll-paginated report where most rows haven't been fetched yet;
+// these filters instead go to the server as an extra WHERE clause, same as
+// the free-text search and general filter already do.
+interface ReportRunnerViewProps {
+  definitionId: number;
+  onHide: () => void;
+}
+
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-const ReportRunnerView: React.FC = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const definitionId = Number(id);
+const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHide }) => {
   const dt = useRef<DataTable<any[]>>(null);
+  useEscapeKey(onHide);
 
   const [definition, setDefinition] = useState<IRunnableReportDefinition | null>(null);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -62,7 +71,9 @@ const ReportRunnerView: React.FC = () => {
 
   const [sortField, setSortField] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<1 | -1 | null>(null);
-  const [search, setSearch] = useState("");
+  const [globalSearchText, setGlobalSearchText] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const handleGlobalSearch = () => setGlobalSearchText(searchInputRef.current?.value || "");
 
   const [exportingPdf, setExportingPdf] = useState(false);
 
@@ -104,6 +115,7 @@ const ReportRunnerView: React.FC = () => {
       return { column, op: type === "string" ? "like" : "eq", value: value.trim() };
     });
   const effectiveFilters = [...generalFilters, ...columnFilterList];
+  const hasActiveFilters = generalFilters.length > 0 || columnFilterList.length > 0;
 
   // Step 9 — Compare Period, scoped to aggregated reports only
   // (definition.is_aggregated) with an active date-range filter applied —
@@ -161,8 +173,8 @@ const ReportRunnerView: React.FC = () => {
     let cancelled = false;
     setLoadingCompare(true);
     Promise.all([
-      runReportDefinition(definitionId, { limit: 500, offset: 0, search: search || undefined, filters: [...nonDateEffectiveFilters, ...effectiveFilters.filter((f) => f.column === dateColumn)] }),
-      runReportDefinition(definitionId, { limit: 500, offset: 0, search: search || undefined, filters: [...nonDateEffectiveFilters, ...shiftedDateFilters(compareMode)] }),
+      runReportDefinition(definitionId, { limit: 500, offset: 0, search: globalSearchText || undefined, filters: [...nonDateEffectiveFilters, ...effectiveFilters.filter((f) => f.column === dateColumn)] }),
+      runReportDefinition(definitionId, { limit: 500, offset: 0, search: globalSearchText || undefined, filters: [...nonDateEffectiveFilters, ...shiftedDateFilters(compareMode)] }),
     ]).then(([current, compare]) => {
       if (cancelled) return;
       setCurrentTotalsRows(current?.rows || []);
@@ -173,7 +185,7 @@ const ReportRunnerView: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compareMode, canCompare, definitionId, search, JSON.stringify(effectiveFilters)]);
+  }, [compareMode, canCompare, definitionId, globalSearchText, JSON.stringify(effectiveFilters)]);
 
   const numericColumnKeys = (rows: any[]): string[] =>
     rows.length === 0 ? [] : Object.keys(rows[0]).filter((k) => typeof rows[0][k] === "number");
@@ -224,7 +236,7 @@ const ReportRunnerView: React.FC = () => {
       limit: PAGE_SIZE,
       offset: 0,
       sort,
-      search: search || undefined,
+      search: globalSearchText || undefined,
       filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setLoading(false);
@@ -249,7 +261,7 @@ const ReportRunnerView: React.FC = () => {
       limit: PAGE_SIZE,
       offset: offsetRef.current,
       sort,
-      search: search || undefined,
+      search: globalSearchText || undefined,
       filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setLoading(false);
@@ -270,17 +282,18 @@ const ReportRunnerView: React.FC = () => {
         setAccessError("You don't have access to this report, or it no longer exists.");
       }
     });
-    // Navigating from one report's run screen straight to another's
-    // (same routed component, no remount) must not carry over the prior
-    // report's applied filters/sort/search — a stale filter on a column
-    // this new report can't filter would make its first run throw.
+    // Switching to a different report_definition_id (a new Custom Reports
+    // tile click while this pane is already mounted) must not carry over
+    // the prior report's applied filters/sort/search — a stale filter on a
+    // column this new report can't filter would make its first run throw.
     setGeneralFilters([]);
     setAppliedPayload(null);
     setColumnFilterValues({});
     setSelectedPresetName("");
     setCompareMode("");
     setDrillDownRow(null);
-    setSearch("");
+    setGlobalSearchText("");
+    if (searchInputRef.current) searchInputRef.current.value = "";
     setSortField(undefined);
     setSortOrder(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,7 +343,9 @@ const ReportRunnerView: React.FC = () => {
 
   // Toolbar "More" dropdown — same click-outside-to-close pattern
   // ColumnsButton.tsx already uses internally, replicated here since this
-  // menu isn't that component.
+  // menu isn't that component. Matches legacy's own ellipsis dropdown
+  // (allVisitReportView.tsx's isExportDropdownOpen) — same
+  // pi-ellipsis-v / "labelDropLeft" trigger shape, different content.
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -353,16 +368,6 @@ const ReportRunnerView: React.FC = () => {
     setSelectedPresetName("");
   };
 
-  // Debounced (300ms, same convention every legacy report's own search box
-  // already uses) — separate effect from the sort/definition one above so
-  // typing doesn't re-fire on every keystroke.
-  useEffect(() => {
-    if (!definition) return;
-    const handler = setTimeout(() => runFromStart(), 300);
-    return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
-
   // Same debounce, separate effect — a column filter keystroke shouldn't
   // re-fire on every character either.
   const columnFilterKey = columnFilterList.map((f) => `${f.column}=${f.value}`).join("|");
@@ -372,6 +377,12 @@ const ReportRunnerView: React.FC = () => {
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columnFilterKey]);
+
+  useEffect(() => {
+    if (!definition) return;
+    runFromStart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalSearchText]);
 
   const onSort = (e: DataTableSortEvent) => {
     setSortField(e.sortField || undefined);
@@ -404,43 +415,179 @@ const ReportRunnerView: React.FC = () => {
   const handleExportPdf = async () => {
     setExportingPdf(true);
     const url = await exportReportPdf(definitionId, {
-      search: search || undefined,
+      search: globalSearchText || undefined,
       filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
     });
     setExportingPdf(false);
     if (url) window.open(url, "_blank");
   };
 
-  return (
-    <div style={{ padding: 20, height: "100vh", display: "flex", flexDirection: "column" }}>
-      <style>{`
-        .rb-btn-primary { background-color: #F58634; border-color: #F58634; color: #fff; }
-        .rb-btn-primary:hover, .rb-btn-primary:focus { background-color: #e0752a; border-color: #e0752a; color: #fff; }
-        .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
-        .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
-      `}</style>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: "#fff3eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <ReportIcon name={definition?.icon || "report"} size={17} color="#F58634" />
-          </div>
-          <h4 style={{ margin: 0 }}>{definition?.name || (loadingMeta ? "Loading..." : "Report")}</h4>
+  if (accessError) {
+    return (
+      <div>
+        <h3 style={{ fontSize: "20px", paddingLeft: "12px" }} className="dash-board-text-count">
+          {definition?.name || "Report"}
+        </h3>
+        <div className="report_card" style={{ width: "59vw" }}>
+          <p style={{ color: "red" }}>{accessError}</p>
         </div>
-        <button className="btn btn-sm rb-btn-outline-primary" onClick={() => navigate(-1)}>
-          Back
-        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h3 style={{ fontSize: "20px" }} className="dash-board-text-count">
+          {definition?.name || (loadingMeta ? "Loading..." : "Report")}
+        </h3>
+
+        <div className="d-flex gap-2 align-items-center" style={{ position: "relative" }}>
+          <div className="d-flex gap-2 align-items-center" style={{ width: 355, zIndex: 999, position: "relative" }}>
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="form-control"
+              placeholder="Search Anything in This Report"
+              style={{ width: 300, marginTop: 10 }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGlobalSearch();
+              }}
+            />
+            {globalSearchText && (
+              <span className="clear-icon" onClick={() => { setGlobalSearchText(""); if (searchInputRef.current) searchInputRef.current.value = ""; }}>
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                  <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                </svg>
+              </span>
+            )}
+            <Button
+              icon="pi pi-search"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={handleGlobalSearch}
+              tooltip="Search"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+          </div>
+          <div className="d-flex gap-2 align-items-center">
+            {allFilterSlots.length > 0 && (
+              <Button
+                icon={hasActiveFilters ? "pi pi-filter-slash" : "pi pi-filter"}
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={() => setShowFilterModal(true)}
+                tooltip="Filter Report"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+            )}
+            <Button
+              icon="pi pi-ellipsis-v"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMoreMenu((v) => !v);
+              }}
+              tooltip="More Options"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+            <div ref={moreMenuRef} style={{ position: "relative" }}>
+              {showMoreMenu && (
+                <ul
+                  className="labelDropLeft isVisible"
+                  style={{ width: 260, position: "absolute", right: 0, top: 0, zIndex: 1000, maxHeight: "calc(100vh - 120px)", overflowY: "auto", scrollbarWidth: "none", padding: 10, display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {authorDefaultSlots.length > 0 && authorDefaultSlots.length < allFilterSlots.length && (
+                    <label style={{ fontSize: 13, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                      <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
+                      Show all filters
+                    </label>
+                  )}
+                  {allFilterSlots.length > 0 && appliedPayload && (
+                    <li className="listItem text-start" role="button" onClick={handleSaveFilterPreset} title="Save the currently applied filter for reuse">
+                      <i className="pi pi-save" style={{ marginRight: 4 }} />
+                      Save filter...
+                    </li>
+                  )}
+                  {allFilterSlots.length > 0 && Object.keys(presets).length > 0 && (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <select className="form-select form-select-sm" value={selectedPresetName} onChange={(e) => handleApplyPreset(e.target.value)}>
+                        <option value="" disabled>
+                          Saved filters...
+                        </option>
+                        {Object.keys(presets).map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedPresetName && (
+                        <button className="btn btn-sm btn-outline-danger" title="Delete this saved filter" onClick={handleDeleteSelectedPreset}>
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {canCompare && (
+                    <select className="form-select form-select-sm" value={compareMode} onChange={(e) => setCompareMode(e.target.value as "" | "previous" | "lastYear")}>
+                      <option value="">Compare to...</option>
+                      <option value="previous">Previous period</option>
+                      <option value="lastYear">Same period last year</option>
+                    </select>
+                  )}
+                  <ExportExcelMenuItem
+                    reportType="report_builder"
+                    // genericReportExportService.js sends this object as the
+                    // ENTIRE request body to fetchReportBuilderExportPage —
+                    // not merged with anything else — so the applied general
+                    // filters and search term must ride along here too, or
+                    // the export would silently return every row regardless
+                    // of what the on-screen grid is currently filtered to.
+                    filters={{
+                      a_application_login_id: localStorage.getItem("UUID"),
+                      report_definition_id: definitionId,
+                      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
+                      search: globalSearchText || undefined,
+                    }}
+                    columns={exportColumns}
+                    fileName={definition?.name || "report"}
+                    disabled={exportColumns.length === 0}
+                    // Checking specific rows exports exactly those instead
+                    // of the full filtered/searched result set — same
+                    // convention every legacy report's own export already has.
+                    selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
+                    onSelect={() => setShowMoreMenu(false)}
+                  />
+                  <li
+                    className="listItem text-start"
+                    role="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      handleExportPdf();
+                    }}
+                  >
+                    <i className="pi pi-file-pdf" style={{ marginRight: 4 }} />
+                    {exportingPdf ? "Exporting..." : "PDF / Print"}
+                  </li>
+                </ul>
+              )}
+            </div>
+            <Button
+              icon="pi pi-refresh"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={() => runFromStart()}
+              tooltip="Refresh"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+            <ColumnsButton columns={orderedColumns} hiddenKeys={hiddenKeys} onToggle={toggleColumn} onReorder={reorderColumns} onReset={resetColumns} />
+          </div>
+        </div>
       </div>
 
       {definition?.description && <p className="text-muted" style={{ fontSize: 13 }}>{definition.description}</p>}
@@ -454,265 +601,128 @@ const ReportRunnerView: React.FC = () => {
         />
       )}
 
-      {accessError && (
-        <div className="alert alert-danger" style={{ fontSize: 14 }}>
-          {accessError}
+      {/* Row-level per-column filters — a separate, finer-grained layer
+          from the general filter modal above (Step 5's plan), shipped
+          alongside it rather than instead of it. Deliberately a plain
+          input row here rather than PrimeReact's own filterDisplay="row"
+          (see this file's own header comment) — these go to the server as
+          an extra WHERE clause, not a client-side filter over whatever
+          page happens to be loaded. Only offered for a visible column
+          that's in filterConfig.filterableColumns (real, queryEngine-
+          whitelisted base columns) — an aggregate alias or relation-dotted
+          display column simply gets no input here, since filtering on
+          either would make the run throw. */}
+      {filterConfig && visibleColumns.some((c) => filterConfig.filterableColumns[c.key]) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          {visibleColumns
+            .filter((c) => filterConfig.filterableColumns[c.key])
+            .map((c) => (
+              <input
+                key={c.key}
+                className="form-control form-control-sm"
+                style={{ width: 140 }}
+                placeholder={c.label}
+                value={columnFilterValues[c.key] || ""}
+                onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
+              />
+            ))}
+        </div>
+      )}
+
+      {compareMode && (
+        <div style={{ marginBottom: 12, padding: 12, background: "#fafafa", border: "1px solid #eee", borderRadius: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#8a8a8a", marginBottom: 8 }}>
+            Compare — {compareMode === "previous" ? "Previous period" : "Same period last year"}
+          </div>
+          {loadingCompare && <span className="text-muted" style={{ fontSize: 12 }}>Comparing...</span>}
+          {!loadingCompare && currentTotalsRows && compareRows && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+              {numericColumnKeys(currentTotalsRows).length === 0 ? (
+                <span className="text-muted" style={{ fontSize: 12 }}>No numeric columns to compare.</span>
+              ) : (
+                numericColumnKeys(currentTotalsRows).map((key) => {
+                  const currentTotal = sumColumn(currentTotalsRows, key);
+                  const compareTotal = sumColumn(compareRows, key);
+                  const pctChange = compareTotal !== 0 ? ((currentTotal - compareTotal) / Math.abs(compareTotal)) * 100 : null;
+                  return (
+                    <div key={key} style={{ fontSize: 13 }}>
+                      <div style={{ fontSize: 11, color: "#8a8a8a" }}>{humanize(key)}</div>
+                      <div>
+                        <strong>{currentTotal.toLocaleString()}</strong>
+                        <span className="text-muted"> vs {compareTotal.toLocaleString()}</span>{" "}
+                        {pctChange !== null && (
+                          <span style={{ color: pctChange >= 0 ? "#198754" : "#dc3545", fontWeight: 600 }}>
+                            ({pctChange >= 0 ? "+" : ""}
+                            {pctChange.toFixed(1)}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {!accessError && definition && (
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-            padding: 16,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span className="text-muted" style={{ fontSize: 12 }}>
-              {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded · ${durationMs}ms` : ""}
-            </span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                className="form-control form-control-sm"
-                style={{ width: 200 }}
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {allFilterSlots.length > 0 && (
-                <button
-                  className={`btn btn-sm ${generalFilters.length > 0 ? "rb-btn-primary" : "rb-btn-outline-primary"}`}
-                  onClick={() => setShowFilterModal(true)}
-                >
-                  Filter{generalFilters.length > 0 ? ` (${generalFilters.length})` : ""}
-                </button>
-              )}
-              {/* Everything below is secondary/less-frequent — collapsed into
-                  one "More" dropdown (the plan's own canonical toolbar shell:
-                  search + filter + an ellipsis "more" menu + columns, not a
-                  flat row of every action) instead of competing for space
-                  with Search/Filter/Columns on every render. */}
-              <div ref={moreMenuRef} style={{ position: "relative" }}>
-                <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowMoreMenu((v) => !v)}>
-                  &#8942; More
-                </button>
-                {showMoreMenu && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: 34,
-                      zIndex: 1000,
-                      width: 260,
-                      background: "#fff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 10,
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
-                      padding: 10,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
-                    {authorDefaultSlots.length > 0 && authorDefaultSlots.length < allFilterSlots.length && (
-                      <label style={{ fontSize: 13, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                        <input type="checkbox" checked={showAllFilterSlots} onChange={(e) => setShowAllFilterSlots(e.target.checked)} />
-                        Show all filters
-                      </label>
-                    )}
-                    {allFilterSlots.length > 0 && appliedPayload && (
-                      <button className="btn btn-sm btn-outline-secondary" onClick={handleSaveFilterPreset} title="Save the currently applied filter for reuse">
-                        Save filter...
-                      </button>
-                    )}
-                    {allFilterSlots.length > 0 && Object.keys(presets).length > 0 && (
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <select
-                          className="form-select form-select-sm"
-                          value={selectedPresetName}
-                          onChange={(e) => handleApplyPreset(e.target.value)}
-                        >
-                          <option value="" disabled>
-                            Saved filters...
-                          </option>
-                          {Object.keys(presets).map((name) => (
-                            <option key={name} value={name}>
-                              {name}
-                            </option>
-                          ))}
-                        </select>
-                        {selectedPresetName && (
-                          <button className="btn btn-sm btn-outline-danger" title="Delete this saved filter" onClick={handleDeleteSelectedPreset}>
-                            &times;
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {canCompare && (
-                      <select
-                        className="form-select form-select-sm"
-                        value={compareMode}
-                        onChange={(e) => setCompareMode(e.target.value as "" | "previous" | "lastYear")}
-                      >
-                        <option value="">Compare to...</option>
-                        <option value="previous">Previous period</option>
-                        <option value="lastYear">Same period last year</option>
-                      </select>
-                    )}
-                    <hr style={{ margin: "2px 0" }} />
-                    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                      <ExportExcelMenuItem
-                        reportType="report_builder"
-                        // genericReportExportService.js sends this object as
-                        // the ENTIRE request body to
-                        // fetchReportBuilderExportPage — not merged with
-                        // anything else — so the applied general filters and
-                        // search term must ride along here too, or the
-                        // export would silently return every row regardless
-                        // of what the on-screen grid is currently filtered to.
-                        filters={{
-                          a_application_login_id: localStorage.getItem("UUID"),
-                          report_definition_id: definitionId,
-                          filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
-                          search: search || undefined,
-                        }}
-                        columns={exportColumns}
-                        fileName={definition.name}
-                        disabled={exportColumns.length === 0}
-                        // Checking specific rows exports exactly those
-                        // instead of the full filtered/searched result set —
-                        // same convention every legacy report's own export
-                        // already has.
-                        selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
-                        onSelect={() => setShowMoreMenu(false)}
-                      />
-                    </ul>
-                    <button
-                      className="btn btn-sm btn-outline-dark"
-                      disabled={exportingPdf}
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        handleExportPdf();
-                      }}
-                    >
-                      {exportingPdf ? "Exporting..." : "PDF / Print"}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <ColumnsButton columns={orderedColumns} hiddenKeys={hiddenKeys} onToggle={toggleColumn} onReorder={reorderColumns} onReset={resetColumns} />
-            </div>
-          </div>
-
-          {/* Row-level per-column filters — a separate, finer-grained layer
-              from the general filter modal above (Step 5's plan), shipped
-              alongside it rather than instead of it. Only offered for a
-              visible column that's in filterConfig.filterableColumns (real,
-              queryEngine-whitelisted base columns) — an aggregate alias or
-              relation-dotted display column simply gets no input here,
-              since filtering on either would make the run throw. */}
-          {filterConfig && visibleColumns.some((c) => filterConfig.filterableColumns[c.key]) && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-              {visibleColumns
-                .filter((c) => filterConfig.filterableColumns[c.key])
-                .map((c) => (
-                  <input
-                    key={c.key}
-                    className="form-control form-control-sm"
-                    style={{ width: 140 }}
-                    placeholder={c.label}
-                    value={columnFilterValues[c.key] || ""}
-                    onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
-                  />
-                ))}
-            </div>
-          )}
-
-          {compareMode && (
-            <div style={{ marginBottom: 12, padding: 12, background: "#fafafa", border: "1px solid #eee", borderRadius: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#8a8a8a", marginBottom: 8 }}>
-                Compare — {compareMode === "previous" ? "Previous period" : "Same period last year"}
-              </div>
-              {loadingCompare && <span className="text-muted" style={{ fontSize: 12 }}>Comparing...</span>}
-              {!loadingCompare && currentTotalsRows && compareRows && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
-                  {numericColumnKeys(currentTotalsRows).length === 0 ? (
-                    <span className="text-muted" style={{ fontSize: 12 }}>No numeric columns to compare.</span>
-                  ) : (
-                    numericColumnKeys(currentTotalsRows).map((key) => {
-                      const currentTotal = sumColumn(currentTotalsRows, key);
-                      const compareTotal = sumColumn(compareRows, key);
-                      const pctChange = compareTotal !== 0 ? ((currentTotal - compareTotal) / Math.abs(compareTotal)) * 100 : null;
-                      return (
-                        <div key={key} style={{ fontSize: 13 }}>
-                          <div style={{ fontSize: 11, color: "#8a8a8a" }}>{humanize(key)}</div>
-                          <div>
-                            <strong>{currentTotal.toLocaleString()}</strong>
-                            <span className="text-muted"> vs {compareTotal.toLocaleString()}</span>{" "}
-                            {pctChange !== null && (
-                              <span style={{ color: pctChange >= 0 ? "#198754" : "#dc3545", fontWeight: 600 }}>
-                                ({pctChange >= 0 ? "+" : ""}
-                                {pctChange.toFixed(1)}%)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+        <div className="report_card" style={{ height: "90vh", display: "flex", flexDirection: "column" }}>
+          <DataTable
+            ref={dt}
+            value={rows}
+            scrollable
+            resizableColumns
+            columnResizeMode="fit"
+            className="custom-centered-table"
+            scrollHeight="90vh"
+            virtualScrollerOptions={{
+              itemSize: 46,
+              lazy: true,
+              onLazyLoad: (e: { last: number }) => {
+                if (e.last >= rows.length - 1 && hasMore && !loading) loadMore();
+              },
+              appendOnly: true,
+              showLoader: true,
+              delay: 0,
+            }}
+            onSort={onSort}
+            sortField={sortField}
+            sortOrder={sortOrder}
+            sortMode="single"
+            loading={loading && rows.length === 0}
+            tableStyle={{ tableLayout: "fixed", width: "100%" }}
+            emptyMessage="No data found"
+            selectionMode="checkbox"
+            selection={selectedRows}
+            // No dataKey — row identity varies per report (no field name
+            // is guaranteed present across every model_key's columns_json
+            // picks), so this relies on PrimeReact's default reference
+            // equality instead, which works because `rows` state is only
+            // ever appended to, never recreated per render.
+            onSelectionChange={(e) => setSelectedRows(e.value as any[])}
+            onRowClick={canDrillDown ? handleRowClick : undefined}
+            footer={
+              <div style={{ padding: 10, background: "#f8f9fa", position: "sticky", bottom: 0, zIndex: 1 }}>
+                <div style={{ textAlign: "right" }}>
+                  {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded${durationMs !== null ? ` · ${durationMs}ms` : ""}` : ""}
                 </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <DataTable
-              ref={dt}
-              value={rows}
-              resizableColumns
-              columnResizeMode="fit"
-              scrollable
-              scrollHeight="flex"
-              virtualScrollerOptions={{
-                itemSize: 46,
-                lazy: true,
-                onLazyLoad: (e: { last: number }) => {
-                  if (e.last >= rows.length - 1 && hasMore && !loading) loadMore();
-                },
-                appendOnly: true,
-                showLoader: true,
-                delay: 0,
-              }}
-              onSort={onSort}
-              sortField={sortField}
-              sortOrder={sortOrder}
-              sortMode="single"
-              loading={loading && rows.length === 0}
-              tableStyle={{ tableLayout: "fixed", width: "100%" }}
-              emptyMessage="No data."
-              selectionMode="checkbox"
-              selection={selectedRows}
-              // No dataKey — row identity varies per report (no field name
-              // is guaranteed present across every model_key's columns_json
-              // picks), so this relies on PrimeReact's default reference
-              // equality instead, which works because `rows` state is only
-              // ever appended to, never recreated per render.
-              onSelectionChange={(e) => setSelectedRows(e.value as any[])}
-              onRowClick={canDrillDown ? handleRowClick : undefined}
-            >
-              <Column selectionMode="multiple" headerStyle={{ width: "3rem" }} />
-              {visibleColumns.map((c) => (
-                <Column key={c.key} field={c.key} header={c.label} sortable body={(row) => String(row[c.key] ?? "")} />
-              ))}
-            </DataTable>
-          </div>
+              </div>
+            }
+          >
+            <Column selectionMode="multiple" headerStyle={{ width: "3rem", position: "sticky", top: 0, zIndex: 1 }} bodyStyle={{ textAlign: "center" }} />
+            {visibleColumns.map((c) => (
+              <Column
+                key={c.key}
+                field={c.key}
+                header={c.label}
+                sortable
+                headerStyle={{ width: "150px", whiteSpace: "pre-wrap", position: "sticky", top: 0, zIndex: 1, fontSize: "14px" }}
+                bodyStyle={{ fontSize: "14px" }}
+                body={(row) => String(row[c.key] ?? "")}
+              />
+            ))}
+          </DataTable>
         </div>
       )}
 

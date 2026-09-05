@@ -1,5 +1,4 @@
 import { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
 import {
@@ -16,10 +15,16 @@ const THEME_TINT = "#fff3eb";
 
 interface IProps {
   onReportClick: (value: string) => void;
+  // Custom Reports tiles are dynamic (a numeric report_definition_id, not
+  // one of the ~50 fixed names onReportClick's handler switches on) — a
+  // separate callback so BottomView.tsx can route it straight into
+  // ReportRunnerView.tsx without touching that big fixed-name dispatch at
+  // all (its own fallback branch toasts a permission error for anything
+  // it doesn't recognize, which a dynamic id never would).
+  onCustomReportClick: (id: number) => void;
 }
 
-const ReportsTileView = ({ onReportClick }: IProps) => {
-  const navigate = useNavigate();
+const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
   const [searchValue, setSearchValue] = useState("");
   const { permissions } = useContext(AppContext)!;
 
@@ -284,7 +289,7 @@ const ReportsTileView = ({ onReportClick }: IProps) => {
                       key={def.id}
                       type="button"
                       className="report-tile"
-                      onClick={() => navigate(`/report-builder/run/${def.id}`)}
+                      onClick={() => onCustomReportClick(def.id)}
                       style={{
                         textAlign: "left",
                         padding: "16px",
