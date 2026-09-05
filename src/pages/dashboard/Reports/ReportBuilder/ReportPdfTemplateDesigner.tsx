@@ -1,6 +1,7 @@
 import { Designer } from "@pdfme/ui";
-import { image, table, text } from "@pdfme/schemas";
+import { ellipse, image, line, list, table, text } from "@pdfme/schemas";
 import React, { useEffect, useRef, useState } from "react";
+import { customRectangle } from "../../../../common/pdfmeDesigner/customRectanglePlugin";
 import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../../../helpers/AppConstants";
 import {
   IDocumentTemplateFull,
@@ -17,7 +18,10 @@ import {
   updateDocumentTemplateDraft,
 } from "../../../left-side/header/Setting/document-designer/DocumentDesignerController";
 
-const plugins = { text, table, image };
+// Same shape/decoration plugin set as DocumentDesignerView.tsx's left-side
+// toolbar (rectangle/ellipse/line/list) — reports get the same draggable
+// field types, not just text/table/image.
+const plugins = { text, table, image, rectangle: customRectangle, ellipse, line, list };
 const BLANK_TEMPLATE = { basePdf: { width: 210, height: 297, padding: [15, 10, 15, 10] }, schemas: [[]] };
 
 async function loadDesignerFonts() {
