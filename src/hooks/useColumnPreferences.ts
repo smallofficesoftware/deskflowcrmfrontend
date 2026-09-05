@@ -90,7 +90,12 @@ export const useColumnPreferences = <T extends ColumnDef>(
   // re-sync local state from whatever the store now holds for this
   // reportKey before deciding whether a real backend fetch is even needed.
   useEffect(() => {
-    if (!hasHydrated) return;
+    // defaultColumns starts empty for a report whose column list depends on
+    // a real data fetch (e.g. ReportRunnerView.tsx derives it from the
+    // first loaded row) — reconciling against an empty list here would
+    // discard every saved key (nothing to validate against yet) before the
+    // real columns ever arrive. Wait for both.
+    if (!hasHydrated || defaultColumns.length === 0) return;
 
     if (isLoaded(reportKey)) {
       const rehydrated = getPreference(reportKey);
@@ -126,7 +131,7 @@ export const useColumnPreferences = <T extends ColumnDef>(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportKey, hasHydrated]);
+  }, [reportKey, hasHydrated, defaultKeys.join(",")]);
 
   // Keep order in sync if defaultColumns gain/lose keys (e.g. conditional columns)
   useEffect(() => {
