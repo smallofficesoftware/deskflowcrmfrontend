@@ -46,7 +46,7 @@ const LivePreview: React.FC = () => {
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   return (
-    <div style={{ width: 300, flexShrink: 0 }}>
+    <div style={{ width: 460, flexShrink: 0 }}>
       <div
         style={{
           position: "sticky",
