@@ -162,7 +162,14 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                         allowTotal={col.type === "number" || col.type === "currency"}
                         onFlag={(flag, value) => store.setColumnFlag(col.key, flag, value)}
                       />
-                      <ColumnFormatMini pick={picked} colType={col.type} onFormat={(patch) => store.setColumnFormat(col.key, patch)} />
+                      <ColumnFormatMini
+                        pick={picked}
+                        colType={col.type}
+                        matchingRelations={(selectedModel.relations || [])
+                          .filter((rel) => rel.foreignKey === col.key && !rel.matchMode)
+                          .map((rel) => ({ key: rel.key, label: rel.label, columns: rel.columns.map((c) => ({ key: c.key, label: c.label })) }))}
+                        onFormat={(patch) => store.setColumnFormat(col.key, patch)}
+                      />
                     </>
                   )}
                 </div>

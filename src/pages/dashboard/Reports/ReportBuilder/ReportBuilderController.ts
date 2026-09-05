@@ -24,6 +24,13 @@ export interface IReportColumn {
 export interface IModelRelation {
   key: string; // plain relation key, e.g. "customer" — each column below carries the dotted "customer.person_name" key
   label: string;
+  // The base column this relation resolves (e.g. "contact_status" for the
+  // "status" relation) — drives Step 2's lookup-label auto-resolve, which
+  // relation options to offer for a given lookup column. null for a
+  // matchMode !== null relation the auto-resolve feature deliberately
+  // excludes (csv/reverse — see StepColumns.tsx).
+  foreignKey: string;
+  matchMode: string | null;
   columns: IReportColumn[];
   // Second hop, e.g. task_managements' "contact" relation exposing contacts'
   // OWN "label" relation as "contact.label.lable_name" — only ever populated

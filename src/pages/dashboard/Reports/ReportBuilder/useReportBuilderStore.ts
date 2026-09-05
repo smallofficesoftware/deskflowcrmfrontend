@@ -14,6 +14,29 @@ export interface IColumnFormat {
   decimals?: number;
   thousands?: boolean;
   currencySymbol?: string;
+  // Slice 2 — a lookup/number flag column (is_archive, is_support_ticket)
+  // rendered as Yes/No or a checkmark instead of the raw 0/1.
+  boolean?: "yesno" | "checkmark";
+  // Max characters before the grid clips with an ellipsis and shows the
+  // full value in a title tooltip — string-typed columns only.
+  truncate?: number;
+  align?: "left" | "center" | "right";
+  // Fixed grid column width in px — undefined keeps today's default (150).
+  width?: number;
+  // Raw value -> {label?, color} — renders as a colored badge instead of
+  // plain text. Keyed by the value AS A STRING (row values compare loosely
+  // since a lookup id can come back as either a number or a numeric string
+  // depending on the DB driver).
+  statusColors?: Record<string, { label?: string; color: string }>;
+  // Dotted "relKey.colKey" (e.g. "status.name") naming a whitelisted
+  // relation+column this same base lookup column resolves through, so the
+  // grid shows that relation's own label instead of the raw id even
+  // though the author never separately picked the relation column itself.
+  // Author-picked from the same relation list StepColumns.tsx already
+  // renders for this table — never inferred automatically, since a lookup
+  // column can in principle have more than one relation on the same
+  // foreignKey.
+  labelRelation?: string;
 }
 
 export interface IColumnPick {

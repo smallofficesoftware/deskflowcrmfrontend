@@ -78,7 +78,48 @@ const formatCellValue = (value: unknown, fmt?: IRunnableReportDefinition["column
     }
     return fmt.currencySymbol ? `${fmt.currencySymbol}${out}` : out;
   }
+  if (fmt?.boolean) {
+    const isTruthy = value === 1 || value === "1" || value === true;
+    if (fmt.boolean === "checkmark") return isTruthy ? "✓" : "✗";
+    return isTruthy ? "Yes" : "No";
+  }
   return String(value);
+};
+
+// Slice 2 — status-color badge and truncation-with-tooltip both need real
+// JSX (a colored pill, a title attribute), not just a formatted string, so
+// they're composed here on top of formatCellValue's plain-text result
+// rather than folded into it. statusColors keys by the RAW value (never
+// the already-formatted string) since an author picks a color per actual
+// data value (e.g. "1"), not per however that value happens to render.
+const renderCell = (value: unknown, fmt?: IRunnableReportDefinition["column_formats"][string]): React.ReactNode => {
+  const text = formatCellValue(value, fmt);
+  const statusCfg = fmt?.statusColors?.[String(value)];
+  if (statusCfg) {
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          padding: "2px 8px",
+          borderRadius: 10,
+          fontSize: 12,
+          fontWeight: 600,
+          color: "#fff",
+          backgroundColor: statusCfg.color,
+        }}
+      >
+        {statusCfg.label || text}
+      </span>
+    );
+  }
+  if (fmt?.truncate && text.length > fmt.truncate) {
+    return (
+      <span title={text} style={{ display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {text.slice(0, fmt.truncate)}…
+      </span>
+    );
+  }
+  return text;
 };
 
 const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHide }) => {
@@ -739,17 +780,28 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             }
           >
             <Column selectionMode="multiple" headerStyle={{ width: "3rem", position: "sticky", top: 0, zIndex: 1 }} bodyStyle={{ textAlign: "center" }} />
-            {visibleColumns.map((c) => (
-              <Column
-                key={c.key}
-                field={c.key}
-                header={c.label}
-                sortable
-                headerStyle={{ width: "150px", whiteSpace: "pre-wrap", position: "sticky", top: 0, zIndex: 1, fontSize: "14px" }}
-                bodyStyle={{ fontSize: "14px" }}
-                body={(row) => formatCellValue(row[c.key], definition?.column_formats?.[c.key])}
-              />
-            ))}
+            {visibleColumns.map((c) => {
+              const fmt = definition?.column_formats?.[c.key];
+              return (
+                <Column
+                  key={c.key}
+                  field={c.key}
+                  header={c.label}
+                  sortable
+                  headerStyle={{
+                    width: fmt?.width ? `${fmt.width}px` : "150px",
+                    whiteSpace: "pre-wrap",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                    fontSize: "14px",
+                    textAlign: fmt?.align,
+                  }}
+                  bodyStyle={{ fontSize: "14px", textAlign: fmt?.align }}
+                  body={(row) => renderCell(row[c.key], fmt)}
+                />
+              );
+            })}
           </DataTable>
         </div>
       )}
