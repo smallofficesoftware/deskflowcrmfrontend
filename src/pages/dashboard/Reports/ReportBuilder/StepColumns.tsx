@@ -16,35 +16,38 @@ const AGGREGATE_LABELS: Record<string, string> = {
   count: "Count",
 };
 
-// Same card treatment as Step 1's source picker / Step 4's icon grid —
-// applied here to every field toggle (base/relation/nested-relation
-// columns, composite metrics) so "What to show" doesn't read as a step
-// behind the other three. Group-by and general-filters-to-show (both
-// Advanced-only, secondary) stay plain checkboxes — a deliberate scope
-// line, not an oversight: they're tucked behind a toggle already, less
-// visually prominent than the default field list.
+// Plain checkbox row, one field per line — matches ColumnFlagsMini's own
+// plain-checkbox convention immediately to its right, and Bootstrap's
+// standard form-check styling used everywhere else in this app. Replaced
+// the earlier pill/chip-button treatment: side-by-side wrapping pills
+// pushed a picked field's aggregate/Flags/Format controls into a cramped
+// inline run that visually overlapped neighboring fields once a Format
+// panel opened (see ColumnFormatMini's own width:100% fix below) — a
+// vertical list has no such collision, every field's own controls sit on
+// its own row.
 const FieldChip: React.FC<{ label: string; picked: boolean; onClick: () => void; custom?: boolean }> = ({ label, picked, onClick, custom }) => (
-  <button
-    type="button"
-    onClick={onClick}
+  <label
     style={{
-      display: "inline-flex",
+      display: "flex",
       alignItems: "center",
-      gap: 6,
-      padding: "6px 12px",
-      borderRadius: 20,
-      border: `1.5px solid ${picked ? "#F58634" : "#e5e7eb"}`,
-      background: picked ? "#fff3eb" : "#fff",
+      gap: 8,
+      padding: "4px 2px",
+      cursor: "pointer",
       fontSize: 13,
       fontWeight: picked ? 600 : 400,
       color: picked ? "#DC6A1C" : "#1a1a1a",
-      cursor: "pointer",
-      whiteSpace: "nowrap",
+      margin: 0,
     }}
   >
-    {label}
+    <input
+      type="checkbox"
+      checked={picked}
+      onChange={onClick}
+      style={{ accentColor: "#F58634", width: 15, height: 15, flexShrink: 0 }}
+    />
+    <span>{label}</span>
     {custom && <span className="badge bg-info text-dark" style={{ fontSize: 10 }}>Custom</span>}
-  </button>
+  </label>
 );
 
 // One consistent zone treatment for every group of controls on this step
@@ -70,7 +73,7 @@ const Section: React.FC<{ title: string; count?: number; hint?: string; children
 );
 
 const ChipRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>{children}</div>
+  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{children}</div>
 );
 
 interface StepColumnsProps {
@@ -138,7 +141,7 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
             {baseColumns.map((col: IReportColumn) => {
               const picked = store.columns.find((c) => c.column === col.key);
               return (
-                <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div key={col.key} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, width: "100%" }}>
                   <FieldChip label={col.label} picked={!!picked} custom={col.dynamic} onClick={() => store.toggleColumn(col.key)} />
                   {picked && col.aggregatable && col.aggregatable.length > 0 && (
                     <select
@@ -213,11 +216,11 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                     </div>
                     {isOpen && (
                       <>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 10 }}>
                           {filteredCols.map((col: IReportColumn) => {
                             const picked = store.columns.find((c) => c.column === col.key);
                             return (
-                              <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div key={col.key} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, width: "100%" }}>
                                 <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                                 {picked && (
                                   <>
@@ -248,11 +251,11 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
                                 )}
                               </div>
                               {subOpen && (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
                                   {subFilteredCols.map((col: IReportColumn) => {
                                     const picked = store.columns.find((c) => c.column === col.key);
                                     return (
-                                      <div key={col.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <div key={col.key} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, width: "100%" }}>
                                         <FieldChip label={col.label} picked={!!picked} onClick={() => store.toggleColumn(col.key)} />
                                         {picked && (
                                           <>
