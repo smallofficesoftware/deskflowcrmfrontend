@@ -17,7 +17,9 @@ export const fetchApiAccountTransitions = async (
     startDate?: string,
     endDate?: string,
     creditFilter?: string,
-    debitFilter?: string
+    debitFilter?: string,
+    setOpeningBalance?: (balance: number) => void,
+    setCurrencySymbol?: (symbol: string) => void,
 ) => {
     const getUUID = await getID || localStorage.getItem("UUID");
     const token = await MobileToken || localStorage.getItem("token");
@@ -54,12 +56,19 @@ export const fetchApiAccountTransitions = async (
             endDate: endDate,
             creditFilter: creditFilter,
             debitFilter: debitFilter,
-        } : {}
+        } : {
+            startDate: startDate,
+            endDate: endDate,
+            creditFilter: creditFilter,
+            debitFilter: debitFilter,
+        }
         const contactResponse = await axiosInstance.post(token ? `/accountTransactionList/${contact_master_id}` : `/account-transaction-list-online-store/${contact_master_id}/${qrCode}`, contactRequestData);
         if (contactResponse.data.code === 200 && contactResponse.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
             setContactData(contactResponse.data.data.contactDetails);
             setAccountTransactions(contactResponse.data.data.item);
             setClosingBalance(contactResponse.data.data.closingBalance);
+            setOpeningBalance?.(contactResponse.data.data.openingBalance || 0);
+            setCurrencySymbol?.(contactResponse.data.data.currencySymbol || "₹");
         } else {
             toast.error(contactResponse.data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         }
