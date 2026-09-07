@@ -711,7 +711,12 @@ export const runReportDefinition = async (
     // aggregate. Query-type only; meaningless for plugin/composite.
     suppressGroupBy?: boolean;
   },
-): Promise<{ rows: any[]; row_count: number; duration_ms: number } | null> => {
+  // totals: grand-total per column with "Total" checked (Step 2's
+  // ColumnFlagsMini), computed over the WHOLE filtered result set server-
+  // side — see queryEngine.js's own comment. Absent entirely when no
+  // column has a total; a present key's value is null only if every
+  // matching row's own value was null (an empty SUM).
+): Promise<{ rows: any[]; row_count: number; duration_ms: number; totals?: Record<string, number | null> } | null> => {
   try {
     const { data } = await axiosInstance.post(`report-definitions/${id}/run`, {
       a_application_login_id: loginId(),
