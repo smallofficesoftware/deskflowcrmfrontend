@@ -161,27 +161,26 @@ const Setting = ({
     }
   }
 
-  // Owner-only, deliberately NOT the same view-right check Document
-  // Designer's own entry uses above — page-159 `view` is also exactly what
-  // a non-owner needs granted just to browse "Custom Reports" (the run
-  // screen), a completely different surface. Gating this on that same flag
-  // would show the build UI's menu entry to someone who only has view
-  // access for running reports, not building them. companyFlag (1 = owner,
-  // 2 = joined member — same convention reportPinAuth.js's isCompanyOwner
-  // already uses server-side) is already populated in AppContext at app
-  // load, no extra network call needed. Revisit back to a rights-based
-  // check once non-owner create/edit rights are un-deferred (see the
-  // plan's Step 6) — at that point `add`/`edit` would be the right gate,
-  // still distinct from Custom Reports' own `view`-based visibility.
+  // Report Builder's own backend access control (reportBuilderRights.js)
+  // reuses application_login_type_rights (PAGE_ID.REPORT_BUILDER) —
+  // same useCheckUserPermission hook every other page's menu entry already
+  // uses. This is safe to share with page-159 `view` because Custom
+  // Reports' own visibility (listRunnableReportDefinitions) deliberately
+  // does NOT consult page-level rights at all — it's gated purely by
+  // report_definition_team_rights, a completely separate per-report grant
+  // (see that function's own comment) — so granting Report Builder `view`
+  // here never leaks into who can browse Custom Reports, and vice versa.
+  // companyFlag (1 = owner, 2 = joined member — same convention
+  // reportPinAuth.js's isCompanyOwner already uses server-side) is already
+  // populated in AppContext at app load, no extra network call needed.
+  // Owner still bypasses server-side regardless of any rights row.
   const appContext = useContext(AppContext);
   // Report Builder / Dashboard Builder have no company feature flag —
-  // enabled for every company, gated only by ownership here + rights/PIN
-  // server-side. Revisit back to a rights-based check once non-owner
-  // create/edit rights are un-deferred (see the plan's Step 6) — at that
-  // point `add`/`edit` would be the right gate, still distinct from
-  // Custom Reports' own `view`-based visibility.
+  // enabled for every company, gated only by ownership + page-rights here,
+  // enforced again server-side.
   const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
-  const showReportBuilderMenu = isCompanyOwnerForReportBuilder;
+  const canViewReportBuilder = useCheckUserPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
+  const showReportBuilderMenu = isCompanyOwnerForReportBuilder || canViewReportBuilder;
   function openReportBuilder() {
     if (showReportBuilderMenu) {
       navigate("/report-builder");
@@ -192,9 +191,7 @@ const Setting = ({
 
   // Dashboard Builder's own backend access control (dashboardRights.js)
   // reuses application_login_type_rights (PAGE_ID.DASHBOARD_BUILDER) —
-  // same useCheckUserPermission hook every other page's menu entry already
-  // uses, not owner-only like Report Builder's above (that one's access
-  // model is per-report grants, a different thing this fix didn't touch).
+  // same useCheckUserPermission hook Report Builder's own entry above uses.
   // Owner still bypasses server-side regardless of any rights row.
   const canViewDashboardBuilder = useCheckUserPermission(PAGE_ID.DASHBOARD_BUILDER, PERMISSION_TYPE.VIEW);
   const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder || canViewDashboardBuilder;
