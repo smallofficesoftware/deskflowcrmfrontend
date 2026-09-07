@@ -190,7 +190,14 @@ const Setting = ({
     }
   }
 
-  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder;
+  // Dashboard Builder's own backend access control (dashboardRights.js)
+  // reuses application_login_type_rights (PAGE_ID.DASHBOARD_BUILDER) —
+  // same useCheckUserPermission hook every other page's menu entry already
+  // uses, not owner-only like Report Builder's above (that one's access
+  // model is per-report grants, a different thing this fix didn't touch).
+  // Owner still bypasses server-side regardless of any rights row.
+  const canViewDashboardBuilder = useCheckUserPermission(PAGE_ID.DASHBOARD_BUILDER, PERMISSION_TYPE.VIEW);
+  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder || canViewDashboardBuilder;
   function openDashboardBuilder() {
     if (showDashboardBuilderMenu) {
       navigate("/dashboard-builder");
