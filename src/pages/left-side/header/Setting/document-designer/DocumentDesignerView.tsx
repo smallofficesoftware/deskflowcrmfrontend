@@ -297,7 +297,6 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [showPreviewPicker, setShowPreviewPicker] = useState(false);
   const [previewSearch, setPreviewSearch] = useState("");
   const [previewOrders, setPreviewOrders] = useState<any[]>([]);
-  const [hasAnyOrders, setHasAnyOrders] = useState<boolean | null>(null);
   // Report mode's own Generate Preview (live report rows, not a cart-order
   // picker) — the /report-definitions/:id/... routes are report-definition-
   // scoped, not doc_type-scoped like the template CRUD routes are, so the
