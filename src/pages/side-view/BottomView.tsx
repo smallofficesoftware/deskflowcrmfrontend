@@ -22,6 +22,7 @@ import AllReminderReport from "../dashboard/Reports/All Reminder Report/AllRemin
 import AllStatesReport from "../dashboard/Reports/All States/AllStatesReport";
 import AllTaskReportsView from "../dashboard/Reports/All Task Report/allTaskReportView";
 import AllVisitReportsView from "../dashboard/Reports/All Visit Report/allVisitReportView";
+import ReportRunnerView from "../dashboard/Reports/ReportBuilder/ReportRunnerView";
 import TeamAttendanceReportsView from "../dashboard/Reports/Attendance & Salary Report/AttendanceReportView";
 import BillOfMaterialReport from "../dashboard/Reports/Bill Of Material Report/BillOfMaterialReport";
 import CategoryPendingReport from "../dashboard/Reports/Category Pending/categoryPendingView";
@@ -251,6 +252,26 @@ const BottomView = ({
         {activeView === "reports_home" && (
           <ReportsTileView
             onReportClick={(value: string) => onReportClick?.(value)}
+            // Bypasses handleSingleReportShow entirely (SideView.tsx) —
+            // that function's fallback branch toasts a permission error for
+            // any name it doesn't recognize among its ~50 fixed report
+            // names, so a dynamic report_definition_id could never route
+            // through it. appliedReportType already flows down as a prop
+            // and is already reset by every other "leave this report" path
+            // (handleonHide below, onInsightsClick/onSmartReportsClick in
+            // SideView.tsx) — reusing it with a sentinel prefix needs no
+            // new state anywhere.
+            onCustomReportClick={(id: number) => {
+              setActiveView("custom_report");
+              setAppliedReportType(`custom_report:${id}`);
+            }}
+          />
+        )}
+
+        {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (
+          <ReportRunnerView
+            definitionId={Number(appliedReportType.split(":")[1])}
+            onHide={handleonHide}
           />
         )}
 

@@ -39,7 +39,10 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
-import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
+import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
+import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
+import DashboardCanvasView from "../pages/dashboard/DashboardBuilder/DashboardCanvasView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
@@ -253,9 +256,29 @@ const RoutesIndex = () => {
               path="/document-designer"
               element={<DocumentDesignerView />}
             />
+            {/* Step 12 (wizard rebuild), piece 6 — /report-builder is now
+                list-only (ReportBuilderListView.tsx); Add/Edit live on
+                their own screen (ReportBuilderWizardView.tsx), reached via
+                "New Report" / a card's "Edit" button. */}
             <Route
               path="/report-builder"
-              element={<ReportBuilderView />}
+              element={<ReportBuilderListView />}
+            />
+            <Route
+              path="/report-builder/new"
+              element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/report-builder/:id/edit"
+              element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/dashboard-builder"
+              element={<DashboardListView />}
+            />
+            <Route
+              path="/dashboard-builder/:id"
+              element={<DashboardCanvasView />}
             />
             <Route
               path="/custom-field/designer-page-sources"

@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEscapeKey } from "../../../common/SharedFunction";
 import { TReactSetState } from "../../../helpers/AppType";
+import DashboardCanvasView from "../DashboardBuilder/DashboardCanvasView";
+import { IDashboard, listDashboards } from "../DashboardBuilder/DashboardBuilderController";
 import CRMDashboardView from "./crm-dashboard/CRMDashboardView";
 import HRMDashboardView from "./hrm-dashboard/HRMDashboardView";
 import ProductionDashboardView from "./production-dashboard/ProductionDashboardView";
+
+// Custom dashboards (Dashboard Builder) are appended to the SAME combo as
+// options with this value prefix — parsed back into a numeric dashboard id
+// at render time, rather than a separate selector alongside this one.
+const CUSTOM_DASHBOARD_PREFIX = "custom-";
 
 interface Props {
   onClose: () => void;
@@ -18,11 +25,18 @@ const NewDashboardView = ({
   setActiveView,
   setAppliedReportType,
 }: Props) => {
-  const [activeModule, setActiveModule] = useState<
-    "CRM" | "HRM" | "PRODUCTION"
-  >("CRM");
+  const [activeModule, setActiveModule] = useState<string>("CRM");
+  const [customDashboards, setCustomDashboards] = useState<IDashboard[]>([]);
+
+  useEffect(() => {
+    listDashboards().then(setCustomDashboards);
+  }, []);
 
   useEscapeKey(() => onClose());
+
+  const selectedCustomDashboardId = activeModule.startsWith(CUSTOM_DASHBOARD_PREFIX)
+    ? Number(activeModule.slice(CUSTOM_DASHBOARD_PREFIX.length))
+    : null;
 
   return (
     <div
@@ -63,11 +77,16 @@ const NewDashboardView = ({
               className="form-select"
               style={{ width: "200px" }}
               value={activeModule}
-              onChange={(e) => setActiveModule(e.target.value as any)}
+              onChange={(e) => setActiveModule(e.target.value)}
             >
               <option value="CRM">CRM</option>
               <option value="HRM">HRMS</option>
               <option value="PRODUCTION">Production & Inventory</option>
+              {customDashboards.map((d) => (
+                <option key={d.id} value={`${CUSTOM_DASHBOARD_PREFIX}${d.id}`}>
+                  {d.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -112,6 +131,9 @@ const NewDashboardView = ({
           />
         )}
         {activeModule === "PRODUCTION" && <ProductionDashboardView />}
+        {selectedCustomDashboardId !== null && (
+          <DashboardCanvasView dashboardIdOverride={selectedCustomDashboardId} embedded />
+        )}
       </div>
     </div>
   );

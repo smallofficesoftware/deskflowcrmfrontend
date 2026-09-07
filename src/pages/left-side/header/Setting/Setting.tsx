@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import noImage from "../../../../assets/images/no_image.jpeg";
+import { AppContext } from "../../../../common/AppContext";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import ReportModal from "../../../../components/model/ReportsModel";
+import { axiosInstance } from "../../../../services/axiosInstance";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
@@ -154,6 +156,48 @@ const Setting = ({
   function openDocumentDesigner() {
     if (canViewDocumentDesigner) {
       navigate("/document-designer");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
+
+  // Report Builder's own backend access control (reportBuilderRights.js)
+  // reuses application_login_type_rights (PAGE_ID.REPORT_BUILDER) —
+  // same useCheckUserPermission hook every other page's menu entry already
+  // uses. This is safe to share with page-159 `view` because Custom
+  // Reports' own visibility (listRunnableReportDefinitions) deliberately
+  // does NOT consult page-level rights at all — it's gated purely by
+  // report_definition_team_rights, a completely separate per-report grant
+  // (see that function's own comment) — so granting Report Builder `view`
+  // here never leaks into who can browse Custom Reports, and vice versa.
+  // companyFlag (1 = owner, 2 = joined member — same convention
+  // reportPinAuth.js's isCompanyOwner already uses server-side) is already
+  // populated in AppContext at app load, no extra network call needed.
+  // Owner still bypasses server-side regardless of any rights row.
+  const appContext = useContext(AppContext);
+  // Report Builder / Dashboard Builder have no company feature flag —
+  // enabled for every company, gated only by ownership + page-rights here,
+  // enforced again server-side.
+  const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
+  const canViewReportBuilder = useCheckUserPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
+  const showReportBuilderMenu = isCompanyOwnerForReportBuilder || canViewReportBuilder;
+  function openReportBuilder() {
+    if (showReportBuilderMenu) {
+      navigate("/report-builder");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
+
+  // Dashboard Builder's own backend access control (dashboardRights.js)
+  // reuses application_login_type_rights (PAGE_ID.DASHBOARD_BUILDER) —
+  // same useCheckUserPermission hook Report Builder's own entry above uses.
+  // Owner still bypasses server-side regardless of any rights row.
+  const canViewDashboardBuilder = useCheckUserPermission(PAGE_ID.DASHBOARD_BUILDER, PERMISSION_TYPE.VIEW);
+  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder || canViewDashboardBuilder;
+  function openDashboardBuilder() {
+    if (showDashboardBuilderMenu) {
+      navigate("/dashboard-builder");
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
@@ -714,6 +758,58 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
+                  {showReportBuilderMenu && (
+                    <div className="block ps-3" onClick={openReportBuilder}>
+                      <div className="icon-Box">
+                        <button className="icons-setings">
+                          <span data-icon="settings-notifications" className="" title="Report Builder">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              height="24px"
+                              viewBox="0 -960 960 960"
+                              width="24px"
+                              fill="currentColor"
+                            >
+                              <path d="M120-120v-80h720v80H120Zm80-160v-280h100v280H200Zm160 0v-440h100v440H360Zm160 0v-360h100v360H520Zm160 0v-200h100v200H680Z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="h-text">
+                        <div className="head">
+                          <h4 title="Report Builder" aria-label="Report Builder">
+                            Report Builder
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {showDashboardBuilderMenu && (
+                    <div className="block ps-3" onClick={openDashboardBuilder}>
+                      <div className="icon-Box">
+                        <button className="icons-setings">
+                          <span data-icon="settings-notifications" className="" title="Dashboard Builder">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              height="24px"
+                              viewBox="0 -960 960 960"
+                              width="24px"
+                              fill="currentColor"
+                            >
+                              <path d="M120-520v-320h320v320H120Zm0 400v-320h320v320H120Zm400-400v-320h320v320H520Zm0 400v-320h320v320H520ZM200-600h160v-160H200v160Zm400 0h160v-160H600v160Zm0 400h160v-160H600v160ZM200-200h160v-160H200v160Z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="h-text">
+                        <div className="head">
+                          <h4 title="Dashboard Builder" aria-label="Dashboard Builder">
+                            Dashboard Builder
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="block ps-3" onClick={openInsights}>
                     <div className="icon-Box">
                       <button className="icons-setings">

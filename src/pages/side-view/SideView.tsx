@@ -110,7 +110,7 @@ const SideView = ({ profileDetail }: IProp) => {
   // insight-tile category filter, so this intentionally only reacts to the
   // dashboard/reports_home distinction, not every activeView value.
   useEffect(() => {
-    if (reportSlug) return;
+    if (reportSlug || searchParams.get("customReportId")) return;
     setActiveView(searchParams.get("view") === "reports" ? "reports_home" : "dashboard");
   }, [reportSlug, searchParams]);
 
@@ -1249,6 +1249,24 @@ const SideView = ({ profileDetail }: IProp) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportSlug, permissions, searchParams, location.key]);
+
+  // ── URL-driven Custom Report open ───────────────────────────────────────
+  // /SideView?view=reports&customReportId=73 — lets a link elsewhere in the
+  // app (e.g. ReportBuilderListView.tsx's own report-name link, the build
+  // screen reached via Settings) open a specific Custom Report inside this
+  // sidebar shell. Bypasses handleSingleReportShow entirely (same reasoning
+  // as ReportsTileView.tsx's onCustomReportClick — a dynamic numeric id
+  // isn't one of its ~50 fixed names, its fallback branch would just toast
+  // a permission error), setting appliedReportType directly instead.
+  const openedCustomReportIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const customReportId = searchParams.get("customReportId");
+    if (!customReportId) return;
+    if (openedCustomReportIdRef.current === customReportId) return;
+    openedCustomReportIdRef.current = customReportId;
+    setActiveView("custom_report");
+    setAppliedReportType(`custom_report:${customReportId}`);
+  }, [searchParams]);
 
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();

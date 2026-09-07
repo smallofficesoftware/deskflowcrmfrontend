@@ -266,7 +266,7 @@ export const restoreTemplateVersion = async (
   version_number: number,
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/versions/restore", {
+    const data = await postGated("document-templates/versions/restore", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       document_template_id,

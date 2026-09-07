@@ -150,6 +150,10 @@ export enum PAGE_ID {
   DOCUMENT_DESIGNER_RIGHTS = 157,
   REVIEWS_REPORT = 158,
   REPORT_BUILDER = 159,
+  // Dashboard's own feature gate — independent of REPORT_BUILDER's, so a
+  // company can be granted one without the other. Migration
+  // 20260905160000-add-dashboard-builder-application-page.js (master DB).
+  DASHBOARD_BUILDER = 160,
 
   // Add more pages as needed
 }
