@@ -13,6 +13,7 @@ import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { PAGE_ID } from "../../../../helpers/AppEnum";
 import { IFilterPayload } from "../../../../helpers/AppInterface";
 import { useColumnPreferences } from "../../../../hooks/useColumnPreferences";
+import { FooterSpec } from "../../../../services/reportExportService";
 import { useReportFilterPresetsStore } from "../../../../store/report/useReportFilterPresetsStore";
 import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, translateGeneralFilters, IGeneralFilter } from "./generalFilterAdapter";
 import {
@@ -134,6 +135,15 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [rowCount, setRowCount] = useState<number | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  // Grand totals for whichever columns had "Total" checked in Step 2 —
+  // computed server-side (queryEngine.js) over the WHOLE filtered result
+  // set, not just the rows currently loaded into this paginated grid.
+  // Keyed the same as each row's own field keys, so totals[c.key] lines up
+  // with that column directly. Only present in runFromStart's response
+  // (a fresh run/filter/sort/search change) — loadMore's own response
+  // carries the identical value, just not re-applied, since it can't have
+  // changed.
+  const [totals, setTotals] = useState<Record<string, number | null> | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const offsetRef = useRef(0);
@@ -313,11 +323,13 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
       setAccessError("This report couldn't be run — you may not have access to it.");
       setRows([]);
       setHasMore(false);
+      setTotals(undefined);
       return;
     }
     setRows(data.rows);
     setRowCount(data.row_count);
     setDurationMs(data.duration_ms);
+    setTotals(data.totals);
     setHasMore(data.rows.length === PAGE_SIZE);
     offsetRef.current = data.rows.length;
   };
@@ -481,6 +493,30 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     format: mapColumnTypeToExportFormat(filterConfig?.filterableColumns[c.key]?.type),
   }));
 
+  // Excel totals row — reuses the SAME grand totals already computed
+  // server-side for the grid footer (queryEngine.js), as literal values
+  // rather than genericReportExportService.js's own footer.sums
+  // re-summation (which would also be correct here, since Excel export
+  // always fetches the complete filtered row set first, but there's no
+  // reason to compute it twice). First visible column gets a "Total"
+  // label; only columns actually present in `totals` get a value, every
+  // other cell stays blank — same rule the grid's own per-column footer
+  // cells follow.
+  const totalsFooter: FooterSpec | undefined =
+    totals && Object.keys(totals).length > 0
+      ? {
+          sums: [],
+          rows: [
+            Object.fromEntries(
+              exportColumns.map((c, i) => [
+                c.key,
+                totals[c.key] !== undefined && totals[c.key] !== null ? totals[c.key]! : i === 0 ? "Total" : "",
+              ]),
+            ),
+          ],
+        }
+      : undefined;
+
   const handleExportPdf = async () => {
     setExportingPdf(true);
     const url = await exportReportPdf(definitionId, {
@@ -629,6 +665,11 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
                     // of the full filtered/searched result set — same
                     // convention every legacy report's own export already has.
                     selectedRows={selectedRows.length > 0 ? selectedRows : undefined}
+                    // totals reflects the WHOLE filtered set, not a partial
+                    // selection — omit the totals row entirely when exporting
+                    // only checked rows, or it would misleadingly show the
+                    // full report's totals under a handful of exported rows.
+                    footer={selectedRows.length > 0 ? undefined : totalsFooter}
                     onSelect={() => setShowMoreMenu(false)}
                   />
                   <li
@@ -779,9 +820,16 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
               </div>
             }
           >
-            <Column selectionMode="multiple" headerStyle={{ width: "3rem", position: "sticky", top: 0, zIndex: 1 }} bodyStyle={{ textAlign: "center" }} />
+            <Column selectionMode="multiple" headerStyle={{ width: "3rem", position: "sticky", top: 0, zIndex: 1 }} bodyStyle={{ textAlign: "center" }} footer="" />
             {visibleColumns.map((c) => {
               const fmt = definition?.column_formats?.[c.key];
+              // Grand-total footer cell — PrimeReact renders a Column's own
+              // `footer` as a real <tfoot> row (separate from the
+              // "N of M rows loaded" summary bar already on the DataTable
+              // itself below). Only columns present in `totals` (Step 2's
+              // Total checkbox) get one; every other column's footer stays
+              // blank, same as a spreadsheet's own totals row.
+              const totalValue = totals?.[c.key];
               return (
                 <Column
                   key={c.key}
@@ -799,6 +847,8 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
                   }}
                   bodyStyle={{ fontSize: "14px", textAlign: fmt?.align }}
                   body={(row) => renderCell(row[c.key], fmt)}
+                  footer={totalValue !== undefined ? formatCellValue(totalValue, fmt) : ""}
+                  footerStyle={{ fontSize: "14px", fontWeight: 700, textAlign: fmt?.align, background: "#fafafa", borderTop: "2px solid #e5e7eb" }}
                 />
               );
             })}

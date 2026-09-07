@@ -21,6 +21,29 @@ export interface MatchingRelation {
   columns: { key: string; label: string }[];
 }
 
+// Every small input/select in this panel shares one explicit height —
+// Bootstrap's form-control-sm and form-select-sm compute slightly
+// different default vertical padding, so two boxes sitting side by side
+// (a select next to a number input, say) came out visibly different
+// heights when only fontSize/width were set per-control. An explicit
+// height makes every box identical regardless of which element/class it
+// is. Selects additionally need extra right padding — Bootstrap's own
+// dropdown-arrow background-image needs room, or it overlaps the text
+// once the element itself is this narrow.
+const MINI_HEIGHT = 26;
+const miniInputStyle = (width: number): React.CSSProperties => ({
+  height: MINI_HEIGHT,
+  fontSize: 11,
+  width,
+  padding: "2px 6px",
+  marginBottom: 0,
+  boxSizing: "border-box",
+});
+const miniSelectStyle = (width: number): React.CSSProperties => ({
+  ...miniInputStyle(width),
+  padding: "2px 20px 2px 6px",
+});
+
 // Collapsed by default (a small "Format" toggle). Which controls actually
 // render depends on colType — never shown at all for a plain string
 // column with nothing to configure (truncate/align/width still apply to
@@ -61,7 +84,7 @@ const ColumnFormatMini = ({
   };
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", marginLeft: 6 }}>
+    <>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -73,18 +96,23 @@ const ColumnFormatMini = ({
           border: "none",
           cursor: "pointer",
           padding: 0,
+          marginLeft: 6,
           textDecoration: "underline",
         }}
       >
         Format
       </button>
       {open && (
-        <span style={{ display: "inline-flex", flexDirection: "column", gap: 6, marginLeft: 6 }}>
+        // width:100% forces this panel onto its own line within the field
+        // row's flex-wrap container, no matter how much room is left after
+        // the checkbox/label/aggregate/Grid-Excel-Total controls — it never
+        // crams in beside them or overlaps the next field's own row.
+        <span style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: 6, paddingLeft: 24 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {isDate && (
               <select
                 className="form-select form-select-sm"
-                style={{ fontSize: 11, width: 150, padding: "2px 4px" }}
+                style={miniSelectStyle(150)}
                 value={fmt.date || ""}
                 onChange={(e) => onFormat({ date: e.target.value || undefined })}
               >
@@ -104,7 +132,7 @@ const ColumnFormatMini = ({
                     type="number"
                     min={0}
                     max={4}
-                    style={{ width: 40, fontSize: 11 }}
+                    style={miniInputStyle(40)}
                     className="form-control form-control-sm"
                     value={fmt.decimals ?? ""}
                     onChange={(e) => onFormat({ decimals: e.target.value === "" ? undefined : Number(e.target.value) })}
@@ -118,7 +146,7 @@ const ColumnFormatMini = ({
                   type="text"
                   placeholder="₹"
                   maxLength={3}
-                  style={{ width: 40, fontSize: 11 }}
+                  style={miniInputStyle(40)}
                   className="form-control form-control-sm"
                   value={fmt.currencySymbol || ""}
                   onChange={(e) => onFormat({ currencySymbol: e.target.value || undefined })}
@@ -128,7 +156,7 @@ const ColumnFormatMini = ({
             {isLookup && (
               <select
                 className="form-select form-select-sm"
-                style={{ fontSize: 11, width: 110, padding: "2px 4px" }}
+                style={miniSelectStyle(110)}
                 value={fmt.boolean || ""}
                 onChange={(e) => onFormat({ boolean: (e.target.value || undefined) as IColumnFormat["boolean"] })}
               >
@@ -143,7 +171,7 @@ const ColumnFormatMini = ({
                 <input
                   type="number"
                   min={5}
-                  style={{ width: 50, fontSize: 11 }}
+                  style={miniInputStyle(50)}
                   className="form-control form-control-sm"
                   placeholder="chars"
                   value={fmt.truncate ?? ""}
@@ -151,23 +179,26 @@ const ColumnFormatMini = ({
                 />
               </label>
             )}
-            <select
-              className="form-select form-select-sm"
-              style={{ fontSize: 11, width: 90, padding: "2px 4px" }}
-              value={fmt.align || ""}
-              onChange={(e) => onFormat({ align: (e.target.value || undefined) as IColumnFormat["align"] })}
-            >
-              <option value="">Align: default</option>
-              <option value="left">Left</option>
-              <option value="center">Center</option>
-              <option value="right">Right</option>
-            </select>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 3, margin: 0, fontSize: 10, color: "#8a8a8a" }}>
+              Align
+              <select
+                className="form-select form-select-sm"
+                style={miniSelectStyle(90)}
+                value={fmt.align || ""}
+                onChange={(e) => onFormat({ align: (e.target.value || undefined) as IColumnFormat["align"] })}
+              >
+                <option value="">Default</option>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 3, margin: 0, fontSize: 10, color: "#8a8a8a" }}>
               Width
               <input
                 type="number"
                 min={40}
-                style={{ width: 55, fontSize: 11 }}
+                style={miniInputStyle(55)}
                 className="form-control form-control-sm"
                 placeholder="px"
                 value={fmt.width ?? ""}
@@ -181,7 +212,7 @@ const ColumnFormatMini = ({
               Show as label:
               <select
                 className="form-select form-select-sm"
-                style={{ fontSize: 11, width: 180, padding: "2px 4px" }}
+                style={miniSelectStyle(180)}
                 value={fmt.labelRelation || ""}
                 onChange={(e) => onFormat({ labelRelation: e.target.value || undefined })}
               >
@@ -206,21 +237,21 @@ const ColumnFormatMini = ({
                     type="text"
                     disabled
                     value={value}
-                    style={{ width: 50, fontSize: 11 }}
+                    style={miniInputStyle(50)}
                     className="form-control form-control-sm"
                   />
                   <input
                     type="color"
                     value={cfg.color}
                     onChange={(e) => setStatusColor(value, { color: e.target.value })}
-                    style={{ width: 30, height: 24, padding: 0 }}
+                    style={{ width: 30, height: MINI_HEIGHT, padding: 0 }}
                   />
                   <input
                     type="text"
                     placeholder="Label (optional)"
                     value={cfg.label || ""}
                     onChange={(e) => setStatusColor(value, { label: e.target.value || undefined })}
-                    style={{ width: 100, fontSize: 11 }}
+                    style={miniInputStyle(100)}
                     className="form-control form-control-sm"
                   />
                   <button
@@ -237,7 +268,7 @@ const ColumnFormatMini = ({
           )}
         </span>
       )}
-    </span>
+    </>
   );
 };
 
@@ -252,7 +283,7 @@ const AddStatusColorRow: React.FC<{ onAdd: (value: string) => void }> = ({ onAdd
         placeholder="Value (e.g. 1)"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        style={{ width: 90, fontSize: 11 }}
+        style={miniInputStyle(90)}
         className="form-control form-control-sm"
       />
       <button
