@@ -34,7 +34,9 @@ export const fetchApiAccountTransitions = async (
     startSearchDate: TFilterDate,
     endSearchDate: TFilterDate,
     initialCheckedShowCreditData: number | undefined,
-    initialCheckedShowDebitData: number | undefined
+    initialCheckedShowDebitData: number | undefined,
+    setOpeningBalance?: (balance: number) => void,
+    setCurrencySymbol?: (symbol: string) => void,
 ) => {
     const start: number = page * itemsPerPage;
     const getUUID = await localStorage.getItem("UUID");
@@ -61,6 +63,8 @@ export const fetchApiAccountTransitions = async (
                     setLoading(true);
                     setAccountTransactions(data.data.item);
                     setClosingBalance(data.data.closingBalance);
+                    setOpeningBalance?.(data.data.openingBalance || 0);
+                    setCurrencySymbol?.(data.data.currencySymbol || "₹");
                 } else {
                     setLoading(false);
                     setAccountTransactions((prevUsers) => [
