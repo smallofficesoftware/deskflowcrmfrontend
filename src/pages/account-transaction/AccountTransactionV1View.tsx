@@ -33,9 +33,9 @@ function fmtTitleDate(dateInput: any) {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
 }
-const formatBalance = (amount: number) => {
+const formatBalance = (amount: number, currencySymbol?: string) => {
     const absVal = Math.abs(amount);
-    const formatted = fmtNumber(absVal);
+    const formatted = `${currencySymbol ? currencySymbol + " " : ""}${fmtNumber(absVal)}`;
     if (amount >= 0) {
         return <span style={{ color: "green" }}>{formatted} (Cr)</span>;
     } else {
@@ -69,6 +69,8 @@ const AccountTransactionV1 = () => {
     const [accountTransactionList, setAccountTransactionList] = useState<IAccountTransaction[]>([]);
     const [autoPrint, setAutoPrint] = useState(Number(printFlag) !== 1);
     const [closingBalance, setClosingBalance] = useState<number>(0);
+    const [openingBalance, setOpeningBalance] = useState<number>(0);
+    const [currencySymbol, setCurrencySymbol] = useState<string>("₹");
     const [loading, setLoading] = useState(false);
     const [companyData, setCompanyData] = useState<any>({});
     const [contactData, setContactData] = useState<ContactData | null>(null);
@@ -112,7 +114,9 @@ const AccountTransactionV1 = () => {
             startDate,
             endDate,
             creditFilter,
-            debitFilter
+            debitFilter,
+            setOpeningBalance,
+            setCurrencySymbol,
         );
     }, [id, MobileToken, getID, printFlag]);
 
@@ -151,7 +155,7 @@ const AccountTransactionV1 = () => {
         return rows.filter(r => isPresent(r.value));
     };
     const displayedTxs = accountTransactionList.filter((tx) => tx.approve_by_a_application_login_id !== 0);
-    let running = 0;
+    let running = openingBalance;
     const rowsWithBalance = displayedTxs.map((tx) => {
         const amt = Number(tx.amount || 0);
         if (Number(tx.type) === 1) {
@@ -163,7 +167,6 @@ const AccountTransactionV1 = () => {
         }
         return { ...tx, balance: running };
     });
-    const lastRowBalance = rowsWithBalance.length > 0 ? rowsWithBalance[rowsWithBalance.length - 1].balance : closingBalance;
     const fromDate = rowsWithBalance.length > 0
         ? fmtTitleDate(rowsWithBalance[0].s_timestemp || rowsWithBalance[0].payment_date_time)
         : "";
@@ -338,6 +341,12 @@ td, th {
                             </tr>
                         </thead>
                         <tbody className="table-data">
+                            {startDate && (
+                                <tr style={{ background: "#f8f9fa" }}>
+                                    <td colSpan={5}><strong>Opening Balance</strong></td>
+                                    <td className="text-end"><strong>{formatBalance(openingBalance, currencySymbol)}</strong></td>
+                                </tr>
+                            )}
                             {rowsWithBalance.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="text-center py-3">No transactions found</td>
@@ -357,7 +366,7 @@ td, th {
                                                 {/* <td>{tx.reference_table ? `${tx.reference_table} #${tx.reference_id || ""}` : "-"}</td> */}
                                                 <td className="text-end">{isCredit ? fmtNumber(Number(tx.amount || 0)) : "-"}</td>
                                                 <td className="text-end">{isDebit ? fmtNumber(Number(tx.amount || 0)) : "-"}</td>
-                                                <td className="text-end">{formatBalance((tx as any).balance)}</td>
+                                                <td className="text-end">{formatBalance((tx as any).balance, currencySymbol)}</td>
                                             </tr>
                                         );
                                     })
@@ -366,23 +375,12 @@ td, th {
                                 <td colSpan={3}>Total</td>
                                 <td className="text-end">{fmtNumber(totalCredit)}</td>
                                 <td className="text-end">{fmtNumber(totalDebit)}</td>
-                                <td className="text-end">{formatBalance(lastRowBalance)}</td>
+                                <td className="text-end"></td>
                             </tr>
-                            {/* <tr className="totals-row">
-                                <td colSpan={3} className="text-end">Total Credit</td>
-                                <td className="text-end">{fmtNumber(totalCredit)}</td>
-                                <td colSpan={3}></td>
+                            <tr style={{ background: "#f8f9fa" }}>
+                                <td colSpan={5}><strong>Closing Balance</strong></td>
+                                <td className="text-end"><strong>{formatBalance(closingBalance, currencySymbol)}</strong></td>
                             </tr>
-                            <tr className="totals-row">
-                                <td colSpan={3} className="text-end">Total Debit</td>
-                                <td className="text-end">{fmtNumber(totalDebit)}</td>
-                                <td colSpan={3}></td>
-                            </tr>
-                            <tr style={{ background: "#f8f9fa", fontWeight: 700 }}>
-                                <td colSpan={3} className="text-end">Closing Balance</td>
-                                <td className="text-end">{fmtNumber(lastRowBalance)}</td>
-                                <td colSpan={3}></td>
-                            </tr> */}
                         </tbody>
                     </table>
                 </div>
