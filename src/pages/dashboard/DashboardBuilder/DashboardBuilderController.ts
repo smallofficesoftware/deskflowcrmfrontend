@@ -38,6 +38,16 @@ export interface IDashboardWithWidgets extends IDashboard {
   widgets: IDashboardWidget[];
 }
 
+export interface ISystemDashboardDefinition {
+  id: number;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+  priority?: "critical" | "high" | "normal" | null;
+  icon?: string | null;
+  display_order: number;
+}
+
 // One widget's live run result — same shape runDashboard() returns per
 // widget (base widget fields spread with the run's ack/data or ack:0/error).
 export interface IDashboardWidgetResult extends IDashboardWidget {
@@ -177,6 +187,40 @@ export const duplicateDashboard = async (id: number): Promise<IDashboard | null>
     return null;
   } catch (error) {
     handleError(error, "Failed to duplicate dashboard");
+    return null;
+  }
+};
+
+// System gallery (Phase 5) — browsing needs no PIN, same tier Report
+// Builder's own system-gallery/list uses.
+export const listSystemDashboardDefinitions = async (): Promise<ISystemDashboardDefinition[]> => {
+  try {
+    const { data } = await axiosInstance.post("dashboards/system-gallery/list", {
+      a_application_login_id: loginId(),
+    });
+    if (data?.ack === 1) return data.data.item;
+    reportError(data, "Failed to load dashboard gallery");
+    return [];
+  } catch (error) {
+    handleError(error, "Failed to load dashboard gallery");
+    return [];
+  }
+};
+
+export const copyFromSystemDashboardDefinition = async (systemDashboardDefinitionId: number): Promise<IDashboard | null> => {
+  try {
+    const { data } = await axiosInstance.post("dashboards/system-gallery/copy", {
+      a_application_login_id: loginId(),
+      system_dashboard_definition_id: systemDashboardDefinitionId,
+    });
+    if (data?.ack === 1) {
+      toast.success("Dashboard copied successfully");
+      return data.data.item;
+    }
+    reportError(data, "Failed to copy dashboard");
+    return null;
+  } catch (error) {
+    handleError(error, "Failed to copy dashboard");
     return null;
   }
 };
