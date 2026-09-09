@@ -1053,7 +1053,7 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
                                                             </div>
                                                         </div>
 
-                                                        {(Number(orderTypeDefined) == 2 || Number(orderTypeDefined) == 3 || Number(orderTypeDefined) == 1) &&
+                                                        {(Number(orderTypeDefined) == 2 || Number(orderTypeDefined) == 3 || Number(orderTypeDefined) == 1 || Number(orderTypeDefined) == 12) &&
                                                             <>
                                                                 <div
                                                                     className="col-12"
