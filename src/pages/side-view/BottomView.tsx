@@ -5,6 +5,7 @@ import { TReactSetState } from "../../helpers/AppType";
 import { axiosInstance } from "../../services/axiosInstance";
 import { useCommonFilterStore } from "../../store/report/useCommonFilterStore";
 import DashboardView from "../aimodel/AiModelView";
+import FormBuilderListView from "../left-side/header/Setting/form-builder/FormBuilderListView";
 import { ITitle } from "../dashboard/DashoardController";
 import AccountCreaditReport from "../dashboard/Reports/Account Credit Report/AccountCreaditReport";
 import AccountDebitReport from "../dashboard/Reports/Account Debit Report/AccountDebitReport";
@@ -267,6 +268,8 @@ const BottomView = ({
             }}
           />
         )}
+
+        {activeView === "forms_home" && <FormBuilderListView />}
 
         {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (
           <ReportRunnerView

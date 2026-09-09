@@ -154,6 +154,13 @@ export enum PAGE_ID {
   // company can be granted one without the other. Migration
   // 20260905160000-add-dashboard-builder-application-page.js (master DB).
   DASHBOARD_BUILDER = 160,
+  // Custom Form Maker's own feature gate — independent of REPORT_BUILDER's
+  // and DASHBOARD_BUILDER's. Migration
+  // 20260908130000-add-form-builder-application-page.js (master DB).
+  // id 178, not 161 — verified live against a_application_pages; 161-177
+  // were already taken (161 by an existing row, 162-177 by adminpanel's
+  // own pages sharing this table). See that migration's own comment.
+  FORM_BUILDER = 178,
 
   // Add more pages as needed
 }

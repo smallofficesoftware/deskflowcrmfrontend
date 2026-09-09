@@ -39,6 +39,7 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
+import PublicFormFillView from "../pages/public-form/PublicFormFillView";
 import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
 import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
 import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
@@ -77,6 +78,11 @@ const RoutesIndex = () => {
               element={<CompanyVsReferralCode />}
             />
             <Route path="/website/:qrCode" element={<OnlineStore />} />
+            {/* Custom Form Maker — public, no-login fill link (plan §7),
+                mounted alongside online-store's own public route the same
+                way. Tenant/company resolved server-side from qrCode +
+                shareToken, no auth here. */}
+            <Route path="/f/:qrCode/:shareToken" element={<PublicFormFillView />} />
             <Route
               path="/AccountTransactionV1/:id/:MobileToken/:getID"
               element={<AccountTransactionV1 />}
