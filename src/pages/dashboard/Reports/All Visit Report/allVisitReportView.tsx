@@ -419,6 +419,7 @@ const AllVisitReportsView = ({
       username: { value: null, matchMode: "contains" },
       person_name: { value: null, matchMode: "custom" },
       address: { value: null, matchMode: "contains" },
+      contact_address: { value: null, matchMode: "contains" },
       start_date: { value: null, matchMode: "contains" },
       end_date: { value: null, matchMode: "contains" },
       start_day: { value: null, matchMode: "contains" },
@@ -857,6 +858,33 @@ const AllVisitReportsView = ({
       },
       {
         key: "address",
+        label: "Visit Location",
+        header: (
+          <span>
+            Visit <br />Location
+          </span>
+        ),
+        width: "150px",
+        bodyStyle: {
+          fontSize: "14px",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+        },
+        body: (rowData) => (
+          <div
+            style={{
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {rowData.address || "-"}
+          </div>
+        ),
+      },
+      {
+        key: "contact_address",
         label: "Contact Address",
         header: (
           <span>
@@ -878,9 +906,24 @@ const AllVisitReportsView = ({
               overflowWrap: "break-word",
             }}
           >
-            {rowData.address || "-"}
+            {rowData.contact_address || "-"}
           </div>
         ),
+      },
+      {
+        key: "distance_km",
+        label: "Distance",
+        header: (
+          <span>
+            Distance <br />(km)
+          </span>
+        ),
+        width: "100px",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) =>
+          rowData.distance_km !== null && rowData.distance_km !== undefined
+            ? `${rowData.distance_km} km`
+            : "-",
       },
       {
         key: "username",
