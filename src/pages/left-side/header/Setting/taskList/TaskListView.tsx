@@ -977,6 +977,12 @@ const TaskListView = ({
     selectedPriorityId,
     filterParams.checkedOptionsTaskType,
     filterParams.checkedOptionsShowTemplateTask,
+    filterParams.checkedOptions,
+    filterParams.labelwiseContactShowAndOrNot,
+    filterParams.filterData?.country,
+    filterParams.filterData?.state,
+    filterParams.filterData?.city,
+    filterParams.filterData?.area,
   ]);
 
   const handleClickOutside = (event: MouseEvent) => {

@@ -1412,6 +1412,15 @@ const SideView = ({ profileDetail }: IProp) => {
     );
   }
 
+  // Report tiles must navigate rather than call handleSingleReportShow
+  // directly — that function only sets local state, so a direct call never
+  // touches the URL, and refresh/back-forward then has nothing to restore
+  // from and falls back to whatever ?view= says. Navigating to the report's
+  // own /SideView/report/:slug URL lets the existing deep-link effect
+  // (which already calls handleSingleReportShow(reportSlug) correctly)
+  // apply the same state, just from a URL that persists across refresh.
+  const openReport = (name: string) => navigate(`/SideView/report/${name}`);
+
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* SIDEBAR */}
@@ -1423,7 +1432,7 @@ const SideView = ({ profileDetail }: IProp) => {
         }}
       >
         <SidebarView
-          onReportClick={handleSingleReportShow}
+          onReportClick={openReport}
           onInsightsClick={() => {
             setActiveView("dashboard");
             setAppliedReportType("");
@@ -1467,7 +1476,7 @@ const SideView = ({ profileDetail }: IProp) => {
             reportType={reportType}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
-            onReportClick={handleSingleReportShow}
+            onReportClick={openReport}
           />
         </div>
         <TaskStickyIcon
