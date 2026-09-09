@@ -515,7 +515,11 @@ const AllTaskReportsView = ({
           selectedLabelId,
           selectedContactId ? Number(selectedContactId) : 0,
           filters.checkedOptions,
-          filters.labelwiseContactShowAndOrNot
+          filters.labelwiseContactShowAndOrNot,
+          filters.filterData?.country,
+          filters.filterData?.state,
+          filters.filterData?.city,
+          filters.filterData?.area,
         );
       } catch (err) {
         setHasMore(false);
@@ -1167,6 +1171,40 @@ const AllTaskReportsView = ({
             : rowData.assigned_team_member_names || "-",
       },
     );
+
+    // Demography columns — resolved off the linked contact, Support Ticket only.
+    if (is_support_ticket_flag == 1) {
+      defs.push(
+        {
+          key: "contact_country",
+          label: "Country",
+          header: "Country",
+          width: "130px",
+          body: (rowData) => rowData.contact_country || "-",
+        },
+        {
+          key: "contact_state",
+          label: "State",
+          header: "State",
+          width: "130px",
+          body: (rowData) => rowData.contact_state || "-",
+        },
+        {
+          key: "contact_city",
+          label: "City",
+          header: "City",
+          width: "130px",
+          body: (rowData) => rowData.contact_city || "-",
+        },
+        {
+          key: "contact_area",
+          label: "Area",
+          header: "Area",
+          width: "130px",
+          body: (rowData) => rowData.contact_area || "-",
+        },
+      );
+    }
 
     if (displayTasks?.length > 0 && displayTasks[0]?.customForm) {
       displayTasks[0].customForm.forEach((item: any) => {
@@ -2814,7 +2852,11 @@ const AllTaskReportsView = ({
             message="Please select the Dates , Status And Team Member."
             btn1="Clear"
             btn2="Apply"
-            filtersToShow={[1, 4, 10, 9, 11, 12, 21, 2]}
+            filtersToShow={
+              is_support_ticket_flag == 1
+                ? [1, 4, 10, 9, 11, 12, 21, 2, 6] // 6 = Demography, Support Ticket only
+                : [1, 4, 10, 9, 11, 12, 21, 2]
+            }
             pageId={1}
             stageandStatusOrderType={8}
             initialFilterData={{
