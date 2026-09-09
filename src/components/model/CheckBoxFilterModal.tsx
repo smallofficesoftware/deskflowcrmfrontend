@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import { SingleValue } from "react-select";
@@ -311,6 +311,18 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   const [areaList, setAreaList] = useState<any[]>([]);
   const [selectedCountryId, setSelectedCountryId] =
     useState<SingleValue<IOption>>(null);
+  // Tracks which Demography fields the user has manually changed/cleared
+  // since the modal opened — once touched, the initialFilterData-hydration
+  // effect below must not re-impose the last-applied value on that field,
+  // otherwise clearing a field's react-select "x" gets silently undone the
+  // moment its cascading list (stateList/cityList/areaList) resets, since
+  // that reset re-triggers the hydration effect.
+  const touchedDemographyRef = useRef<{
+    country?: boolean;
+    state?: boolean;
+    city?: boolean;
+    area?: boolean;
+  }>({});
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<SingleValue<IOption>>(null);
   const [selectedReqList, setSelectedReqList] =
@@ -451,10 +463,20 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setSelectedWarehouses(selected || []);
   };
 
+  // Fresh modal open — clear "user touched this" tracking so hydration
+  // from initialFilterData is allowed to run again for a new session.
+  useEffect(() => {
+    if (show) touchedDemographyRef.current = {};
+  }, [show]);
+
   useEffect(() => {
     if (!show || !initialFilterData) return;
 
-    if (countriesList.length > 0 && initialFilterData.country) {
+    if (
+      !touchedDemographyRef.current.country &&
+      countriesList.length > 0 &&
+      initialFilterData.country
+    ) {
       const country = countriesList.find(
         (c) => c.id === initialFilterData.country,
       );
@@ -462,19 +484,31 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         country ? { value: country.id, label: country.country_name } : null,
       );
     }
-    if (stateList.length > 0 && initialFilterData.state) {
+    if (
+      !touchedDemographyRef.current.state &&
+      stateList.length > 0 &&
+      initialFilterData.state
+    ) {
       const state = stateList.find((s) => s.id === initialFilterData.state);
       setSelectedStateId(
         state ? { value: state.id, label: state.state_name } : null,
       );
     }
-    if (cityList.length > 0 && initialFilterData.city) {
+    if (
+      !touchedDemographyRef.current.city &&
+      cityList.length > 0 &&
+      initialFilterData.city
+    ) {
       const city = cityList.find((c) => c.id === initialFilterData.city);
       setSelectedCityId(
         city ? { value: city.id, label: city.city_name } : null,
       );
     }
-    if (areaList.length > 0 && initialFilterData.area) {
+    if (
+      !touchedDemographyRef.current.area &&
+      areaList.length > 0 &&
+      initialFilterData.area
+    ) {
       const area = areaList.find((a) => a.id === initialFilterData.area);
       setSelectedAreaId(
         area ? { value: area.id, label: area.area_name } : null,
@@ -1019,7 +1053,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   };
 
   const handleCountryChange = (selectedOption: SingleValue<IOption>) => {
-    console.log("selectedOption", selectedOption);
+    touchedDemographyRef.current.country = true;
+    touchedDemographyRef.current.state = true;
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedCountryId(selectedOption);
     setSelectedStateId(null);
     setSelectedCityId(null);
@@ -1048,16 +1085,22 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   };
 
   const handleAreaChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.area = true;
     setSelectedAreaId(selectedOption);
   };
 
   const handleStateChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.state = true;
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedStateId(selectedOption);
     setSelectedCityId(null);
     setSelectedAreaId(null);
   };
 
   const handleCityChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedCityId(selectedOption);
     setSelectedAreaId(null);
   };

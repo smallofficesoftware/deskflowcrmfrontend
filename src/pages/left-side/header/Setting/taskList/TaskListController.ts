@@ -216,6 +216,10 @@ export const fetchApiTask = async (
   contact_masters_id?: number | null,
   checkedOptionsLabel?: any,
   labelwiseContactShowAndOrNot?: number,
+  country?: string | number | null,
+  state?: string | number | null,
+  city?: string | number | null,
+  area?: string | number | null,
 ) => {
   const token = localStorage.getItem("token");
   const getUUID = localStorage.getItem("UUID");
@@ -253,6 +257,10 @@ export const fetchApiTask = async (
     contact_masters_id,
     labelFilter: checkedOptionsLabel,
     labelwiseContactShowAndOrNot: labelwiseContactShowAndOrNot || 0,
+    country: country || undefined,
+    state: state || undefined,
+    city: city || undefined,
+    area: area || undefined,
   };
 
   try {

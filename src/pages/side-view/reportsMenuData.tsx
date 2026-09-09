@@ -279,6 +279,41 @@ export const reportsMenuData: IReportMenuGroup[] = [
   },
 
   {
+    menu: "Forms",
+    key: "Forms",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        height="24px"
+        viewBox="0 -960 960 960"
+        width="24px"
+        fill="rgb(245, 134, 52)"
+      >
+        <path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520Z" />
+      </svg>
+    ),
+    subMenus: [
+      {
+        label: "Custom Forms",
+        value: "custom_forms",
+        // No pageId, deliberately — this is meant to behave like a static
+        // nav item (per explicit ask: "static like CRM, HRMS, Production"),
+        // not a dynamic permission-gated report tile. This same menu
+        // system filters a subMenu out of the grid entirely when its
+        // pageId has no application_login_type_rights row, and page 178 is
+        // brand new (zero rows anywhere, no owner-bypass in this check) —
+        // an earlier draft set pageId here and the tile silently vanished
+        // for everyone as a result. Real access control (create/edit/
+        // publish/etc.) is already enforced server-side by
+        // formBuilderRights.js regardless of whether this tile itself is
+        // gated, so omitting pageId here doesn't open anything up.
+        icon: "description",
+        description: "Build custom forms and manage their submissions.",
+      },
+    ],
+  },
+
+  {
     menu: "Account",
     key: "Account",
     icon: (
