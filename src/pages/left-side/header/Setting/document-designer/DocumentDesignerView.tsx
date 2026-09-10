@@ -481,6 +481,16 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [pageBorder, setPageBorder] = useState(false);
   const [pageBorderColor, setPageBorderColor] = useState("#000000");
   const [pageBorderWidth, setPageBorderWidth] = useState(0.5);
+  // Manual box override — null means "auto" (tracks margin/header/footer,
+  // the default for every template). Set only once the user actually
+  // toggles Manual Position on; the 4 number inputs always reflect the
+  // CURRENT real position (auto or manual) so switching modes never jumps
+  // to some arbitrary starting value.
+  const [pageBorderManual, setPageBorderManual] = useState(false);
+  const [pageBorderX, setPageBorderX] = useState(10);
+  const [pageBorderY, setPageBorderY] = useState(2);
+  const [pageBorderWidthMM, setPageBorderWidthMM] = useState(190);
+  const [pageBorderHeightMM, setPageBorderHeightMM] = useState(293);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -681,6 +691,23 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     setPageBorder(!!template?.basePdf?.pageBorder);
     setPageBorderColor(template?.basePdf?.pageBorderColor || "#000000");
     setPageBorderWidth(template?.basePdf?.pageBorderWidth ?? 0.5);
+    // Manual mode is on iff all 4 override values are actually set on
+    // basePdf (buildPageBorderField's own all-4-or-none rule). The 4
+    // inputs always reflect the REAL current box though, auto or manual —
+    // read straight off the pageBorder field itself, not the override
+    // metadata, so switching Manual Position on starts from wherever the
+    // border actually is right now instead of some arbitrary default.
+    const isManual = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
+      (k) => typeof template?.basePdf?.[k] === "number",
+    );
+    setPageBorderManual(isManual);
+    const borderField = (template?.basePdf?.staticSchema || []).find((f: any) => f.name === "pageBorder");
+    if (borderField) {
+      setPageBorderX(borderField.position.x);
+      setPageBorderY(borderField.position.y);
+      setPageBorderWidthMM(borderField.width);
+      setPageBorderHeightMM(borderField.height);
+    }
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -728,11 +755,17 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // only applies when it's actually on. Both floored at 2mm — see
     // buildTemplate.js's buildDocTemplate for the full reasoning (same
     // formula).
+    // Manual Position (Header panel) opts a template OUT of this
+    // auto-repositioning entirely — a margin edit shouldn't silently move
+    // a box the user explicitly placed by hand.
+    const isManualBorder = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
+      (k) => typeof template.basePdf?.[k] === "number",
+    );
     const { width: pageWidth, height: pageHeight } = template.basePdf;
     const borderTop = Math.max(2, top - headerHeightMM);
     const borderBottom = footerImage ? Math.max(2, bottom - footerHeightMM) : bottom;
     const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
-      if (field.name === "pageBorder") {
+      if (field.name === "pageBorder" && !isManualBorder) {
         return {
           ...field,
           position: { x: left, y: borderTop },
@@ -1062,8 +1095,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     pageBorder?: boolean;
     pageBorderColor?: string;
     pageBorderWidth?: number;
+    pageBorderManual?: boolean;
+    pageBorderX?: number;
+    pageBorderY?: number;
+    pageBorderWidthMM?: number;
+    pageBorderHeightMM?: number;
   }) => {
     if (!requireEdit() || !currentTemplateId) return;
+    const nextManual = overrides.pageBorderManual ?? pageBorderManual;
     const next = {
       headerVariant,
       headerHeightMM,
@@ -1079,6 +1118,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       marginLeft,
       marginRight,
       ...overrides,
+      // null (not the current numbers) whenever manual mode is off, so
+      // buildPageBorderField's all-4-or-none check falls through to the
+      // auto formula — sending stale numbers here even while "off" would
+      // silently re-enable manual mode server-side.
+      pageBorderX: nextManual ? overrides.pageBorderX ?? pageBorderX : null,
+      pageBorderY: nextManual ? overrides.pageBorderY ?? pageBorderY : null,
+      pageBorderWidthMM: nextManual ? overrides.pageBorderWidthMM ?? pageBorderWidthMM : null,
+      pageBorderHeightMM: nextManual ? overrides.pageBorderHeightMM ?? pageBorderHeightMM : null,
     };
     // Header rebuilds can add/remove/rename header-block fields entirely
     // (e.g. "Details" -> "Image" swaps text fields for an image field), so
@@ -1093,13 +1140,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       // content) — without re-injecting, the real company image that was
       // showing gets wiped back to blank on every height/variant/footer edit.
       designerRef.current.updateTemplate(injectRealCompanyHeaderData(updated, companyData));
-      setHeaderVariant(next.headerVariant);
-      setHeaderHeightMM(next.headerHeightMM);
-      setFooterImage(next.footerImage);
-      setFooterHeightMM(next.footerHeightMM);
-      setPageBorder(next.pageBorder);
-      setPageBorderColor(next.pageBorderColor);
-      setPageBorderWidth(next.pageBorderWidth);
+      // Re-derives every Header-panel state (variant/heights/footer/border
+      // on-off/color/width, AND the manual-mode flag + actual box values)
+      // straight off the real updated template, rather than re-deriving a
+      // subset from `next` by hand — one source of truth for what the
+      // backend actually built.
+      syncHeaderOptionsFromTemplate(updated);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -1131,6 +1177,21 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     if (widthMM < 0) return;
     applyHeaderOptions({ pageBorderWidth: widthMM });
   };
+  // Turning manual mode ON commits whatever the inputs currently show
+  // (already the real current box, synced from the template — see
+  // syncHeaderOptionsFromTemplate) as the override, so flipping the
+  // toggle alone never visibly moves anything. Turning it OFF drops back
+  // to auto (applyHeaderOptions sends null for all 4 whenever
+  // pageBorderManual is false, regardless of what's passed here).
+  const applyPageBorderManual = (manual: boolean) => applyHeaderOptions({ pageBorderManual: manual });
+  const applyPageBorderBox = (box: Partial<{ x: number; y: number; widthMM: number; heightMM: number }>) =>
+    applyHeaderOptions({
+      pageBorderManual: true,
+      ...(box.x !== undefined && { pageBorderX: box.x }),
+      ...(box.y !== undefined && { pageBorderY: box.y }),
+      ...(box.widthMM !== undefined && { pageBorderWidthMM: box.widthMM }),
+      ...(box.heightMM !== undefined && { pageBorderHeightMM: box.heightMM }),
+    });
 
   // A template whose basePdf has never been through applyTemplateOptions'
   // header branch at all has `footerImage === undefined`, not `false` — vs
@@ -1156,6 +1217,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         pageBorder: !!template?.basePdf?.pageBorder,
         pageBorderColor: template?.basePdf?.pageBorderColor || "#000000",
         pageBorderWidth: template?.basePdf?.pageBorderWidth ?? 0.5,
+        // Carries a manual box override forward unchanged if one exists —
+        // omitting these when manual mode is on would silently reset the
+        // border back to auto, same class of bug marginLeft/marginRight
+        // had before.
+        pageBorderX: template?.basePdf?.pageBorderX ?? null,
+        pageBorderY: template?.basePdf?.pageBorderY ?? null,
+        pageBorderWidthMM: template?.basePdf?.pageBorderWidthMM ?? null,
+        pageBorderHeightMM: template?.basePdf?.pageBorderHeightMM ?? null,
         marginLeft: template?.basePdf?.padding?.[3] ?? 10,
         marginRight: template?.basePdf?.padding?.[1] ?? 10,
       },
@@ -1593,6 +1662,72 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
                         onBlur={(e) => applyPageBorderWidth(Number(e.target.value))}
                       />
                     </label>
+                  )}
+                  {pageBorder && (
+                    <>
+                      <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={pageBorderManual}
+                          onChange={(e) => {
+                            setPageBorderManual(e.target.checked);
+                            applyPageBorderManual(e.target.checked);
+                          }}
+                        />
+                        Manual Position
+                      </label>
+                      {pageBorderManual && (
+                        <div className="d-flex flex-wrap gap-2 mb-2" style={{ fontSize: 12 }}>
+                          <label className="d-flex align-items-center gap-1">
+                            X:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              value={pageBorderX}
+                              onChange={(e) => setPageBorderX(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ x: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Y:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              value={pageBorderY}
+                              onChange={(e) => setPageBorderY(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ y: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Width:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              min={1}
+                              value={pageBorderWidthMM}
+                              onChange={(e) => setPageBorderWidthMM(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ widthMM: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Height:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              min={1}
+                              value={pageBorderHeightMM}
+                              onChange={(e) => setPageBorderHeightMM(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ heightMM: Number(e.target.value) })}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </>
                   )}
                   <p style={{ fontSize: 11, color: "#888", margin: "4px 0 8px" }}>
                     Column toggles (HSN/Discount/GST/Image) and each field's Data Binding /
