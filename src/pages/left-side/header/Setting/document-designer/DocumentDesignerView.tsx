@@ -149,6 +149,79 @@ const HEADER_RELATIVE_FIELD_NAMES = new Set([
 // data again regardless of whatever was last saved, so a stale value here
 // is purely cosmetic (corrected the next time this page loads) and never
 // reaches an actual generated PDF.
+// Mirrors backend-document-designer's paperSize.js scaleTemplate/scaleField/
+// scaleBoxDimension/scaleCellStyles field-for-field (not importable from a
+// Node module here). Deliberately NOT the same code path as
+// applyTemplateOptions' own pageSize branch, which rebuilds a FRESH default
+// template and scales THAT — fine for backend's own narrow original use,
+// wrong for us: it would silently discard every manual edit the user made
+// (moved/resized fields, added new ones, restyled text) on every page-size
+// change. This scales the ACTUAL currently-loaded template in place instead,
+// preserving all of that.
+function scaleBoxDimension(box: any, scale: number) {
+  if (!box || typeof box !== "object") return box;
+  const out = { ...box };
+  for (const k of ["top", "right", "bottom", "left"]) {
+    if (typeof box[k] === "number") out[k] = box[k] * scale;
+  }
+  return out;
+}
+
+function scaleCellStyles(styles: any, scale: number) {
+  if (!styles) return styles;
+  return {
+    ...styles,
+    fontSize: typeof styles.fontSize === "number" ? styles.fontSize * scale : styles.fontSize,
+    padding: scaleBoxDimension(styles.padding, scale),
+    borderWidth:
+      typeof styles.borderWidth === "number" ? styles.borderWidth * scale : scaleBoxDimension(styles.borderWidth, scale),
+  };
+}
+
+function scaleField(field: any, scale: number) {
+  const scaled = {
+    ...field,
+    position: { x: field.position.x * scale, y: field.position.y * scale },
+    width: field.width * scale,
+    height: field.height * scale,
+  };
+  if (typeof scaled.fontSize === "number") scaled.fontSize *= scale;
+  if (typeof scaled.padding === "number") scaled.padding *= scale;
+  else if (scaled.padding) scaled.padding = scaleBoxDimension(scaled.padding, scale);
+  if (typeof scaled.borderWidth === "number") scaled.borderWidth *= scale;
+  else if (scaled.borderWidth) scaled.borderWidth = scaleBoxDimension(scaled.borderWidth, scale);
+  if (scaled.headStyles) scaled.headStyles = scaleCellStyles(scaled.headStyles, scale);
+  if (scaled.bodyStyles) scaled.bodyStyles = scaleCellStyles(scaled.bodyStyles, scale);
+  if (scaled.tableStyles) {
+    scaled.tableStyles = {
+      ...scaled.tableStyles,
+      borderWidth: typeof scaled.tableStyles.borderWidth === "number" ? scaled.tableStyles.borderWidth * scale : scaled.tableStyles.borderWidth,
+    };
+  }
+  // headWidthPercentages/columnStyles are already relative (%) — no scaling.
+  return scaled;
+}
+
+// Uniform scale = min(widthRatio, heightRatio), anchored top-left, so it
+// always fits without distorting proportions — same as the backend's own.
+function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: number) {
+  const { width: currentWidth, height: currentHeight } = template.basePdf;
+  const scale = Math.min(targetWidth / currentWidth, targetHeight / currentHeight);
+  if (Math.abs(scale - 1) < 1e-6) return { ...template, basePdf: { ...template.basePdf, width: targetWidth, height: targetHeight } };
+
+  return {
+    ...template,
+    basePdf: {
+      ...template.basePdf,
+      width: targetWidth,
+      height: targetHeight,
+      padding: (template.basePdf.padding || []).map((p: number) => p * scale),
+      staticSchema: (template.basePdf.staticSchema || []).map((f: any) => scaleField(f, scale)),
+    },
+    schemas: template.schemas.map((page: any[]) => page.map((f: any) => scaleField(f, scale))),
+  };
+}
+
 const injectRealCompanyHeaderData = (template: any, companyData: any) => {
   if (!companyData || !template?.basePdf?.staticSchema) return template;
   const contactLine = `Mo.: ${companyData.company_contact ?? ""}  Email: ${companyData.company_email ?? ""}  GSTIN: ${companyData.gst_number ?? ""}  State: ${companyData.state_name ?? ""}`;
@@ -601,21 +674,19 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const applyPageSize = async (width: number, height: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     if (!width || !height) return;
+    // Proportionally rescales the ACTUAL currently-loaded template (header/
+    // footer banners, content fields, items table, page border, page
+    // number — everything) to fit the new dimensions, preserving whatever
+    // the user has manually customized. See scaleTemplateInPlace above for
+    // why this isn't routed through the backend's own pageSize rebuild.
     const template = designerRef.current.getTemplate();
-    // Full Page Border is sized against the OLD width/height (buildPageBorderField
-    // frames basePdf.width/height minus padding) — a pure width/height patch
-    // with no matching border resize would leave it floating off-edge (page
-    // grew) or overflowing past the new page bounds (page shrank), same
-    // "direct client-side basePdf edit the backend rebuild never sees"
-    // reasoning as applyMargins above.
-    const [top, right, bottom, left] = template.basePdf.padding || [25, 10, 15, 10];
-    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) =>
-      field.name === "pageBorder"
-        ? { ...field, position: { x: left, y: top }, width: width - left - right, height: height - top - bottom }
-        : field,
-    );
-    const updated = { ...template, basePdf: { ...template.basePdf, width, height, staticSchema } };
+    const updated = scaleTemplateInPlace(template, width, height);
     designerRef.current.updateTemplate(updated);
+    // Margins/header-height/footer-height/border-width toolbar state all
+    // read off basePdf values that just got scaled — re-sync so they show
+    // the new (scaled) numbers instead of the stale pre-scale ones.
+    syncPageSizeFromTemplate(updated);
+    syncHeaderOptionsFromTemplate(updated);
     await saveDraftSilently();
   };
 
@@ -624,15 +695,20 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
-    // Full Page Border frames this exact padding box (buildPageBorderField,
-    // backend-side) — patching padding here without also repositioning an
-    // existing pageBorder field would leave it framing the OLD margins,
-    // since this whole function is a direct client-side basePdf edit that
-    // never goes through the backend rebuild applyHeaderOptions uses.
-    const { width: pageWidth, height: pageHeight } = template.basePdf;
+    // Full Page Border's left/right tracks the content margin
+    // (buildPageBorderField, backend-side) but top/bottom stays a small
+    // fixed inset independent of it — on purpose, so the header/footer
+    // banners land INSIDE the frame instead of being excluded from it.
+    // Patching padding here without also repositioning an existing
+    // pageBorder field's x/width would leave it framing the OLD left/right
+    // margin, since this whole function is a direct client-side basePdf
+    // edit that never goes through the backend rebuild applyHeaderOptions
+    // uses — y/height are left untouched on purpose (not tied to top/bottom
+    // margin).
+    const { width: pageWidth } = template.basePdf;
     const staticSchema = (template.basePdf.staticSchema || []).map((field: any) =>
       field.name === "pageBorder"
-        ? { ...field, position: { x: left, y: top }, width: pageWidth - left - right, height: pageHeight - top - bottom }
+        ? { ...field, position: { ...field.position, x: left }, width: pageWidth - left - right }
         : field,
     );
     // Same reasoning — a top-margin change needs docTitle/buyer-info/
