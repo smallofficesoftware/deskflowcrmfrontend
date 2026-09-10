@@ -221,6 +221,7 @@ export const reorderDocumentTemplates = async (
   try {
     const data = await postGated("document-templates/reorder", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       doc_type,
       orderedIds,
     });
@@ -238,6 +239,7 @@ export const setDefaultDocumentTemplate = async (
   try {
     const data = await postGated("document-templates/set-default", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       id,
       doc_type,
     });
@@ -255,6 +257,7 @@ export const deleteDocumentTemplate = async (
   try {
     const data = await postGated("document-templates/delete", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       id,
       doc_type,
     });
