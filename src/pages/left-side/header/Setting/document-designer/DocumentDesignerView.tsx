@@ -206,6 +206,20 @@ function scaleField(field: any, scale: number) {
 // always fits without distorting proportions — same as the backend's own.
 function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: number) {
   const { width: currentWidth, height: currentHeight } = template.basePdf;
+  // A pure orientation flip (dimensions literally swap, e.g. 210x297 ->
+  // 297x210) is NOT a resize of the same shape the way A4->A5 is — it's a
+  // different-shaped page. The min-ratio "fit" scale below shrinks
+  // EVERYTHING by whichever axis is more constrained and anchors top-left,
+  // which for a swap leaves the freed-up space (the whole rest of the new,
+  // differently-shaped page) blank instead of reflowing to fill it. Skip
+  // scaling entirely for this case — just flip the page dimensions and
+  // leave field positions/sizes exactly as designed; an orientation change
+  // is really "redesign for a different shape," not "resize the same one."
+  const isPureOrientationFlip = targetWidth === currentHeight && targetHeight === currentWidth;
+  if (isPureOrientationFlip) {
+    return { ...template, basePdf: { ...template.basePdf, width: targetWidth, height: targetHeight } };
+  }
+
   const scale = Math.min(targetWidth / currentWidth, targetHeight / currentHeight);
   if (Math.abs(scale - 1) < 1e-6) return { ...template, basePdf: { ...template.basePdf, width: targetWidth, height: targetHeight } };
 
