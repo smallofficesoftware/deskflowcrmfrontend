@@ -1832,6 +1832,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setnewOrderShowNumAfterConversion(undefined);
     setSelectedPaymentMode("");
     setSelectedMiracleLedgerAdv("");
+    setSelectedPriceList(undefined);
+    setCurrentPage(0);
+    setFocusedProductIndex(null);
+    setProductList([]);
   };
 
   const handleClear = () => {
@@ -1870,6 +1874,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setnewOrderShowNumAfterConversion(undefined);
     setSelectedPaymentMode("");
     setSelectedMiracleLedgerAdv("");
+    setSelectedPriceList(undefined);
+    setCurrentPage(0);
+    setFocusedProductIndex(null);
+    setProductList([]);
   };
 
   const handleCategoryChange = (selectedOption: SingleValue<IOption>) => {
