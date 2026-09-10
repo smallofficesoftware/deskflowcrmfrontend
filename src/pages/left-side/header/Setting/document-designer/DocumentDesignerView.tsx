@@ -356,6 +356,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [headerHeightMM, setHeaderHeightMM] = useState(18);
   const [footerImage, setFooterImage] = useState(false);
   const [footerHeightMM, setFooterHeightMM] = useState(15);
+  const [pageBorder, setPageBorder] = useState(false);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -553,6 +554,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 18);
     setFooterImage(!!template?.basePdf?.footerImage);
     setFooterHeightMM(template?.basePdf?.footerHeightMM ?? 15);
+    setPageBorder(!!template?.basePdf?.pageBorder);
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -852,6 +854,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     headerHeightMM?: number;
     footerImage?: boolean;
     footerHeightMM?: number;
+    pageBorder?: boolean;
   }) => {
     if (!requireEdit() || !currentTemplateId) return;
     const next = {
@@ -859,6 +862,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       headerHeightMM,
       footerImage,
       footerHeightMM,
+      pageBorder,
       ...overrides,
     };
     // Header rebuilds can add/remove/rename header-block fields entirely
@@ -878,6 +882,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       setHeaderHeightMM(next.headerHeightMM);
       setFooterImage(next.footerImage);
       setFooterHeightMM(next.footerHeightMM);
+      setPageBorder(next.pageBorder);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -903,6 +908,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     if (!heightMM || heightMM <= 0) return;
     applyHeaderOptions({ footerHeightMM: heightMM });
   };
+  const applyPageBorder = (enabled: boolean) => applyHeaderOptions({ pageBorder: enabled });
 
   // A template whose basePdf has never been through applyTemplateOptions'
   // header branch at all has `footerImage === undefined`, not `false` — vs
@@ -925,6 +931,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         headerHeightMM: template?.basePdf?.headerHeightMM ?? 18,
         footerImage: true,
         footerHeightMM: template?.basePdf?.footerHeightMM ?? 15,
+        pageBorder: !!template?.basePdf?.pageBorder,
       },
     });
     if (updated && designerRef.current) {
@@ -1311,6 +1318,16 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
                       />
                     </label>
                   )}
+                  <hr style={{ margin: "8px 0" }} />
+                  <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={pageBorder}
+                      onChange={(e) => applyPageBorder(e.target.checked)}
+                    />
+                    Full Page Border
+                  </label>
                   <p style={{ fontSize: 11, color: "#888", margin: "4px 0 8px" }}>
                     Column toggles (HSN/Discount/GST/Image) and each field's Data Binding /
                     Visibility live in that field's own properties now — click it on the canvas
