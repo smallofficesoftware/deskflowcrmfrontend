@@ -869,7 +869,11 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     const target = selectedField ? { name: selectedField.name, pageIndex: selectedField.pageIndex } : null;
     const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: next });
     if (updated && designerRef.current) {
-      designerRef.current.updateTemplate(updated);
+      // Backend rebuilds staticSchema from scratch on every header/footer
+      // change (buildHeaderFields/buildFooterFields, blank placeholder
+      // content) — without re-injecting, the real company image that was
+      // showing gets wiped back to blank on every height/variant/footer edit.
+      designerRef.current.updateTemplate(injectRealCompanyHeaderData(updated, companyData));
       setHeaderVariant(next.headerVariant);
       setHeaderHeightMM(next.headerHeightMM);
       setFooterImage(next.footerImage);
