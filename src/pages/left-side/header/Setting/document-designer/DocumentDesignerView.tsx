@@ -13,11 +13,13 @@ import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesi
 import TemplateSidebar from "../../../../../common/pdfmeDesigner/TemplateSidebar";
 import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
 import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
+import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../../../../helpers/AppConstants";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
 import { previewReportPdf, verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
+import { fetchCompanyKeyApi, ICompany } from "../../../LeftSideController";
 import {
   IDocumentTemplateFull,
   IDocumentTemplateListItem,
@@ -102,6 +104,55 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // that applyOptionsToDraft and previewDocumentTemplate don't know how to
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
+
+// Company image filename (e.g. "22/172938....png", company_masters' own raw
+// column value) -> a directly loadable URL, via the same static mount every
+// other company-image <img> in this app already uses (index.js's
+// `app.use("/companyImg", ...)`) — note this is the API host WITHOUT the
+// axiosInstance baseURL's "/api" suffix, since that static route is mounted
+// at root, not under /api.
+const companyImageUrl = (filename?: string) =>
+  filename ? `${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/companyImg/${filename}` : "";
+
+// Mirrors backend's withCompanyHeader (templates.js) field-for-field, but
+// client-side and display-only — shows this company's REAL name/address/
+// logo/header-footer-signature images on the editing canvas instead of
+// buildTemplate.js's generic "COMPANY NAME" placeholder, the same gap
+// Document Designer's real generate-time path doesn't have (it always runs
+// through the real withCompanyHeader). Safe to let this get saved back into
+// draft_template_json along with everything else — generate() always
+// overwrites these exact same dataSource-keyed fields' content with real
+// data again regardless of whatever was last saved, so a stale value here
+// is purely cosmetic (corrected the next time this page loads) and never
+// reaches an actual generated PDF.
+const injectRealCompanyHeaderData = (template: any, companyData: any) => {
+  if (!companyData || !template?.basePdf?.staticSchema) return template;
+  const contactLine = `Mo.: ${companyData.company_contact ?? ""}  Email: ${companyData.company_email ?? ""}  GSTIN: ${companyData.gst_number ?? ""}  State: ${companyData.state_name ?? ""}`;
+  const addressLine = `Address: ${companyData.address ?? ""}\n${contactLine}`;
+  const combinedBlock = `${companyData.company_name ?? ""}\n${addressLine}`;
+  const headerImageUrl = companyImageUrl(companyData.header_img);
+  const logoUrl = companyImageUrl(companyData.company_logo);
+  const footerImageUrl = companyImageUrl(companyData.footer_img);
+  const signUrl = companyImageUrl(companyData.company_sign);
+
+  return {
+    ...template,
+    basePdf: {
+      ...template.basePdf,
+      staticSchema: template.basePdf.staticSchema.map((field: any) => {
+        const key = field.dataSource || field.name;
+        if (key === "companyName") return { ...field, content: companyData.company_name ?? "" };
+        if (key === "companyAddress") return { ...field, content: addressLine };
+        if (key === "companyDetailsWithLogo") return { ...field, content: combinedBlock };
+        if (key === "companyHeaderImage" && headerImageUrl) return { ...field, content: headerImageUrl };
+        if (key === "companyLogo" && logoUrl) return { ...field, content: logoUrl };
+        if (key === "companyFooterImage" && footerImageUrl) return { ...field, content: footerImageUrl };
+        if (key === "companySignatureImage" && signUrl) return { ...field, content: signUrl };
+        return field;
+      }),
+    },
+  };
+};
 
 // Column-toggle checkboxes (HSN/Discount/CGST/SGST/IGST/Image) merged into
 // the itemsTable field's OWN pdfme sidebar panel, instead of a generic
@@ -258,6 +309,19 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const canEdit = reportMode ? true : rights?.edit === 1;
   const canAdd = reportMode ? true : rights?.add === 1;
 
+  // Same independent-fetch reasoning as `rights` above — AppContext's
+  // companyData is only populated by LeftSideView's onLoad, which a direct
+  // navigation to this top-level route never mounts. Needed so the canvas
+  // can show this company's REAL header/footer/logo while editing (see
+  // injectRealCompanyHeaderData below) instead of buildTemplate.js's
+  // generic "COMPANY NAME" placeholder — real substitution only otherwise
+  // happens at actual PDF-generation time (withCompanyHeader, backend-side).
+  const [companyData, setCompanyData] = useState<ICompany | undefined>(undefined);
+  useEffect(() => {
+    fetchCompanyKeyApi(setCompanyData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [docType, setDocType] = useState<string>(reportMode?.docType || "quotation");
   const [templates, setTemplates] = useState<IDocumentTemplateListItem[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<number | null>(null);
@@ -289,11 +353,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [marginRight, setMarginRight] = useState(10);
   const [marginBottom, setMarginBottom] = useState(15);
   const [marginLeft, setMarginLeft] = useState(10);
-  // Header toolbar needs to know the CURRENT variant/height to render the
-  // select as controlled (not just on change) and to show the height input
-  // only for the "image" variant, initialized from whatever's mounted.
+  // Header/footer toolbar needs to know the CURRENT variant/heights to
+  // render controls as controlled (not just on change) and to show the
+  // height input only for the "image" header variant, initialized from
+  // whatever's mounted.
   const [headerVariant, setHeaderVariant] = useState("details");
   const [headerHeightMM, setHeaderHeightMM] = useState(18);
+  const [footerImage, setFooterImage] = useState(false);
+  const [footerHeightMM, setFooterHeightMM] = useState(15);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -343,8 +410,18 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const mountOrUpdateDesigner = (template: any) => {
     syncPageSizeFromTemplate(template);
     syncHeaderOptionsFromTemplate(template);
-    return mountDesignerRaw(template);
+    return mountDesignerRaw(injectRealCompanyHeaderData(template, companyData));
   };
+
+  // companyData resolves asynchronously (see the fetchCompanyKeyApi effect
+  // above) — if a template mounts before it arrives, the canvas would be
+  // stuck showing placeholders until the next reload. Re-applies onto
+  // whatever's currently on the canvas the moment companyData lands.
+  useEffect(() => {
+    if (!companyData || !designerRef.current) return;
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData(designerRef.current.getTemplate(), companyData));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyData]);
 
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
@@ -420,7 +497,9 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     if (!full) return;
     setCurrentTemplateId(full.id);
     setCurrentTemplateFull(full);
-    mountOrUpdateDesigner(JSON.parse(full.draft_template_json));
+    const template = JSON.parse(full.draft_template_json);
+    mountOrUpdateDesigner(template);
+    maybeAutoEnableFooterImage(full.id, template);
   };
 
   // Reflects whatever's actually mounted into the page-size toolbar — a
@@ -463,13 +542,15 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
-  // Reflects whatever's actually mounted into the header toolbar — same
-  // reasoning as syncPageSizeFromTemplate above. Falls back to the
-  // builder's own defaults (buildTemplate.js's buildHeaderFields) for a
-  // template saved before headerHeightMM existed on basePdf.
+  // Reflects whatever's actually mounted into the header/footer toolbar —
+  // same reasoning as syncPageSizeFromTemplate above. Falls back to the
+  // builder's own defaults (buildTemplate.js's buildHeaderFields/
+  // buildFooterFields) for a template saved before these existed on basePdf.
   const syncHeaderOptionsFromTemplate = (template: any) => {
     setHeaderVariant(template?.basePdf?.headerVariant || "details");
     setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 18);
+    setFooterImage(!!template?.basePdf?.footerImage);
+    setFooterHeightMM(template?.basePdf?.footerHeightMM ?? 15);
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -757,27 +838,40 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
-  // Header-variant toolbar — applied live to the draft via apply-options,
-  // not deferred to Save Draft. Always carries the current headerHeightMM
-  // along with a variant switch — applyTemplateOptions' header branch
-  // rebuilds from scratch via getTemplate(), which defaults headerHeightMM
-  // back to 18 if it's left out, silently discarding a custom height the
-  // moment the variant (or anything else routed through this) changes.
-  const applyHeaderVariant = async (variant: string, heightMM: number = headerHeightMM) => {
+  // Header/footer toolbar — applied live to the draft via apply-options,
+  // not deferred to Save Draft. Always carries ALL FOUR fields (current
+  // state for whichever ones the caller doesn't override) — applyTemplateOptions'
+  // header branch rebuilds from scratch via getTemplate(), which defaults
+  // any omitted field back to its built-in default, silently discarding a
+  // custom header height, variant, or footer setting the moment any ONE of
+  // them changes.
+  const applyHeaderOptions = async (overrides: {
+    headerVariant?: string;
+    headerHeightMM?: number;
+    footerImage?: boolean;
+    footerHeightMM?: number;
+  }) => {
     if (!requireEdit() || !currentTemplateId) return;
+    const next = {
+      headerVariant,
+      headerHeightMM,
+      footerImage,
+      footerHeightMM,
+      ...overrides,
+    };
     // Header rebuilds can add/remove/rename header-block fields entirely
     // (e.g. "Details" -> "Image" swaps text fields for an image field), so
     // re-selecting by name is a best-effort match, not guaranteed — if the
     // named field no longer exists, selectSchemas() just selects nothing
     // rather than throwing.
     const target = selectedField ? { name: selectedField.name, pageIndex: selectedField.pageIndex } : null;
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, {
-      header: { headerVariant: variant, headerHeightMM: heightMM },
-    });
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: next });
     if (updated && designerRef.current) {
       designerRef.current.updateTemplate(updated);
-      setHeaderVariant(variant);
-      setHeaderHeightMM(heightMM);
+      setHeaderVariant(next.headerVariant);
+      setHeaderHeightMM(next.headerHeightMM);
+      setFooterImage(next.footerImage);
+      setFooterHeightMM(next.footerHeightMM);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -793,11 +887,44 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
-  // Height input (image variant only) — same "apply now" flow, variant
-  // stays whatever it already was.
+  const applyHeaderVariant = (variant: string) => applyHeaderOptions({ headerVariant: variant });
   const applyHeaderHeight = (heightMM: number) => {
     if (!heightMM || heightMM <= 0) return;
-    applyHeaderVariant(headerVariant, heightMM);
+    applyHeaderOptions({ headerHeightMM: heightMM });
+  };
+  const applyFooterImage = (enabled: boolean) => applyHeaderOptions({ footerImage: enabled });
+  const applyFooterHeight = (heightMM: number) => {
+    if (!heightMM || heightMM <= 0) return;
+    applyHeaderOptions({ footerHeightMM: heightMM });
+  };
+
+  // A template whose basePdf has never been through applyTemplateOptions'
+  // header branch at all has `footerImage === undefined`, not `false` — vs
+  // one that's EXPLICITLY had it turned off, which is always a real boolean
+  // (buildTemplate.js's own default footerImage=false writes a concrete
+  // value on every build). Only that undefined/never-decided case gets
+  // auto-enabled here, and only when the company already has a footer image
+  // configured — an explicit past "off" choice (e.g. a narrow receipt
+  // that's deliberately footer-less) is never overridden. Takes id/template
+  // directly rather than reading currentTemplateId/designerRef state,
+  // because this runs synchronously right after openTemplate's setState
+  // calls, before their closures would see the update.
+  const maybeAutoEnableFooterImage = async (id: number, template: any) => {
+    if (template?.basePdf?.footerImage !== undefined) return;
+    if (!companyData?.footer_img) return;
+    if (!canEdit && !canAdd) return;
+    const updated = await applyOptionsToDraft(id, docType, {
+      header: {
+        headerVariant: template?.basePdf?.headerVariant || "details",
+        headerHeightMM: template?.basePdf?.headerHeightMM ?? 18,
+        footerImage: true,
+        footerHeightMM: template?.basePdf?.footerHeightMM ?? 15,
+      },
+    });
+    if (updated && designerRef.current) {
+      designerRef.current.updateTemplate(injectRealCompanyHeaderData(updated, companyData));
+      syncHeaderOptionsFromTemplate(updated);
+    }
   };
 
   // Patches only the itemsTable field in place via pdfme's own changeSchemas
@@ -1150,6 +1277,31 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
                         value={headerHeightMM}
                         onChange={(e) => setHeaderHeightMM(Number(e.target.value))}
                         onBlur={(e) => applyHeaderHeight(Number(e.target.value))}
+                      />
+                    </label>
+                  )}
+                  <hr style={{ margin: "8px 0" }} />
+                  <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={footerImage}
+                      onChange={(e) => applyFooterImage(e.target.checked)}
+                    />
+                    Show Footer Image
+                  </label>
+                  {footerImage && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Footer Height (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={5}
+                        max={100}
+                        value={footerHeightMM}
+                        onChange={(e) => setFooterHeightMM(Number(e.target.value))}
+                        onBlur={(e) => applyFooterHeight(Number(e.target.value))}
                       />
                     </label>
                   )}
