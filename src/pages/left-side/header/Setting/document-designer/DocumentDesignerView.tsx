@@ -414,14 +414,21 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   };
 
   // companyData resolves asynchronously (see the fetchCompanyKeyApi effect
-  // above) — if a template mounts before it arrives, the canvas would be
-  // stuck showing placeholders until the next reload. Re-applies onto
-  // whatever's currently on the canvas the moment companyData lands.
+  // above), and so does the Designer itself mounting (useDesignerInstance
+  // awaits a font fetch + a container-ready retry loop before it sets
+  // designerMounted) — whichever of the two finishes LAST is what actually
+  // needs to trigger the re-apply. Depending on [companyData] alone missed
+  // the (very real) case where company data resolves first: designerRef.current
+  // is still null at that moment, this effect no-ops, and since companyData
+  // never changes again, it silently never retries — the canvas stays on
+  // placeholders (mountOrUpdateDesigner's own injection, captured by the
+  // one-shot init effect, ran with companyData still undefined). Watching
+  // designerMounted too covers that ordering as well.
   useEffect(() => {
     if (!companyData || !designerRef.current) return;
     designerRef.current.updateTemplate(injectRealCompanyHeaderData(designerRef.current.getTemplate(), companyData));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyData]);
+  }, [companyData, designerMounted]);
 
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
