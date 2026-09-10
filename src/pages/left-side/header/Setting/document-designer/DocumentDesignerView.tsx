@@ -252,6 +252,11 @@ const DocumentDesignerView: React.FC = () => {
   const [pageSizeMode, setPageSizeMode] = useState<"A4" | "A5" | "custom">("A4");
   const [customPageWidth, setCustomPageWidth] = useState(210);
   const [customPageHeight, setCustomPageHeight] = useState(297);
+  // Header toolbar needs to know the CURRENT variant/height to render the
+  // select as controlled (not just on change) and to show the height input
+  // only for the "image" variant, initialized from whatever's mounted.
+  const [headerVariant, setHeaderVariant] = useState("details");
+  const [headerHeightMM, setHeaderHeightMM] = useState(18);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -293,6 +298,7 @@ const DocumentDesignerView: React.FC = () => {
   // this file did before extracting the shared mount routine.
   const mountOrUpdateDesigner = (template: any) => {
     syncPageSizeFromTemplate(template);
+    syncHeaderOptionsFromTemplate(template);
     return mountDesignerRaw(template);
   };
 
@@ -382,6 +388,15 @@ const DocumentDesignerView: React.FC = () => {
     }
     setCustomPageWidth(width);
     setCustomPageHeight(height);
+  };
+
+  // Reflects whatever's actually mounted into the header toolbar — same
+  // reasoning as syncPageSizeFromTemplate above. Falls back to the
+  // builder's own defaults (buildTemplate.js's buildHeaderFields) for a
+  // template saved before headerHeightMM existed on basePdf.
+  const syncHeaderOptionsFromTemplate = (template: any) => {
+    setHeaderVariant(template?.basePdf?.headerVariant || "details");
+    setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 18);
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -642,8 +657,12 @@ const DocumentDesignerView: React.FC = () => {
   };
 
   // Header-variant toolbar — applied live to the draft via apply-options,
-  // not deferred to Save Draft.
-  const applyHeaderVariant = async (headerVariant: string) => {
+  // not deferred to Save Draft. Always carries the current headerHeightMM
+  // along with a variant switch — applyTemplateOptions' header branch
+  // rebuilds from scratch via getTemplate(), which defaults headerHeightMM
+  // back to 18 if it's left out, silently discarding a custom height the
+  // moment the variant (or anything else routed through this) changes.
+  const applyHeaderVariant = async (variant: string, heightMM: number = headerHeightMM) => {
     if (!requireEdit() || !currentTemplateId) return;
     // Header rebuilds can add/remove/rename header-block fields entirely
     // (e.g. "Details" -> "Image" swaps text fields for an image field), so
@@ -651,9 +670,13 @@ const DocumentDesignerView: React.FC = () => {
     // named field no longer exists, selectSchemas() just selects nothing
     // rather than throwing.
     const target = selectedField ? { name: selectedField.name, pageIndex: selectedField.pageIndex } : null;
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: { headerVariant } });
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, {
+      header: { headerVariant: variant, headerHeightMM: heightMM },
+    });
     if (updated && designerRef.current) {
       designerRef.current.updateTemplate(updated);
+      setHeaderVariant(variant);
+      setHeaderHeightMM(heightMM);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -667,6 +690,13 @@ const DocumentDesignerView: React.FC = () => {
         }, 0);
       }
     }
+  };
+
+  // Height input (image variant only) — same "apply now" flow, variant
+  // stays whatever it already was.
+  const applyHeaderHeight = (heightMM: number) => {
+    if (!heightMM || heightMM <= 0) return;
+    applyHeaderVariant(headerVariant, heightMM);
   };
 
   // Patches only the itemsTable field in place via pdfme's own changeSchemas
@@ -978,13 +1008,28 @@ const DocumentDesignerView: React.FC = () => {
                   <select
                     className="form-select form-select-sm mb-2"
                     onChange={(e) => applyHeaderVariant(e.target.value)}
-                    defaultValue="details"
+                    value={headerVariant}
                   >
                     <option value="details">Header: Details</option>
                     <option value="image">Header: Image</option>
                     <option value="logoLeft">Header: Logo Left</option>
                     <option value="logoRight">Header: Logo Right</option>
                   </select>
+                  {headerVariant === "image" && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Height (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={5}
+                        max={100}
+                        value={headerHeightMM}
+                        onChange={(e) => setHeaderHeightMM(Number(e.target.value))}
+                        onBlur={(e) => applyHeaderHeight(Number(e.target.value))}
+                      />
+                    </label>
+                  )}
                   <p style={{ fontSize: 11, color: "#888", margin: "4px 0 8px" }}>
                     Column toggles (HSN/Discount/GST/Image) and each field's Data Binding /
                     Visibility live in that field's own properties now — click it on the canvas
