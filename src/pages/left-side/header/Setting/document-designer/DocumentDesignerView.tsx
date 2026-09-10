@@ -578,7 +578,18 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
-    const updated = { ...template, basePdf: { ...template.basePdf, padding: [top, right, bottom, left] } };
+    // Full Page Border frames this exact padding box (buildPageBorderField,
+    // backend-side) — patching padding here without also repositioning an
+    // existing pageBorder field would leave it framing the OLD margins,
+    // since this whole function is a direct client-side basePdf edit that
+    // never goes through the backend rebuild applyHeaderOptions uses.
+    const { width: pageWidth, height: pageHeight } = template.basePdf;
+    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) =>
+      field.name === "pageBorder"
+        ? { ...field, position: { x: left, y: top }, width: pageWidth - left - right, height: pageHeight - top - bottom }
+        : field,
+    );
+    const updated = { ...template, basePdf: { ...template.basePdf, padding: [top, right, bottom, left], staticSchema } };
     designerRef.current.updateTemplate(updated);
     await saveDraftSilently();
   };
