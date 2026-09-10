@@ -720,14 +720,21 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // edge (buildTemplate.js's buildDocTemplate: x = pageWidth - right -
     // 20) — same "direct client-side edit the backend rebuild never sees"
     // gap as pageBorder above.
+    // Border's top edge is `top` MINUS headerHeightMM, not `top` itself —
+    // `top` alone is the clearance for BODY content (below the header
+    // banner), so subtracting the header's own height pulls the frame back
+    // up to roughly where the header banner starts, putting it inside the
+    // frame. Floored at 2mm — see buildTemplate.js's buildDocTemplate for
+    // the full reasoning (same formula).
     const { width: pageWidth, height: pageHeight } = template.basePdf;
+    const borderTop = Math.max(2, top - headerHeightMM);
     const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
       if (field.name === "pageBorder") {
         return {
           ...field,
-          position: { x: left, y: top },
+          position: { x: left, y: borderTop },
           width: pageWidth - left - right,
-          height: pageHeight - top - bottom,
+          height: pageHeight - borderTop - bottom,
         };
       }
       if (field.name === "pageNumber") {
