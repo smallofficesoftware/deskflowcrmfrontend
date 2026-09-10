@@ -181,6 +181,29 @@ export const resetTemplateToSystemDefault = async (id: number): Promise<IDocumen
   }
 };
 
+// "Add Field" picker — the code-default template for a doc_type, from
+// backend-document-designer's own builders (buildAccountStatementTemplate &
+// co.). Read-only, writes nothing, so it's not PIN-gated. The view lists
+// this template's fields in a dropdown; picking one inserts that field with
+// its correct name/columns/styles — the generic palette can only add a
+// blank field.
+export const getDefaultTemplateFields = async (doc_type: string): Promise<any | null> => {
+  try {
+    const { data } = await axiosInstance.post("document-templates/default-fields", {
+      company_masters_id: companyMastersId(),
+      doc_type,
+    });
+    if (data?.ack !== 1) {
+      toast.error(data?.ack_msg || "Failed to load field list");
+      return null;
+    }
+    return data.data.item.template;
+  } catch (error) {
+    handleError(error, "Failed to load field list");
+    return null;
+  }
+};
+
 export const publishDocumentTemplate = async (id: number): Promise<boolean> => {
   try {
     const data = await postGated("document-templates/publish", {

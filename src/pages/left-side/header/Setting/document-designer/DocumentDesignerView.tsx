@@ -30,6 +30,7 @@ import {
   duplicateDocumentTemplate,
   exportDocumentTemplate,
   getDataDictionary,
+  getDefaultTemplateFields,
   getDocumentTemplate,
   importDocumentTemplate,
   listDocumentTemplates,
@@ -104,6 +105,34 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // that applyOptionsToDraft and previewDocumentTemplate don't know how to
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
+
+// "Generate Preview" record-picker steps per non-cart doc type. Each step
+// resolves one id that previewDocumentTemplate (documentPrintTemplateServices.js)
+// renders against real data: "contact"/"employee" pick the primary entity,
+// "transaction"/"employeeTransaction" pick one row of that entity's ledger
+// (needs the contact_id/team_id from the previous step), "order" reuses the
+// cart list. taskDueList has no picker (it's a whole-list document). The
+// cart doc types keep their own single "order" step via CART_TYPE_BY_DOC_TYPE.
+type PreviewStepKind = "contact" | "employee" | "transaction" | "employeeTransaction" | "order";
+const PREVIEW_STEPS_BY_DOC_TYPE: Record<string, PreviewStepKind[]> = {
+  accountStatement: ["contact"],
+  accountTransaction: ["contact", "transaction"],
+  employeeAccountStatement: ["employee"],
+  employeeAccountTransaction: ["employee", "employeeTransaction"],
+  contactAddress: ["contact"],
+  contactEnvelope: ["contact"],
+  shippingLabel: ["order"],
+  taskDueList: [],
+};
+const previewStepsFor = (docType: string): PreviewStepKind[] =>
+  CART_SHAPED_DOC_TYPES.has(docType) ? ["order"] : PREVIEW_STEPS_BY_DOC_TYPE[docType] || [];
+const PREVIEW_STEP_LABEL: Record<PreviewStepKind, string> = {
+  contact: "contact",
+  employee: "team member",
+  transaction: "transaction",
+  employeeTransaction: "transaction",
+  order: "order",
+};
 
 // Mirrors buildTemplate.js's own HEADER_RELATIVE_FIELD_NAMES/shiftFieldY
 // exactly (backend-only, not importable from a Node module here) — used by
@@ -236,6 +265,16 @@ function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: 
     schemas: template.schemas.map((page: any[]) => page.map((f: any) => scaleField(f, scale))),
   };
 }
+
+// "statementTable" -> "Statement Table", "noDataText" -> "No Data Text"
+const humanizeFieldName = (name: string): string =>
+  name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+
+// Every named field on the default template's first page — the catalog the
+// "Add Field" dropdown offers. Adding a field whose name is already on the
+// canvas is blocked at insert time.
+const collectDefaultFields = (defaultTemplate: any): any[] =>
+  ((defaultTemplate?.schemas?.[0] as any[]) || []).filter((f) => f && f.name);
 
 const injectRealCompanyHeaderData = (template: any, companyData: any) => {
   if (!companyData || !template?.basePdf?.staticSchema) return template;
@@ -445,6 +484,13 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [currentTemplateFull, setCurrentTemplateFull] = useState<IDocumentTemplateFull | null>(null);
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  // "Add Field" catalog — the code-default template's fields for the current
+  // doc_type. Lets a user re-add a structured data-bound field (the data
+  // table, header rows, ...) the generic palette can't rebuild with the
+  // right name/columns.
+  const [defaultFields, setDefaultFields] = useState<any[]>([]);
+  const [addFieldName, setAddFieldName] = useState("");
   // Whole right-side accordion panel (Templates/Header/Page) — collapses to
   // give the canvas full width, independent of each section's own
   // collapse/expand (that's react-bootstrap Accordion's own per-item
@@ -499,6 +545,18 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const [showPreviewPicker, setShowPreviewPicker] = useState(false);
   const [previewSearch, setPreviewSearch] = useState("");
   const [previewOrders, setPreviewOrders] = useState<any[]>([]);
+  // Multi-step "Generate Preview" record picker for non-cart doc types —
+  // e.g. accountTransaction = pick a contact, then one of their transactions.
+  // previewSel accumulates the picked ids across steps; previewStepIdx is
+  // the step currently shown.
+  const [previewStepIdx, setPreviewStepIdx] = useState(0);
+  const [previewSel, setPreviewSel] = useState<{
+    contact_id?: number;
+    transaction_id?: number;
+    team_id?: number;
+    cart_id?: number;
+  }>({});
+  const [previewLoadingRows, setPreviewLoadingRows] = useState(false);
   // Report mode's own Generate Preview (live report rows, not a cart-order
   // picker) — the /report-definitions/:id/... routes are report-definition-
   // scoped, not doc_type-scoped like the template CRUD routes are, so the
@@ -529,6 +587,18 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     })();
   }, [docType]);
   setFieldSettingsDictionary(dictionary);
+
+  // Refresh the "Add Field" catalog whenever the doc_type changes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const defaultTemplate = await getDefaultTemplateFields(docType);
+      if (!cancelled) setDefaultFields(defaultTemplate ? collectDefaultFields(defaultTemplate) : []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [docType]);
 
   const { designerContainerRef, designerRef, designerMounted, mountOrUpdateDesigner: mountDesignerRaw } = useDesignerInstance(
     plugins,
@@ -914,6 +984,39 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
+  // Inserts the picked default field (data table, header rows, ...) onto the
+  // canvas verbatim — name/columns/styles/position from the code default,
+  // which the generic palette can't reproduce. Blocked if a field with that
+  // name is already present. Persisted on the next Save Draft, same as any
+  // canvas edit.
+  const handleAddField = () => {
+    if (!requireEdit() || !currentTemplateId || !designerRef.current || !addFieldName) return;
+    const fieldDef = defaultFields.find((f) => f.name === addFieldName);
+    if (!fieldDef) return;
+    const template = designerRef.current.getTemplate();
+    const taken = new Set<string>();
+    (template.schemas || []).forEach((page: any[]) =>
+      (page || []).forEach((f: any) => f?.name && taken.add(f.name)),
+    );
+    const copy = JSON.parse(JSON.stringify(fieldDef));
+    // Adding a field whose name is already on the canvas is allowed — it
+    // gets a "_2"/"_3"/... suffix and a small offset so it's not hidden
+    // exactly behind the original. `dataSource` is pinned to the ORIGINAL
+    // name so the copy still renders the same bound data (resolveDataSources
+    // in orderInputMapper.js maps field.name <- inputs[field.dataSource]).
+    if (taken.has(copy.name)) {
+      let n = 2;
+      while (taken.has(`${fieldDef.name}_${n}`)) n += 1;
+      copy.dataSource = fieldDef.name;
+      copy.name = `${fieldDef.name}_${n}`;
+      if (copy.position) copy.position = { x: (copy.position.x || 0) + 5, y: (copy.position.y || 0) + 5 };
+    }
+    const schemas = (template.schemas || [[]]).map((p: any[]) => [...(p || [])]);
+    schemas[0] = [...(schemas[0] || []), copy];
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
+    toast.success(`Added "${copy.name}"`);
+  };
+
   const handleSaveDraft = async () => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     setLoading(true);
@@ -1296,38 +1399,161 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
-  // Generate Preview — real order data whenever it exists, sample data only
-  // as an empty-state fallback (§6).
+  // Loads the selectable rows for one picker step, normalized to
+  // { id, title, subtitle }. `sel` carries ids resolved by earlier steps
+  // (the transaction steps need contact_id / team_id).
+  const loadPreviewStepRows = async (
+    kind: PreviewStepKind,
+    sel: typeof previewSel,
+    term: string,
+  ): Promise<{ id: number; title: string; subtitle: string }[]> => {
+    const login_id = localStorage.getItem("UUID");
+    const unwrap = (data: any) => data?.data?.item || data?.data || [];
+
+    if (kind === "order") {
+      const { data } = await axiosInstance.post("listOrder", {
+        a_application_login_id: login_id,
+        order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
+        searchTerm: term,
+        ul: 0,
+        ll: 20,
+      });
+      return unwrap(data).map((o: any) => ({
+        id: o.id,
+        title: o.cart_number || `Order #${o.id}`,
+        subtitle: o.to_customer_name || "",
+      }));
+    }
+
+    if (kind === "contact") {
+      const { data } = await axiosInstance.post("Contact", {
+        a_application_login_id: login_id,
+        searchTerm: term,
+        ul: 0,
+        ll: 25,
+      });
+      return unwrap(data).map((c: any) => ({
+        id: c.id,
+        title: c.person_name || c.company_name || `Contact #${c.id}`,
+        subtitle: [c.mobile_number, c.company_name].filter(Boolean).join(" · "),
+      }));
+    }
+
+    if (kind === "employee") {
+      const { data } = await axiosInstance.post("my-team", {
+        a_application_login_id: login_id,
+        searchTerm: term,
+      });
+      return unwrap(data).map((u: any) => ({
+        id: u.id,
+        title: u.username || `Member #${u.id}`,
+        subtitle: [u.recovery_mobile, u.recovery_email].filter(Boolean).join(" · "),
+      }));
+    }
+
+    // transaction / employeeTransaction — one row of the picked entity's ledger.
+    const txnRow = (t: any) => ({
+      id: t.id,
+      title: `#${t.id} · ${t.type == 1 ? "Credit" : "Debit"} ${t.amount ?? ""}`,
+      subtitle: [t.payment_date_time, t.remark].filter(Boolean).join(" · "),
+    });
+    if (kind === "transaction") {
+      const { data } = await axiosInstance.post("accountTransactionList", {
+        a_application_login_id: login_id,
+        contact_master_id: sel.contact_id,
+        searchTerm: term,
+        ul: 0,
+        ll: 25,
+      });
+      return unwrap(data).map(txnRow);
+    }
+    // employeeTransaction
+    const { data } = await axiosInstance.post("employeeAccountTransactionList", {
+      a_application_login_id: login_id,
+      team_id: sel.team_id,
+      searchTerm: term,
+      ul: 0,
+      ll: 25,
+    });
+    return unwrap(data).map(txnRow);
+  };
+
+  const SEL_KEY_BY_STEP: Record<PreviewStepKind, keyof typeof previewSel> = {
+    contact: "contact_id",
+    employee: "team_id",
+    transaction: "transaction_id",
+    employeeTransaction: "transaction_id",
+    order: "cart_id",
+  };
+
+  // Generate Preview — opens the record picker for this doc type. Cart docs
+  // and shippingLabel pick one order; the account/contact docs pick a
+  // contact/team member (then a transaction for the receipt types);
+  // taskDueList has no picker and renders straight against real data.
   const openPreviewPicker = async () => {
     if (!currentTemplateId) return;
-    const login_id = localStorage.getItem("UUID");
-    const { data } = await axiosInstance.post("listOrder", {
-      a_application_login_id: login_id,
-      order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
-      searchTerm: "",
-      ul: 0,
-      ll: 10,
-    });
-    const orders = data?.data?.item || data?.data || [];
-    if (orders.length === 0) {
-      await runPreview(undefined);
+    const steps = previewStepsFor(docType);
+    if (steps.length === 0) {
+      await runPreview({});
       return;
     }
-    setPreviewOrders(orders);
+    setPreviewSel({});
+    setPreviewStepIdx(0);
+    setPreviewSearch("");
+    setPreviewLoadingRows(true);
     setShowPreviewPicker(true);
+    try {
+      const rows = await loadPreviewStepRows(steps[0], {}, "");
+      setPreviewOrders(rows);
+      if (rows.length === 0) {
+        setShowPreviewPicker(false);
+        toast.error(`No ${PREVIEW_STEP_LABEL[steps[0]]}s found to preview against`);
+      }
+    } finally {
+      setPreviewLoadingRows(false);
+    }
   };
 
   const searchPreviewOrders = async (term: string) => {
     setPreviewSearch(term);
-    const login_id = localStorage.getItem("UUID");
-    const { data } = await axiosInstance.post("listOrder", {
-      a_application_login_id: login_id,
-      order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
-      searchTerm: term,
-      ul: 0,
-      ll: 20,
-    });
-    setPreviewOrders(data?.data?.item || data?.data || []);
+    const steps = previewStepsFor(docType);
+    const kind = steps[previewStepIdx];
+    if (!kind) return;
+    setPreviewLoadingRows(true);
+    try {
+      setPreviewOrders(await loadPreviewStepRows(kind, previewSel, term));
+    } finally {
+      setPreviewLoadingRows(false);
+    }
+  };
+
+  // Picks a row for the current step. Advances to the next step (loading its
+  // rows), or runs the preview once every step is resolved.
+  const pickPreviewRow = async (rowId: number) => {
+    const steps = previewStepsFor(docType);
+    const kind = steps[previewStepIdx];
+    if (!kind) return;
+    const nextSel = { ...previewSel, [SEL_KEY_BY_STEP[kind]]: rowId };
+    setPreviewSel(nextSel);
+
+    if (previewStepIdx + 1 >= steps.length) {
+      await runPreview(nextSel);
+      return;
+    }
+    const nextKind = steps[previewStepIdx + 1];
+    setPreviewStepIdx(previewStepIdx + 1);
+    setPreviewSearch("");
+    setPreviewLoadingRows(true);
+    try {
+      const rows = await loadPreviewStepRows(nextKind, nextSel, "");
+      setPreviewOrders(rows);
+      if (rows.length === 0) {
+        setShowPreviewPicker(false);
+        toast.error(`This ${PREVIEW_STEP_LABEL[kind]} has no ${PREVIEW_STEP_LABEL[nextKind]}s to preview against`);
+      }
+    } finally {
+      setPreviewLoadingRows(false);
+    }
   };
 
   // Report mode's Generate Preview — live report rows (a report has no fixed
@@ -1351,7 +1577,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
-  const runPreview = async (cart_id?: number) => {
+  const runPreview = async (sel: typeof previewSel = {}) => {
     if (!currentTemplateId) return;
     setStatus("Generating preview...");
     // Preview reads draft_template_json straight from the DB - without
@@ -1361,7 +1587,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     const { data } = await axiosInstance.post("document-templates/preview", {
       company_masters_id: localStorage.getItem("COMPANY_ID"),
       id: currentTemplateId,
-      cart_id,
+      cart_id: sel.cart_id,
+      contact_id: sel.contact_id,
+      transaction_id: sel.transaction_id,
+      team_id: sel.team_id,
     });
     if (data?.ack === 1) {
       const byteChars = atob(data.data.item.pdfBase64);
@@ -1474,10 +1703,32 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         >
           Remove Page
         </button>
+        <select
+          className="form-select form-select-sm"
+          style={{ width: 210 }}
+          value={addFieldName}
+          onChange={(e) => setAddFieldName(e.target.value)}
+          disabled={!currentTemplateId || !defaultFields.length}
+          title="Re-add a built-in field (e.g. the data table) that was deleted, with its correct name and columns"
+        >
+          <option value="">{defaultFields.length ? "Add Field…" : "No fields available"}</option>
+          {defaultFields.map((f) => (
+            <option key={f.name} value={f.name}>
+              {humanizeFieldName(f.name)} ({f.type})
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleAddField}
+          disabled={!currentTemplateId || !addFieldName}
+        >
+          Add
+        </button>
         <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
         <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
         <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
-        {CART_SHAPED_DOC_TYPES.has(docType) && (
+        {!reportMode && (
           <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
         )}
         {reportMode && (
@@ -1934,31 +2185,47 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         </div>
       )}
 
-      {showPreviewPicker && (
-        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <div className="modal-content1" style={{ width: 420, marginTop: "5%" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5>Preview with Real Order Data</h5>
-              <span className="close" onClick={() => setShowPreviewPicker(false)}>&times;</span>
-            </div>
-            <input
-              className="form-control form-control-sm mb-2"
-              placeholder="Search by order number..."
-              value={previewSearch}
-              onChange={(e) => searchPreviewOrders(e.target.value)}
-            />
-            {previewOrders.map((o) => (
-              <div key={o.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                <div>
-                  <div style={{ fontWeight: 600 }}>{o.cart_number}</div>
-                  <div style={{ fontSize: 11, color: "#888" }}>{o.to_customer_name}</div>
-                </div>
-                <button className="btn btn-sm btn-outline-primary" onClick={() => runPreview(o.id)}>Preview</button>
+      {showPreviewPicker && (() => {
+        const steps = previewStepsFor(docType);
+        const kind = steps[previewStepIdx];
+        const stepLabel = kind ? PREVIEW_STEP_LABEL[kind] : "record";
+        return (
+          <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+            <div className="modal-content1" style={{ width: 420, marginTop: "5%" }}>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h5 className="mb-0" style={{ textTransform: "capitalize" }}>
+                  Select {stepLabel}
+                  {steps.length > 1 ? ` (step ${previewStepIdx + 1} of ${steps.length})` : ""}
+                </h5>
+                <span className="close" onClick={() => setShowPreviewPicker(false)}>&times;</span>
               </div>
-            ))}
+              <input
+                className="form-control form-control-sm mb-2"
+                placeholder={`Search ${stepLabel}...`}
+                value={previewSearch}
+                onChange={(e) => searchPreviewOrders(e.target.value)}
+              />
+              {previewLoadingRows && <div className="text-muted small py-2">Loading...</div>}
+              {!previewLoadingRows && previewOrders.length === 0 && (
+                <div className="text-muted small py-2">No matches.</div>
+              )}
+              <div style={{ maxHeight: 360, overflowY: "auto" }}>
+                {previewOrders.map((o) => (
+                  <div key={o.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{o.title}</div>
+                      <div style={{ fontSize: 11, color: "#888" }}>{o.subtitle}</div>
+                    </div>
+                    <button className="btn btn-sm btn-outline-primary flex-shrink-0" onClick={() => pickPreviewRow(o.id)}>
+                      {previewStepIdx + 1 >= steps.length ? "Preview" : "Next"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <ConfirmationModal
         show={!!confirmDialog}
