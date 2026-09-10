@@ -710,24 +710,25 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
-    // Full Page Border's left/right tracks the content margin
-    // (buildPageBorderField, backend-side) but top/bottom stays a small
-    // fixed inset independent of it — on purpose, so the header/footer
-    // banners land INSIDE the frame instead of being excluded from it.
-    // Patching padding here without also repositioning an existing
-    // pageBorder field's x/width would leave it framing the OLD left/right
-    // margin, since this whole function is a direct client-side basePdf
-    // edit that never goes through the backend rebuild applyHeaderOptions
-    // uses — y/height are left untouched on purpose (not tied to top/bottom
-    // margin).
+    // Full Page Border frames the actual content-margin box on all 4 sides
+    // now (buildPageBorderField, backend-side) — patching padding here
+    // without also repositioning an existing pageBorder field would leave
+    // it framing the OLD margins, since this whole function is a direct
+    // client-side basePdf edit that never goes through the backend rebuild
+    // applyHeaderOptions uses.
     // pageNumber is right-aligned flush against the content margin's right
     // edge (buildTemplate.js's buildDocTemplate: x = pageWidth - right -
     // 20) — same "direct client-side edit the backend rebuild never sees"
     // gap as pageBorder above.
-    const { width: pageWidth } = template.basePdf;
+    const { width: pageWidth, height: pageHeight } = template.basePdf;
     const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
       if (field.name === "pageBorder") {
-        return { ...field, position: { ...field.position, x: left }, width: pageWidth - left - right };
+        return {
+          ...field,
+          position: { x: left, y: top },
+          width: pageWidth - left - right,
+          height: pageHeight - top - bottom,
+        };
       }
       if (field.name === "pageNumber") {
         return { ...field, position: { ...field.position, x: pageWidth - right - 20 } };
