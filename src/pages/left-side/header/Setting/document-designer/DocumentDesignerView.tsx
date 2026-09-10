@@ -104,6 +104,40 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
 
+// Mirrors buildTemplate.js's own HEADER_RELATIVE_FIELD_NAMES/shiftFieldY
+// exactly (backend-only, not importable from a Node module here) — used by
+// applyMargins below so a manual top-margin edit shifts docTitle/buyer-info/
+// items-table the same way a header-height change already does via the
+// backend rebuild applyHeaderOptions goes through. totalsBlock/
+// grandTotalWords/termsAndConditions/signatureLine are deliberately
+// excluded — anchored near the page bottom, independent of header height.
+const HEADER_RELATIVE_FIELD_NAMES = new Set([
+  "docTitle",
+  "originalDuplicate",
+  "buyerLabel",
+  "buyerCompanyName",
+  "buyerContactName",
+  "buyerPhoneLabel",
+  "buyerPhone",
+  "buyerEmailLabel",
+  "buyerEmail",
+  "billingAddressLabel",
+  "billingAddress",
+  "shippingAddressLabel",
+  "shippingAddress",
+  "buyerGSTINLabel",
+  "buyerGSTIN",
+  "supplyToLabel",
+  "supplyTo",
+  "orderNumberLabel",
+  "orderNumber",
+  "orderDateTimeLabel",
+  "orderDateTime",
+  "contactPersonLabel",
+  "contactPerson",
+  "itemsTable",
+]);
+
 // Mirrors backend's withCompanyHeader (templates.js) field-for-field, but
 // client-side and display-only — shows this company's REAL name/address/
 // logo/header-footer-signature images on the editing canvas instead of
@@ -589,7 +623,25 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         ? { ...field, position: { x: left, y: top }, width: pageWidth - left - right, height: pageHeight - top - bottom }
         : field,
     );
-    const updated = { ...template, basePdf: { ...template.basePdf, padding: [top, right, bottom, left], staticSchema } };
+    // Same reasoning — a top-margin change needs docTitle/buyer-info/
+    // items-table shifted down/up to clear it, same as applyHeaderOptions'
+    // deltaY shift already does for a header-height change (that path goes
+    // through the backend rebuild, this one is a direct client-side edit
+    // that would otherwise skip it entirely, leaving content overlapping
+    // the header or floating in a gap that no longer matches the margin).
+    const oldTop = template.basePdf.padding?.[0] ?? top;
+    const deltaY = top - oldTop;
+    const schemas =
+      deltaY === 0
+        ? template.schemas
+        : template.schemas.map((page: any[]) =>
+            page.map((field: any) =>
+              HEADER_RELATIVE_FIELD_NAMES.has(field.name)
+                ? { ...field, position: { ...field.position, y: field.position.y + deltaY } }
+                : field,
+            ),
+          );
+    const updated = { ...template, schemas, basePdf: { ...template.basePdf, padding: [top, right, bottom, left], staticSchema } };
     designerRef.current.updateTemplate(updated);
     await saveDraftSilently();
   };
