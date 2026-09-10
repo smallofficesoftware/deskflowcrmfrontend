@@ -934,6 +934,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       pageBorder,
       pageBorderColor,
       pageBorderWidth,
+      // Backend's own defaults are 10mm each — without sending the CURRENT
+      // values here, any header/footer/border option change (this is the
+      // only path that reaches buildDocTemplate) would silently reset a
+      // custom left/right margin set via the Margins toolbar back to 10.
+      marginLeft,
+      marginRight,
       ...overrides,
     };
     // Header rebuilds can add/remove/rename header-block fields entirely
@@ -1012,6 +1018,8 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         pageBorder: !!template?.basePdf?.pageBorder,
         pageBorderColor: template?.basePdf?.pageBorderColor || "#000000",
         pageBorderWidth: template?.basePdf?.pageBorderWidth ?? 0.5,
+        marginLeft: template?.basePdf?.padding?.[3] ?? 10,
+        marginRight: template?.basePdf?.padding?.[1] ?? 10,
       },
     });
     if (updated && designerRef.current) {
