@@ -720,12 +720,20 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // edit that never goes through the backend rebuild applyHeaderOptions
     // uses — y/height are left untouched on purpose (not tied to top/bottom
     // margin).
+    // pageNumber is right-aligned flush against the content margin's right
+    // edge (buildTemplate.js's buildDocTemplate: x = pageWidth - right -
+    // 20) — same "direct client-side edit the backend rebuild never sees"
+    // gap as pageBorder above.
     const { width: pageWidth } = template.basePdf;
-    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) =>
-      field.name === "pageBorder"
-        ? { ...field, position: { ...field.position, x: left }, width: pageWidth - left - right }
-        : field,
-    );
+    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
+      if (field.name === "pageBorder") {
+        return { ...field, position: { ...field.position, x: left }, width: pageWidth - left - right };
+      }
+      if (field.name === "pageNumber") {
+        return { ...field, position: { ...field.position, x: pageWidth - right - 20 } };
+      }
+      return field;
+    });
     // Same reasoning — a top-margin change needs docTitle/buyer-info/
     // items-table shifted down/up to clear it, same as applyHeaderOptions'
     // deltaY shift already does for a header-height change (that path goes
