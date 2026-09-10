@@ -602,7 +602,19 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     if (!width || !height) return;
     const template = designerRef.current.getTemplate();
-    const updated = { ...template, basePdf: { ...template.basePdf, width, height } };
+    // Full Page Border is sized against the OLD width/height (buildPageBorderField
+    // frames basePdf.width/height minus padding) — a pure width/height patch
+    // with no matching border resize would leave it floating off-edge (page
+    // grew) or overflowing past the new page bounds (page shrank), same
+    // "direct client-side basePdf edit the backend rebuild never sees"
+    // reasoning as applyMargins above.
+    const [top, right, bottom, left] = template.basePdf.padding || [25, 10, 15, 10];
+    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) =>
+      field.name === "pageBorder"
+        ? { ...field, position: { x: left, y: top }, width: width - left - right, height: height - top - bottom }
+        : field,
+    );
+    const updated = { ...template, basePdf: { ...template.basePdf, width, height, staticSchema } };
     designerRef.current.updateTemplate(updated);
     await saveDraftSilently();
   };
