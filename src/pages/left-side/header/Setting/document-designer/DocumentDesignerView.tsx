@@ -761,15 +761,23 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     const isManualBorder = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
       (k) => typeof template.basePdf?.[k] === "number",
     );
+    // +1.5mm left/right gap — docTitle/buyer-info/etc. all start at x:10,
+    // exactly matching the default margin the border would otherwise sit
+    // flush against (see buildTemplate.js's buildDocTemplate for the full
+    // reasoning — a text field's backgroundColor generally only paints its
+    // glyph/line box, not the full declared width, so the border line
+    // showed through at that shared edge).
     const { width: pageWidth, height: pageHeight } = template.basePdf;
     const borderTop = Math.max(2, top - headerHeightMM);
     const borderBottom = footerImage ? Math.max(2, bottom - footerHeightMM) : bottom;
+    const borderLeft = left + 1.5;
+    const borderRight = right + 1.5;
     const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
       if (field.name === "pageBorder" && !isManualBorder) {
         return {
           ...field,
-          position: { x: left, y: borderTop },
-          width: pageWidth - left - right,
+          position: { x: borderLeft, y: borderTop },
+          width: pageWidth - borderLeft - borderRight,
           height: pageHeight - borderTop - borderBottom,
         };
       }
