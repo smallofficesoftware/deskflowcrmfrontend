@@ -353,11 +353,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // height input only for the "image" header variant, initialized from
   // whatever's mounted.
   const [headerVariant, setHeaderVariant] = useState("details");
-  const [headerHeightMM, setHeaderHeightMM] = useState(18);
+  const [headerHeightMM, setHeaderHeightMM] = useState(28.5);
   const [footerImage, setFooterImage] = useState(false);
-  const [footerHeightMM, setFooterHeightMM] = useState(15);
+  const [footerHeightMM, setFooterHeightMM] = useState(28.5);
   const [pageBorder, setPageBorder] = useState(false);
   const [pageBorderColor, setPageBorderColor] = useState("#000000");
+  const [pageBorderWidth, setPageBorderWidth] = useState(0.5);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -552,11 +553,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // buildFooterFields) for a template saved before these existed on basePdf.
   const syncHeaderOptionsFromTemplate = (template: any) => {
     setHeaderVariant(template?.basePdf?.headerVariant || "details");
-    setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 18);
+    setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 28.5);
     setFooterImage(!!template?.basePdf?.footerImage);
-    setFooterHeightMM(template?.basePdf?.footerHeightMM ?? 15);
+    setFooterHeightMM(template?.basePdf?.footerHeightMM ?? 28.5);
     setPageBorder(!!template?.basePdf?.pageBorder);
     setPageBorderColor(template?.basePdf?.pageBorderColor || "#000000");
+    setPageBorderWidth(template?.basePdf?.pageBorderWidth ?? 0.5);
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -858,6 +860,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     footerHeightMM?: number;
     pageBorder?: boolean;
     pageBorderColor?: string;
+    pageBorderWidth?: number;
   }) => {
     if (!requireEdit() || !currentTemplateId) return;
     const next = {
@@ -867,6 +870,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       footerHeightMM,
       pageBorder,
       pageBorderColor,
+      pageBorderWidth,
       ...overrides,
     };
     // Header rebuilds can add/remove/rename header-block fields entirely
@@ -888,6 +892,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       setFooterHeightMM(next.footerHeightMM);
       setPageBorder(next.pageBorder);
       setPageBorderColor(next.pageBorderColor);
+      setPageBorderWidth(next.pageBorderWidth);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -915,6 +920,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   };
   const applyPageBorder = (enabled: boolean) => applyHeaderOptions({ pageBorder: enabled });
   const applyPageBorderColor = (color: string) => applyHeaderOptions({ pageBorderColor: color });
+  const applyPageBorderWidth = (widthMM: number) => {
+    if (widthMM < 0) return;
+    applyHeaderOptions({ pageBorderWidth: widthMM });
+  };
 
   // A template whose basePdf has never been through applyTemplateOptions'
   // header branch at all has `footerImage === undefined`, not `false` — vs
@@ -934,11 +943,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     const updated = await applyOptionsToDraft(id, docType, {
       header: {
         headerVariant: template?.basePdf?.headerVariant || "details",
-        headerHeightMM: template?.basePdf?.headerHeightMM ?? 18,
+        headerHeightMM: template?.basePdf?.headerHeightMM ?? 28.5,
         footerImage: true,
-        footerHeightMM: template?.basePdf?.footerHeightMM ?? 15,
+        footerHeightMM: template?.basePdf?.footerHeightMM ?? 28.5,
         pageBorder: !!template?.basePdf?.pageBorder,
         pageBorderColor: template?.basePdf?.pageBorderColor || "#000000",
+        pageBorderWidth: template?.basePdf?.pageBorderWidth ?? 0.5,
       },
     });
     if (updated && designerRef.current) {
@@ -1347,6 +1357,22 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
                           setPageBorderColor(e.target.value);
                           applyPageBorderColor(e.target.value);
                         }}
+                      />
+                    </label>
+                  )}
+                  {pageBorder && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Border Size (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={0.1}
+                        max={10}
+                        step={0.1}
+                        value={pageBorderWidth}
+                        onChange={(e) => setPageBorderWidth(Number(e.target.value))}
+                        onBlur={(e) => applyPageBorderWidth(Number(e.target.value))}
                       />
                     </label>
                   )}
