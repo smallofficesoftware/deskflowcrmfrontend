@@ -13,7 +13,6 @@ import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesi
 import TemplateSidebar from "../../../../../common/pdfmeDesigner/TemplateSidebar";
 import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
 import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
-import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../../../../helpers/AppConstants";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
@@ -105,15 +104,6 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
 
-// Company image filename (e.g. "22/172938....png", company_masters' own raw
-// column value) -> a directly loadable URL, via the same static mount every
-// other company-image <img> in this app already uses (index.js's
-// `app.use("/companyImg", ...)`) — note this is the API host WITHOUT the
-// axiosInstance baseURL's "/api" suffix, since that static route is mounted
-// at root, not under /api.
-const companyImageUrl = (filename?: string) =>
-  filename ? `${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/companyImg/${filename}` : "";
-
 // Mirrors backend's withCompanyHeader (templates.js) field-for-field, but
 // client-side and display-only — shows this company's REAL name/address/
 // logo/header-footer-signature images on the editing canvas instead of
@@ -130,10 +120,15 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
   const contactLine = `Mo.: ${companyData.company_contact ?? ""}  Email: ${companyData.company_email ?? ""}  GSTIN: ${companyData.gst_number ?? ""}  State: ${companyData.state_name ?? ""}`;
   const addressLine = `Address: ${companyData.address ?? ""}\n${contactLine}`;
   const combinedBlock = `${companyData.company_name ?? ""}\n${addressLine}`;
-  const headerImageUrl = companyImageUrl(companyData.header_img);
-  const logoUrl = companyImageUrl(companyData.company_logo);
-  const footerImageUrl = companyImageUrl(companyData.footer_img);
-  const signUrl = companyImageUrl(companyData.company_sign);
+  // fetchCompanyKeyApi's "company" endpoint (companyService.js's
+  // getAllCompany) already prepends COMPANY_IMG_LINK_EXTENDED
+  // (BACKEND_URL + "/companyImg/") server-side — these are already
+  // complete, directly loadable URLs, not raw filenames. Re-prefixing them
+  // here produced "http://host/companyImg/http://host/companyImg/...".
+  const headerImageUrl = companyData.header_img || "";
+  const logoUrl = companyData.company_logo || "";
+  const footerImageUrl = companyData.footer_img || "";
+  const signUrl = companyData.company_sign || "";
 
   return {
     ...template,
