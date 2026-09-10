@@ -19,6 +19,7 @@ export interface IDocumentTemplateFull {
   draft_template_json: string;
   published_template_json: string;
   include_product_pages?: number;
+  system_template_id?: number | null;
 }
 
 const handleError = (error: any, fallback: string) => {
@@ -159,6 +160,23 @@ export const applyOptionsToDraft = async (
     return data?.ack === 1 ? data.data.item : null;
   } catch (error) {
     handleError(error, "Failed to apply settings");
+    return null;
+  }
+};
+
+// Only meaningful for a template whose system_template_id is set (created
+// via "Copy from Gallery") — discards the draft's customization and
+// overwrites it with that SAME system template's CURRENT template_json.
+export const resetTemplateToSystemDefault = async (id: number): Promise<IDocumentTemplateFull | null> => {
+  try {
+    const data = await postGated("document-templates/reset-to-default", {
+      company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
+      id,
+    });
+    return data?.ack === 1 ? data.data.item : null;
+  } catch (error) {
+    handleError(error, "Failed to reset template to default");
     return null;
   }
 };

@@ -37,6 +37,7 @@ import {
   listTemplateVersions,
   publishDocumentTemplate,
   reorderDocumentTemplates,
+  resetTemplateToSystemDefault,
   restoreTemplateVersion,
   setDefaultDocumentTemplate,
   setPinRequiredHandler,
@@ -931,6 +932,22 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     });
   };
 
+  // Only meaningful for a template with system_template_id set — created
+  // via "Copy from Gallery" (button is hidden entirely otherwise, see the
+  // toolbar JSX below). Discards this draft's customization and pulls in
+  // that SAME system template's CURRENT layout.
+  const handleResetToDefault = () => {
+    if (!requireEdit() || !currentTemplateId) return;
+    askConfirm("Reset this template's draft to the system default it was copied from? Your customization will be discarded.", async () => {
+      const updated = await resetTemplateToSystemDefault(currentTemplateId);
+      if (updated) {
+        toast.success("Template reset to default");
+        setCurrentTemplateFull(updated);
+        mountOrUpdateDesigner(JSON.parse(updated.draft_template_json));
+      }
+    });
+  };
+
   const moveTemplate = async (index: number, direction: -1 | 1) => {
     if (!requireEdit()) return;
     const target = index + direction;
@@ -1451,6 +1468,15 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
                   onSetDefault={handleSetDefault}
                   onDelete={handleDelete}
                 />
+                {!!currentTemplateFull?.system_template_id && (
+                  <button
+                    className="btn btn-sm btn-outline-warning w-100 mt-2"
+                    onClick={handleResetToDefault}
+                    title="This template was copied from the system gallery — discard your customization and pull in its current layout"
+                  >
+                    Reset to Default
+                  </button>
+                )}
               </Accordion.Body>
             </Accordion.Item>
 
