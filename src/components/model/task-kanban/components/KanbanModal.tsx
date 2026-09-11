@@ -154,7 +154,25 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTask, setEditTask] = useState<ITaskView | null>(null);
 
-  const BOARD_KEY = `task-kanban-${boardType}`;
+  // All/My and Internal/External/All top toggles. statusScope defaults to
+  // "internal" (not "all") because the same status_type=8 list mixes
+  // internal workflow stages with the external ticket status a ticket also
+  // carries - showing both together pulls one ticket into two columns at
+  // once and double-counts it. "internal" matches the plain task list's
+  // count by default; "all"/"external" are explicit opt-in views.
+  const [ownerFilter, setOwnerFilter] = useState<"all" | "my">("all");
+  const [statusScope, setStatusScope] = useState<"all" | "internal" | "external">(
+    "internal",
+  );
+  // Only support tickets actually carry an external_status - for the plain
+  // Task board this toggle has nothing to show, so it stays hidden and
+  // scope is forced back to "internal" (still just `status`, no filtering
+  // difference from the old default).
+  const showStatusScopeToggle = boardType === "status" && !!supportTicketFlag;
+
+  const BOARD_KEY = `task-kanban-${boardType}-${ownerFilter}-${
+    showStatusScopeToggle ? statusScope : "internal"
+  }`;
 
   // Debounce search
   useEffect(() => {
@@ -251,11 +269,21 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
     ],
   );
 
+  const effectiveStatusScope = showStatusScopeToggle ? statusScope : "internal";
+  const columnVisibilityFilter: 0 | 1 | undefined =
+    effectiveStatusScope === "internal"
+      ? 0
+      : effectiveStatusScope === "external"
+        ? 1
+        : undefined;
+  const dragField: "status" | "external_status" =
+    effectiveStatusScope === "external" ? "external_status" : "status";
+
   const config: KanbanBoardConfig<Task> = useMemo(
     () => ({
       boardKey: BOARD_KEY,
       fetchColumns: (): Promise<KanbanColumnDef[]> =>
-        fetchBoardColumns(boardType).then((cols) =>
+        fetchBoardColumns(boardType, columnVisibilityFilter).then((cols) =>
           cols.map((c) => ({
             id: c.id,
             name: c.name,
@@ -272,6 +300,8 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
           boardType,
           filterParams: filterParams ?? DEFAULT_FILTER_PARAMS,
           supportTicketFlag,
+          ownerFilter,
+          statusScope: effectiveStatusScope,
         }).then((res) => ({
           items: res.tasks,
           total: res.total,
@@ -285,7 +315,12 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
           : Number(position);
       },
       updateItemPosition: (taskId, columnId, position) =>
-        updateTaskColumnAndPosition(Number(taskId), Number(columnId), position),
+        updateTaskColumnAndPosition(
+          Number(taskId),
+          Number(columnId),
+          position,
+          dragField,
+        ),
       renderCard,
       sortOptions: [
         {
@@ -299,7 +334,17 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
         },
       ],
     }),
-    [BOARD_KEY, boardType, filterParams, supportTicketFlag, renderCard],
+    [
+      BOARD_KEY,
+      boardType,
+      filterParams,
+      supportTicketFlag,
+      renderCard,
+      ownerFilter,
+      effectiveStatusScope,
+      columnVisibilityFilter,
+      dragField,
+    ],
   );
 
   const { data: columns = [], isLoading: isColumnsLoading } =
@@ -411,6 +456,55 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
         onRefresh={handleRefresh}
         isSearching={isSearching}
         isRefreshing={isRefreshing}
+        headerExtra={
+          <>
+            <div className="kanban-scope-toggle" role="group" aria-label="Owner">
+              <button
+                type="button"
+                className={ownerFilter === "all" ? "is-active" : ""}
+                onClick={() => setOwnerFilter("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={ownerFilter === "my" ? "is-active" : ""}
+                onClick={() => setOwnerFilter("my")}
+              >
+                My
+              </button>
+            </div>
+            {showStatusScopeToggle && (
+              <div
+                className="kanban-scope-toggle"
+                role="group"
+                aria-label="Status scope"
+              >
+                <button
+                  type="button"
+                  className={statusScope === "internal" ? "is-active" : ""}
+                  onClick={() => setStatusScope("internal")}
+                >
+                  Internal
+                </button>
+                <button
+                  type="button"
+                  className={statusScope === "external" ? "is-active" : ""}
+                  onClick={() => setStatusScope("external")}
+                >
+                  External
+                </button>
+                <button
+                  type="button"
+                  className={statusScope === "all" ? "is-active" : ""}
+                  onClick={() => setStatusScope("all")}
+                >
+                  All
+                </button>
+              </div>
+            )}
+          </>
+        }
         onOpenFilter={onOpenFilter}
         hasActiveFilter={hasActiveFilter}
         filterTitle={supportTicketFlag ? "Filter Tickets" : "Filter Tasks"}
