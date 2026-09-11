@@ -20,7 +20,10 @@ import ConfirmationModal from "../../../../../components/model/ConfirmationModal
 import EventLogs from "../../../../../components/model/EventLogModel/EventLogsModel";
 import ImportExcelForContactModal from "../../../../../components/model/ImportExcelForContactModal";
 import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
-import { TaskKanbanModal } from "../../../../../components/model/task-kanban/components/KanbanModal";
+import {
+  queryClient as kanbanQueryClient,
+  TaskKanbanModal,
+} from "../../../../../components/model/task-kanban/components/KanbanModal";
 import { useTheme } from "../../../../../components/ThemeContext";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
@@ -778,6 +781,8 @@ const TaskListView = ({
       return;
     }
     await updateStageStatusRadioButton(idsToUpdate, checkedOptions, setLoading);
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-items"] });
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-columns"] });
     setTimeout(() => {
       fetchApiTask(
         setTargetVsIncentiveList,
@@ -847,6 +852,8 @@ const TaskListView = ({
       checkedOptions,
       setLoading,
     );
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-items"] });
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-columns"] });
     setTimeout(() => {
       fetchApiTask(
         setTargetVsIncentiveList,

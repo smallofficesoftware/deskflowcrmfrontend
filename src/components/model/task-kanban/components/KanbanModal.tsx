@@ -404,7 +404,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
       <KanbanModalFrame
         show
         onHide={onHide}
-        title="Task Board"
+        title={supportTicketFlag ? "Support Ticket Board" : "Task Board"}
         subtitle={`${boardTypeLabelMap[boardType]} view`}
         searchValue={searchInput}
         onSearchChange={setSearchInput}
@@ -413,7 +413,7 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
         isRefreshing={isRefreshing}
         onOpenFilter={onOpenFilter}
         hasActiveFilter={hasActiveFilter}
-        filterTitle="Filter Tasks"
+        filterTitle={supportTicketFlag ? "Filter Tickets" : "Filter Tasks"}
         onAdd={
           renderAddTaskModal
             ? () => {
@@ -478,7 +478,11 @@ const KanbanModalInner: React.FC<KanbanModalInnerProps> = ({
 };
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
-const queryClient = new QueryClient({
+// Exported so callers outside this component tree (e.g. TaskListView's status
+// assign modal) can invalidate the board's cache after a mutation that
+// happens through a sibling modal instead of the board's own drag/drop or
+// refresh handlers.
+export const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 });
 
