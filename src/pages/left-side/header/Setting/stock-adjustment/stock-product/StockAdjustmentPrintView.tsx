@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom';
 import { newRightsForPrint } from '../../../../../../common/SharedFunction';
 import { PAGE_ID } from '../../../../../../helpers/AppEnum';
@@ -29,8 +29,21 @@ const StockAdjustmentPrintView = () => {
     
 
 
+    // BUG (client-reported: print fires twice) root cause: the old print
+    // effect below was keyed on `cartItemsData`, which starts as `[]` at
+    // mount - an empty array is truthy, so that effect fired window.print()
+    // once immediately on mount (before the fetch even started), then AGAIN
+    // once fetchAllStockData replaced it with the real array (a new array
+    // reference, even same-length, still re-triggers a [cartItemsData]
+    // effect). `dataLoaded` only flips false -> true once, after the fetch
+    // actually resolves, so the print effect below now only has one real
+    // transition to react to.
+    const [dataLoaded, setDataLoaded] = useState(false);
+
     useEffect(() => {
-        fetchAllStockData(Number(StockId), setCartData, setCartItemsData);
+        fetchAllStockData(Number(StockId), setCartData, setCartItemsData).then(() => {
+            setDataLoaded(true);
+        });
     }, []);
 
     useEffect(() => {
@@ -192,13 +205,19 @@ const StockAdjustmentPrintView = () => {
         },
     };
 
+    // hasPrintedRef is a second, independent guard (belt-and-suspenders,
+    // not the actual fix) - dataLoaded alone already only flips once, but
+    // this makes "print exactly once" hold even if this effect somehow runs
+    // again for an unrelated reason.
+    const hasPrintedRef = useRef(false);
     useEffect(() => {
-        if (cartItemsData) {
+        if (dataLoaded && !hasPrintedRef.current) {
+            hasPrintedRef.current = true;
             setTimeout(() => {
                 window.print();
             }, 500);
         }
-    }, [cartItemsData]);
+    }, [dataLoaded]);
 
     return (
         <>
