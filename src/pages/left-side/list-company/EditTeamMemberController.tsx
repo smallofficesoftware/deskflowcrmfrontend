@@ -42,6 +42,7 @@ export interface IAttendanceSalary {
   min_present_hours?: string;
   compulsary_attendance: string | "";
   compulsary_attendance_image: string | "";
+  compulsary_gps_app_use: string | "";
 
   // New fields
   half_day_hours?: string;
@@ -162,6 +163,9 @@ export const attendanceSalaryInitialValues = (
     : "0",
   compulsary_attendance_image: payrollData?.compulsary_attendance_image
     ? String(payrollData.compulsary_attendance_image)
+    : "0",
+  compulsary_gps_app_use: payrollData?.compulsary_gps_app_use
+    ? String(payrollData.compulsary_gps_app_use)
     : "0",
 
   // New
@@ -525,6 +529,7 @@ const buildPayrollPayload = (
   week_off_days: values.week_off_days,
   compulsary_attendance: values.compulsary_attendance,
   compulsary_attendance_image: values.compulsary_attendance_image,
+  compulsary_gps_app_use: values.compulsary_gps_app_use,
   min_overtime_hours: values.min_overtime_hours,
   overtime_amount_per_hour: values.overtime_amount_per_hour,
   regular_ot_type: values.regular_ot_type,
