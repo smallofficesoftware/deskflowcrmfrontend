@@ -215,6 +215,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "listAlt",
         description: "Line-item detail of every expense claimed.",
       },
+      {
+        label: "Target vs Incentive",
+        value: "target_incentive_report",
+        pageId: PAGE_ID.TARGET_VS_INCENTIVE_REPORT,
+        icon: "payments",
+        description: "Sales target vs achieved, with incentive payout per team member.",
+      },
     ],
   },
 

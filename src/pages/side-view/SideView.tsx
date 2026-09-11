@@ -461,6 +461,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.EMP_ACCOUNT_HISTORY,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewTargetIncentiveReport = useCheckUserPermission(
+    PAGE_ID.TARGET_VS_INCENTIVE_REPORT,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewProductMovement = useCheckUserPermission(
     PAGE_ID.PRODUCTMOVEMENT_REPORT,
     PERMISSION_TYPE.VIEW,
@@ -771,6 +775,13 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewEmployeeReport && name === "Emp_Transaction_Report") {
+      setActiveView("HRMS");
+      setAppliedReportType(name);
+      return;
+    } else if (
+      canViewTargetIncentiveReport &&
+      name === "target_incentive_report"
+    ) {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;
