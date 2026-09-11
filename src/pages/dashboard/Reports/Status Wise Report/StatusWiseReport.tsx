@@ -415,7 +415,7 @@ const StatusWiseReport = ({
           Status Wise Task Or Supp. Ticket Report
         </h3>
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",

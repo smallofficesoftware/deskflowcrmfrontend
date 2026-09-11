@@ -23,7 +23,6 @@ import CreateContactUsingQR from "../pages/public/create-contact";
 import CompanyQRCodeCard from "../pages/qr-view";
 import VideoTutorial from "../pages/video Tutorial/VideoTutorial";
 import Google from "../pages/voice/Google";
-// import ReportModal from "../components/model/ReportsModel";
 import NewReportModel from "../components/model/NewReportModel";
 import AccountTransactionV1 from "../pages/account-transaction/AccountTransactionV1View";
 // import TeamPerformanceReports from "../pages/dashboard/Reports/TeamPerformanceReports"

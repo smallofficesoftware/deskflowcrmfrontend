@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-table";
 import axios from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import { SingleValue } from "react-select";
 import { useReactToPrint } from "react-to-print";
@@ -71,7 +72,6 @@ import CustomSearchDropdown from "../../CustomSearchDropdown";
 import ConfirmationModal from "../ConfirmationModal";
 import "../ConfirmationModal.css";
 import PrintSettingModal from "../PrintSettingModal";
-import ReportModal from "../ReportsModel";
 import RibbonBanner from "../RibbonBedgetLeftSide/RibbonBannerLeft";
 import { whatsappTemplateCloudeSend } from "../whatsapp_template_sender/WhatsappTemplateSenderController";
 import { startWorkflow } from "../workflowConformatioModel/workFlowModelController";
@@ -283,6 +283,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [updateDate, setUpdateDate] = useState("");
   const [oldUpdateDate, setOldUpdateDate] = useState("");
   const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
   const componentRef = useRef<HTMLDivElement>(null);
   const [defaultCurrency, setDefaultCurrency] =
     useState<SingleValue<IOption> | null>(null);
@@ -326,9 +327,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   const [convertCartNumber, setConvertCartNumber] = useState("");
   const [refreshCarts, setRefreshCarts] = useState(false);
-
-  const [isOrderCreateFromContactShow, setIsOrderCreateFromContactShow] =
-    useState(false);
   const [isMakeCartCopyConfirmation, setIsMakeCartCopyConfirmation] =
     useState(false);
   const [makeCopyType, setMakeCopyType] = useState(0);
@@ -3740,7 +3738,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setPackingForwardingCharge(value);
   };
   const handelChangeShowModelReport = () => {
-    setIsOrderCreateFromContactShow(true);
+    navigate(`/SideView/report/${reportName}`);
   };
 
   const handleTransportCharge = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5748,7 +5746,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     } else if (orderTypesNameFind == "Purchase Order") {
       setReportName("purchase_order");
     } else if (orderTypesNameFind == "Proforma Invoice") {
-      setReportName("profoma_invoice");
+      setReportName("proforma_invoice_report");
     }
   });
 
@@ -11572,19 +11570,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           setRefreshProduct={setRefreshProduct}
         />
       )}
-      {isOrderCreateFromContactShow && (
-        <ReportModal
-          show={isOrderCreateFromContactShow}
-          onHide={() => setIsOrderCreateFromContactShow(false)}
-          handleSubmit={() => setIsOrderCreateFromContactShow(false)}
-          titles={"Create"}
-          message={"Please Enter Your Order Details"}
-          btn1={"CANCEL"}
-          btn2={"Approve"}
-          reportName={reportName}
-        />
-      )}
-
       {isConvertIntoProformaConfirmation && (
         <ConfirmationModal
           show={isConvertIntoProformaConfirmation}

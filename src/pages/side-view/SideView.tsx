@@ -87,6 +87,7 @@ const DraggableWidget = ({
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isEmbed = searchParams.get("embed") === "1";
   const { slug: reportSlug } = useParams<{ slug?: string }>();
   const location = useLocation();
   const openedReportSlugRef = useRef<string | null>(null);
@@ -1419,35 +1420,44 @@ const SideView = ({ profileDetail }: IProp) => {
   // own /SideView/report/:slug URL lets the existing deep-link effect
   // (which already calls handleSingleReportShow(reportSlug) correctly)
   // apply the same state, just from a URL that persists across refresh.
-  const openReport = (name: string) => navigate(`/SideView/report/${name}`);
+  const openReport = (name: string) =>
+    navigate(`/SideView/report/${name}${isEmbed ? "?embed=1" : ""}`);
+
+  const handleEmbedBackToReports = () => {
+    setActiveView("reports_home");
+    setAppliedReportType("");
+    navigate("/SideView?view=reports&embed=1");
+  };
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* SIDEBAR */}
-      <div
-        style={{
-          padding: "2px",
-          background: "rgb(240 242 245)",
-          height: "100vh",
-        }}
-      >
-        <SidebarView
-          onReportClick={openReport}
-          onInsightsClick={() => {
-            setActiveView("dashboard");
-            setAppliedReportType("");
-            navigate("/SideView");
+      {!isEmbed && (
+        <div
+          style={{
+            padding: "2px",
+            background: "rgb(240 242 245)",
+            height: "100vh",
           }}
-          onSmartReportsClick={() => {
-            setActiveView("reports_home");
-            setAppliedReportType("");
-            navigate("/SideView?view=reports");
-          }}
-          isOpen={isOpen}
-          setIsOpen={setIsOpen}
-          activeReport={appliedReportType}
-        />
-      </div>
+        >
+          <SidebarView
+            onReportClick={openReport}
+            onInsightsClick={() => {
+              setActiveView("dashboard");
+              setAppliedReportType("");
+              navigate("/SideView");
+            }}
+            onSmartReportsClick={() => {
+              setActiveView("reports_home");
+              setAppliedReportType("");
+              navigate("/SideView?view=reports");
+            }}
+            isOpen={isOpen}
+            setIsOpen={setIsOpen}
+            activeReport={appliedReportType}
+          />
+        </div>
+      )}
 
       {/* RIGHT SIDE */}
       <div
@@ -1461,9 +1471,11 @@ const SideView = ({ profileDetail }: IProp) => {
           height: "100vh",
         }}
       >
-        <div>
-          <UpperView profileDetail={loginById} />
-        </div>
+        {!isEmbed && (
+          <div>
+            <UpperView profileDetail={loginById} />
+          </div>
+        )}
         {/* <div>
                     <MiddleView />
                 </div> */}
@@ -1477,14 +1489,18 @@ const SideView = ({ profileDetail }: IProp) => {
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
             onReportClick={openReport}
+            isEmbed={isEmbed}
+            onEmbedBack={handleEmbedBackToReports}
           />
         </div>
-        <TaskStickyIcon
-          categoryIds={categoryIds}
-        // categoryNames={categoryNames}
-        />
+        {!isEmbed && (
+          <TaskStickyIcon
+            categoryIds={categoryIds}
+          // categoryNames={categoryNames}
+          />
+        )}
       </div>
-      {Number(flag) === 2 && (
+      {!isEmbed && Number(flag) === 2 && (
         <DndContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
           <DraggableWidget position={widgetPosition}>
             <div
@@ -1558,7 +1574,7 @@ const SideView = ({ profileDetail }: IProp) => {
           </DraggableWidget>
         </DndContext>
       )}
-      {Number(flag) === 2 && showForm && (
+      {!isEmbed && Number(flag) === 2 && showForm && (
         <div
           style={{
             position: "fixed",

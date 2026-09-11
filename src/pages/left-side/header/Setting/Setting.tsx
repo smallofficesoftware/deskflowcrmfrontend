@@ -5,7 +5,6 @@ import noImage from "../../../../assets/images/no_image.jpeg";
 import { AppContext } from "../../../../common/AppContext";
 import { openInNewTab, useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
-import ReportModal from "../../../../components/model/ReportsModel";
 import { axiosInstance } from "../../../../services/axiosInstance";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
@@ -224,7 +223,6 @@ const Setting = ({
   const [showCountries, setShowCountries] = useState(false);
   const [showAreas, setShowAreas] = useState(false);
   const [companyLists, setCompanyLists] = useState<ICompany>();
-  const [showAllReport, setShowAllReport] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [isOpenSomething, setIsOpenSomething] = useState<boolean>(false);
 
@@ -259,7 +257,7 @@ const Setting = ({
   }
   // escape handle
   useEscapeKey(() => {
-    if (!showInsights && !showAllReport && !isOpenSomething) {
+    if (!showInsights && !isOpenSomething) {
       closeSettings();
     } else {
       setShowInsights(false);
@@ -376,7 +374,7 @@ const Setting = ({
     setShowHelp(true);
   }
   function openAllReport() {
-    setShowAllReport(true);
+    navigate("/SideView?view=reports");
   }
   function openInsights() {
     setShowInsights(true);
@@ -481,7 +479,6 @@ const Setting = ({
         showTargetVsIncentive ||
         showVisitType ||
         showLeaveType ||
-        showAllReport ||
         showInsights ? (
         <>
           {showProfile && (
@@ -581,17 +578,6 @@ const Setting = ({
             <MainSettingsView
               isMainSettingView={showOpenSetting}
               closeMainSettingView={() => setShowOpenSetting(false)}
-            />
-          )}
-          {showAllReport && (
-            <ReportModal
-              show={showAllReport}
-              onHide={() => setShowAllReport(false)}
-              handleSubmit={() => setShowAllReport(false)}
-              titles={"Create"}
-              message={"Please Enter Your Order Details"}
-              btn1={"CANCEL"}
-              btn2={"Approve"}
             />
           )}
           {showInsights && (

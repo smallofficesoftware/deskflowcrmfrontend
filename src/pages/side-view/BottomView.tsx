@@ -109,6 +109,8 @@ const BottomView = ({
   setActiveView,
   setAppliedReportType,
   onReportClick,
+  isEmbed,
+  onEmbedBack,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
@@ -223,7 +225,7 @@ const BottomView = ({
     <div
       className=""
       style={{
-        height: "90vh",
+        height: isEmbed ? "100vh" : "90vh",
         flex: 1,
         overflowY: "auto",
         scrollbarWidth: "none",
@@ -271,6 +273,33 @@ const BottomView = ({
 
         {activeView === "forms_home" && <FormBuilderListView />}
 
+        {isEmbed && appliedReportType && (
+          <div
+            onClick={onEmbedBack}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              width: "fit-content",
+              marginBottom: "10px",
+              fontWeight: 600,
+              color: "rgb(245, 134, 52)",
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              height="20px"
+              viewBox="0 -960 960 960"
+              width="20px"
+              fill="rgb(245, 134, 52)"
+            >
+              <path d="M400-80 0-480l400-400 71 71-329 329 329 329-71 71Z" />
+            </svg>
+            Back
+          </div>
+        )}
+
         {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (
           <ReportRunnerView
             definitionId={Number(appliedReportType.split(":")[1])}
@@ -279,7 +308,7 @@ const BottomView = ({
         )}
 
         {appliedReportType === "team_performance" && (
-          <TeamPerformanceReports
+          <TeamPerformanceReports MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -291,34 +320,34 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "quotation" && (
-          <TeamQuotationDataReportsView
+          <TeamQuotationDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.quotation_title || "Quotation"}
             viewFormate={title[0]?.quotation_view_formate || 1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "order" && (
-          <TeamSalesOrderDataReportsView
+          <TeamSalesOrderDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.order_title || "Sales Order"}
             viewFormate={title[0]?.order_view_formate || 3}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "dispatch_report" && (
-          <TeamDispatchDataReportsView
+          <TeamDispatchDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.dispatch_title || "Dispatch"}
             viewFormate={title[0]?.quotation_view_formate || 1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "order_invoice" && (
-          <TeamSalesInvoiceDataReportsView
+          <TeamSalesInvoiceDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             viewFormate={title[0]?.invoice_view_formate || 1}
             title={title[0]?.invoice_title || "Sales Invoice"}
           />
         )}
         {appliedReportType === "return_sales_invoice" && (
-          <TeamReturnSalesDataReportsView
+          <TeamReturnSalesDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={
               title[0]?.return_sales_invoice_title || "Return Sales Invoice"
             }
@@ -327,28 +356,28 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "purchase_order" && (
-          <TeamPurchaseOrderDataReportsView
+          <TeamPurchaseOrderDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.purchase_order_title || "Purchase Order"}
             viewFormate={title[0]?.purchase_order_view_formate || 1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "inward_report" && (
-          <TeamInwardDataReportsView
+          <TeamInwardDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.inward_title || "Inward"}
             viewFormate={title[0]?.inward_view_formate || 1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "purchase_invoice" && (
-          <TeamPurchaseInvoiceDataReportsView
+          <TeamPurchaseInvoiceDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.purchase_title || "Purchase Invoice"}
             viewFormate={title[0]?.purchase_view_formate || 1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "return_purchase_invoice" && (
-          <TeamReturnPurchaseDataReportsView
+          <TeamReturnPurchaseDataReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={
               title[0]?.return_purchase_invoice_title ||
               "Return Purchase Invoice"
@@ -358,10 +387,10 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "account" && (
-          <AccountOutstandingReports type={reportType} onHide={handleonHide} />
+          <AccountOutstandingReports MobileFlag={isEmbed ? "1" : undefined} type={reportType} onHide={handleonHide} />
         )}
         {appliedReportType === "pending" && (
-          <TeamPendingWorkReportsView
+          <TeamPendingWorkReportsView MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -373,7 +402,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "product_inventory" && (
-          <ProductInventoryReport
+          <ProductInventoryReport MobileFlag={isEmbed ? "1" : undefined}
             purchaseTitle={title[0]?.purchase_title || "Purchase Invoice"}
             inwardTitle={title[0]?.inward_title || "Inward"}
             returnPurchaseTitle={
@@ -394,10 +423,10 @@ const BottomView = ({
           <MyTeamReport isCompanyOpen={true} onHide={handleonHide} />
         )}
         {appliedReportType === "attendance_salary" && (
-          <TeamAttendanceReportsView onHide={handleonHide} />
+          <TeamAttendanceReportsView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "product_report" && (
-          <ProductSalesPurchaseReport
+          <ProductSalesPurchaseReport MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -409,7 +438,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "product_wise_pending_report" && (
-          <ProductPendingView
+          <ProductPendingView MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -421,7 +450,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "category_report" && (
-          <CategorySalesPurchaseReport
+          <CategorySalesPurchaseReport MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -433,7 +462,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "category_wise_pending_report" && (
-          <CategoryPendingReport
+          <CategoryPendingReport MobileFlag={isEmbed ? "1" : undefined}
             purchaseOrderTitle={
               title[0]?.purchase_order_title || "Purchase Order"
             }
@@ -445,31 +474,31 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "all_contact_report" && (
-          <AllcontactReport fromSideView={true} onHide={handleonHide} />
+          <AllcontactReport MobileFlag={isEmbed ? "1" : undefined} fromSideView={true} onHide={handleonHide} />
         )}
         {appliedReportType === "all_deleted_contact_report" && (
-          <AllDeletedcontactReport onHide={handleonHide} />
+          <AllDeletedcontactReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "source_wise_contact_statistic_report" && (
-          <AllSourceReport onHide={handleonHide} />
+          <AllSourceReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "label_wise_contact_statistics_report" && (
-          <AlllableReport onHide={handleonHide} />
+          <AlllableReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "all_inquiry_report" && (
-          <AllInqueryReport onHide={handleonHide} />
+          <AllInqueryReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "team_day_wise_expanse_report" && (
-          <AllTeamExpense onHide={handleonHide} />
+          <AllTeamExpense MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "all_visit_report" && (
-          <AllVisitReportsView onHide={handleonHide} />
+          <AllVisitReportsView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "all_call_report" && (
-          <AllCallReportsView onHide={handleonHide} />
+          <AllCallReportsView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "pending_order" && (
-          <PendingOrderView
+          <PendingOrderView MobileFlag={isEmbed ? "1" : undefined}
             title={
               "Pending " + title[0]?.order_title || "Sales Order Pending Report"
             }
@@ -478,7 +507,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "pending_purchase" && (
-          <PendingPurchaseReportsView
+          <PendingPurchaseReportsView MobileFlag={isEmbed ? "1" : undefined}
             title={
               "Pending " + title[0]?.purchase_order_title ||
               "Pending Purchase Order Report"
@@ -488,35 +517,35 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "alltask_report" && (
-          <AllTaskReportsView
+          <AllTaskReportsView MobileFlag={isEmbed ? "1" : undefined}
             is_support_ticket_flag={0}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "support_ticket_report" && (
-          <AllTaskReportsView
+          <AllTaskReportsView MobileFlag={isEmbed ? "1" : undefined}
             is_support_ticket_flag={1}
             onHide={handleonHide}
           />
         )}
         {appliedReportType === "allaccount_report" && (
-          <AllAccountReports onHide={handleonHide} />
+          <AllAccountReports MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "account_credit_report" && (
-          <AccountCreaditReport credit_debit_flag={1} onHide={handleonHide} />
+          <AccountCreaditReport MobileFlag={isEmbed ? "1" : undefined} credit_debit_flag={1} onHide={handleonHide} />
         )}
         {appliedReportType === "account_debit_report" && (
-          <AccountDebitReport credit_debit_flag={2} onHide={handleonHide} />
+          <AccountDebitReport MobileFlag={isEmbed ? "1" : undefined} credit_debit_flag={2} onHide={handleonHide} />
         )}
         {appliedReportType === "allreminder_report" && (
-          <AllReminderReport is_support_ticket_flag={0} onHide={handleonHide} />
+          <AllReminderReport MobileFlag={isEmbed ? "1" : undefined} is_support_ticket_flag={0} onHide={handleonHide} />
         )}
 
         {appliedReportType === "all_contact_chainwise_report" && (
-          <ChainWiseContactReportView onHide={handleonHide} />
+          <ChainWiseContactReportView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "daily_sales_invoice" && (
-          <DailyInvoiceReportView
+          <DailyInvoiceReportView MobileFlag={isEmbed ? "1" : undefined}
             viewFormate={title[0]?.invoice_view_formate || 1}
             title={"Daily Sales Invoice"}
             onHide={handleonHide}
@@ -631,13 +660,13 @@ const BottomView = ({
           <EmployeeTransactionReports onHide={handleonHide} />
         )}
         {appliedReportType === "status_wise_report" && (
-          <StatusWiseReport onHide={handleonHide} />
+          <StatusWiseReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "Process_Attendance" && (
           <ProcessAttendanceGridView onHide={handleonHide} />
         )}
         {appliedReportType === "Attendance_register_Report" && (
-          <ProcessAttendanceReportView
+          <ProcessAttendanceReportView MobileFlag={isEmbed ? "1" : undefined}
             onHide={handleonHide}
             selectedDayMonthYear={
               selectedDayMonthYear
@@ -647,7 +676,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "Salary_register_Report" && (
-          <SalaryRegisterReport
+          <SalaryRegisterReport MobileFlag={isEmbed ? "1" : undefined}
             onHide={handleonHide}
             selectedDayMonthYear={
               selectedDayMonthYear
@@ -666,7 +695,7 @@ const BottomView = ({
           <HolidayGridView onHide={handleonHide} />
         )}
         {appliedReportType === "Payment_wise_account_Report" && (
-          <PaymentWiseAccountReport onHide={handleonHide} />
+          <PaymentWiseAccountReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "Lock_Control_master" && (
           <LockControlGridView onHide={handleonHide} />
@@ -681,16 +710,16 @@ const BottomView = ({
           <DayAdjustmentGridView onHide={handleonHide} />
         )}
         {appliedReportType === "Emp_AccountOutstanding_Report" && (
-          <EmployeeAccountOutstandingReport onHide={handleonHide} />
+          <EmployeeAccountOutstandingReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "Expense_Detailed_Report" && (
-          <ExpenseDetailedReport onHide={handleonHide} />
+          <ExpenseDetailedReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "Job_Card_Grid" && (
           <JobCardGridView onHide={handleonHide} />
         )}
         {appliedReportType === "proforma_invoice_report" && (
-          <ProformaInvoiceView
+          <ProformaInvoiceView MobileFlag={isEmbed ? "1" : undefined}
             title={title[0]?.proforma_invoice_title || "Proforma Invoice"}
             viewFormate={title[0]?.proforma_invoice_view_formate || 1}
             onHide={handleonHide}
