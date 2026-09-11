@@ -3,6 +3,7 @@ import { useEscapeKey } from "../../../../../common/SharedFunction";
 import MiracleConfigurationsView from "./MiracleConfigurationsView";
 import MiracleLogsView from "./MiracleLogsView";
 import MiracleSynchronizationView from "./MiracleSynchronizationView";
+import ThirdPartyLogsView from "./ThirdPartyLogsView";
 import WhatsappConfigurationView from "./whatsappConfigurationView";
 import WorkFlowAutomationAutoAssignmentContactPopUp from "./WorkFlowAutomationAutoAssignmentContactPopUp";
 import WorkFlowAutomationPopUp from "./WorkFlowAutomationPopUp";
@@ -22,6 +23,7 @@ const WorkFlowAutomationView = ({
   const [openMiracleConfigModal, setOpenMiracleConfigModal] = useState(false);
   const [openMiracleSyncModal, setOpenMiracleSyncModal] = useState(false);
   const [openMiracleLogsModal, setOpenMiracleLogsModal] = useState(false);
+  const [openThirdPartyLogsModal, setOpenThirdPartyLogsModal] = useState(false);
   const [dropdownOpenWhatsapp, setDropdownOpenWhatsapp] = useState(false);
 
   const toggleDropdown = () => {
@@ -464,6 +466,80 @@ const WorkFlowAutomationView = ({
                     </div>
                   </div>
 
+                  {/* Card 4: Third-Party Integration Logs */}
+                  <div
+                    onClick={() => setOpenThirdPartyLogsModal(true)}
+                    onMouseEnter={(e) => {
+                      const t = e.currentTarget;
+                      t.style.transform = "translateY(-2px)";
+                      t.style.boxShadow = "0 8px 24px rgba(91,33,182,0.12)";
+                      t.style.borderColor = "rgba(91,33,182,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const t = e.currentTarget;
+                      t.style.transform = "translateY(0)";
+                      t.style.boxShadow = "0 1px 4px rgba(0,0,0,0.04)";
+                      t.style.borderColor = "rgba(91,33,182,0.2)";
+                    }}
+                    style={{
+                      padding: "16px 18px", borderRadius: 14, cursor: "pointer",
+                      border: "1.5px solid rgba(91,33,182,0.2)",
+                      background: "linear-gradient(135deg, #ffffff 0%, rgba(91,33,182,0.03) 100%)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      transition: "all 0.25s cubic-bezier(0.4,0,0.2,1)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                      position: "relative", overflow: "hidden",
+                      marginTop: 12,
+                    }}
+                  >
+                    {/* Left accent */}
+                    <div style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                      background: "linear-gradient(180deg, #5b21b6 0%, #3730a3 100%)",
+                      borderRadius: "0 4px 4px 0",
+                    }}></div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, paddingLeft: 6 }}>
+                      <div
+                        style={{
+                          width: 44, height: 44, borderRadius: 12,
+                          background: "linear-gradient(135deg, #5b21b6 0%, #3730a3 100%)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(91,33,182,0.25)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="2" y1="12" x2="22" y2="12" />
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.86rem", color: "#1e293b", marginBottom: 2 }}>
+                          Third-Party Integration Logs
+                        </div>
+                        <div style={{ fontSize: "0.74rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                          IndiaMart, TradeIndia, Justdial, Google Sheet, Razorpay, Gemini, WhatsApp
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: "6px 14px", borderRadius: 8,
+                        background: "rgba(91,33,182,0.08)", border: "1px solid rgba(91,33,182,0.15)",
+                        fontSize: "0.73rem", fontWeight: 700, color: "#5b21b6",
+                        whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4,
+                      }}
+                    >
+                      View Logs
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </div>
+                  </div>
+
                 </div>
               )}
             </div>
@@ -532,6 +608,12 @@ const WorkFlowAutomationView = ({
         <MiracleLogsView
           show={openMiracleLogsModal}
           onHide={() => setOpenMiracleLogsModal(false)}
+        />
+      )}
+      {openThirdPartyLogsModal && (
+        <ThirdPartyLogsView
+          show={openThirdPartyLogsModal}
+          onHide={() => setOpenThirdPartyLogsModal(false)}
         />
       )}
       {dropdownOpenWhatsapp && (
