@@ -509,6 +509,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.ALLCALL_REPORT,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewCustomerSalesPurchaseReport = useCheckUserPermission(
+    PAGE_ID.CUSTOMER_SALES_PURCHASE_REPORT,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewPendingOrder = useCheckUserPermission(
     PAGE_ID.PENDINGSALESORDER_REPORT,
     PERMISSION_TYPE.VIEW,
@@ -845,6 +849,13 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewCallReport && name === "all_call_report") {
+      setActiveView("CRM");
+      setAppliedReportType(name);
+      return;
+    } else if (
+      canViewCustomerSalesPurchaseReport &&
+      name === "customer_sales_purchase_report"
+    ) {
       setActiveView("CRM");
       setAppliedReportType(name);
       return;

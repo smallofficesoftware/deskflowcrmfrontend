@@ -38,6 +38,7 @@ import TeamDispatchDataReportsView from "../dashboard/Reports/Dispatch/DispatchR
 import EmployeeAccountOutstandingReport from "../dashboard/Reports/Employee Account Outstanding/EmployeeAccountOutstandingReport";
 import EmployeeTransactionReports from "../dashboard/Reports/Employee Account Report/EmployeeAccountTransactionReport";
 import TargetIncentiveReport from "../dashboard/Reports/Target Incentive Report/TargetIncentiveReport";
+import CustomerSalesPurchaseReport from "../dashboard/Reports/Customer Sales Purchase Report/CustomerSalesPurchaseReport";
 import ExpenseDetailedReport from "../dashboard/Reports/Expense Datailed Report/ExpenseDetailedReportView";
 import ExpenseTypesReport from "../dashboard/Reports/Expense Type Report/ExpenseTypeReport";
 import GSTInAndOutReport from "../dashboard/Reports/GST In & Out/GSTInAndOutReport";
@@ -662,6 +663,9 @@ const BottomView = ({
         )}
         {appliedReportType === "target_incentive_report" && (
           <TargetIncentiveReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
+        )}
+        {appliedReportType === "customer_sales_purchase_report" && (
+          <CustomerSalesPurchaseReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "status_wise_report" && (
           <StatusWiseReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />

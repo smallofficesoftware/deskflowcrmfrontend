@@ -80,6 +80,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "call",
         description: "Call log history against every contact.",
       },
+      {
+        label: "Customer Sales & Purchase",
+        value: "customer_sales_purchase_report",
+        pageId: PAGE_ID.CUSTOMER_SALES_PURCHASE_REPORT,
+        icon: "cart",
+        description: "Sales and purchase totals per customer.",
+      },
     ],
   },
 
