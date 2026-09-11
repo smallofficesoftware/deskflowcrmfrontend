@@ -874,16 +874,6 @@ export function isValidPhone(phone?: string): boolean {
   return /^[0-9]{10,15}$/.test(phone);
 }
 
-// Mirrors backend's normalizeIndiaPrefixMinimal (whatsappService.js /
-// wrkflwAutoAssignmentContactService.js): only a bare 10-digit number gets
-// "91" prepended; anything else (already has a country code, or malformed)
-// is left as-is. Click-to-chat links used to always prepend "91" blindly,
-// which doubled it on numbers already stored with the prefix.
-export function toWhatsappPhone(raw?: string | number | null): string {
-  const digits = String(raw ?? "").replace(/\D/g, "");
-  return digits.length === 10 ? `91${digits}` : digits;
-}
-
 export const newRightsForPrint = async (
   page_id: number,
   a_application_login_id: number | string | null,

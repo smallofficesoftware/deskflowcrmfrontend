@@ -53,7 +53,6 @@ import { AppContext } from "../../common/AppContext";
 import {
   formatDate,
   formatTimeToAmPm,
-  toWhatsappPhone,
   useEscapeKey,
 } from "../../common/SharedFunction";
 import CustomEditor from "../../components/CustomEditor";
@@ -3776,7 +3775,7 @@ const RightView = ({
                               </span>
                             </button>
                             <a
-                              href={`https://api.whatsapp.com/send?phone=${toWhatsappPhone(getData?.mobile_number)}`}
+                              href={`https://api.whatsapp.com/send?phone=${getData?.mobile_number}`}
                               target="_blank"
                             >
                               <button className="icons mx-1">

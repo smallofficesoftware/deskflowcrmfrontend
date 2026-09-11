@@ -4,7 +4,6 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
 import {
   convertDateTimeFormat,
-  toWhatsappPhone,
   useEscapeKey,
 } from "../../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
@@ -961,7 +960,7 @@ const VisitView = ({
                                   </div>
 
                                   <a
-                                    href={`https://api.whatsapp.com/send?phone=${toWhatsappPhone(item?.contact_mobile)}`}
+                                    href={`https://api.whatsapp.com/send?phone=${item?.contact_mobile}`}
                                     target="_blank"
                                   >
                                     <button className="icons mx-1">

@@ -5,7 +5,6 @@ import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import {
   convertDateTimeFormat,
-  toWhatsappPhone,
   useEscapeKey,
 } from "../../../common/SharedFunction";
 import ExcelExport from "../../../components/ExcelExport";
@@ -1311,7 +1310,7 @@ const ListInquiryView = ({
                               </div>
 
                               <a
-                                href={`https://api.whatsapp.com/send?phone=${toWhatsappPhone(item?.contact_person_number)}`}
+                                href={`https://api.whatsapp.com/send?phone=${item?.contact_person_number}`}
                                 target="_blank"
                               >
                                 <button className="icons mx-1">
