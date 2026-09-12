@@ -2389,7 +2389,8 @@ ${printSetting?.setting_details.productImageinColumn &&
                                         >
                                           {(orderPrintById.cart.type == 2 ||
                                             orderPrintById.cart.type == 3 ||
-                                            orderPrintById.cart.type == 1) &&
+                                            orderPrintById.cart.type == 1 ||
+                                            orderPrintById.cart.type == 12) &&
                                             orderPrintById?.cart.currency_id ==
                                             3 &&
                                             printSetting?.setting_details

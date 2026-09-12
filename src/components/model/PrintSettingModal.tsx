@@ -1053,7 +1053,7 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
                                                             </div>
                                                         </div>
 
-                                                        {(Number(orderTypeDefined) == 2 || Number(orderTypeDefined) == 3 || Number(orderTypeDefined) == 1 || Number(orderTypeDefined) == 12) &&
+                                                        {(Number(orderType) == 2 || Number(orderType) == 3 || Number(orderType) == 1 || Number(orderType) == 12) &&
                                                             <>
                                                                 <div
                                                                     className="col-12"
@@ -1063,7 +1063,7 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
                                                                         alignItems: "center",
                                                                     }}
                                                                 >
-                                                                    <div><p>Paymnent QRcode</p></div>
+                                                                    <div><p>Payment QR Code</p></div>
                                                                     <div className="form-check form-switch">
                                                                         <input
                                                                             type="checkbox"
