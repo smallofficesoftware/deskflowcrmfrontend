@@ -5764,7 +5764,7 @@ const RightView = ({
                                     textAlign: "center",
                                   }}
                                 >
-                                  {taskCount}
+                                  {taskCount > 99 ? "99+" : taskCount}
                                 </span>
                               )}
 
@@ -6191,7 +6191,7 @@ const RightView = ({
                                       textAlign: "center",
                                     }}
                                   >
-                                    {supportTicketCount}
+                                    {supportTicketCount > 99 ? "99+" : supportTicketCount}
                                   </span>
                                 )}
                               </button>
