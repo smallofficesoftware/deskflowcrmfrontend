@@ -110,6 +110,7 @@ import {
   ILabelView,
 } from "./header/Setting/label/LabelController";
 import LabelView from "./header/Setting/label/LabelView";
+import MergeContactModal from "./header/Setting/duplicate-contacts/MergeContactModal";
 import LeaveTypeView from "./header/Setting/leave-type/LeaveTypeView";
 import LockControlView from "./header/Setting/lock-control/LockControlView";
 import MachineManagement from "./header/Setting/machineManagement/Machine-managementView";
@@ -839,6 +840,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [showPriceList, setShowPriceList] = useState(false);
   const [showopenSourceOfType, setshowopenSourceOfType] = useState(false);
   const [label, setLabel] = useState(false);
+  const [showMergeContactModal, setShowMergeContactModal] = useState(false);
   const [showopenStageStatus, setshowopenStageStatus] = useState(false);
   const [showExpenseType, setShowExpenseType] = useState(false);
   const [showVisitType, setShowVisitType] = useState(false);
@@ -4243,7 +4245,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                                     style={{
                                       position: "absolute",
                                       left: -40,
-                                      minWidth: "220px",
+                                      minWidth: "260px",
                                       background: "#fff",
                                       border: "1px solid #ddd",
                                       borderRadius: "5px",
@@ -4421,6 +4423,31 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                                       {isArchivState
                                         ? "Unarchive Selected Contacts"
                                         : "Archive Selected Contacts"}
+                                    </li>
+                                    <li
+                                      className="listItem"
+                                      role="button"
+                                      onClick={() => {
+                                        if (selectedIds.length < 2) {
+                                          toast.error("Select at least 2 contacts to merge");
+                                        } else {
+                                          setShowMergeContactModal(true);
+                                        }
+                                        setIsActionDropdownOpen(false);
+                                      }}
+                                    >
+                                      <span>
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          height="24px"
+                                          viewBox="0 -960 960 960"
+                                          width="24px"
+                                          fill="currentColor"
+                                        >
+                                          <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                        </svg>
+                                      </span>{" "}
+                                      Merge Selected Contacts
                                     </li>
                                     {platformType == 2 && (
                                       <li
@@ -5847,6 +5874,18 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           btn1="CANCEL"
           btn2="DELETE CONTACT"
           flag_to_action="delete_flag"
+        />
+      )}
+      {showMergeContactModal && (
+        <MergeContactModal
+          show={showMergeContactModal}
+          onHide={() => setShowMergeContactModal(false)}
+          contactIds={selectedIds}
+          onMerged={() => {
+            setSelectedIds([]);
+            setIsAllSelected(false);
+            setRefreshContact(true);
+          }}
         />
       )}
       {isPinConfirmation.show && (
