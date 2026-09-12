@@ -573,7 +573,7 @@ const AllTaskReportsView = ({
   };
 
   const onVirtualScroller = (event: any) => {
-    if (event.last === allTasks.length && hasMore && !isLoadingMore.current) {
+    if (event.last >= allTasks.length - 1 && hasMore && !isLoadingMore.current) {
       const nextPage = Math.floor(allTasks.length / ITEMS_PER_PAGE);
       loadTasks(nextPage, ITEMS_PER_PAGE, false);
     }
@@ -2556,7 +2556,7 @@ const AllTaskReportsView = ({
                   textAlign: "right",
                 }}
               >
-                Total Tasks: {filteredAndSortedData.length}{" "}
+                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}{" "}
                 {hasMore && "(loading more...)"}
               </div>
             }

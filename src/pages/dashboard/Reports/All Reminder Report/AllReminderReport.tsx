@@ -322,7 +322,7 @@ const AllReminderReport = ({
   };
 
   const onVirtualScroller = (event: any) => {
-    if (event.last === reminders.length && hasMore && !isLoadingMore.current) {
+    if (event.last >= reminders.length - 1 && hasMore && !isLoadingMore.current) {
       loadReminders(currentOffset.current, 50);
     }
   };
