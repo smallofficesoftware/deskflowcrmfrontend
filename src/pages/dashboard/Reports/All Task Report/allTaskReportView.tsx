@@ -1176,6 +1176,13 @@ const AllTaskReportsView = ({
     if (is_support_ticket_flag == 1) {
       defs.push(
         {
+          key: "contact_person_name",
+          label: "Contact Name",
+          header: "Contact Name",
+          width: "150px",
+          body: (rowData) => rowData.contact_person_name || "-",
+        },
+        {
           key: "contact_country",
           label: "Country",
           header: "Country",
