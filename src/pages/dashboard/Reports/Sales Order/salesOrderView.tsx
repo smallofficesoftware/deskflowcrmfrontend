@@ -4,6 +4,8 @@ import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
+import { ColumnGroup } from "primereact/columngroup";
+import { Row } from "primereact/row";
 import {
   DataTable,
   DataTableFilterMetaData,
@@ -53,6 +55,18 @@ import {
 // parsed in memory at merge time (PDFMerger) - keep this bounded rather
 // than letting a "select all" of hundreds of rows through.
 const MAX_MULTI_PRINT_COUNT = 25;
+
+// Column-key -> the currency-free numeric field to sum for that column's
+// footer total. Same _wo_c fields the Export menu already sums (see the
+// `footer.sums`/`fromSum` config a bit further down) - reused here so the
+// on-screen footer and the exported file's totals can never disagree.
+const FOOTER_SUM_SOURCE_FIELD: Record<string, string> = {
+  taxable_amt: "taxable_amt_wo_c",
+  gst_amt: "gst_amt_wo_c",
+  tcs_amt: "tcs_amt_wo_c",
+  round_off: "round_off_wo_c",
+  grand_total: "grand_total_wo_c",
+};
 
 interface LazyTableState {
   first: number;
@@ -1706,28 +1720,54 @@ const TeamSalesOrderDataReportsView = ({
               selectionMode="multiple"
               emptyMessage="No records found"
               // loadingIcon={<span>Loading data, please wait...</span>}
-              footer={
-                <div
-                  style={{
-                    padding: "10px",
-                    background: "#f8f9fa",
-                    textAlign: "right",
-                  }}
-                >
-                  {(() => {
-                    const symbol =
-                      filteredData
-                        .find((r) => r.grand_total)
-                        ?.grand_total.match(/[^\d.,-]+/)?.[0] || "₹";
-                    const total = filteredData.reduce((sum, row) => {
-                      const val = parseFloat(
-                        String(row.grand_total).replace(/[^0-9.-]+/g, ""),
+              footerColumnGroup={
+                <ColumnGroup>
+                  <Row>
+                    <Column
+                      footer="Total"
+                      colSpan={2}
+                      footerStyle={{
+                        textAlign: "right",
+                        fontWeight: 600,
+                        background: "#f8f9fa",
+                      }}
+                    />
+                    {visibleColumns.map((col) => {
+                      const sourceKey = FOOTER_SUM_SOURCE_FIELD[col.key];
+                      if (!sourceKey) {
+                        return (
+                          <Column
+                            key={col.key}
+                            footer=""
+                            footerStyle={{ background: "#f8f9fa" }}
+                          />
+                        );
+                      }
+                      const symbol =
+                        filteredData
+                          .find((r: any) => r[col.key])
+                          ?.[col.key]?.toString()
+                          .match(/[^\d.,-]+/)?.[0] || "₹";
+                      const total = filteredData.reduce((sum: number, row: any) => {
+                        const val = parseFloat(
+                          String(row[sourceKey]).replace(/[^0-9.-]+/g, ""),
+                        );
+                        return sum + (isNaN(val) ? 0 : val);
+                      }, 0);
+                      return (
+                        <Column
+                          key={col.key}
+                          footer={`${symbol} ${total.toLocaleString("en-IN")}`}
+                          footerStyle={{
+                            textAlign: "right",
+                            fontWeight: 600,
+                            background: "#f8f9fa",
+                          }}
+                        />
                       );
-                      return sum + (isNaN(val) ? 0 : val);
-                    }, 0);
-                    return `Total: ${symbol} ${total.toLocaleString("en-IN")}`;
-                  })()}
-                </div>
+                    })}
+                  </Row>
+                </ColumnGroup>
               }
             >
               {(!MobileFlag ||
