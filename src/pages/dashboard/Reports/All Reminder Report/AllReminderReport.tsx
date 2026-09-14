@@ -1160,26 +1160,28 @@ const AllReminderReport = ({
             />
           )}
 
-          <Column
-            header=""
-            headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
-            bodyStyle={{ textAlign: "center" }}
-            body={(rowData: IReminderItem) => (
-              <Button
-                icon="pi pi-cog"
-                className="p-button-text p-0"
-                style={{ color: "green", width: "24px", height: "24px" }}
-                onClick={(e) => {
-                  setSelectedRow(rowData);
-                  op.current?.toggle(e);
-                  requestAnimationFrame(() => {
-                    const panel = op.current?.getElement();
-                    if (panel) panel.style.transform = "translate(40px, -25px)";
-                  });
-                }}
-              />
-            )}
-          />
+          {!MobileFlag && (
+            <Column
+              header=""
+              headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
+              bodyStyle={{ textAlign: "center" }}
+              body={(rowData: IReminderItem) => (
+                <Button
+                  icon="pi pi-cog"
+                  className="p-button-text p-0"
+                  style={{ color: "green", width: "24px", height: "24px" }}
+                  onClick={(e) => {
+                    setSelectedRow(rowData);
+                    op.current?.toggle(e);
+                    requestAnimationFrame(() => {
+                      const panel = op.current?.getElement();
+                      if (panel) panel.style.transform = "translate(40px, -25px)";
+                    });
+                  }}
+                />
+              )}
+            />
+          )}
 
           {visibleColumns.map((col) => (
             <Column

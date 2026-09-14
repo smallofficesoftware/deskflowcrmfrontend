@@ -32,11 +32,13 @@ import TrackView from "../../../left-side/list-company/TrackView";
 interface IPropsMyTeamReport {
     isCompanyOpen: boolean;
     onHide?: () => void;
+    MobileFlag?: string;
 }
 
 const MyTeamReport = ({
     isCompanyOpen,
-    onHide
+    onHide,
+    MobileFlag
 }: IPropsMyTeamReport) => {
     const [loading, setLoading] = useState(false);
     const [myTeamList, setMyTeamList] = useState<ICompanyTeam[]>([]);
@@ -631,6 +633,7 @@ const MyTeamReport = ({
                             </h3>
                             <div className="d-flex gap-2 align-items-center">
 
+                                {!MobileFlag && (
                                 <Button
                                     icon="pi pi-plus"
                                     className="report_button"
@@ -645,6 +648,7 @@ const MyTeamReport = ({
                                         },
                                     }}
                                 />
+                                )}
                             </div>
                         </div>
 
@@ -671,6 +675,7 @@ const MyTeamReport = ({
                                 onFilter={onFilter}
                                 key={companyTeamListDropdownOpen}
                             >
+                                {!MobileFlag && (
                                 <Column
                                     field="actions"
                                     // header="Actions"
@@ -683,6 +688,7 @@ const MyTeamReport = ({
                                     }}
                                     body={actionBodyTemplate}
                                 />
+                                )}
                                 <Column
                                     field="username"
                                     header={

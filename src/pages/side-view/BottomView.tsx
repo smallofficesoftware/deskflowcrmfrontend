@@ -422,7 +422,11 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "My_Team_Report" && (
-          <MyTeamReport isCompanyOpen={true} onHide={handleonHide} />
+          <MyTeamReport
+            isCompanyOpen={true}
+            MobileFlag={isEmbed ? "1" : undefined}
+            onHide={handleonHide}
+          />
         )}
         {appliedReportType === "attendance_salary" && (
           <TeamAttendanceReportsView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />

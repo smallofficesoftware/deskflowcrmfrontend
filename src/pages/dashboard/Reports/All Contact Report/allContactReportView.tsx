@@ -1717,7 +1717,7 @@ const AllcontactReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          {fromSideView && (
+          {fromSideView && !MobileFlag && (
             <Column
               field="actions"
               header={<span>Action</span>}

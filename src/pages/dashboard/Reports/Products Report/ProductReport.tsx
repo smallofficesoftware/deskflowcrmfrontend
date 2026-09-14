@@ -794,18 +794,20 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
                 delay: 0,
               }}
             >
-              <Column
-                field="actions"
-                // header="Actions"
-                headerClassName="center-header"
-                headerStyle={{
-                  width: "30px",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 1,
-                }}
-                body={actionBodyTemplate}
-              />
+              {!MobileFlag && (
+                <Column
+                  field="actions"
+                  // header="Actions"
+                  headerClassName="center-header"
+                  headerStyle={{
+                    width: "30px",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                  }}
+                  body={actionBodyTemplate}
+                />
+              )}
               <Column
                 field="product_name"
                 header={<span>Product Name</span>}

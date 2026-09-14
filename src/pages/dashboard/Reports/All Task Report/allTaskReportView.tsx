@@ -923,28 +923,32 @@ const AllTaskReportsView = ({
 
   const baseColumnDefs: TaskColumnDef[] = useMemo(() => {
     const defs: TaskColumnDef[] = [
-      {
-        key: "action",
-        label: "Actions",
-        header: "",
-        width: "50px",
-        locked: true,
-        body: (rowData) => (
-          <Button
-            icon="pi pi-cog"
-            className="p-button-text p-0"
-            style={{ color: "green", width: "24px", height: "24px" }}
-            onClick={(e) => {
-              setSelectedRow(rowData);
-              op.current?.toggle(e);
-              requestAnimationFrame(() => {
-                const panel = op.current?.getElement();
-                if (panel) panel.style.transform = "translate(40px, -25px)";
-              });
-            }}
-          />
-        ),
-      },
+      ...(!MobileFlag
+        ? [
+            {
+              key: "action",
+              label: "Actions",
+              header: "",
+              width: "50px",
+              locked: true,
+              body: (rowData) => (
+                <Button
+                  icon="pi pi-cog"
+                  className="p-button-text p-0"
+                  style={{ color: "green", width: "24px", height: "24px" }}
+                  onClick={(e) => {
+                    setSelectedRow(rowData);
+                    op.current?.toggle(e);
+                    requestAnimationFrame(() => {
+                      const panel = op.current?.getElement();
+                      if (panel) panel.style.transform = "translate(40px, -25px)";
+                    });
+                  }}
+                />
+              ),
+            } as TaskColumnDef,
+          ]
+        : []),
       {
         key: "id",
         label: is_support_ticket_flag === 0 ? "Task ID" : "Support Ticket ID",

@@ -1190,17 +1190,19 @@ const ExpenseDetailedReport = ({
                     bodyStyle={{ textAlign: "center" }}
                   />
                 )}
-                <Column
-                  field="actions"
-                  headerClassName="center-header"
-                  headerStyle={{
-                    width: "55px",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                  }}
-                  body={actionBodyTemplate}
-                />
+                {!MobileFlag && (
+                  <Column
+                    field="actions"
+                    headerClassName="center-header"
+                    headerStyle={{
+                      width: "55px",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                    }}
+                    body={actionBodyTemplate}
+                  />
+                )}
                 {visibleColumns.map((col) => (
                   <Column
                     key={col.key}
