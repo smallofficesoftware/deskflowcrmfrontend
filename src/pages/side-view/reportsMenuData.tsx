@@ -777,13 +777,6 @@ export const reportsMenuData: IReportMenuGroup[] = [
         description: "Generate and print a QR code for quick lead capture.",
       },
       {
-        label: "AI Assistant",
-        value: "AI_chat_Dashboard",
-        pageId: PAGE_ID.AI_ASSISTANT,
-        icon: "smartToy",
-        description: "Chat with the AI assistant for quick answers.",
-      },
-      {
         label: "Route Planner",
         value: "route_planner",
         icon: "route",

@@ -623,7 +623,10 @@ const BottomView = ({
           <BillOfMaterialReport onHide={handleonHide} />
         )}
         {appliedReportType === "Products_Report" && (
-          <ProductReport onHide={handleonHide} />
+          <ProductReport
+            MobileFlag={isEmbed ? "1" : undefined}
+            onHide={handleonHide}
+          />
         )}
         {appliedReportType === "tax_master" && (
           <TaxMasterGridView onHide={handleonHide} />

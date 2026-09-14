@@ -42,10 +42,11 @@ import {
 
 interface IProductReport {
   onHide?: () => void;
+  MobileFlag?: string;
 }
 
 const PAGE_SIZE = 50;
-const ProductReport = ({ onHide }: IProductReport) => {
+const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
   const [loading, setLoading] = useState(false);
 
   const [productList, setProductList] = useState<IProductView[]>([]);
@@ -544,20 +545,28 @@ const ProductReport = ({ onHide }: IProductReport) => {
     }`}
         </style>
         <div>
-          <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+          <div
+            className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
+          >
             <h3
-              style={{ fontSize: "20px", paddingLeft: "12px" }}
+              style={{
+                fontSize: "20px",
+                paddingLeft: MobileFlag ? "10px" : "12px",
+              }}
               className="dash-board-text-count"
             >
               Products
             </h3>
             <div
-              className="d-flex gap-2 align-items-center"
-              style={{ position: "relative" }}
+              className="d-flex gap-2 align-items-center flex-wrap"
+              style={{
+                position: "relative",
+                paddingLeft: MobileFlag ? "10px" : "",
+              }}
             >
               <div
                 style={{
-                  width: "300px",
+                  width: MobileFlag ? "220px" : "300px",
                   zIndex: "999",
                   position: "relative",
                 }}
@@ -566,8 +575,15 @@ const ProductReport = ({ onHide }: IProductReport) => {
                   ref={searchInputRef}
                   type="text"
                   className="form-control"
-                  placeholder="Search Anything for This Report"
-                  style={{ width: "300px", marginTop: "10px" }}
+                  placeholder={
+                    MobileFlag
+                      ? "Search in This Report"
+                      : "Search Anything for This Report"
+                  }
+                  style={{
+                    width: MobileFlag ? "220px" : "300px",
+                    marginTop: "10px",
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleGlobalSearch();
@@ -756,7 +772,7 @@ const ProductReport = ({ onHide }: IProductReport) => {
               scrollable
               scrollHeight="flex"
               className="custom-centered-table"
-              tableStyle={{ tableLayout: "fixed", width: "100%" }}
+              tableStyle={{ minWidth: "90rem" }}
               emptyMessage="No data found"
               filterDisplay="row"
               filters={tablefilters}
