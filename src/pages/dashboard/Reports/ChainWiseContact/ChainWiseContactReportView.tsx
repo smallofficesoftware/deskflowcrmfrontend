@@ -939,6 +939,7 @@ const ChainWiseContactReportView = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1035,6 +1036,7 @@ const ChainWiseContactReportView = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

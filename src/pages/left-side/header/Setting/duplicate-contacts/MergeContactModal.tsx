@@ -27,6 +27,7 @@ const TABLE_LABELS: Record<string, string> = {
   route_plan_vs_contacts: "Route Plan",
   visits: "Visit",
   job_cards: "Job Card",
+  contact_masters: "Referred Contact",
 };
 
 const summarizeActivity = (preview: IContactMergePreview | undefined, contactId: number) => {

@@ -648,6 +648,7 @@ const AlllableReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -736,6 +737,7 @@ const AlllableReport = ({
                 </li>
               </ul>
             </div>
+            )}
           </div>
           <Button
             icon="pi pi-refresh"

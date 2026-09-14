@@ -970,6 +970,8 @@ const AllTeamExpense = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1052,6 +1054,8 @@ const AllTeamExpense = ({
                 Print
               </li>
             </ul>
+              </>
+            )}
           </div>
           <Button
             icon="pi pi-refresh"

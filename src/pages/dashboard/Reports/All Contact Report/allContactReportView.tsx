@@ -28,6 +28,7 @@ import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
+import FindDuplicateContactsModal from "../../../left-side/header/Setting/duplicate-contacts/FindDuplicateContactsModal";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   ITEMS_PER_PAGE,
@@ -147,6 +148,7 @@ const AllcontactReport = ({
     useState<boolean>(false);
   const [refreshContact, setRefreshContact] = useState(false);
   const [isArchivState, setIsArchivState] = useState<boolean>(false);
+  const [showFindDuplicatesModal, setShowFindDuplicatesModal] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
     {},
@@ -298,6 +300,11 @@ const AllcontactReport = ({
 
   const canViewMsg = useCheckUserPermission(
     PAGE_ID.CONTACT_MESSAGE_HISTORY,
+    PERMISSION_TYPE.VIEW,
+  );
+
+  const canMergeContacts = useCheckUserPermission(
+    PAGE_ID.CONTACT_MERGE,
     PERMISSION_TYPE.VIEW,
   );
 
@@ -1420,26 +1427,30 @@ const AllcontactReport = ({
                 },
               }}
             />
-            <Button
-              icon="pi pi-plus"
-              className="report_button"
-              style={{ backgroundColor: "rgb(245, 134, 52)" }}
-              rounded
-              onClick={() => {
-                if (canAdd) {
-                  setIsCreateContact(true);
-                } else {
-                  toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                }
-              }}
-              tooltip={`Add Contact`}
-              tooltipOptions={{
-                position: "top",
-                style: {
-                  fontSize: "14px",
-                },
-              }}
-            />
+            {!MobileFlag && (
+              <Button
+                icon="pi pi-plus"
+                className="report_button"
+                style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                rounded
+                onClick={() => {
+                  if (canAdd) {
+                    setIsCreateContact(true);
+                  } else {
+                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }
+                }}
+                tooltip={`Add Contact`}
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+            )}
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1572,7 +1583,25 @@ const AllcontactReport = ({
 
                 {isArchivState ? "UnArchive Contacts" : "Archive Contacts"}
               </li>
+              {canMergeContacts && (
+                <li
+                  className="listItem"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    setShowFindDuplicatesModal(true);
+                  }}
+                >
+                  <i
+                    className="pi pi-copy"
+                    style={{ marginRight: "4px" }}
+                  />
+                  Find Duplicate Contacts
+                </li>
+              )}
             </ul>
+              </>
+            )}
           </div>
 
           <Button
@@ -1786,6 +1815,13 @@ const AllcontactReport = ({
           btn2="Import"
           sampleLocation="sampleContact.xlsx"
           potions={1}
+        />
+      )}
+      {showFindDuplicatesModal && (
+        <FindDuplicateContactsModal
+          show={showFindDuplicatesModal}
+          onHide={() => setShowFindDuplicatesModal(false)}
+          onMerged={handleRefresh}
         />
       )}
       {/* {isCloseConfirmation && (

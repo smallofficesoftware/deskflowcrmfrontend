@@ -1422,27 +1422,31 @@ const TeamSalesOrderDataReportsView = ({
                     },
                   }}
                 />
-                <Button
-                  icon="pi pi-plus"
-                  className="report_button"
-                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                  rounded
-                  onClick={() => {
-                    if (canViewOrder) {
-                      fetchContact(setContactData);
-                      setIsOrderShow(true);
-                    } else {
-                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }
-                  }}
-                  tooltip={`Add ${title}`}
-                  tooltipOptions={{
-                    position: "top",
-                    style: {
-                      fontSize: "14px",
-                    },
-                  }}
-                />
+                {!MobileFlag && (
+                  <Button
+                    icon="pi pi-plus"
+                    className="report_button"
+                    style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                    rounded
+                    onClick={() => {
+                      if (canViewOrder) {
+                        fetchContact(setContactData);
+                        setIsOrderShow(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                    tooltip={`Add ${title}`}
+                    tooltipOptions={{
+                      position: "top",
+                      style: {
+                        fontSize: "14px",
+                      },
+                    }}
+                  />
+                )}
+                {!MobileFlag && (
+                  <>
                 <Button
                   icon="pi pi-ellipsis-v"
                   className="report_button"
@@ -1636,6 +1640,8 @@ const TeamSalesOrderDataReportsView = ({
                     </li>
                   )}
                 </ul>
+                  </>
+                )}
               </div>
 
               <Button

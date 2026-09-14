@@ -1101,6 +1101,8 @@ const AllCallReportsView = ({
                   },
                 }}
               />
+              {!MobileFlag && (
+                <>
               <Button
                 icon="pi pi-ellipsis-v"
                 className="report_button"
@@ -1189,6 +1191,8 @@ const AllCallReportsView = ({
                   Print
                 </li>
               </ul>
+                </>
+              )}
             </div>
 
             <Button

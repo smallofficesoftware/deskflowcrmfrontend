@@ -973,6 +973,7 @@ const CategoryPendingReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1077,6 +1078,7 @@ const CategoryPendingReport = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

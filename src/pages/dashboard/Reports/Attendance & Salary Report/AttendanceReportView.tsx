@@ -1010,6 +1010,8 @@ const TeamAttendanceReportsView = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1096,6 +1098,8 @@ const TeamAttendanceReportsView = ({
                 Print
               </li>
             </ul>
+              </>
+            )}
           </div>
 
           <Button

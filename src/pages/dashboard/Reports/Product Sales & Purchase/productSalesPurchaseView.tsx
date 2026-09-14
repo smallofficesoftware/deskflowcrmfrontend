@@ -1017,6 +1017,7 @@ const ProductSalesPurchaseReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1106,6 +1107,7 @@ const ProductSalesPurchaseReport = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

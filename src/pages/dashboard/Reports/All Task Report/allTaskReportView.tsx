@@ -1724,26 +1724,29 @@ const AllTaskReportsView = ({
                   },
                 }}
               />
-              <Button
-                icon="pi pi-plus"
-                className="report_button"
-                style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                rounded
-                onClick={() => {
-                  if (canAdd) {
-                    setIsCreateModel(true);
-                  } else {
-                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                  }
-                }}
-                tooltip={`Add ${is_support_ticket_flag ? "Support Ticket" : "Task"}`}
-                tooltipOptions={{
-                  position: "top",
-                  style: {
-                    fontSize: "14px",
-                  },
-                }}
-              />
+              {!MobileFlag && (
+                <Button
+                  icon="pi pi-plus"
+                  className="report_button"
+                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                  rounded
+                  onClick={() => {
+                    if (canAdd) {
+                      setIsCreateModel(true);
+                    } else {
+                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    }
+                  }}
+                  tooltip={`Add ${is_support_ticket_flag ? "Support Ticket" : "Task"}`}
+                  tooltipOptions={{
+                    position: "top",
+                    style: {
+                      fontSize: "14px",
+                    },
+                  }}
+                />
+              )}
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1832,6 +1835,7 @@ const AllTaskReportsView = ({
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"

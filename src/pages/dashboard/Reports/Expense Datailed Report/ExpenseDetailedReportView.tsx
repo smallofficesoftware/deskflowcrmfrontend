@@ -968,20 +968,24 @@ const ExpenseDetailedReport = ({
                       },
                     }}
                   />
-                  <Button
-                    icon="pi pi-plus"
-                    className="report_button"
-                    style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                    rounded
-                    onClick={() => openCreateProduct("createEdit")}
-                    tooltip={`Add Contact`}
-                    tooltipOptions={{
-                      position: "top",
-                      style: {
-                        fontSize: "14px",
-                      },
-                    }}
-                  />
+                  {!MobileFlag && (
+                    <Button
+                      icon="pi pi-plus"
+                      className="report_button"
+                      style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                      rounded
+                      onClick={() => openCreateProduct("createEdit")}
+                      tooltip={`Add Contact`}
+                      tooltipOptions={{
+                        position: "top",
+                        style: {
+                          fontSize: "14px",
+                        },
+                      }}
+                    />
+                  )}
+                  {!MobileFlag && (
+                    <>
                   <Button
                     icon="pi pi-ellipsis-v"
                     className="report_button"
@@ -1085,6 +1089,8 @@ const ExpenseDetailedReport = ({
                       Print
                     </li>
                   </ul>
+                    </>
+                  )}
 
                   <Button
                     icon="pi pi-refresh"

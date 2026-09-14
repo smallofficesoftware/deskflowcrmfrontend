@@ -907,6 +907,7 @@ const AccountCreaditReport = ({
                   },
                 }}
               />
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1006,6 +1007,7 @@ const AccountCreaditReport = ({
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"

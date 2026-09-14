@@ -657,6 +657,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
               }}
             />
 
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -738,6 +739,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                 </li>
               </ul>
             </div>
+            )}
             <Button
               icon="pi pi-refresh"
               className="report_button"

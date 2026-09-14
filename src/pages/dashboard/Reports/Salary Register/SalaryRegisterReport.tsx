@@ -1114,6 +1114,8 @@ const SalaryRegisterReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1218,6 +1220,8 @@ const SalaryRegisterReport = ({
                 Salary Register Slip
               </li>
             </ul>
+              </>
+            )}
           </div>
 
           <Button

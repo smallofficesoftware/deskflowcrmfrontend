@@ -1165,6 +1165,8 @@ const AllInqueryReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1256,6 +1258,8 @@ const AllInqueryReport = ({
                 Print
               </li>
             </ul>
+              </>
+            )}
           </div>
 
           <Button

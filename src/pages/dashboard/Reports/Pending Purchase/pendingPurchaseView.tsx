@@ -1330,6 +1330,7 @@ const PendingPurchaseReportsView = ({
                   },
                 }}
               />
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1497,6 +1498,7 @@ const PendingPurchaseReportsView = ({
                   </li>
                 </ul>
               </div>
+              )}
               <Button
                 icon="pi pi-refresh"
                 className="report_button"

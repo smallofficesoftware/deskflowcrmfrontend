@@ -978,6 +978,11 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
 
   const canAdd = useCheckUserPermission(PAGE_ID.CONTACT, PERMISSION_TYPE.ADD);
 
+  const canMergeContacts = useCheckUserPermission(
+    PAGE_ID.CONTACT_MERGE,
+    PERMISSION_TYPE.VIEW,
+  );
+
   const canDelete = useCheckUserPermission(
     PAGE_ID.CONTACT,
     PERMISSION_TYPE.DELETE,
@@ -4424,31 +4429,33 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                                         ? "Unarchive Selected Contacts"
                                         : "Archive Selected Contacts"}
                                     </li>
-                                    <li
-                                      className="listItem"
-                                      role="button"
-                                      onClick={() => {
-                                        if (selectedIds.length < 2) {
-                                          toast.error("Select at least 2 contacts to merge");
-                                        } else {
-                                          setShowMergeContactModal(true);
-                                        }
-                                        setIsActionDropdownOpen(false);
-                                      }}
-                                    >
-                                      <span>
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          height="24px"
-                                          viewBox="0 -960 960 960"
-                                          width="24px"
-                                          fill="currentColor"
-                                        >
-                                          <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                                        </svg>
-                                      </span>{" "}
-                                      Merge Selected Contacts
-                                    </li>
+                                    {canMergeContacts && (
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={() => {
+                                          if (selectedIds.length < 2) {
+                                            toast.error("Select at least 2 contacts to merge");
+                                          } else {
+                                            setShowMergeContactModal(true);
+                                          }
+                                          setIsActionDropdownOpen(false);
+                                        }}
+                                      >
+                                        <span>
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            height="24px"
+                                            viewBox="0 -960 960 960"
+                                            width="24px"
+                                            fill="currentColor"
+                                          >
+                                            <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+                                          </svg>
+                                        </span>{" "}
+                                        Merge Selected Contacts
+                                      </li>
+                                    )}
                                     {platformType == 2 && (
                                       <li
                                         className="listItem"

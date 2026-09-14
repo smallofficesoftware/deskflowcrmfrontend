@@ -1186,6 +1186,7 @@ const ProductPendingView = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1275,6 +1276,7 @@ const ProductPendingView = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

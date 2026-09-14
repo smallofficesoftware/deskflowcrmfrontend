@@ -1258,6 +1258,7 @@ const TeamPerformanceReports = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1368,6 +1369,7 @@ const TeamPerformanceReports = ({
                 </li>
               </ul>
             </div>
+            )}
           </div>
 
           <Button

@@ -890,6 +890,8 @@ const EmployeeTransactionReports = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -980,6 +982,8 @@ const EmployeeTransactionReports = ({
                 Print
               </li>
             </ul>
+              </>
+            )}
 
             <Button
               icon="pi pi-refresh"

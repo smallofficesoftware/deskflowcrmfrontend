@@ -1263,6 +1263,7 @@ ${fields
                   },
                 }}
               />
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1367,6 +1368,7 @@ ${fields
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"

@@ -882,6 +882,7 @@ const TeamPendingWorkReportsView = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -968,6 +969,7 @@ const TeamPendingWorkReportsView = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

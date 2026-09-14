@@ -1322,6 +1322,7 @@ const PendingOrderView = ({
                   },
                 }}
               />
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1489,6 +1490,7 @@ const PendingOrderView = ({
                   </li>
                 </ul>
               </div>
+              )}
               <Button
                 icon="pi pi-refresh"
                 className="report_button"

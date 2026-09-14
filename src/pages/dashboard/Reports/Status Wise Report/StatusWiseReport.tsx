@@ -485,6 +485,7 @@ const StatusWiseReport = ({
               tooltip="Filter Report"
               tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -561,6 +562,7 @@ const StatusWiseReport = ({
                 </li>
               </ul>
             </div>
+            )}
             <Button
               icon="pi pi-refresh"
               className="report_button"

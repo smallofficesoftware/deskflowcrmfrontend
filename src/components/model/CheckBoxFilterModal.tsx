@@ -2268,16 +2268,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -2397,16 +2397,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -2527,16 +2527,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                               ? option.color
                                               : "#808080",
                                             wordWrap: "break-word",
-                                            width: MobileFlag
-                                              ? "fit-content"
-                                              : "9vw",
+                                            width: "fit-content",
                                             maxWidth: MobileFlag
                                               ? "150px"
-                                              : "9vw",
+                                              : "220px",
+                                            whiteSpace: "normal",
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: "vertical",
                                             overflow: "hidden",
                                             textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            display: "inline-block",
                                             textAlign: "start",
                                           }}
                                           className="badge rounded-pill"
@@ -2666,16 +2666,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                                 ? option.color
                                                 : "#808080",
                                               wordWrap: "break-word",
-                                              width: MobileFlag
-                                                ? "fit-content"
-                                                : "9vw",
+                                              width: "fit-content",
                                               maxWidth: MobileFlag
                                                 ? "150px"
-                                                : "9vw",
+                                                : "220px",
+                                              whiteSpace: "normal",
+                                              display: "-webkit-box",
+                                              WebkitLineClamp: 2,
+                                              WebkitBoxOrient: "vertical",
                                               overflow: "hidden",
                                               textOverflow: "ellipsis",
-                                              whiteSpace: "nowrap",
-                                              display: "inline-block",
                                               textAlign: "start",
                                             }}
                                             className="badge rounded-pill"
@@ -3094,7 +3094,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                   </div>
                 )}
                 {filtersToShow.includes(7) && (
-                  <div className="col-6 col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-6 card">
+                  <div className="col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
                     <div className="">
                       <div className="ms-2 mt-1">
                         <label>Category / Product</label>
@@ -3475,16 +3475,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                           style={{
                                             backgroundColor: "#808080",
                                             wordWrap: "break-word",
-                                            width: MobileFlag
-                                              ? "fit-content"
-                                              : "9vw",
+                                            width: "fit-content",
                                             maxWidth: MobileFlag
                                               ? "150px"
-                                              : "9vw",
+                                              : "220px",
+                                            whiteSpace: "normal",
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: "vertical",
                                             overflow: "hidden",
                                             textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            display: "inline-block",
                                             textAlign: "start",
                                           }}
                                           className="badge rounded-pill"
@@ -4240,16 +4240,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.payment_color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -4371,16 +4371,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -4502,16 +4502,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"

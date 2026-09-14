@@ -1403,27 +1403,30 @@ const TeamInwardDataReportsView = ({
                     },
                   }}
                 />
-                <Button
-                  icon="pi pi-plus"
-                  className="report_button"
-                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                  rounded
-                  onClick={() => {
-                    if (canAddInward) {
-                      fetchContact(setContactData);
-                      setIsOrderShow(true);
-                    } else {
-                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }
-                  }}
-                  tooltip={`Add ${title}`}
-                  tooltipOptions={{
-                    position: "top",
-                    style: {
-                      fontSize: "14px",
-                    },
-                  }}
-                />
+                {!MobileFlag && (
+                  <Button
+                    icon="pi pi-plus"
+                    className="report_button"
+                    style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                    rounded
+                    onClick={() => {
+                      if (canAddInward) {
+                        fetchContact(setContactData);
+                        setIsOrderShow(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                    tooltip={`Add ${title}`}
+                    tooltipOptions={{
+                      position: "top",
+                      style: {
+                        fontSize: "14px",
+                      },
+                    }}
+                  />
+                )}
+                {!MobileFlag && (
                 <div ref={dropdownRef} style={{ position: "relative" }}>
                   <Button
                     icon="pi pi-ellipsis-v"
@@ -1605,6 +1608,7 @@ const TeamInwardDataReportsView = ({
                     )}
                   </ul>
                 </div>
+                )}
 
                 <Button
                   icon="pi pi-refresh"

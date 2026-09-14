@@ -850,6 +850,8 @@ const ProcessAttendanceReportView = ({
                 },
               }}
             />
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -953,6 +955,8 @@ const ProcessAttendanceReportView = ({
                 Generate Att. Slip
               </li>
             </ul>
+              </>
+            )}
             <Button
               icon="pi pi-refresh"
               className="report_button"

@@ -1416,6 +1416,8 @@ const AllVisitReportsView = ({
                   },
                 }}
               />
+              {!MobileFlag && (
+                <>
               <Button
                 icon="pi pi-ellipsis-v"
                 className="report_button"
@@ -1502,6 +1504,8 @@ const AllVisitReportsView = ({
                   Print
                 </li>
               </ul>
+                </>
+              )}
 
               <Button
                 icon="pi pi-refresh"

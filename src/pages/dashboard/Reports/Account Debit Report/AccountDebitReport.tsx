@@ -891,6 +891,7 @@ const AccountDebitReport = ({
                   },
                 }}
               />
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -980,6 +981,7 @@ const AccountDebitReport = ({
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"
