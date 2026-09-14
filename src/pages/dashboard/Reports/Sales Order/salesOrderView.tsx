@@ -341,6 +341,7 @@ const TeamSalesOrderDataReportsView = ({
     filters.checkedGstOptions,
     filters.selectedProductId,
     filters.selectedCategoryId,
+    filters.selectedApproveStatus,
   ]);
 
   useEffect(() => {
@@ -496,6 +497,7 @@ const TeamSalesOrderDataReportsView = ({
         filters.checkedGstOptions,
         filters.selectedProductId,
         filters.selectedCategoryId,
+        filters.selectedApproveStatus,
       );
       const newData = data?.items || [];
       const getcurrncy = data?.getcurrncy;
@@ -1933,7 +1935,7 @@ const TeamSalesOrderDataReportsView = ({
               message="Please select the Dates and Team Members for the Report."
               btn1="Clear"
               btn2="Apply"
-              filtersToShow={[1, 4, 5, 7, 15, 18, 22]}
+              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 30]}
               pageId={1}
               stageandStatusOrderType={4}
               filtershowSeriesOrderType={"order_prefix"}
