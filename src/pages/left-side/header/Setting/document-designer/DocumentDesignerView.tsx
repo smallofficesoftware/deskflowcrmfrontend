@@ -15,6 +15,7 @@ import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePage
 import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
 import { previewReportPdf, verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
@@ -1703,21 +1704,25 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         >
           Remove Page
         </button>
-        <select
-          className="form-select form-select-sm"
-          style={{ width: 210 }}
-          value={addFieldName}
-          onChange={(e) => setAddFieldName(e.target.value)}
-          disabled={!currentTemplateId || !defaultFields.length}
-          title="Re-add a built-in field (e.g. the data table) that was deleted, with its correct name and columns"
-        >
-          <option value="">{defaultFields.length ? "Add Field…" : "No fields available"}</option>
-          {defaultFields.map((f) => (
-            <option key={f.name} value={f.name}>
-              {humanizeFieldName(f.name)} ({f.type})
-            </option>
-          ))}
-        </select>
+        <div style={{ width: 210 }} title="Re-add a built-in field (e.g. the data table) that was deleted, or add an opt-in extra field, with its correct name and columns">
+          <CustomSearchDropdown
+            options={defaultFields.map((f) => ({
+              value: f.name,
+              label: `${humanizeFieldName(f.name)} (${f.type})`,
+            }))}
+            value={
+              addFieldName
+                ? {
+                    value: addFieldName,
+                    label: `${humanizeFieldName(addFieldName)} (${defaultFields.find((f) => f.name === addFieldName)?.type ?? ""})`,
+                  }
+                : null
+            }
+            onChange={(option) => setAddFieldName(option?.value ?? "")}
+            isDisabled={!currentTemplateId || !defaultFields.length ? "disabled" : false}
+            placeholder={defaultFields.length ? "Add Field…" : "No fields available"}
+          />
+        </div>
         <button
           className="btn btn-sm btn-outline-secondary"
           onClick={handleAddField}
