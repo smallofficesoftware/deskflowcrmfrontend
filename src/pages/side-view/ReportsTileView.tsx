@@ -13,6 +13,30 @@ import { reportsMenuData } from "./reportsMenuData";
 const THEME_COLOR = "#F58634";
 const THEME_TINT = "#fff3eb";
 
+// This tile grid is meant to show reports only — config/tool screens
+// already have a direct entry point elsewhere in the app's own sidebar
+// (e.g. Masters, Settings, Product masters, Online Store), so surfacing
+// them again here is pure duplication. Kept out only for THIS view;
+// reportsMenuData itself stays untouched (SideBarView's search still
+// needs the full list).
+const HIDDEN_REPORT_GROUP_KEYS = new Set(["Forms", "Settings", "Masters"]);
+const HIDDEN_REPORT_LABELS_BY_GROUP: Record<string, Set<string>> = {
+  "Product Settings": new Set([
+    "Product Group",
+    "Product Category",
+    "Product Unit",
+    "Tax",
+    "Price List",
+  ]),
+  Others: new Set([
+    "Online Store",
+    "View In Map",
+    "Explore In Google Map",
+    "Print QR Code",
+    "Route Planner",
+  ]),
+};
+
 interface IProps {
   onReportClick: (value: string) => void;
   // Custom Reports tiles are dynamic (a numeric report_definition_id, not
@@ -95,7 +119,18 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     }
   };
 
-  const permissionFilteredMenus = reportsMenuData
+  const reportOnlyMenus = reportsMenuData
+    .filter((menu) => !HIDDEN_REPORT_GROUP_KEYS.has(menu.key))
+    .map((menu) => {
+      const hiddenLabels = HIDDEN_REPORT_LABELS_BY_GROUP[menu.key];
+      if (!hiddenLabels) return menu;
+      return {
+        ...menu,
+        subMenus: menu.subMenus.filter((sub) => !hiddenLabels.has(sub.label)),
+      };
+    });
+
+  const permissionFilteredMenus = reportOnlyMenus
     .map((menu) => ({
       ...menu,
       subMenus: menu.subMenus.filter((sub) => {
