@@ -345,6 +345,7 @@ const TeamSalesInvoiceDataReportsView = ({
     filters.checkedTrasactionMode,
     filters.selectedProductId,
     filters.selectedCategoryId,
+    filters.selectedApproveStatus,
   ]);
 
   useEffect(() => {
@@ -499,6 +500,7 @@ const TeamSalesInvoiceDataReportsView = ({
         filters.checkedTrasactionMode,
         filters.selectedProductId,
         filters.selectedCategoryId,
+        filters.selectedApproveStatus,
       );
 
       const newData = data?.items || [];
@@ -1949,7 +1951,7 @@ const TeamSalesInvoiceDataReportsView = ({
               message="Please select the Dates and Team Members for the Report."
               btn1="Clear"
               btn2="Apply"
-              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 24]}
+              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 24, 30]}
               pageId={1}
               stageandStatusOrderType={5}
               filtershowSeriesOrderType={"invoice_prefix"}
