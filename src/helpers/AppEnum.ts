@@ -163,10 +163,10 @@ export enum PAGE_ID {
   FORM_BUILDER = 178,
   // Find/Merge Duplicate Contacts feature gate. Migration
   // 20260914120000-add-contact-merge-application-page.js (master DB).
-  // id 179 = "next after 178" — UNVERIFIED; VERIFY against the live
-  // a_application_pages table before running that migration, same caution
-  // 159/160/178 each already needed once.
-  CONTACT_MERGE = 179,
+  // id 184 — VERIFIED against live a_application_pages (2026-09-15, dev):
+  // 179-183 were already taken by other rows (adminpanel shares this
+  // table); MAX(id) was 183.
+  CONTACT_MERGE = 184,
 
   // Add more pages as needed
 }
