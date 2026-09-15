@@ -6049,8 +6049,22 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   useEscapeKey(handleReportClose);
 
   const parts = cartnumber.split("/");
-  const firstPastOfCartNumber = parts[0];
-  const lastPastOfCartNumber = parts[parts.length - 1];
+  // cart_number is one opaque string built from the tenant's configured
+  // pattern — some patterns put prefix and number back-to-back with no
+  // separator (e.g. "RJT1773/26-27"), which makes a plain "/"-split lump
+  // the prefix and number together as one chunk (parts[0] = "RJT1773"),
+  // showing the number twice: once stuck to the prefix, once again in the
+  // editable SR No. box. Preferring the authoritative sr_by_prifix field
+  // (always just the prefix, regardless of pattern) avoids that. Falls
+  // back to the naive split for any cart missing sr_by_prifix, so nothing
+  // regresses for data this doesn't apply to.
+  const authoritativePrefix =
+    orderById?.cart?.sr_by_prifix || orderbyidList?.cart?.sr_by_prifix || "";
+  const prefixAndNumber = `${authoritativePrefix}${srNumber}`;
+  const firstPastOfCartNumber = authoritativePrefix || parts[0];
+  const lastPastOfCartNumber = authoritativePrefix && cartnumber.startsWith(prefixAndNumber)
+    ? cartnumber.slice(prefixAndNumber.length).replace(/^\//, "")
+    : parts[parts.length - 1];
 
   useEffect(() => {
     if (!printDate?.length) return;
