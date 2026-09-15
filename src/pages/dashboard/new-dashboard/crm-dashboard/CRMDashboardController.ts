@@ -234,7 +234,9 @@ export const fetchAllDashoardApi = async (
   setTotalDispath: TReactSetState<number>,
   setDispathCount: TReactSetState<number>,
   setSupportTicketCount: TReactSetState<number>,
-  setTaskCount: TReactSetState<number>,    
+  setTaskCount: TReactSetState<number>,
+  setTotalPerforma: TReactSetState<number>,
+  setPerformaApprovedCount: TReactSetState<number>,
   data: any,
   setTeamInsight?: TReactSetState<TeamInsightType[]>
 ) => {
@@ -277,6 +279,8 @@ export const fetchAllDashoardApi = async (
       setDispathCount(0)
       setSupportTicketCount(0)
       setTaskCount(0)
+      setTotalPerforma(0)
+      setPerformaApprovedCount(0)
       setTeamInsight?.([])
     }
     setInquiryList(data.data.data.sourceTypeVsInquiry);
@@ -309,6 +313,8 @@ export const fetchAllDashoardApi = async (
     setDispathCount(data.data.data.dispathCount)
     setSupportTicketCount(data.data.data.TotalsupportTicketCount)
     setTaskCount(data.data.data.TotalTaskCount)
+    setTotalPerforma(data.data.data.totalPerforma)
+    setPerformaApprovedCount(data.data.data.performaApprovedCount)
     setTeamInsight?.(data.data.data.teamInsight || []);
 
   } catch (error: any) {
@@ -322,7 +328,7 @@ export const fetchQuationCount = async (setQuationCount: TReactSetState<ITitle[]
   const requestData = {
     table: "company_masters",
     columns:
-      "order_title,invoice_title,quotation_title,purchase_title,purchase_order_title,workorder_title,return_purchase_invoice_title,return_sales_invoice_title,id,inward_title,dispatch_title",
+      "order_title,invoice_title,quotation_title,purchase_title,purchase_order_title,workorder_title,return_purchase_invoice_title,return_sales_invoice_title,id,inward_title,dispatch_title,proforma_invoice_title",
     where: JSON.stringify({ a_application_login_id: uuid }),
     request_flag: 2,
   };

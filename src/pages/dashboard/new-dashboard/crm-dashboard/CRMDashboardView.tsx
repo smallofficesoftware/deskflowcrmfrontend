@@ -122,6 +122,8 @@ const CRMDashboardView = ({
     returnPurchaseInvoiceApprovedCount,
     setReturnPurchaseInvoiceApprovedCount,
   ] = useState(0);
+  const [totalPerforma, setTotalPerforma] = useState(0);
+  const [performaApprovedCount, setPerformaApprovedCount] = useState(0);
 
   const [teamInsight, setTeamInsight] = useState<TeamInsightType[]>([]);
 
@@ -195,6 +197,10 @@ const CRMDashboardView = ({
   );
   const canAllReminderReport = useCheckUserPermission(
     PAGE_ID.REMINDER_REPORT,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canViewProformaInvoice = useCheckUserPermission(
+    PAGE_ID.PROFORMA_INVOICE_REPORT,
     PERMISSION_TYPE.VIEW,
   );
 
@@ -349,6 +355,8 @@ const CRMDashboardView = ({
         setDispathCount,
         setSupportTicketCount,
         setTaskCount,
+        setTotalPerforma,
+        setPerformaApprovedCount,
         selectedUsers.map((user) => user.value),
         setTeamInsight,
       );
@@ -481,6 +489,8 @@ const CRMDashboardView = ({
       navigateToReport(name);
     } else if (canAllReminderReport && name === "allreminder_report") {
       navigateToReport(name);
+    } else if (canViewProformaInvoice && name === "proforma_invoice_report") {
+      navigateToReport(name);
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
@@ -597,6 +607,8 @@ const CRMDashboardView = ({
         setDispathCount,
         setSupportTicketCount,
         setTaskCount,
+        setTotalPerforma,
+        setPerformaApprovedCount,
         data, // Pass as setTeamMemberList
         undefined
       );
@@ -1060,9 +1072,9 @@ const CRMDashboardView = ({
 
 
                             {
-                              count: totalReturnSalesInvoice,
-                              approvedCount: returnSalesInvoiceApprovedCount,
-                              title: quationCount?.[0]?.return_sales_invoice_title,
+                              count: totalPerforma,
+                              approvedCount: performaApprovedCount,
+                              title: quationCount?.[0]?.proforma_invoice_title,
                               svg: (
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -1071,11 +1083,11 @@ const CRMDashboardView = ({
                                   width="30"
                                   fill="#5f6368"
                                 >
-                                  <path d="m480-320 160-160-56-56-64 62v-166h-80v166l-64-62-56 56 160 160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22q38 0 68.5 22t43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm280-590q13 0 21.5-8.5T510-820q0-13-8.5-21.5T480-850q-13 0-21.5 8.5T450-820q0 13 8.5 21.5T480-790ZM200-200v-560 560Z" />
+                                  <path d="M240-80q-50 0-85-35t-35-85v-120h120v-560l60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60v680q0 50-35 85t-85 35H240Zm480-80q17 0 28.5-11.5T760-200v-560H320v440h360v120q0 17 11.5 28.5T720-160ZM360-600v-80h240v80H360Zm0 120v-80h240v80H360Zm320-120q-17 0-28.5-11.5T640-640q0-17 11.5-28.5T680-680q17 0 28.5 11.5T720-640q0 17-11.5 28.5T680-600Zm0 120q-17 0-28.5-11.5T640-520q0-17 11.5-28.5T680-560q17 0 28.5 11.5T680-520q0 17-11.5 28.5T680-480ZM240-160h360v-80H200v40q0 17 11.5 28.5T240-160Zm-40 0v-80 80Z" />
                                 </svg>
                               ),
                               onClick: () => {
-                                handelChangeShowModelReport("return_sales_invoice");
+                                handelChangeShowModelReport("proforma_invoice_report");
                               },
                             },
                             // {

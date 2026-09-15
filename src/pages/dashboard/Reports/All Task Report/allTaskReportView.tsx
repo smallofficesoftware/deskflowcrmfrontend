@@ -446,6 +446,7 @@ const AllTaskReportsView = ({
   );
 
   const [lazyFilters, setLazyFilters] = useState<DataTableFilterMeta>({
+    id: { value: null, matchMode: "contains" },
     task_title: { value: null, matchMode: "contains" },
     status_name: { value: null, matchMode: "contains" },
     category_name: { value: null, matchMode: "contains" },
@@ -2584,7 +2585,7 @@ const AllTaskReportsView = ({
                 field={col.key}
                 header={col.header}
                 sortable={col.key !== "action"}
-                filter={col.key !== "id" && col.key !== "action"}
+                filter={col.key !== "action"}
                 filterPlaceholder="Search"
                 headerStyle={{ width: col.width || "150px", fontSize: "14px" }}
                 bodyStyle={
