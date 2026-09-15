@@ -10,12 +10,7 @@ import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstan
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import useWhatsappPlatformStore from "../../../../store/whatsapp/useWhatsappPlateformFlagStore";
-import DashboardView from "../../../dashboard/DashboardView";
-import {
-  fetchCompanyKeyApi,
-  ICompany,
-  ILoginData,
-} from "../../LeftSideController";
+import { ILoginData } from "../../LeftSideController";
 import Visits from "../Setting/visits/VisitView";
 import AreasView from "./areas/AreasView";
 import CitiesView from "./cities/CitiesView";
@@ -222,8 +217,6 @@ const Setting = ({
   const [showCities, setShowCities] = useState(false);
   const [showCountries, setShowCountries] = useState(false);
   const [showAreas, setShowAreas] = useState(false);
-  const [companyLists, setCompanyLists] = useState<ICompany>();
-  const [showInsights, setShowInsights] = useState(false);
   const [isOpenSomething, setIsOpenSomething] = useState<boolean>(false);
 
   const { platformType } = useWhatsappPlatformStore();
@@ -257,20 +250,15 @@ const Setting = ({
   }
   // escape handle
   useEscapeKey(() => {
-    if (!showInsights && !isOpenSomething) {
+    if (!isOpenSomething) {
       closeSettings();
     } else {
-      setShowInsights(false);
-      setShowAllReport(false);
       setIsOpenSomething(false);
     }
   });
 
   const openMyCompanyList = async () => {
     if (canViewTeamMember) {
-      try {
-        await fetchCompanyKeyApi(setCompanyLists);
-      } catch (error: any) { }
       myTeam();
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -377,7 +365,7 @@ const Setting = ({
     navigate("/SideView?view=reports");
   }
   function openInsights() {
-    setShowInsights(true);
+    navigate("/SideView");
   }
   function openSourceOfType() {
     source();
@@ -478,8 +466,7 @@ const Setting = ({
         showAreas ||
         showTargetVsIncentive ||
         showVisitType ||
-        showLeaveType ||
-        showInsights ? (
+        showLeaveType ? (
         <>
           {showProfile && (
             <ProfileSetting
@@ -578,14 +565,6 @@ const Setting = ({
             <MainSettingsView
               isMainSettingView={showOpenSetting}
               closeMainSettingView={() => setShowOpenSetting(false)}
-            />
-          )}
-          {showInsights && (
-            <DashboardView
-              isDashBoardOpen={showInsights}
-              closeDashboard={() => setShowInsights(false)}
-              companyInfo={companyLists}
-              contactData={""}
             />
           )}
         </>
