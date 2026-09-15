@@ -469,6 +469,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "warehouse",
         description: "Current stock levels and low-stock alerts.",
       },
+      {
+        label: "Serial Number Wise Stock Check",
+        value: "serial_number_stock_check",
+        pageId: PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
+        icon: "qrCode",
+        description: "Track every transaction for a specific serial number.",
+      },
     ],
   },
 
