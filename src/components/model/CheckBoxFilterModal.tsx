@@ -115,6 +115,7 @@ interface CheckBoxModalProps {
   initialCheckedOptionsTaskType?: any[] | null;
   initialCheckedOptionsUser?: any[] | null;
   initialSelectedActiveId?: any | null;
+  initialSelectedApproveStatus?: any | null;
   initialSelectedDays?: string | number | null;
   MobileToken?: string;
   getID?: string;
@@ -164,6 +165,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   initialCheckedOptionsUser,
   initialSelectedStockTypeId,
   initialSelectedActiveId,
+  initialSelectedApproveStatus,
   initialSelectedDays,
   MobileToken,
   getID,
@@ -332,6 +334,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     useState<SingleValue<IOption>>(null);
   const [selectedActiveId, setSelectedActiveId] =
     useState<SingleValue<IOption>>(null);
+  const [selectedApproveStatusId, setSelectedApproveStatusId] =
+    useState<SingleValue<IOption>>(null);
   const [selectedReqListProduct, setSelectedReqListProduct] =
     useState<SingleValue<IOption> | null>(null);
   const [selectedProductSearchId, setSelectedProductSearchId] =
@@ -453,6 +457,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     { id: "2", value: "Deactivate" },
   ];
 
+  const approveStatusData = [
+    { id: "approved", value: "Approved" },
+    { id: "draft", value: "Draft" },
+  ];
+
   const expenseStatusOptions = [
     { id: "1", name: "Pending", color: "#ccc" },
     { id: "2", name: "Approved", color: "#06923E" },
@@ -568,6 +577,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
       setSelectedActiveId(
         active ? { value: active.id, label: active.value } : null,
+      );
+    }
+    if (initialFilterData.approveStatus) {
+      const approveStatus = approveStatusData.find(
+        (a) => a.value === initialFilterData.approveStatus,
+      );
+      setSelectedApproveStatusId(
+        approveStatus
+          ? { value: approveStatus.id, label: approveStatus.value }
+          : null,
       );
     }
     if (initialFilterData.orderlistselect) {
@@ -686,6 +705,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId ||
       selectedProductId ||
       selectedActiveId ||
+      selectedApproveStatusId ||
       selectedDays ||
       startSearchDate ||
       endSearchDate ||
@@ -726,6 +746,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     selectedStockTypeId,
     selectedProductId,
     selectedActiveId,
+    selectedApproveStatusId,
     selectedDays,
     startSearchDate,
     endSearchDate,
@@ -749,6 +770,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       month: selectedMonth?.value,
       year: selectedYear?.value,
       active: selectedActiveId?.label,
+      approveStatus: selectedApproveStatusId?.label,
       daysCount: selectedDays,
       contactId: selectedContactId?.value,
       productId: selectedProductSearchId?.value,
@@ -919,6 +941,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     }
     if (selectedActiveId?.label)
       pushChip("active", "Status", [selectedActiveId.label]);
+    if (showGroup(30) && selectedApproveStatusId?.label)
+      pushChip("approveStatus", "Approve Status", [
+        selectedApproveStatusId.label,
+      ]);
     if (selectedCategoryId?.label)
       pushChip("category", "Category", [selectedCategoryId.label]);
     if (selectedProductId?.label || selectedProductSearchId?.label)
@@ -947,6 +973,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId,
       selectedProductId,
       selectedActiveId: selectedActiveId?.label,
+      selectedApproveStatus: selectedApproveStatusId?.label,
       selectedDays,
       assignedByMultiTeamMember: assignedByMultiTeamMember ?? [],
       createdByMultiTeamMember: createdByMultiTeamMember ?? [],
@@ -994,6 +1021,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setSelectedProductSearchId(null);
     setSelectedStockTypeId(null);
     setSelectedActiveId(null);
+    setSelectedApproveStatusId(null);
     setSelectedOrderListId(null);
     setSelectedDays(undefined);
     if (isApplyReport == 1) {
@@ -1035,6 +1063,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId: null,
       selectedProductId: null,
       selectedActiveId: null,
+      selectedApproveStatus: null,
       selectedDays: null,
       assignedByMultiTeamMember: [],
       createdByMultiTeamMember: [],
@@ -1074,6 +1103,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
   const handleActiveChange = (selectedOption: SingleValue<IOption>) => {
     setSelectedActiveId(selectedOption);
+  };
+
+  const handleApproveStatusChange = (selectedOption: SingleValue<IOption>) => {
+    setSelectedApproveStatusId(selectedOption);
   };
 
   const handledays = (selectedOption: string) => {
@@ -1712,6 +1745,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   }));
 
   const activeOptions = (activeData || []).map((option: any) => ({
+    value: option.id,
+    label: option.value,
+  }));
+
+  const approveStatusOptions = (approveStatusData || []).map((option: any) => ({
     value: option.id,
     label: option.value,
   }));
@@ -3240,6 +3278,47 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                         );
                                       }}
                                       disabled={isLoading}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {filtersToShow.includes(30) && (
+                  <div className="col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
+                    <div className="">
+                      <div className="ms-2 mt-1">
+                        <label className="fw-bold">Approve Status</label>
+                      </div>
+                      <hr />
+                      <div
+                        className="overflow-auto"
+                        style={{ maxHeight: "300px", minHeight: "150px" }}
+                      >
+                        <table className="table table-hover" border={0}>
+                          <tbody className="text-center">
+                            <tr
+                              className="text-left"
+                              style={{
+                                border: "1px solid white",
+                                borderCollapse: "collapse",
+                                height: "10px",
+                              }}
+                            >
+                              <td className="text-start">
+                                <div className="col-12">
+                                  <div className="add-source-of-type-section">
+                                    <CustomSearchDropdown
+                                      options={approveStatusOptions}
+                                      value={selectedApproveStatusId}
+                                      onChange={handleApproveStatusChange}
+                                      className="w-100"
+                                      isDisabled={isLoading}
                                     />
                                   </div>
                                 </div>

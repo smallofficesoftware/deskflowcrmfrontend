@@ -342,6 +342,7 @@ const TeamReturnSalesDataReportsView = ({
     filters.checkedTrasactionMode,
     filters.selectedProductId,
     filters.selectedCategoryId,
+    filters.selectedApproveStatus,
   ]);
 
   useEffect(() => {
@@ -503,6 +504,7 @@ const TeamReturnSalesDataReportsView = ({
         filters.checkedTrasactionMode,
         filters.selectedProductId,
         filters.selectedCategoryId,
+        filters.selectedApproveStatus,
       );
 
       const newData = data?.items || [];
@@ -2068,7 +2070,7 @@ const TeamReturnSalesDataReportsView = ({
               message="Please select the Dates and Team Members for the Report."
               btn1="Clear"
               btn2="Apply"
-              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 24]}
+              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 24, 30]}
               pageId={1}
               stageandStatusOrderType={9}
               filtershowSeriesOrderType={"return_sales_invoice_prefix"}

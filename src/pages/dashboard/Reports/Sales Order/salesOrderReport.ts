@@ -285,6 +285,7 @@ export const fetchCartReport = async (
   selectedGstOptions?: string[] | null,
   selectedProduct?: string | null,
   selectedCategory?: string | null,
+  selectedApproveStatus?: string | null,
 ) => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -313,8 +314,7 @@ export const fetchCartReport = async (
     selectedGstOptions: selectedGstOptions,
     selectedProduct: selectedProduct,
     selectedCategory: selectedCategory,
-    
-
+    selectedApproveStatus: selectedApproveStatus || undefined,
   };
 
   try {

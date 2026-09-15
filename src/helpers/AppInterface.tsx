@@ -14,6 +14,7 @@ export interface IFilterData {
   month?: number | string | undefined;
   year?: number | string | undefined;
   active?: string;
+  approveStatus?: string;
   daysCount?: string;
   category?: string;
   product?: string;
@@ -65,6 +66,7 @@ export interface ISelectionFilters {
   selectedStockTypeId?: any;
   selectedProductId?: any;
   selectedActiveId?: any;
+  selectedApproveStatus?: any;
   selectedDays?: string | number | null;
   selectedContactId?: any;
   selectedProductSearchId?: any;
