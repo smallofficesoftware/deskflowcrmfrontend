@@ -3,7 +3,6 @@ import { create } from "zustand";
 export interface NextTrainingEvent {
   title: string;
   date: string;
-  start_time: string | null;
 }
 
 interface TrainingState {
