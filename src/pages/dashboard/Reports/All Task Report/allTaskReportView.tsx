@@ -390,6 +390,7 @@ const AllTaskReportsView = ({
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
@@ -1788,10 +1789,11 @@ const AllTaskReportsView = ({
                   <ExportExcelMenuItem
                     reportType="all_task_report"
                     filters={{
-                      selectedDates,
-                      selectedTeamMembers,
-                      selectedStageStatus,
-                      globalSearch,
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers:
+                        filters.assignedByMultiTeamMember || filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      globalSearch: debouncedSearchText || globalSearchText,
                       is_support_ticket_flag,
                       selectedContactId,
                       referenceWiseContact,
