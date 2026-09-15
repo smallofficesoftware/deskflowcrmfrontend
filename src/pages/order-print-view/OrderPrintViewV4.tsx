@@ -2372,8 +2372,9 @@ const OrderPrintViewV4 = () => {
                                               <div style={{ padding: "5px" }}>
                                                 {(orderPrintById.cart.type == 2 ||
                                                   orderPrintById.cart.type == 3 ||
+                                                  orderPrintById.cart.type == 1 ||
                                                   orderPrintById.cart.type ==
-                                                  1) &&
+                                                  12) &&
                                                   orderPrintById?.cart
                                                     .currency_id == 3 &&
                                                   printSetting?.setting_details

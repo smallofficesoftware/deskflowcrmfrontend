@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -28,9 +27,7 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
-  exportAllCategoryPendingData,
   fetchCategoryReport,
-  fetchCategoryWisePendingForExport,
   ICategorySalesData,
 } from "./categoryPendingController";
 
@@ -735,85 +732,6 @@ const CategoryPendingReport = ({
     doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allData = await exportAllCategoryPendingData(
-        (offset, limit) =>
-          fetchCategoryWisePendingForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            debouncedSearchText,
-            filters.selectedContactId,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows: Record<string, any>[] = (
-        selectedCustomers.length > 0 ? selectedCustomers : allData
-      ).map((item) => {
-        const row: Record<string, any> = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      // ✅ Totals row
-      const totalsRow: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        totalsRow[col.label] =
-          col.key === "item_category_name"
-            ? "Total"
-            : calculateColumnTotals(excelRows, col.label);
-      });
-      excelRows.push(totalsRow);
-
-      const worksheet = xlsx.utils.json_to_sheet(excelRows);
-      worksheet["!cols"] = visibleColumns.map((col) => ({
-        wpx: col.key === "item_category_name" ? 180 : 130,
-      }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Category Wise Pending",
-      );
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `category_wise_Pending${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to export category data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // const exportExcel = () => {
   //    const filteredData = getFilteredData();
@@ -858,17 +776,6 @@ const CategoryPendingReport = ({
   //   });
   //   saveAsExcelFile(excelBuffer, "category_sales_purchase");
   // };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -982,7 +889,7 @@ const CategoryPendingReport = ({
           ""
         ) : ( */}
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
@@ -1066,6 +973,7 @@ const CategoryPendingReport = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1100,25 +1008,37 @@ const CategoryPendingReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="category_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="category_wise_Pending"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedCustomers.length > 0
+                      ? [
+                          ...selectedCustomers,
+                          {
+                            item_category_name: "Total",
+                            salesorder: calculateColumnTotals(selectedCustomers, "salesorder"),
+                            salesinvoice: calculateColumnTotals(selectedCustomers, "salesinvoice"),
+                            pending_sales: calculateColumnTotals(selectedCustomers, "pending_sales"),
+                            purchaseorder: calculateColumnTotals(selectedCustomers, "purchaseorder"),
+                            purchaseinvoice: calculateColumnTotals(selectedCustomers, "purchaseinvoice"),
+                            pending_purchase: calculateColumnTotals(selectedCustomers, "pending_purchase"),
+                          },
+                        ]
+                      : selectedCustomers
+                  }
+                />
 
                 <li
                   className="listItem text-start"
@@ -1158,6 +1078,7 @@ const CategoryPendingReport = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

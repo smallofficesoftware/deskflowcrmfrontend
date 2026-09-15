@@ -19,6 +19,7 @@ export interface IDocumentTemplateFull {
   draft_template_json: string;
   published_template_json: string;
   include_product_pages?: number;
+  system_template_id?: number | null;
 }
 
 const handleError = (error: any, fallback: string) => {
@@ -163,6 +164,46 @@ export const applyOptionsToDraft = async (
   }
 };
 
+// Only meaningful for a template whose system_template_id is set (created
+// via "Copy from Gallery") — discards the draft's customization and
+// overwrites it with that SAME system template's CURRENT template_json.
+export const resetTemplateToSystemDefault = async (id: number): Promise<IDocumentTemplateFull | null> => {
+  try {
+    const data = await postGated("document-templates/reset-to-default", {
+      company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
+      id,
+    });
+    return data?.ack === 1 ? data.data.item : null;
+  } catch (error) {
+    handleError(error, "Failed to reset template to default");
+    return null;
+  }
+};
+
+// "Add Field" picker — the code-default template for a doc_type, from
+// backend-document-designer's own builders (buildAccountStatementTemplate &
+// co.). Read-only, writes nothing, so it's not PIN-gated. The view lists
+// this template's fields in a dropdown; picking one inserts that field with
+// its correct name/columns/styles — the generic palette can only add a
+// blank field.
+export const getDefaultTemplateFields = async (doc_type: string): Promise<any | null> => {
+  try {
+    const { data } = await axiosInstance.post("document-templates/default-fields", {
+      company_masters_id: companyMastersId(),
+      doc_type,
+    });
+    if (data?.ack !== 1) {
+      toast.error(data?.ack_msg || "Failed to load field list");
+      return null;
+    }
+    return data.data.item.template;
+  } catch (error) {
+    handleError(error, "Failed to load field list");
+    return null;
+  }
+};
+
 export const publishDocumentTemplate = async (id: number): Promise<boolean> => {
   try {
     const data = await postGated("document-templates/publish", {
@@ -203,6 +244,7 @@ export const reorderDocumentTemplates = async (
   try {
     const data = await postGated("document-templates/reorder", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       doc_type,
       orderedIds,
     });
@@ -220,6 +262,7 @@ export const setDefaultDocumentTemplate = async (
   try {
     const data = await postGated("document-templates/set-default", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       id,
       doc_type,
     });
@@ -237,6 +280,7 @@ export const deleteDocumentTemplate = async (
   try {
     const data = await postGated("document-templates/delete", {
       company_masters_id: companyMastersId(),
+      a_application_login_id: loginId(),
       id,
       doc_type,
     });
@@ -266,7 +310,7 @@ export const restoreTemplateVersion = async (
   version_number: number,
 ): Promise<boolean> => {
   try {
-    const { data } = await axiosInstance.post("document-templates/versions/restore", {
+    const data = await postGated("document-templates/versions/restore", {
       company_masters_id: companyMastersId(),
       a_application_login_id: loginId(),
       document_template_id,

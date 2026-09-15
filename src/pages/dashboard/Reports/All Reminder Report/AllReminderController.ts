@@ -11,7 +11,7 @@ export interface IReminderItem {
   reminder_data_time: string;
   completed_date_time: string | null;
   status: 0 | 1;
-  status_display: "Due" | "Completed";
+  status_display: "Due" | "Completed" | "Upcoming";
   assigned_to?: number;
   assigned_to_name: string | null;
   remark: string | null;

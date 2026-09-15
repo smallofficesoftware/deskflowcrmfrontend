@@ -121,7 +121,7 @@ const Index = () => {
   const [showRenewPlan, setShowRenewPlan] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const { setAdvertisement } = useAdvertisementStore();
-  const { setTrainingDisabled } = useTrainingStore();
+  const { setTrainingDisabled, setNextTrainingEvent } = useTrainingStore();
 
   const LoginSubmit = async () => {
     const token = localStorage.getItem("token");
@@ -177,6 +177,7 @@ const Index = () => {
         }
         setAdvertisement(response.data.data.advertisement);
         setTrainingDisabled(response.data.data.is_training_disabled === 1);
+        setNextTrainingEvent(response.data.data.next_training_event ?? null);
         setCompulsaryAttendance(
           response.data.data.compulsary_attendance === true,
         );

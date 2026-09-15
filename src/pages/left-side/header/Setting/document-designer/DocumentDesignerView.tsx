@@ -10,13 +10,16 @@ import {
   setFieldSettingsDictionary,
 } from "../../../../../common/pdfmeDesigner/pdfmeFieldSettingsPlugin";
 import { PDFME_HIDE_NATIVE_PAGE_MENU_CSS } from "../../../../../common/pdfmeDesigner/pdfmeStyles";
+import TemplateSidebar from "../../../../../common/pdfmeDesigner/TemplateSidebar";
 import { usePageManipulation } from "../../../../../common/pdfmeDesigner/usePageManipulation";
 import { useDesignerInstance } from "../../../../../common/pdfmeDesigner/useDesignerInstance";
 import { PAGE_ID } from "../../../../../helpers/AppEnum";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
-import { verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
+import { previewReportPdf, verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
+import { fetchCompanyKeyApi, ICompany } from "../../../LeftSideController";
 import {
   IDocumentTemplateFull,
   IDocumentTemplateListItem,
@@ -28,6 +31,7 @@ import {
   duplicateDocumentTemplate,
   exportDocumentTemplate,
   getDataDictionary,
+  getDefaultTemplateFields,
   getDocumentTemplate,
   importDocumentTemplate,
   listDocumentTemplates,
@@ -35,6 +39,7 @@ import {
   listTemplateVersions,
   publishDocumentTemplate,
   reorderDocumentTemplates,
+  resetTemplateToSystemDefault,
   restoreTemplateVersion,
   setDefaultDocumentTemplate,
   setPinRequiredHandler,
@@ -101,6 +106,210 @@ const CART_TYPE_BY_DOC_TYPE: Record<string, number> = {
 // that applyOptionsToDraft and previewDocumentTemplate don't know how to
 // touch yet (backend guards + rejects both for non-cart-shaped doc_types).
 const CART_SHAPED_DOC_TYPES = new Set(Object.keys(CART_TYPE_BY_DOC_TYPE));
+
+// "Generate Preview" record-picker steps per non-cart doc type. Each step
+// resolves one id that previewDocumentTemplate (documentPrintTemplateServices.js)
+// renders against real data: "contact"/"employee" pick the primary entity,
+// "transaction"/"employeeTransaction" pick one row of that entity's ledger
+// (needs the contact_id/team_id from the previous step), "order" reuses the
+// cart list. taskDueList has no picker (it's a whole-list document). The
+// cart doc types keep their own single "order" step via CART_TYPE_BY_DOC_TYPE.
+type PreviewStepKind = "contact" | "employee" | "transaction" | "employeeTransaction" | "order";
+const PREVIEW_STEPS_BY_DOC_TYPE: Record<string, PreviewStepKind[]> = {
+  accountStatement: ["contact"],
+  accountTransaction: ["contact", "transaction"],
+  employeeAccountStatement: ["employee"],
+  employeeAccountTransaction: ["employee", "employeeTransaction"],
+  contactAddress: ["contact"],
+  contactEnvelope: ["contact"],
+  shippingLabel: ["order"],
+  taskDueList: [],
+};
+const previewStepsFor = (docType: string): PreviewStepKind[] =>
+  CART_SHAPED_DOC_TYPES.has(docType) ? ["order"] : PREVIEW_STEPS_BY_DOC_TYPE[docType] || [];
+const PREVIEW_STEP_LABEL: Record<PreviewStepKind, string> = {
+  contact: "contact",
+  employee: "team member",
+  transaction: "transaction",
+  employeeTransaction: "transaction",
+  order: "order",
+};
+
+// Mirrors buildTemplate.js's own HEADER_RELATIVE_FIELD_NAMES/shiftFieldY
+// exactly (backend-only, not importable from a Node module here) — used by
+// applyMargins below so a manual top-margin edit shifts docTitle/buyer-info/
+// items-table the same way a header-height change already does via the
+// backend rebuild applyHeaderOptions goes through. totalsBlock/
+// grandTotalWords/termsAndConditions/signatureLine are deliberately
+// excluded — anchored near the page bottom, independent of header height.
+const HEADER_RELATIVE_FIELD_NAMES = new Set([
+  "docTitle",
+  "originalDuplicate",
+  "buyerLabel",
+  "buyerCompanyName",
+  "buyerContactName",
+  "buyerPhoneLabel",
+  "buyerPhone",
+  "buyerEmailLabel",
+  "buyerEmail",
+  "billingAddressLabel",
+  "billingAddress",
+  "shippingAddressLabel",
+  "shippingAddress",
+  "buyerGSTINLabel",
+  "buyerGSTIN",
+  "supplyToLabel",
+  "supplyTo",
+  "orderNumberLabel",
+  "orderNumber",
+  "orderDateTimeLabel",
+  "orderDateTime",
+  "contactPersonLabel",
+  "contactPerson",
+  "itemsTable",
+]);
+
+// Mirrors backend's withCompanyHeader (templates.js) field-for-field, but
+// client-side and display-only — shows this company's REAL name/address/
+// logo/header-footer-signature images on the editing canvas instead of
+// buildTemplate.js's generic "COMPANY NAME" placeholder, the same gap
+// Document Designer's real generate-time path doesn't have (it always runs
+// through the real withCompanyHeader). Safe to let this get saved back into
+// draft_template_json along with everything else — generate() always
+// overwrites these exact same dataSource-keyed fields' content with real
+// data again regardless of whatever was last saved, so a stale value here
+// is purely cosmetic (corrected the next time this page loads) and never
+// reaches an actual generated PDF.
+// Mirrors backend-document-designer's paperSize.js scaleTemplate/scaleField/
+// scaleBoxDimension/scaleCellStyles field-for-field (not importable from a
+// Node module here). Deliberately NOT the same code path as
+// applyTemplateOptions' own pageSize branch, which rebuilds a FRESH default
+// template and scales THAT — fine for backend's own narrow original use,
+// wrong for us: it would silently discard every manual edit the user made
+// (moved/resized fields, added new ones, restyled text) on every page-size
+// change. This scales the ACTUAL currently-loaded template in place instead,
+// preserving all of that.
+function scaleBoxDimension(box: any, scale: number) {
+  if (!box || typeof box !== "object") return box;
+  const out = { ...box };
+  for (const k of ["top", "right", "bottom", "left"]) {
+    if (typeof box[k] === "number") out[k] = box[k] * scale;
+  }
+  return out;
+}
+
+function scaleCellStyles(styles: any, scale: number) {
+  if (!styles) return styles;
+  return {
+    ...styles,
+    fontSize: typeof styles.fontSize === "number" ? styles.fontSize * scale : styles.fontSize,
+    padding: scaleBoxDimension(styles.padding, scale),
+    borderWidth:
+      typeof styles.borderWidth === "number" ? styles.borderWidth * scale : scaleBoxDimension(styles.borderWidth, scale),
+  };
+}
+
+function scaleField(field: any, scale: number) {
+  const scaled = {
+    ...field,
+    position: { x: field.position.x * scale, y: field.position.y * scale },
+    width: field.width * scale,
+    height: field.height * scale,
+  };
+  if (typeof scaled.fontSize === "number") scaled.fontSize *= scale;
+  if (typeof scaled.padding === "number") scaled.padding *= scale;
+  else if (scaled.padding) scaled.padding = scaleBoxDimension(scaled.padding, scale);
+  if (typeof scaled.borderWidth === "number") scaled.borderWidth *= scale;
+  else if (scaled.borderWidth) scaled.borderWidth = scaleBoxDimension(scaled.borderWidth, scale);
+  if (scaled.headStyles) scaled.headStyles = scaleCellStyles(scaled.headStyles, scale);
+  if (scaled.bodyStyles) scaled.bodyStyles = scaleCellStyles(scaled.bodyStyles, scale);
+  if (scaled.tableStyles) {
+    scaled.tableStyles = {
+      ...scaled.tableStyles,
+      borderWidth: typeof scaled.tableStyles.borderWidth === "number" ? scaled.tableStyles.borderWidth * scale : scaled.tableStyles.borderWidth,
+    };
+  }
+  // headWidthPercentages/columnStyles are already relative (%) — no scaling.
+  return scaled;
+}
+
+// Uniform scale = min(widthRatio, heightRatio), anchored top-left, so it
+// always fits without distorting proportions — same as the backend's own.
+function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: number) {
+  const { width: currentWidth, height: currentHeight } = template.basePdf;
+  // A pure orientation flip (dimensions literally swap, e.g. 210x297 ->
+  // 297x210) is NOT a resize of the same shape the way A4->A5 is — it's a
+  // different-shaped page. The min-ratio "fit" scale below shrinks
+  // EVERYTHING by whichever axis is more constrained and anchors top-left,
+  // which for a swap leaves the freed-up space (the whole rest of the new,
+  // differently-shaped page) blank instead of reflowing to fill it. Skip
+  // scaling entirely for this case — just flip the page dimensions and
+  // leave field positions/sizes exactly as designed; an orientation change
+  // is really "redesign for a different shape," not "resize the same one."
+  const isPureOrientationFlip = targetWidth === currentHeight && targetHeight === currentWidth;
+  if (isPureOrientationFlip) {
+    return { ...template, basePdf: { ...template.basePdf, width: targetWidth, height: targetHeight } };
+  }
+
+  const scale = Math.min(targetWidth / currentWidth, targetHeight / currentHeight);
+  if (Math.abs(scale - 1) < 1e-6) return { ...template, basePdf: { ...template.basePdf, width: targetWidth, height: targetHeight } };
+
+  return {
+    ...template,
+    basePdf: {
+      ...template.basePdf,
+      width: targetWidth,
+      height: targetHeight,
+      padding: (template.basePdf.padding || []).map((p: number) => p * scale),
+      staticSchema: (template.basePdf.staticSchema || []).map((f: any) => scaleField(f, scale)),
+    },
+    schemas: template.schemas.map((page: any[]) => page.map((f: any) => scaleField(f, scale))),
+  };
+}
+
+// "statementTable" -> "Statement Table", "noDataText" -> "No Data Text"
+const humanizeFieldName = (name: string): string =>
+  name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+
+// Every named field on the default template's first page — the catalog the
+// "Add Field" dropdown offers. Adding a field whose name is already on the
+// canvas is blocked at insert time.
+const collectDefaultFields = (defaultTemplate: any): any[] =>
+  ((defaultTemplate?.schemas?.[0] as any[]) || []).filter((f) => f && f.name);
+
+const injectRealCompanyHeaderData = (template: any, companyData: any) => {
+  if (!companyData || !template?.basePdf?.staticSchema) return template;
+  const contactLine = `Mo.: ${companyData.company_contact ?? ""}  Email: ${companyData.company_email ?? ""}  GSTIN: ${companyData.gst_number ?? ""}  State: ${companyData.state_name ?? ""}`;
+  const addressLine = `Address: ${companyData.address ?? ""}\n${contactLine}`;
+  const combinedBlock = `${companyData.company_name ?? ""}\n${addressLine}`;
+  // fetchCompanyKeyApi's "company" endpoint (companyService.js's
+  // getAllCompany) already prepends COMPANY_IMG_LINK_EXTENDED
+  // (BACKEND_URL + "/companyImg/") server-side — these are already
+  // complete, directly loadable URLs, not raw filenames. Re-prefixing them
+  // here produced "http://host/companyImg/http://host/companyImg/...".
+  const headerImageUrl = companyData.header_img || "";
+  const logoUrl = companyData.company_logo || "";
+  const footerImageUrl = companyData.footer_img || "";
+  const signUrl = companyData.company_sign || "";
+
+  return {
+    ...template,
+    basePdf: {
+      ...template.basePdf,
+      staticSchema: template.basePdf.staticSchema.map((field: any) => {
+        const key = field.dataSource || field.name;
+        if (key === "companyName") return { ...field, content: companyData.company_name ?? "" };
+        if (key === "companyAddress") return { ...field, content: addressLine };
+        if (key === "companyDetailsWithLogo") return { ...field, content: combinedBlock };
+        if (key === "companyHeaderImage" && headerImageUrl) return { ...field, content: headerImageUrl };
+        if (key === "companyLogo" && logoUrl) return { ...field, content: logoUrl };
+        if (key === "companyFooterImage" && footerImageUrl) return { ...field, content: footerImageUrl };
+        if (key === "companySignatureImage" && signUrl) return { ...field, content: signUrl };
+        return field;
+      }),
+    },
+  };
+};
 
 // Column-toggle checkboxes (HSN/Discount/CGST/SGST/IGST/Image) merged into
 // the itemsTable field's OWN pdfme sidebar panel, instead of a generic
@@ -212,7 +421,23 @@ const plugins = {
   list,
 };
 
-const DocumentDesignerView: React.FC = () => {
+interface IDocumentDesignerViewProps {
+  // Report Builder's "Manage Templates" (ReportPdfTemplateDesigner.tsx used
+  // to be a separate, hand-copied component) now mounts THIS component
+  // instead, in report mode — same toolbar/sidebar/canvas/page-manipulation/
+  // field-settings/version-history, just doc_type fixed to "report_<id>"
+  // (no doc-type switcher, no Browse Gallery/Import — no report analogue
+  // for either) and a different Generate Preview data source (live report
+  // rows, not a cart-order picker). Rendered as a modal overlay instead of
+  // the full-page route in this mode.
+  reportMode?: {
+    docType: string;
+    reportName: string;
+    onClose: () => void;
+  };
+}
+
+const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode }) => {
   const navigate = useNavigate();
   // AppContext.permissions is only populated by LeftSideView's onLoad call —
   // this page is reached as its own top-level route (not one of the
@@ -222,23 +447,51 @@ const DocumentDesignerView: React.FC = () => {
   // stay empty forever. Fetch this page's own rights independently instead —
   // same pattern PrintSettingModal already uses for the same reason
   // (see newRightsForPrint in SharedFunction.tsx).
+  //
+  // reportMode bypasses this entirely rather than gating on
+  // DOCUMENT_DESIGNER_RIGHTS — Report Builder's Manage Templates has its own,
+  // separate rights concept (report_definition_team_rights); a login granted
+  // report-builder access but with no Document Designer permission row would
+  // otherwise be silently locked out of a screen they could already reach.
   const [rights, setRights] = useState<any>(null);
   useEffect(() => {
+    if (reportMode) return;
     (async () => {
       const result = await newRightsForPrint(PAGE_ID.DOCUMENT_DESIGNER_RIGHTS, localStorage.getItem("UUID"));
       setRights(result || {});
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const canView = rights?.view === 1;
-  const canEdit = rights?.edit === 1;
-  const canAdd = rights?.add === 1;
+  const canView = reportMode ? true : rights?.view === 1;
+  const canEdit = reportMode ? true : rights?.edit === 1;
+  const canAdd = reportMode ? true : rights?.add === 1;
 
-  const [docType, setDocType] = useState<string>("quotation");
+  // Same independent-fetch reasoning as `rights` above — AppContext's
+  // companyData is only populated by LeftSideView's onLoad, which a direct
+  // navigation to this top-level route never mounts. Needed so the canvas
+  // can show this company's REAL header/footer/logo while editing (see
+  // injectRealCompanyHeaderData below) instead of buildTemplate.js's
+  // generic "COMPANY NAME" placeholder — real substitution only otherwise
+  // happens at actual PDF-generation time (withCompanyHeader, backend-side).
+  const [companyData, setCompanyData] = useState<ICompany | undefined>(undefined);
+  useEffect(() => {
+    fetchCompanyKeyApi(setCompanyData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [docType, setDocType] = useState<string>(reportMode?.docType || "quotation");
   const [templates, setTemplates] = useState<IDocumentTemplateListItem[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<number | null>(null);
   const [currentTemplateFull, setCurrentTemplateFull] = useState<IDocumentTemplateFull | null>(null);
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  // "Add Field" catalog — the code-default template's fields for the current
+  // doc_type. Lets a user re-add a structured data-bound field (the data
+  // table, header rows, ...) the generic palette can't rebuild with the
+  // right name/columns.
+  const [defaultFields, setDefaultFields] = useState<any[]>([]);
+  const [addFieldName, setAddFieldName] = useState("");
   // Whole right-side accordion panel (Templates/Header/Page) — collapses to
   // give the canvas full width, independent of each section's own
   // collapse/expand (that's react-bootstrap Accordion's own per-item
@@ -250,8 +503,41 @@ const DocumentDesignerView: React.FC = () => {
   // Draft" contract as dragging/resizing a field. Kept outside
   // CART_SHAPED_DOC_TYPES since page size is universal, not cart-specific.
   const [pageSizeMode, setPageSizeMode] = useState<"A4" | "A5" | "custom">("A4");
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [customPageWidth, setCustomPageWidth] = useState(210);
   const [customPageHeight, setCustomPageHeight] = useState(297);
+  // basePdf.padding order is [top, right, bottom, left] (buildTemplate.js's
+  // own convention) — reflects whatever's mounted, editable independently of
+  // page size/orientation. A cart doc's top/bottom start out computed from
+  // its header/footer banner height (buildDocTemplate) — overriding them
+  // here is a deliberate manual choice with the same "no auto-reflow"
+  // caveat orientation/custom page size already have: fields don't move
+  // themselves to clear a shrunk margin.
+  const [marginTop, setMarginTop] = useState(15);
+  const [marginRight, setMarginRight] = useState(10);
+  const [marginBottom, setMarginBottom] = useState(15);
+  const [marginLeft, setMarginLeft] = useState(10);
+  // Header/footer toolbar needs to know the CURRENT variant/heights to
+  // render controls as controlled (not just on change) and to show the
+  // height input only for the "image" header variant, initialized from
+  // whatever's mounted.
+  const [headerVariant, setHeaderVariant] = useState("details");
+  const [headerHeightMM, setHeaderHeightMM] = useState(28.5);
+  const [footerImage, setFooterImage] = useState(false);
+  const [footerHeightMM, setFooterHeightMM] = useState(28.5);
+  const [pageBorder, setPageBorder] = useState(false);
+  const [pageBorderColor, setPageBorderColor] = useState("#000000");
+  const [pageBorderWidth, setPageBorderWidth] = useState(0.5);
+  // Manual box override — null means "auto" (tracks margin/header/footer,
+  // the default for every template). Set only once the user actually
+  // toggles Manual Position on; the 4 number inputs always reflect the
+  // CURRENT real position (auto or manual) so switching modes never jumps
+  // to some arbitrary starting value.
+  const [pageBorderManual, setPageBorderManual] = useState(false);
+  const [pageBorderX, setPageBorderX] = useState(10);
+  const [pageBorderY, setPageBorderY] = useState(2);
+  const [pageBorderWidthMM, setPageBorderWidthMM] = useState(190);
+  const [pageBorderHeightMM, setPageBorderHeightMM] = useState(293);
 
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
@@ -260,7 +546,26 @@ const DocumentDesignerView: React.FC = () => {
   const [showPreviewPicker, setShowPreviewPicker] = useState(false);
   const [previewSearch, setPreviewSearch] = useState("");
   const [previewOrders, setPreviewOrders] = useState<any[]>([]);
-  const [hasAnyOrders, setHasAnyOrders] = useState<boolean | null>(null);
+  // Multi-step "Generate Preview" record picker for non-cart doc types —
+  // e.g. accountTransaction = pick a contact, then one of their transactions.
+  // previewSel accumulates the picked ids across steps; previewStepIdx is
+  // the step currently shown.
+  const [previewStepIdx, setPreviewStepIdx] = useState(0);
+  const [previewSel, setPreviewSel] = useState<{
+    contact_id?: number;
+    transaction_id?: number;
+    team_id?: number;
+    cart_id?: number;
+  }>({});
+  const [previewLoadingRows, setPreviewLoadingRows] = useState(false);
+  // Report mode's own Generate Preview (live report rows, not a cart-order
+  // picker) — the /report-definitions/:id/... routes are report-definition-
+  // scoped, not doc_type-scoped like the template CRUD routes are, so the
+  // raw id needs recovering from reportMode.docType's "report_<id>" convention
+  // (ReportBuilderListView.tsx's own construction of it, mirrored backend-side
+  // by reportPdfExport.js's reportDocType()).
+  const reportDefinitionId = reportMode ? Number(reportMode.docType.replace(/^report_/, "")) : null;
+  const [reportPreviewing, setReportPreviewing] = useState(false);
 
   // Data-binding + visibility panel for the currently-selected canvas field
   // (§3/§6 — "Static Text / Bound to Data" toggle sourced from the real
@@ -284,6 +589,18 @@ const DocumentDesignerView: React.FC = () => {
   }, [docType]);
   setFieldSettingsDictionary(dictionary);
 
+  // Refresh the "Add Field" catalog whenever the doc_type changes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const defaultTemplate = await getDefaultTemplateFields(docType);
+      if (!cancelled) setDefaultFields(defaultTemplate ? collectDefaultFields(defaultTemplate) : []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [docType]);
+
   const { designerContainerRef, designerRef, designerMounted, mountOrUpdateDesigner: mountDesignerRaw } = useDesignerInstance(
     plugins,
     setSelectedField,
@@ -293,8 +610,26 @@ const DocumentDesignerView: React.FC = () => {
   // this file did before extracting the shared mount routine.
   const mountOrUpdateDesigner = (template: any) => {
     syncPageSizeFromTemplate(template);
-    return mountDesignerRaw(template);
+    syncHeaderOptionsFromTemplate(template);
+    return mountDesignerRaw(injectRealCompanyHeaderData(template, companyData));
   };
+
+  // companyData resolves asynchronously (see the fetchCompanyKeyApi effect
+  // above), and so does the Designer itself mounting (useDesignerInstance
+  // awaits a font fetch + a container-ready retry loop before it sets
+  // designerMounted) — whichever of the two finishes LAST is what actually
+  // needs to trigger the re-apply. Depending on [companyData] alone missed
+  // the (very real) case where company data resolves first: designerRef.current
+  // is still null at that moment, this effect no-ops, and since companyData
+  // never changes again, it silently never retries — the canvas stays on
+  // placeholders (mountOrUpdateDesigner's own injection, captured by the
+  // one-shot init effect, ran with companyData still undefined). Watching
+  // designerMounted too covers that ordering as well.
+  useEffect(() => {
+    if (!companyData || !designerRef.current) return;
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData(designerRef.current.getTemplate(), companyData));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyData, designerMounted]);
 
   // Themed replacements for window.confirm()/window.prompt() — one shared
   // pending-action slot each, driven by the same ConfirmationModal/
@@ -323,7 +658,16 @@ const DocumentDesignerView: React.FC = () => {
   // (DocumentDesignerController.ts) can re-prompt right here and retry the
   // one call, instead of failing outright. Same verifyReportPin
   // ReportBuilderView.tsx uses — one PIN, either page.
-  const [pinVerified, setPinVerified] = useState(false);
+  // A verified PIN already left a REPORT_PIN_TOKEN in localStorage — trust
+  // it optimistically instead of re-prompting on every mount/reload. A
+  // stale/expired one is already handled by postGated's retry above, not a
+  // new failure mode this introduces.
+  // reportMode is the one exception — dashboardRouter.js's backend routes
+  // dropped requireReportPin entirely (Dashboard no longer needs the owner
+  // PIN at all), so that mode always starts pre-verified. Document
+  // Designer's own routes (document_print_templates) still require it,
+  // unchanged.
+  const [pinVerified, setPinVerified] = useState(() => !!reportMode || !!localStorage.getItem("REPORT_PIN_TOKEN"));
   const [showPinModal, setShowPinModal] = useState(false);
   const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
   useEffect(() => {
@@ -361,7 +705,9 @@ const DocumentDesignerView: React.FC = () => {
     if (!full) return;
     setCurrentTemplateId(full.id);
     setCurrentTemplateFull(full);
-    mountOrUpdateDesigner(JSON.parse(full.draft_template_json));
+    const template = JSON.parse(full.draft_template_json);
+    mountOrUpdateDesigner(template);
+    maybeAutoEnableFooterImage(full.id, template);
   };
 
   // Reflects whatever's actually mounted into the page-size toolbar — a
@@ -372,16 +718,67 @@ const DocumentDesignerView: React.FC = () => {
     const width = template?.basePdf?.width;
     const height = template?.basePdf?.height;
     if (typeof width !== "number" || typeof height !== "number") return;
-    const presetMatch = (Object.keys(PAGE_SIZE_PRESETS) as ("A4" | "A5")[]).find(
+    const presetKeys = Object.keys(PAGE_SIZE_PRESETS) as ("A4" | "A5")[];
+    const portraitMatch = presetKeys.find(
       (key) => PAGE_SIZE_PRESETS[key].width === width && PAGE_SIZE_PRESETS[key].height === height,
     );
-    if (presetMatch) {
-      setPageSizeMode(presetMatch);
+    // A preset rotated 90° (e.g. A4 saved as 297x210) still counts as that
+    // preset — just in landscape — rather than falling through to "Custom".
+    const landscapeMatch = presetKeys.find(
+      (key) => PAGE_SIZE_PRESETS[key].width === height && PAGE_SIZE_PRESETS[key].height === width,
+    );
+    if (portraitMatch) {
+      setPageSizeMode(portraitMatch);
+      setOrientation("portrait");
+    } else if (landscapeMatch) {
+      setPageSizeMode(landscapeMatch);
+      setOrientation("landscape");
     } else {
       setPageSizeMode("custom");
+      setOrientation(width > height ? "landscape" : "portrait");
     }
     setCustomPageWidth(width);
     setCustomPageHeight(height);
+
+    const padding = template?.basePdf?.padding;
+    if (Array.isArray(padding) && padding.length === 4) {
+      const [top, right, bottom, left] = padding;
+      setMarginTop(top);
+      setMarginRight(right);
+      setMarginBottom(bottom);
+      setMarginLeft(left);
+    }
+  };
+
+  // Reflects whatever's actually mounted into the header/footer toolbar —
+  // same reasoning as syncPageSizeFromTemplate above. Falls back to the
+  // builder's own defaults (buildTemplate.js's buildHeaderFields/
+  // buildFooterFields) for a template saved before these existed on basePdf.
+  const syncHeaderOptionsFromTemplate = (template: any) => {
+    setHeaderVariant(template?.basePdf?.headerVariant || "details");
+    setHeaderHeightMM(template?.basePdf?.headerHeightMM ?? 28.5);
+    setFooterImage(!!template?.basePdf?.footerImage);
+    setFooterHeightMM(template?.basePdf?.footerHeightMM ?? 28.5);
+    setPageBorder(!!template?.basePdf?.pageBorder);
+    setPageBorderColor(template?.basePdf?.pageBorderColor || "#000000");
+    setPageBorderWidth(template?.basePdf?.pageBorderWidth ?? 0.5);
+    // Manual mode is on iff all 4 override values are actually set on
+    // basePdf (buildPageBorderField's own all-4-or-none rule). The 4
+    // inputs always reflect the REAL current box though, auto or manual —
+    // read straight off the pageBorder field itself, not the override
+    // metadata, so switching Manual Position on starts from wherever the
+    // border actually is right now instead of some arbitrary default.
+    const isManual = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
+      (k) => typeof template?.basePdf?.[k] === "number",
+    );
+    setPageBorderManual(isManual);
+    const borderField = (template?.basePdf?.staticSchema || []).find((f: any) => f.name === "pageBorder");
+    if (borderField) {
+      setPageBorderX(borderField.position.x);
+      setPageBorderY(borderField.position.y);
+      setPageBorderWidthMM(borderField.width);
+      setPageBorderHeightMM(borderField.height);
+    }
   };
 
   // Applies a new page size to whatever's currently on the canvas and
@@ -390,17 +787,122 @@ const DocumentDesignerView: React.FC = () => {
   const applyPageSize = async (width: number, height: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     if (!width || !height) return;
+    // Proportionally rescales the ACTUAL currently-loaded template (header/
+    // footer banners, content fields, items table, page border, page
+    // number — everything) to fit the new dimensions, preserving whatever
+    // the user has manually customized. See scaleTemplateInPlace above for
+    // why this isn't routed through the backend's own pageSize rebuild.
     const template = designerRef.current.getTemplate();
-    const updated = { ...template, basePdf: { ...template.basePdf, width, height } };
+    const updated = scaleTemplateInPlace(template, width, height);
+    designerRef.current.updateTemplate(updated);
+    // Margins/header-height/footer-height/border-width toolbar state all
+    // read off basePdf values that just got scaled — re-sync so they show
+    // the new (scaled) numbers instead of the stale pre-scale ones.
+    syncPageSizeFromTemplate(updated);
+    syncHeaderOptionsFromTemplate(updated);
+    await saveDraftSilently();
+  };
+
+  // Margins are independent of page size/orientation — changing one never
+  // touches the other via this function.
+  const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
+    if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    // Full Page Border frames the actual content-margin box on all 4 sides
+    // now (buildPageBorderField, backend-side) — patching padding here
+    // without also repositioning an existing pageBorder field would leave
+    // it framing the OLD margins, since this whole function is a direct
+    // client-side basePdf edit that never goes through the backend rebuild
+    // applyHeaderOptions uses.
+    // pageNumber is right-aligned flush against the content margin's right
+    // edge (buildTemplate.js's buildDocTemplate: x = pageWidth - right -
+    // 20) — same "direct client-side edit the backend rebuild never sees"
+    // gap as pageBorder above.
+    // Border's top/bottom edges are `top`/`bottom` MINUS header/
+    // footerHeightMM, not the raw values — those alone are the clearance
+    // for BODY content (outside the banner), so subtracting the banner's
+    // own height pulls the frame's edge back to roughly where the banner
+    // itself starts, putting it inside the frame. Footer's subtraction
+    // only applies when it's actually on. Both floored at 2mm — see
+    // buildTemplate.js's buildDocTemplate for the full reasoning (same
+    // formula).
+    // Manual Position (Header panel) opts a template OUT of this
+    // auto-repositioning entirely — a margin edit shouldn't silently move
+    // a box the user explicitly placed by hand.
+    const isManualBorder = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
+      (k) => typeof template.basePdf?.[k] === "number",
+    );
+    // +1.5mm left/right gap — docTitle/buyer-info/etc. all start at x:10,
+    // exactly matching the default margin the border would otherwise sit
+    // flush against (see buildTemplate.js's buildDocTemplate for the full
+    // reasoning — a text field's backgroundColor generally only paints its
+    // glyph/line box, not the full declared width, so the border line
+    // showed through at that shared edge).
+    const { width: pageWidth, height: pageHeight } = template.basePdf;
+    const borderTop = Math.max(2, top - headerHeightMM);
+    const borderBottom = footerImage ? Math.max(2, bottom - footerHeightMM) : bottom;
+    const borderLeft = left + 1.5;
+    const borderRight = right + 1.5;
+    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
+      if (field.name === "pageBorder" && !isManualBorder) {
+        return {
+          ...field,
+          position: { x: borderLeft, y: borderTop },
+          width: pageWidth - borderLeft - borderRight,
+          height: pageHeight - borderTop - borderBottom,
+        };
+      }
+      if (field.name === "pageNumber") {
+        return { ...field, position: { ...field.position, x: pageWidth - right - 20 } };
+      }
+      return field;
+    });
+    // Same reasoning — a top-margin change needs docTitle/buyer-info/
+    // items-table shifted down/up to clear it, same as applyHeaderOptions'
+    // deltaY shift already does for a header-height change (that path goes
+    // through the backend rebuild, this one is a direct client-side edit
+    // that would otherwise skip it entirely, leaving content overlapping
+    // the header or floating in a gap that no longer matches the margin).
+    const oldTop = template.basePdf.padding?.[0] ?? top;
+    const deltaY = top - oldTop;
+    const schemas =
+      deltaY === 0
+        ? template.schemas
+        : template.schemas.map((page: any[]) =>
+            page.map((field: any) =>
+              HEADER_RELATIVE_FIELD_NAMES.has(field.name)
+                ? { ...field, position: { ...field.position, y: field.position.y + deltaY } }
+                : field,
+            ),
+          );
+    const updated = { ...template, schemas, basePdf: { ...template.basePdf, padding: [top, right, bottom, left], staticSchema } };
     designerRef.current.updateTemplate(updated);
     await saveDraftSilently();
+  };
+
+  // Width/height for a given size preset (or the current custom values) in
+  // the given orientation — swaps the two dimensions only when the base
+  // shape doesn't already match the requested orientation, so re-picking the
+  // SAME orientation twice is a no-op rather than an accidental double-swap.
+  const dimensionsFor = (mode: "A4" | "A5" | "custom", orient: "portrait" | "landscape") => {
+    const base = mode === "custom" ? { width: customPageWidth, height: customPageHeight } : PAGE_SIZE_PRESETS[mode];
+    const isLandscape = base.width > base.height;
+    if ((orient === "landscape") === isLandscape) return base;
+    return { width: base.height, height: base.width };
   };
 
   const handlePageSizeModeChange = (mode: "A4" | "A5" | "custom") => {
     setPageSizeMode(mode);
     if (mode === "A4" || mode === "A5") {
-      applyPageSize(PAGE_SIZE_PRESETS[mode].width, PAGE_SIZE_PRESETS[mode].height);
+      const { width, height } = dimensionsFor(mode, orientation);
+      applyPageSize(width, height);
     }
+  };
+
+  const handleOrientationChange = (orient: "portrait" | "landscape") => {
+    setOrientation(orient);
+    const { width, height } = dimensionsFor(pageSizeMode, orient);
+    applyPageSize(width, height);
   };
 
   // Page Before/After/Remove Page — shared with CustomFieldDesignerPageEditorView.tsx
@@ -483,6 +985,39 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
+  // Inserts the picked default field (data table, header rows, ...) onto the
+  // canvas verbatim — name/columns/styles/position from the code default,
+  // which the generic palette can't reproduce. Blocked if a field with that
+  // name is already present. Persisted on the next Save Draft, same as any
+  // canvas edit.
+  const handleAddField = () => {
+    if (!requireEdit() || !currentTemplateId || !designerRef.current || !addFieldName) return;
+    const fieldDef = defaultFields.find((f) => f.name === addFieldName);
+    if (!fieldDef) return;
+    const template = designerRef.current.getTemplate();
+    const taken = new Set<string>();
+    (template.schemas || []).forEach((page: any[]) =>
+      (page || []).forEach((f: any) => f?.name && taken.add(f.name)),
+    );
+    const copy = JSON.parse(JSON.stringify(fieldDef));
+    // Adding a field whose name is already on the canvas is allowed — it
+    // gets a "_2"/"_3"/... suffix and a small offset so it's not hidden
+    // exactly behind the original. `dataSource` is pinned to the ORIGINAL
+    // name so the copy still renders the same bound data (resolveDataSources
+    // in orderInputMapper.js maps field.name <- inputs[field.dataSource]).
+    if (taken.has(copy.name)) {
+      let n = 2;
+      while (taken.has(`${fieldDef.name}_${n}`)) n += 1;
+      copy.dataSource = fieldDef.name;
+      copy.name = `${fieldDef.name}_${n}`;
+      if (copy.position) copy.position = { x: (copy.position.x || 0) + 5, y: (copy.position.y || 0) + 5 };
+    }
+    const schemas = (template.schemas || [[]]).map((p: any[]) => [...(p || [])]);
+    schemas[0] = [...(schemas[0] || []), copy];
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
+    toast.success(`Added "${copy.name}"`);
+  };
+
   const handleSaveDraft = async () => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     setLoading(true);
@@ -557,6 +1092,22 @@ const DocumentDesignerView: React.FC = () => {
         if (currentTemplateId === id && list.length > 0) {
           await openTemplate(list[0].id);
         }
+      }
+    });
+  };
+
+  // Only meaningful for a template with system_template_id set — created
+  // via "Copy from Gallery" (button is hidden entirely otherwise, see the
+  // toolbar JSX below). Discards this draft's customization and pulls in
+  // that SAME system template's CURRENT layout.
+  const handleResetToDefault = () => {
+    if (!requireEdit() || !currentTemplateId) return;
+    askConfirm("Reset this template's draft to the system default it was copied from? Your customization will be discarded.", async () => {
+      const updated = await resetTemplateToSystemDefault(currentTemplateId);
+      if (updated) {
+        toast.success("Template reset to default");
+        setCurrentTemplateFull(updated);
+        mountOrUpdateDesigner(JSON.parse(updated.draft_template_json));
       }
     });
   };
@@ -641,19 +1192,72 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  // Header-variant toolbar — applied live to the draft via apply-options,
-  // not deferred to Save Draft.
-  const applyHeaderVariant = async (headerVariant: string) => {
+  // Header/footer toolbar — applied live to the draft via apply-options,
+  // not deferred to Save Draft. Always carries ALL FOUR fields (current
+  // state for whichever ones the caller doesn't override) — applyTemplateOptions'
+  // header branch rebuilds from scratch via getTemplate(), which defaults
+  // any omitted field back to its built-in default, silently discarding a
+  // custom header height, variant, or footer setting the moment any ONE of
+  // them changes.
+  const applyHeaderOptions = async (overrides: {
+    headerVariant?: string;
+    headerHeightMM?: number;
+    footerImage?: boolean;
+    footerHeightMM?: number;
+    pageBorder?: boolean;
+    pageBorderColor?: string;
+    pageBorderWidth?: number;
+    pageBorderManual?: boolean;
+    pageBorderX?: number;
+    pageBorderY?: number;
+    pageBorderWidthMM?: number;
+    pageBorderHeightMM?: number;
+  }) => {
     if (!requireEdit() || !currentTemplateId) return;
+    const nextManual = overrides.pageBorderManual ?? pageBorderManual;
+    const next = {
+      headerVariant,
+      headerHeightMM,
+      footerImage,
+      footerHeightMM,
+      pageBorder,
+      pageBorderColor,
+      pageBorderWidth,
+      // Backend's own defaults are 10mm each — without sending the CURRENT
+      // values here, any header/footer/border option change (this is the
+      // only path that reaches buildDocTemplate) would silently reset a
+      // custom left/right margin set via the Margins toolbar back to 10.
+      marginLeft,
+      marginRight,
+      ...overrides,
+      // null (not the current numbers) whenever manual mode is off, so
+      // buildPageBorderField's all-4-or-none check falls through to the
+      // auto formula — sending stale numbers here even while "off" would
+      // silently re-enable manual mode server-side.
+      pageBorderX: nextManual ? overrides.pageBorderX ?? pageBorderX : null,
+      pageBorderY: nextManual ? overrides.pageBorderY ?? pageBorderY : null,
+      pageBorderWidthMM: nextManual ? overrides.pageBorderWidthMM ?? pageBorderWidthMM : null,
+      pageBorderHeightMM: nextManual ? overrides.pageBorderHeightMM ?? pageBorderHeightMM : null,
+    };
     // Header rebuilds can add/remove/rename header-block fields entirely
     // (e.g. "Details" -> "Image" swaps text fields for an image field), so
     // re-selecting by name is a best-effort match, not guaranteed — if the
     // named field no longer exists, selectSchemas() just selects nothing
     // rather than throwing.
     const target = selectedField ? { name: selectedField.name, pageIndex: selectedField.pageIndex } : null;
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: { headerVariant } });
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, { header: next });
     if (updated && designerRef.current) {
-      designerRef.current.updateTemplate(updated);
+      // Backend rebuilds staticSchema from scratch on every header/footer
+      // change (buildHeaderFields/buildFooterFields, blank placeholder
+      // content) — without re-injecting, the real company image that was
+      // showing gets wiped back to blank on every height/variant/footer edit.
+      designerRef.current.updateTemplate(injectRealCompanyHeaderData(updated, companyData));
+      // Re-derives every Header-panel state (variant/heights/footer/border
+      // on-off/color/width, AND the manual-mode flag + actual box values)
+      // straight off the real updated template, rather than re-deriving a
+      // subset from `next` by hand — one source of truth for what the
+      // backend actually built.
+      syncHeaderOptionsFromTemplate(updated);
       // updateTemplate() always clears pdfme's internal selection (confirmed
       // via source-reading — it swaps the template object reference, which
       // pdfme's own TemplateEditor treats as a signal to reset selection).
@@ -666,6 +1270,80 @@ const DocumentDesignerView: React.FC = () => {
           designerRef.current?.selectSchemas(target);
         }, 0);
       }
+    }
+  };
+
+  const applyHeaderVariant = (variant: string) => applyHeaderOptions({ headerVariant: variant });
+  const applyHeaderHeight = (heightMM: number) => {
+    if (!heightMM || heightMM <= 0) return;
+    applyHeaderOptions({ headerHeightMM: heightMM });
+  };
+  const applyFooterImage = (enabled: boolean) => applyHeaderOptions({ footerImage: enabled });
+  const applyFooterHeight = (heightMM: number) => {
+    if (!heightMM || heightMM <= 0) return;
+    applyHeaderOptions({ footerHeightMM: heightMM });
+  };
+  const applyPageBorder = (enabled: boolean) => applyHeaderOptions({ pageBorder: enabled });
+  const applyPageBorderColor = (color: string) => applyHeaderOptions({ pageBorderColor: color });
+  const applyPageBorderWidth = (widthMM: number) => {
+    if (widthMM < 0) return;
+    applyHeaderOptions({ pageBorderWidth: widthMM });
+  };
+  // Turning manual mode ON commits whatever the inputs currently show
+  // (already the real current box, synced from the template — see
+  // syncHeaderOptionsFromTemplate) as the override, so flipping the
+  // toggle alone never visibly moves anything. Turning it OFF drops back
+  // to auto (applyHeaderOptions sends null for all 4 whenever
+  // pageBorderManual is false, regardless of what's passed here).
+  const applyPageBorderManual = (manual: boolean) => applyHeaderOptions({ pageBorderManual: manual });
+  const applyPageBorderBox = (box: Partial<{ x: number; y: number; widthMM: number; heightMM: number }>) =>
+    applyHeaderOptions({
+      pageBorderManual: true,
+      ...(box.x !== undefined && { pageBorderX: box.x }),
+      ...(box.y !== undefined && { pageBorderY: box.y }),
+      ...(box.widthMM !== undefined && { pageBorderWidthMM: box.widthMM }),
+      ...(box.heightMM !== undefined && { pageBorderHeightMM: box.heightMM }),
+    });
+
+  // A template whose basePdf has never been through applyTemplateOptions'
+  // header branch at all has `footerImage === undefined`, not `false` — vs
+  // one that's EXPLICITLY had it turned off, which is always a real boolean
+  // (buildTemplate.js's own default footerImage=false writes a concrete
+  // value on every build). Only that undefined/never-decided case gets
+  // auto-enabled here, and only when the company already has a footer image
+  // configured — an explicit past "off" choice (e.g. a narrow receipt
+  // that's deliberately footer-less) is never overridden. Takes id/template
+  // directly rather than reading currentTemplateId/designerRef state,
+  // because this runs synchronously right after openTemplate's setState
+  // calls, before their closures would see the update.
+  const maybeAutoEnableFooterImage = async (id: number, template: any) => {
+    if (template?.basePdf?.footerImage !== undefined) return;
+    if (!companyData?.footer_img) return;
+    if (!canEdit && !canAdd) return;
+    const updated = await applyOptionsToDraft(id, docType, {
+      header: {
+        headerVariant: template?.basePdf?.headerVariant || "details",
+        headerHeightMM: template?.basePdf?.headerHeightMM ?? 28.5,
+        footerImage: true,
+        footerHeightMM: template?.basePdf?.footerHeightMM ?? 28.5,
+        pageBorder: !!template?.basePdf?.pageBorder,
+        pageBorderColor: template?.basePdf?.pageBorderColor || "#000000",
+        pageBorderWidth: template?.basePdf?.pageBorderWidth ?? 0.5,
+        // Carries a manual box override forward unchanged if one exists —
+        // omitting these when manual mode is on would silently reset the
+        // border back to auto, same class of bug marginLeft/marginRight
+        // had before.
+        pageBorderX: template?.basePdf?.pageBorderX ?? null,
+        pageBorderY: template?.basePdf?.pageBorderY ?? null,
+        pageBorderWidthMM: template?.basePdf?.pageBorderWidthMM ?? null,
+        pageBorderHeightMM: template?.basePdf?.pageBorderHeightMM ?? null,
+        marginLeft: template?.basePdf?.padding?.[3] ?? 10,
+        marginRight: template?.basePdf?.padding?.[1] ?? 10,
+      },
+    });
+    if (updated && designerRef.current) {
+      designerRef.current.updateTemplate(injectRealCompanyHeaderData(updated, companyData));
+      syncHeaderOptionsFromTemplate(updated);
     }
   };
 
@@ -722,42 +1400,185 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  // Generate Preview — real order data whenever it exists, sample data only
-  // as an empty-state fallback (§6).
+  // Loads the selectable rows for one picker step, normalized to
+  // { id, title, subtitle }. `sel` carries ids resolved by earlier steps
+  // (the transaction steps need contact_id / team_id).
+  const loadPreviewStepRows = async (
+    kind: PreviewStepKind,
+    sel: typeof previewSel,
+    term: string,
+  ): Promise<{ id: number; title: string; subtitle: string }[]> => {
+    const login_id = localStorage.getItem("UUID");
+    const unwrap = (data: any) => data?.data?.item || data?.data || [];
+
+    if (kind === "order") {
+      const { data } = await axiosInstance.post("listOrder", {
+        a_application_login_id: login_id,
+        order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
+        searchTerm: term,
+        ul: 0,
+        ll: 20,
+      });
+      return unwrap(data).map((o: any) => ({
+        id: o.id,
+        title: o.cart_number || `Order #${o.id}`,
+        subtitle: o.to_customer_name || "",
+      }));
+    }
+
+    if (kind === "contact") {
+      const { data } = await axiosInstance.post("Contact", {
+        a_application_login_id: login_id,
+        searchTerm: term,
+        ul: 0,
+        ll: 25,
+      });
+      return unwrap(data).map((c: any) => ({
+        id: c.id,
+        title: c.person_name || c.company_name || `Contact #${c.id}`,
+        subtitle: [c.mobile_number, c.company_name].filter(Boolean).join(" · "),
+      }));
+    }
+
+    if (kind === "employee") {
+      const { data } = await axiosInstance.post("my-team", {
+        a_application_login_id: login_id,
+        searchTerm: term,
+      });
+      return unwrap(data).map((u: any) => ({
+        id: u.id,
+        title: u.username || `Member #${u.id}`,
+        subtitle: [u.recovery_mobile, u.recovery_email].filter(Boolean).join(" · "),
+      }));
+    }
+
+    // transaction / employeeTransaction — one row of the picked entity's ledger.
+    const txnRow = (t: any) => ({
+      id: t.id,
+      title: `#${t.id} · ${t.type == 1 ? "Credit" : "Debit"} ${t.amount ?? ""}`,
+      subtitle: [t.payment_date_time, t.remark].filter(Boolean).join(" · "),
+    });
+    if (kind === "transaction") {
+      const { data } = await axiosInstance.post("accountTransactionList", {
+        a_application_login_id: login_id,
+        contact_master_id: sel.contact_id,
+        searchTerm: term,
+        ul: 0,
+        ll: 25,
+      });
+      return unwrap(data).map(txnRow);
+    }
+    // employeeTransaction
+    const { data } = await axiosInstance.post("employeeAccountTransactionList", {
+      a_application_login_id: login_id,
+      team_id: sel.team_id,
+      searchTerm: term,
+      ul: 0,
+      ll: 25,
+    });
+    return unwrap(data).map(txnRow);
+  };
+
+  const SEL_KEY_BY_STEP: Record<PreviewStepKind, keyof typeof previewSel> = {
+    contact: "contact_id",
+    employee: "team_id",
+    transaction: "transaction_id",
+    employeeTransaction: "transaction_id",
+    order: "cart_id",
+  };
+
+  // Generate Preview — opens the record picker for this doc type. Cart docs
+  // and shippingLabel pick one order; the account/contact docs pick a
+  // contact/team member (then a transaction for the receipt types);
+  // taskDueList has no picker and renders straight against real data.
   const openPreviewPicker = async () => {
     if (!currentTemplateId) return;
-    const login_id = localStorage.getItem("UUID");
-    const { data } = await axiosInstance.post("listOrder", {
-      a_application_login_id: login_id,
-      order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
-      searchTerm: "",
-      ul: 0,
-      ll: 10,
-    });
-    const orders = data?.data?.item || data?.data || [];
-    setHasAnyOrders(orders.length > 0);
-    if (orders.length === 0) {
-      await runPreview(undefined);
+    const steps = previewStepsFor(docType);
+    if (steps.length === 0) {
+      await runPreview({});
       return;
     }
-    setPreviewOrders(orders);
+    setPreviewSel({});
+    setPreviewStepIdx(0);
+    setPreviewSearch("");
+    setPreviewLoadingRows(true);
     setShowPreviewPicker(true);
+    try {
+      const rows = await loadPreviewStepRows(steps[0], {}, "");
+      setPreviewOrders(rows);
+      if (rows.length === 0) {
+        setShowPreviewPicker(false);
+        toast.error(`No ${PREVIEW_STEP_LABEL[steps[0]]}s found to preview against`);
+      }
+    } finally {
+      setPreviewLoadingRows(false);
+    }
   };
 
   const searchPreviewOrders = async (term: string) => {
     setPreviewSearch(term);
-    const login_id = localStorage.getItem("UUID");
-    const { data } = await axiosInstance.post("listOrder", {
-      a_application_login_id: login_id,
-      order_type: CART_TYPE_BY_DOC_TYPE[docType] || 1,
-      searchTerm: term,
-      ul: 0,
-      ll: 20,
-    });
-    setPreviewOrders(data?.data?.item || data?.data || []);
+    const steps = previewStepsFor(docType);
+    const kind = steps[previewStepIdx];
+    if (!kind) return;
+    setPreviewLoadingRows(true);
+    try {
+      setPreviewOrders(await loadPreviewStepRows(kind, previewSel, term));
+    } finally {
+      setPreviewLoadingRows(false);
+    }
   };
 
-  const runPreview = async (cart_id?: number) => {
+  // Picks a row for the current step. Advances to the next step (loading its
+  // rows), or runs the preview once every step is resolved.
+  const pickPreviewRow = async (rowId: number) => {
+    const steps = previewStepsFor(docType);
+    const kind = steps[previewStepIdx];
+    if (!kind) return;
+    const nextSel = { ...previewSel, [SEL_KEY_BY_STEP[kind]]: rowId };
+    setPreviewSel(nextSel);
+
+    if (previewStepIdx + 1 >= steps.length) {
+      await runPreview(nextSel);
+      return;
+    }
+    const nextKind = steps[previewStepIdx + 1];
+    setPreviewStepIdx(previewStepIdx + 1);
+    setPreviewSearch("");
+    setPreviewLoadingRows(true);
+    try {
+      const rows = await loadPreviewStepRows(nextKind, nextSel, "");
+      setPreviewOrders(rows);
+      if (rows.length === 0) {
+        setShowPreviewPicker(false);
+        toast.error(`This ${PREVIEW_STEP_LABEL[kind]} has no ${PREVIEW_STEP_LABEL[nextKind]}s to preview against`);
+      }
+    } finally {
+      setPreviewLoadingRows(false);
+    }
+  };
+
+  // Report mode's Generate Preview — live report rows (a report has no fixed
+  // schema to fake sample rows against, unlike the cart doc types' own
+  // getSampleDataForPreview), draft template, no file/disk write.
+  const handleReportGeneratePreview = async () => {
+    if (!currentTemplateId || !reportDefinitionId) return;
+    setReportPreviewing(true);
+    try {
+      await saveDraftSilently();
+      const pdfBase64 = await previewReportPdf(reportDefinitionId, currentTemplateId);
+      if (!pdfBase64) return;
+      const byteChars = atob(pdfBase64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } finally {
+      setReportPreviewing(false);
+    }
+  };
+
+  const runPreview = async (sel: typeof previewSel = {}) => {
     if (!currentTemplateId) return;
     setStatus("Generating preview...");
     // Preview reads draft_template_json straight from the DB - without
@@ -767,7 +1588,10 @@ const DocumentDesignerView: React.FC = () => {
     const { data } = await axiosInstance.post("document-templates/preview", {
       company_masters_id: localStorage.getItem("COMPANY_ID"),
       id: currentTemplateId,
-      cart_id,
+      cart_id: sel.cart_id,
+      contact_id: sel.contact_id,
+      transaction_id: sel.transaction_id,
+      team_id: sel.team_id,
     });
     if (data?.ack === 1) {
       const byteChars = atob(data.data.item.pdfBase64);
@@ -784,7 +1608,7 @@ const DocumentDesignerView: React.FC = () => {
     }
   };
 
-  if (rights === null) {
+  if (!reportMode && rights === null) {
     return <div className="p-4">Loading...</div>;
   }
 
@@ -792,10 +1616,20 @@ const DocumentDesignerView: React.FC = () => {
     return <div className="p-4">You don't have permission to view this page.</div>;
   }
 
-  return (
-    <div className="dd-page">
+  // reportMode renders this whole screen inside a modal overlay instead of
+  // as a full-page route — everything else (topbar/body/every modal below)
+  // is completely unchanged between the two modes.
+  const screen = (
+    <div className={reportMode ? "dd-page dd-page--modal" : "dd-page"}>
       <style>{`
         .dd-page { display: flex; flex-direction: column; height: 100vh; }
+        /* reportMode mounts this inside a fixed-position modal overlay
+           (below) instead of as its own routed page — 100vh there would
+           blow past the overlay's own bounds, so this mode fills its
+           flex parent's actual height instead. Higher specificity
+           (two classes) wins over the plain .dd-page rule above regardless
+           of source order. */
+        .dd-page.dd-page--modal { height: 100%; }
         .dd-topbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #ddd; flex-wrap: wrap; flex-shrink: 0; }
         .dd-body { flex: 1; min-height: 0; display: flex; }
         .dd-canvas-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -821,12 +1655,18 @@ const DocumentDesignerView: React.FC = () => {
         ${PDFME_HIDE_NATIVE_PAGE_MENU_CSS}
       `}</style>
       <div className="dd-topbar">
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
-          &larr; Back
-        </button>
-        <strong style={{ fontSize: 14 }}>
-          {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
-        </strong>
+        {reportMode ? (
+          <strong style={{ fontSize: 14 }}>PDF Templates — {reportMode.reportName}</strong>
+        ) : (
+          <>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(-1)}>
+              &larr; Back
+            </button>
+            <strong style={{ fontSize: 14 }}>
+              {SUPPORTED_DOC_TYPES.find((d) => d.id === docType)?.label} — Document Designer
+            </strong>
+          </>
+        )}
         <div style={{ flex: 1 }} />
         <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }} title="Page these buttons act on">
           Page
@@ -864,11 +1704,42 @@ const DocumentDesignerView: React.FC = () => {
         >
           Remove Page
         </button>
+        <div style={{ width: 210 }} title="Re-add a built-in field (e.g. the data table) that was deleted, or add an opt-in extra field, with its correct name and columns">
+          <CustomSearchDropdown
+            options={defaultFields.map((f) => ({
+              value: f.name,
+              label: `${humanizeFieldName(f.name)} (${f.type})`,
+            }))}
+            value={
+              addFieldName
+                ? {
+                    value: addFieldName,
+                    label: `${humanizeFieldName(addFieldName)} (${defaultFields.find((f) => f.name === addFieldName)?.type ?? ""})`,
+                  }
+                : null
+            }
+            onChange={(option) => setAddFieldName(option?.value ?? "")}
+            isDisabled={!currentTemplateId || !defaultFields.length ? "disabled" : false}
+            placeholder={defaultFields.length ? "Add Field…" : "No fields available"}
+          />
+        </div>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleAddField}
+          disabled={!currentTemplateId || !addFieldName}
+        >
+          Add
+        </button>
         <button className="btn btn-sm btn-outline-secondary" onClick={openVersionHistory} disabled={!currentTemplateId}>Version History</button>
         <button className="btn btn-sm btn-outline-secondary" onClick={handleDiscardDraft} disabled={!currentTemplateId}>Discard Draft</button>
         <button className="btn btn-sm btn-secondary" onClick={handleSaveDraft} disabled={!currentTemplateId}>Save Draft</button>
-        {CART_SHAPED_DOC_TYPES.has(docType) && (
+        {!reportMode && (
           <button className="btn btn-sm btn-outline-primary" onClick={openPreviewPicker} disabled={!currentTemplateId}>Generate Preview</button>
+        )}
+        {reportMode && (
+          <button className="btn btn-sm btn-outline-primary" onClick={handleReportGeneratePreview} disabled={!currentTemplateId || reportPreviewing}>
+            {reportPreviewing ? "Generating..." : "Generate Preview"}
+          </button>
         )}
         <button className="btn btn-sm" style={{ background: "#f58634", color: "#fff" }} onClick={handlePublish} disabled={!currentTemplateId}>
           Publish
@@ -880,6 +1751,11 @@ const DocumentDesignerView: React.FC = () => {
         >
           {showAccordionPanel ? "Hide Panel ▶" : "Show Panel ◀"}
         </button>
+        {reportMode && (
+          <button className="btn btn-sm btn-outline-secondary" onClick={reportMode.onClose}>
+            Close
+          </button>
+        )}
       </div>
 
       <div className="dd-body">
@@ -894,80 +1770,65 @@ const DocumentDesignerView: React.FC = () => {
             <Accordion.Item eventKey="templates">
               <Accordion.Header>Templates</Accordion.Header>
               <Accordion.Body>
-                <select
-                  className="form-select form-select-sm mb-2"
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                >
-                  {SUPPORTED_DOC_TYPES.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
+                {!reportMode && (
+                  <select
+                    className="form-select form-select-sm mb-2"
+                    value={docType}
+                    onChange={(e) => setDocType(e.target.value)}
+                  >
+                    {SUPPORTED_DOC_TYPES.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <div className="d-flex flex-column gap-2 mb-3">
                   <button className="btn btn-sm btn-primary" onClick={handleNewTemplate} disabled={!canAdd && !canEdit}>
                     + New Template
                   </button>
-                  <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
-                    Browse Gallery
-                  </button>
-                  <label className="btn btn-sm btn-outline-secondary mb-0">
-                    Import
-                    <input
-                      type="file"
-                      accept="application/json"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImportFile(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
+                  {!reportMode && (
+                    <>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={openGallery}>
+                        Browse Gallery
+                      </button>
+                      <label className="btn btn-sm btn-outline-secondary mb-0">
+                        Import
+                        <input
+                          type="file"
+                          accept="application/json"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImportFile(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
 
-                {templates.map((t, index) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      border: currentTemplateId === t.id ? "2px solid #f58634" : "1px solid #ddd",
-                      borderRadius: 4,
-                      padding: 8,
-                      marginBottom: 8,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => openTemplate(t.id)}
+                <TemplateSidebar
+                  templates={templates}
+                  currentTemplateId={currentTemplateId}
+                  onOpen={openTemplate}
+                  onMove={moveTemplate}
+                  onRename={handleRename}
+                  onDuplicate={handleDuplicate}
+                  onExport={handleExport}
+                  onSetDefault={handleSetDefault}
+                  onDelete={handleDelete}
+                />
+                {!!currentTemplateFull?.system_template_id && (
+                  <button
+                    className="btn btn-sm btn-outline-warning w-100 mt-2"
+                    onClick={handleResetToDefault}
+                    title="This template was copied from the system gallery — discard your customization and pull in its current layout"
                   >
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      {t.is_default ? "★ " : ""}
-                      {t.template_name}
-                      {t.has_unpublished_changes ? (
-                        <span className="badge bg-warning text-dark ms-1" style={{ fontSize: 9 }}>
-                          unpublished changes
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="d-flex flex-wrap gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, -1)} disabled={index === 0}>▲</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => moveTemplate(index, 1)} disabled={index === templates.length - 1}>▼</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleRename(t.id, t.template_name)}>Rename</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleDuplicate(t.id)}>Duplicate</button>
-                      <button className="btn btn-sm btn-link p-0" onClick={() => handleExport(t.id, t.template_name)}>Export</button>
-                      {!t.is_default ? (
-                        <button className="btn btn-sm btn-link p-0" onClick={() => handleSetDefault(t.id)}>Set Default</button>
-                      ) : null}
-                      <button
-                        className="btn btn-sm btn-link p-0 text-danger"
-                        onClick={() => handleDelete(t.id)}
-                        disabled={templates.length <= 1}
-                        title={templates.length <= 1 ? "Can't delete the only remaining template" : ""}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    Reset to Default
+                  </button>
+                )}
               </Accordion.Body>
             </Accordion.Item>
 
@@ -978,13 +1839,160 @@ const DocumentDesignerView: React.FC = () => {
                   <select
                     className="form-select form-select-sm mb-2"
                     onChange={(e) => applyHeaderVariant(e.target.value)}
-                    defaultValue="details"
+                    value={headerVariant}
                   >
                     <option value="details">Header: Details</option>
                     <option value="image">Header: Image</option>
                     <option value="logoLeft">Header: Logo Left</option>
                     <option value="logoRight">Header: Logo Right</option>
                   </select>
+                  {headerVariant === "image" && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Height (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={5}
+                        max={100}
+                        value={headerHeightMM}
+                        onChange={(e) => setHeaderHeightMM(Number(e.target.value))}
+                        onBlur={(e) => applyHeaderHeight(Number(e.target.value))}
+                      />
+                    </label>
+                  )}
+                  <hr style={{ margin: "8px 0" }} />
+                  <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={footerImage}
+                      onChange={(e) => applyFooterImage(e.target.checked)}
+                    />
+                    Show Footer Image
+                  </label>
+                  {footerImage && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Footer Height (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={5}
+                        max={100}
+                        value={footerHeightMM}
+                        onChange={(e) => setFooterHeightMM(Number(e.target.value))}
+                        onBlur={(e) => applyFooterHeight(Number(e.target.value))}
+                      />
+                    </label>
+                  )}
+                  <hr style={{ margin: "8px 0" }} />
+                  <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={pageBorder}
+                      onChange={(e) => applyPageBorder(e.target.checked)}
+                    />
+                    Full Page Border
+                  </label>
+                  {pageBorder && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Border Color:
+                      <input
+                        type="color"
+                        className="form-control form-control-sm p-0"
+                        style={{ width: 40, height: 28 }}
+                        value={pageBorderColor}
+                        onChange={(e) => {
+                          setPageBorderColor(e.target.value);
+                          applyPageBorderColor(e.target.value);
+                        }}
+                      />
+                    </label>
+                  )}
+                  {pageBorder && (
+                    <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: 12 }}>
+                      Border Size (mm):
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ width: 70 }}
+                        min={0.1}
+                        max={10}
+                        step={0.1}
+                        value={pageBorderWidth}
+                        onChange={(e) => setPageBorderWidth(Number(e.target.value))}
+                        onBlur={(e) => applyPageBorderWidth(Number(e.target.value))}
+                      />
+                    </label>
+                  )}
+                  {pageBorder && (
+                    <>
+                      <label className="form-check-label d-flex align-items-center gap-1 mb-2" style={{ fontSize: 12 }}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={pageBorderManual}
+                          onChange={(e) => {
+                            setPageBorderManual(e.target.checked);
+                            applyPageBorderManual(e.target.checked);
+                          }}
+                        />
+                        Manual Position
+                      </label>
+                      {pageBorderManual && (
+                        <div className="d-flex flex-wrap gap-2 mb-2" style={{ fontSize: 12 }}>
+                          <label className="d-flex align-items-center gap-1">
+                            X:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              value={pageBorderX}
+                              onChange={(e) => setPageBorderX(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ x: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Y:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              value={pageBorderY}
+                              onChange={(e) => setPageBorderY(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ y: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Width:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              min={1}
+                              value={pageBorderWidthMM}
+                              onChange={(e) => setPageBorderWidthMM(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ widthMM: Number(e.target.value) })}
+                            />
+                          </label>
+                          <label className="d-flex align-items-center gap-1">
+                            Height:
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              style={{ width: 60 }}
+                              min={1}
+                              value={pageBorderHeightMM}
+                              onChange={(e) => setPageBorderHeightMM(Number(e.target.value))}
+                              onBlur={(e) => applyPageBorderBox({ heightMM: Number(e.target.value) })}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <p style={{ fontSize: 11, color: "#888", margin: "4px 0 8px" }}>
                     Column toggles (HSN/Discount/GST/Image) and each field's Data Binding /
                     Visibility live in that field's own properties now — click it on the canvas
@@ -1016,6 +2024,24 @@ const DocumentDesignerView: React.FC = () => {
                   <option value="A5">Page: A5</option>
                   <option value="custom">Page: Custom</option>
                 </select>
+                <div className="btn-group btn-group-sm mb-2" role="group">
+                  <button
+                    type="button"
+                    className={`btn ${orientation === "portrait" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleOrientationChange("portrait")}
+                    disabled={!currentTemplateId}
+                  >
+                    Portrait
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${orientation === "landscape" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleOrientationChange("landscape")}
+                    disabled={!currentTemplateId}
+                  >
+                    Landscape
+                  </button>
+                </div>
                 {pageSizeMode === "custom" && (
                   <div className="d-flex align-items-center gap-2">
                     <input
@@ -1041,13 +2067,80 @@ const DocumentDesignerView: React.FC = () => {
                     />
                     <button
                       className="btn btn-sm btn-outline-secondary"
-                      onClick={() => applyPageSize(customPageWidth, customPageHeight)}
+                      onClick={() => {
+                        setOrientation(customPageWidth > customPageHeight ? "landscape" : "portrait");
+                        applyPageSize(customPageWidth, customPageHeight);
+                      }}
                       disabled={!currentTemplateId}
                     >
                       Apply
                     </button>
                   </div>
                 )}
+
+                <hr />
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Margins (mm)</div>
+                <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Top
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginTop}
+                      onChange={(e) => setMarginTop(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Right
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginRight}
+                      onChange={(e) => setMarginRight(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Bottom
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginBottom}
+                      onChange={(e) => setMarginBottom(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <label style={{ fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 4 }}>
+                    Left
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: 60 }}
+                      min={0}
+                      value={marginLeft}
+                      onChange={(e) => setMarginLeft(Number(e.target.value))}
+                      disabled={!currentTemplateId}
+                    />
+                  </label>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => applyMargins(marginTop, marginRight, marginBottom, marginLeft)}
+                    disabled={!currentTemplateId}
+                  >
+                    Apply
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: "#888", margin: "4px 0 0" }}>
+                  Fields don't reposition themselves when a margin shrinks or grows — same as
+                  page size/orientation above, this only changes the page's own padding.
+                </p>
               </Accordion.Body>
             </Accordion.Item>
           </Accordion>
@@ -1097,31 +2190,47 @@ const DocumentDesignerView: React.FC = () => {
         </div>
       )}
 
-      {showPreviewPicker && (
-        <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <div className="modal-content1" style={{ width: 420, marginTop: "5%" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5>Preview with Real Order Data</h5>
-              <span className="close" onClick={() => setShowPreviewPicker(false)}>&times;</span>
-            </div>
-            <input
-              className="form-control form-control-sm mb-2"
-              placeholder="Search by order number..."
-              value={previewSearch}
-              onChange={(e) => searchPreviewOrders(e.target.value)}
-            />
-            {previewOrders.map((o) => (
-              <div key={o.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                <div>
-                  <div style={{ fontWeight: 600 }}>{o.cart_number}</div>
-                  <div style={{ fontSize: 11, color: "#888" }}>{o.to_customer_name}</div>
-                </div>
-                <button className="btn btn-sm btn-outline-primary" onClick={() => runPreview(o.id)}>Preview</button>
+      {showPreviewPicker && (() => {
+        const steps = previewStepsFor(docType);
+        const kind = steps[previewStepIdx];
+        const stepLabel = kind ? PREVIEW_STEP_LABEL[kind] : "record";
+        return (
+          <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+            <div className="modal-content1" style={{ width: 420, marginTop: "5%" }}>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h5 className="mb-0" style={{ textTransform: "capitalize" }}>
+                  Select {stepLabel}
+                  {steps.length > 1 ? ` (step ${previewStepIdx + 1} of ${steps.length})` : ""}
+                </h5>
+                <span className="close" onClick={() => setShowPreviewPicker(false)}>&times;</span>
               </div>
-            ))}
+              <input
+                className="form-control form-control-sm mb-2"
+                placeholder={`Search ${stepLabel}...`}
+                value={previewSearch}
+                onChange={(e) => searchPreviewOrders(e.target.value)}
+              />
+              {previewLoadingRows && <div className="text-muted small py-2">Loading...</div>}
+              {!previewLoadingRows && previewOrders.length === 0 && (
+                <div className="text-muted small py-2">No matches.</div>
+              )}
+              <div style={{ maxHeight: 360, overflowY: "auto" }}>
+                {previewOrders.map((o) => (
+                  <div key={o.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{o.title}</div>
+                      <div style={{ fontSize: 11, color: "#888" }}>{o.subtitle}</div>
+                    </div>
+                    <button className="btn btn-sm btn-outline-primary flex-shrink-0" onClick={() => pickPreviewRow(o.id)}>
+                      {previewStepIdx + 1 >= steps.length ? "Preview" : "Next"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <ConfirmationModal
         show={!!confirmDialog}
@@ -1149,7 +2258,7 @@ const DocumentDesignerView: React.FC = () => {
 
       <PromptModal
         show={!pinVerified || showPinModal}
-        onHide={pinVerified ? handlePinCancel : () => navigate(-1)}
+        onHide={pinVerified ? handlePinCancel : () => (reportMode ? reportMode.onClose() : navigate(-1))}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
         message={
@@ -1168,6 +2277,17 @@ const DocumentDesignerView: React.FC = () => {
       )}
     </div>
   );
+
+  if (reportMode) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1050, display: "flex" }}>
+        <div style={{ background: "#fff", margin: 20, flex: 1, display: "flex", flexDirection: "column", borderRadius: 6, overflow: "hidden" }}>
+          {screen}
+        </div>
+      </div>
+    );
+  }
+  return screen;
 };
 
 export default DocumentDesignerView;

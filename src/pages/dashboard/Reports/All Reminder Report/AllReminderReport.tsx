@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
@@ -8,9 +7,9 @@ import { PrimeReactProvider } from "primereact/api";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ReminderModal from "../../../../components/model/ReminderModal";
@@ -35,11 +34,7 @@ import {
   updateInquiryFormReminder,
 } from "../../../left-side/header/list-reminder/ListReminderController";
 import { axiosInstance } from "../../../../services/axiosInstance";
-import {
-  exportTaskAndSupportTicketData,
-  fetchTaskReport,
-  IReminderItem,
-} from "./AllReminderController";
+import { fetchTaskReport, IReminderItem } from "./AllReminderController";
 // import { axiosInstance } from "../../../../services/axiosInstance";
 
 interface IReminderReportProps {
@@ -327,7 +322,7 @@ const AllReminderReport = ({
   };
 
   const onVirtualScroller = (event: any) => {
-    if (event.last === reminders.length && hasMore && !isLoadingMore.current) {
+    if (event.last >= reminders.length - 1 && hasMore && !isLoadingMore.current) {
       loadReminders(currentOffset.current, 50);
     }
   };
@@ -709,77 +704,6 @@ const AllReminderReport = ({
     doc.save(`${title}_report_${Date.now()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allReminders = await exportTaskAndSupportTicketData<IReminderItem>(
-        (offset, limit) =>
-          fetchTaskReport(
-            undefined,
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            MobileFlag,
-            undefined,
-            offset,
-            limit,
-            debouncedSearchText,
-            is_support_ticket_flag,
-            filters.selectedContactId,
-            filters.referenceWiseContact,
-            filterType,
-          ),
-        500,
-      );
-
-      if (!allReminders.length) {
-        toast.warn("No reminders to export");
-        return;
-      }
-
-      const exportData = (
-        selectedReminders.length > 0 ? selectedReminders : allReminders
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "plain");
-        });
-        return row;
-      });
-
-            exportData.push({
-        ID: `Total Reminders: ${exportData.length}`,
-        "Contact Name": "",
-        "Reminder Date & Time": "",
-        Status: "",
-        "Completed On": "",
-        "Assigned To": "",
-        "Created By": "",
-        Remark: "",
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      const workbook = {
-        Sheets: { Reminders: worksheet },
-        SheetNames: ["Reminders"],
-      };
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      saveAs(blob, `${title}_report_${Date.now()}.xlsx`);
-    } catch (err) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedReminders.length > 0 ? selectedReminders : displayReminders;
@@ -943,7 +867,7 @@ const AllReminderReport = ({
 
         {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && ( */}
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
@@ -1027,27 +951,30 @@ const AllReminderReport = ({
                 },
               }}
             />
-            <Button
-              icon="pi pi-plus"
-              className="report_button"
-              style={{ backgroundColor: "rgb(245, 134, 52)" }}
-              rounded
-              onClick={() => {
-                if (canAdd) {
-                  setIsSetReminderConfirmation(true);
-                  setIsReminderConfirmationStatusData(undefined);
-                } else {
-                  toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                }
-              }}
-              tooltip={`Add Reminder`}
-              tooltipOptions={{
-                position: "top",
-                style: {
-                  fontSize: "14px",
-                },
-              }}
-            />
+            {!MobileFlag && (
+              <Button
+                icon="pi pi-plus"
+                className="report_button"
+                style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                rounded
+                onClick={() => {
+                  if (canAdd) {
+                    setIsSetReminderConfirmation(true);
+                    setIsReminderConfirmationStatusData(undefined);
+                  } else {
+                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }
+                }}
+                tooltip={`Add Reminder`}
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+            )}
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1082,25 +1009,40 @@ const AllReminderReport = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (reminders.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="all_reminder_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    is_support_ticket_flag: is_support_ticket_flag,
+                    selectedContactId: filters.selectedContactId,
+                    referenceWiseContact: filters.referenceWiseContact,
+                    typeFilter: filterType,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName={`${title}_Report`}
+                  canShare={canShare}
+                  disabled={reminders.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedReminders.length > 0
+                      ? [
+                          ...selectedReminders,
+                          {
+                            id: `Total Reminders: ${selectedReminders.length}`,
+                            contact_name: "",
+                            reminder_data_time: "",
+                            status_display: "",
+                            completed_date_time: "",
+                            assigned_to_name: "",
+                            created_by_username: "",
+                            remark: "",
+                          },
+                        ]
+                      : selectedReminders
+                  }
+                />
 
                 <li
                   className="listItem text-start"
@@ -1140,6 +1082,7 @@ const AllReminderReport = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
                 icon="pi pi-refresh"
@@ -1217,26 +1160,28 @@ const AllReminderReport = ({
             />
           )}
 
-          <Column
-            header=""
-            headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
-            bodyStyle={{ textAlign: "center" }}
-            body={(rowData: IReminderItem) => (
-              <Button
-                icon="pi pi-cog"
-                className="p-button-text p-0"
-                style={{ color: "green", width: "24px", height: "24px" }}
-                onClick={(e) => {
-                  setSelectedRow(rowData);
-                  op.current?.toggle(e);
-                  requestAnimationFrame(() => {
-                    const panel = op.current?.getElement();
-                    if (panel) panel.style.transform = "translate(40px, -25px)";
-                  });
-                }}
-              />
-            )}
-          />
+          {!MobileFlag && (
+            <Column
+              header=""
+              headerStyle={{ width: "50px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}
+              bodyStyle={{ textAlign: "center" }}
+              body={(rowData: IReminderItem) => (
+                <Button
+                  icon="pi pi-cog"
+                  className="p-button-text p-0"
+                  style={{ color: "green", width: "24px", height: "24px" }}
+                  onClick={(e) => {
+                    setSelectedRow(rowData);
+                    op.current?.toggle(e);
+                    requestAnimationFrame(() => {
+                      const panel = op.current?.getElement();
+                      if (panel) panel.style.transform = "translate(40px, -25px)";
+                    });
+                  }}
+                />
+              )}
+            />
+          )}
 
           {visibleColumns.map((col) => (
             <Column

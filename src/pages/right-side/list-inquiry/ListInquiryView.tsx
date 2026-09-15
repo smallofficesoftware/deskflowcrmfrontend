@@ -1310,7 +1310,7 @@ const ListInquiryView = ({
                               </div>
 
                               <a
-                                href={`https://api.whatsapp.com/send?phone=91${item?.contact_person_number}`}
+                                href={`https://api.whatsapp.com/send?phone=${item?.contact_person_number}`}
                                 target="_blank"
                               >
                                 <button className="icons mx-1">

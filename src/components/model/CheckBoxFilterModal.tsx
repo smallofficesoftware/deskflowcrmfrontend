@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import { SingleValue } from "react-select";
@@ -115,6 +115,7 @@ interface CheckBoxModalProps {
   initialCheckedOptionsTaskType?: any[] | null;
   initialCheckedOptionsUser?: any[] | null;
   initialSelectedActiveId?: any | null;
+  initialSelectedApproveStatus?: any | null;
   initialSelectedDays?: string | number | null;
   MobileToken?: string;
   getID?: string;
@@ -164,6 +165,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   initialCheckedOptionsUser,
   initialSelectedStockTypeId,
   initialSelectedActiveId,
+  initialSelectedApproveStatus,
   initialSelectedDays,
   MobileToken,
   getID,
@@ -311,6 +313,18 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   const [areaList, setAreaList] = useState<any[]>([]);
   const [selectedCountryId, setSelectedCountryId] =
     useState<SingleValue<IOption>>(null);
+  // Tracks which Demography fields the user has manually changed/cleared
+  // since the modal opened — once touched, the initialFilterData-hydration
+  // effect below must not re-impose the last-applied value on that field,
+  // otherwise clearing a field's react-select "x" gets silently undone the
+  // moment its cascading list (stateList/cityList/areaList) resets, since
+  // that reset re-triggers the hydration effect.
+  const touchedDemographyRef = useRef<{
+    country?: boolean;
+    state?: boolean;
+    city?: boolean;
+    area?: boolean;
+  }>({});
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<SingleValue<IOption>>(null);
   const [selectedReqList, setSelectedReqList] =
@@ -319,6 +333,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   const [selectedStockTypeId, setSelectedStockTypeId] =
     useState<SingleValue<IOption>>(null);
   const [selectedActiveId, setSelectedActiveId] =
+    useState<SingleValue<IOption>>(null);
+  const [selectedApproveStatusId, setSelectedApproveStatusId] =
     useState<SingleValue<IOption>>(null);
   const [selectedReqListProduct, setSelectedReqListProduct] =
     useState<SingleValue<IOption> | null>(null);
@@ -441,6 +457,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     { id: "2", value: "Deactivate" },
   ];
 
+  const approveStatusData = [
+    { id: "approved", value: "Approved" },
+    { id: "draft", value: "Draft" },
+  ];
+
   const expenseStatusOptions = [
     { id: "1", name: "Pending", color: "#ccc" },
     { id: "2", name: "Approved", color: "#06923E" },
@@ -451,10 +472,20 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setSelectedWarehouses(selected || []);
   };
 
+  // Fresh modal open — clear "user touched this" tracking so hydration
+  // from initialFilterData is allowed to run again for a new session.
+  useEffect(() => {
+    if (show) touchedDemographyRef.current = {};
+  }, [show]);
+
   useEffect(() => {
     if (!show || !initialFilterData) return;
 
-    if (countriesList.length > 0 && initialFilterData.country) {
+    if (
+      !touchedDemographyRef.current.country &&
+      countriesList.length > 0 &&
+      initialFilterData.country
+    ) {
       const country = countriesList.find(
         (c) => c.id === initialFilterData.country,
       );
@@ -462,19 +493,31 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         country ? { value: country.id, label: country.country_name } : null,
       );
     }
-    if (stateList.length > 0 && initialFilterData.state) {
+    if (
+      !touchedDemographyRef.current.state &&
+      stateList.length > 0 &&
+      initialFilterData.state
+    ) {
       const state = stateList.find((s) => s.id === initialFilterData.state);
       setSelectedStateId(
         state ? { value: state.id, label: state.state_name } : null,
       );
     }
-    if (cityList.length > 0 && initialFilterData.city) {
+    if (
+      !touchedDemographyRef.current.city &&
+      cityList.length > 0 &&
+      initialFilterData.city
+    ) {
       const city = cityList.find((c) => c.id === initialFilterData.city);
       setSelectedCityId(
         city ? { value: city.id, label: city.city_name } : null,
       );
     }
-    if (areaList.length > 0 && initialFilterData.area) {
+    if (
+      !touchedDemographyRef.current.area &&
+      areaList.length > 0 &&
+      initialFilterData.area
+    ) {
       const area = areaList.find((a) => a.id === initialFilterData.area);
       setSelectedAreaId(
         area ? { value: area.id, label: area.area_name } : null,
@@ -534,6 +577,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
       setSelectedActiveId(
         active ? { value: active.id, label: active.value } : null,
+      );
+    }
+    if (initialFilterData.approveStatus) {
+      const approveStatus = approveStatusData.find(
+        (a) => a.value === initialFilterData.approveStatus,
+      );
+      setSelectedApproveStatusId(
+        approveStatus
+          ? { value: approveStatus.id, label: approveStatus.value }
+          : null,
       );
     }
     if (initialFilterData.orderlistselect) {
@@ -652,6 +705,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId ||
       selectedProductId ||
       selectedActiveId ||
+      selectedApproveStatusId ||
       selectedDays ||
       startSearchDate ||
       endSearchDate ||
@@ -692,6 +746,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     selectedStockTypeId,
     selectedProductId,
     selectedActiveId,
+    selectedApproveStatusId,
     selectedDays,
     startSearchDate,
     endSearchDate,
@@ -715,6 +770,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       month: selectedMonth?.value,
       year: selectedYear?.value,
       active: selectedActiveId?.label,
+      approveStatus: selectedApproveStatusId?.label,
       daysCount: selectedDays,
       contactId: selectedContactId?.value,
       productId: selectedProductSearchId?.value,
@@ -885,6 +941,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     }
     if (selectedActiveId?.label)
       pushChip("active", "Status", [selectedActiveId.label]);
+    if (showGroup(30) && selectedApproveStatusId?.label)
+      pushChip("approveStatus", "Approve Status", [
+        selectedApproveStatusId.label,
+      ]);
     if (selectedCategoryId?.label)
       pushChip("category", "Category", [selectedCategoryId.label]);
     if (selectedProductId?.label || selectedProductSearchId?.label)
@@ -913,6 +973,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId,
       selectedProductId,
       selectedActiveId: selectedActiveId?.label,
+      selectedApproveStatus: selectedApproveStatusId?.label,
       selectedDays,
       assignedByMultiTeamMember: assignedByMultiTeamMember ?? [],
       createdByMultiTeamMember: createdByMultiTeamMember ?? [],
@@ -960,6 +1021,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setSelectedProductSearchId(null);
     setSelectedStockTypeId(null);
     setSelectedActiveId(null);
+    setSelectedApproveStatusId(null);
     setSelectedOrderListId(null);
     setSelectedDays(undefined);
     if (isApplyReport == 1) {
@@ -1001,6 +1063,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedStockTypeId: null,
       selectedProductId: null,
       selectedActiveId: null,
+      selectedApproveStatus: null,
       selectedDays: null,
       assignedByMultiTeamMember: [],
       createdByMultiTeamMember: [],
@@ -1019,7 +1082,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   };
 
   const handleCountryChange = (selectedOption: SingleValue<IOption>) => {
-    console.log("selectedOption", selectedOption);
+    touchedDemographyRef.current.country = true;
+    touchedDemographyRef.current.state = true;
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedCountryId(selectedOption);
     setSelectedStateId(null);
     setSelectedCityId(null);
@@ -1039,6 +1105,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     setSelectedActiveId(selectedOption);
   };
 
+  const handleApproveStatusChange = (selectedOption: SingleValue<IOption>) => {
+    setSelectedApproveStatusId(selectedOption);
+  };
+
   const handledays = (selectedOption: string) => {
     setSelectedDays(selectedOption);
   };
@@ -1048,16 +1118,22 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   };
 
   const handleAreaChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.area = true;
     setSelectedAreaId(selectedOption);
   };
 
   const handleStateChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.state = true;
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedStateId(selectedOption);
     setSelectedCityId(null);
     setSelectedAreaId(null);
   };
 
   const handleCityChange = (selectedOption: SingleValue<IOption>) => {
+    touchedDemographyRef.current.city = true;
+    touchedDemographyRef.current.area = true;
     setSelectedCityId(selectedOption);
     setSelectedAreaId(null);
   };
@@ -1673,6 +1749,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     label: option.value,
   }));
 
+  const approveStatusOptions = (approveStatusData || []).map((option: any) => ({
+    value: option.id,
+    label: option.value,
+  }));
+
   const orderListOptions = (orderTypesList || []).map((option: any) => ({
     value: option.id,
     label: option.type,
@@ -2225,16 +2306,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -2354,16 +2435,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -2484,16 +2565,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                               ? option.color
                                               : "#808080",
                                             wordWrap: "break-word",
-                                            width: MobileFlag
-                                              ? "fit-content"
-                                              : "9vw",
+                                            width: "fit-content",
                                             maxWidth: MobileFlag
                                               ? "150px"
-                                              : "9vw",
+                                              : "220px",
+                                            whiteSpace: "normal",
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: "vertical",
                                             overflow: "hidden",
                                             textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            display: "inline-block",
                                             textAlign: "start",
                                           }}
                                           className="badge rounded-pill"
@@ -2623,16 +2704,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                                 ? option.color
                                                 : "#808080",
                                               wordWrap: "break-word",
-                                              width: MobileFlag
-                                                ? "fit-content"
-                                                : "9vw",
+                                              width: "fit-content",
                                               maxWidth: MobileFlag
                                                 ? "150px"
-                                                : "9vw",
+                                                : "220px",
+                                              whiteSpace: "normal",
+                                              display: "-webkit-box",
+                                              WebkitLineClamp: 2,
+                                              WebkitBoxOrient: "vertical",
                                               overflow: "hidden",
                                               textOverflow: "ellipsis",
-                                              whiteSpace: "nowrap",
-                                              display: "inline-block",
                                               textAlign: "start",
                                             }}
                                             className="badge rounded-pill"
@@ -3051,7 +3132,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                   </div>
                 )}
                 {filtersToShow.includes(7) && (
-                  <div className="col-6 col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-6 card">
+                  <div className="col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
                     <div className="">
                       <div className="ms-2 mt-1">
                         <label>Category / Product</label>
@@ -3197,6 +3278,47 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                         );
                                       }}
                                       disabled={isLoading}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {filtersToShow.includes(30) && (
+                  <div className="col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-12 col-xs-12 card">
+                    <div className="">
+                      <div className="ms-2 mt-1">
+                        <label className="fw-bold">Approve Status</label>
+                      </div>
+                      <hr />
+                      <div
+                        className="overflow-auto"
+                        style={{ maxHeight: "300px", minHeight: "150px" }}
+                      >
+                        <table className="table table-hover" border={0}>
+                          <tbody className="text-center">
+                            <tr
+                              className="text-left"
+                              style={{
+                                border: "1px solid white",
+                                borderCollapse: "collapse",
+                                height: "10px",
+                              }}
+                            >
+                              <td className="text-start">
+                                <div className="col-12">
+                                  <div className="add-source-of-type-section">
+                                    <CustomSearchDropdown
+                                      options={approveStatusOptions}
+                                      value={selectedApproveStatusId}
+                                      onChange={handleApproveStatusChange}
+                                      className="w-100"
+                                      isDisabled={isLoading}
                                     />
                                   </div>
                                 </div>
@@ -3432,16 +3554,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                           style={{
                                             backgroundColor: "#808080",
                                             wordWrap: "break-word",
-                                            width: MobileFlag
-                                              ? "fit-content"
-                                              : "9vw",
+                                            width: "fit-content",
                                             maxWidth: MobileFlag
                                               ? "150px"
-                                              : "9vw",
+                                              : "220px",
+                                            whiteSpace: "normal",
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: "vertical",
                                             overflow: "hidden",
                                             textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            display: "inline-block",
                                             textAlign: "start",
                                           }}
                                           className="badge rounded-pill"
@@ -4197,16 +4319,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.payment_color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -4328,16 +4450,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"
@@ -4459,16 +4581,16 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                                             ? option.color
                                             : "#808080",
                                           wordWrap: "break-word",
-                                          width: MobileFlag
-                                            ? "fit-content"
-                                            : "9vw",
+                                          width: "fit-content",
                                           maxWidth: MobileFlag
                                             ? "150px"
-                                            : "9vw",
+                                            : "220px",
+                                          whiteSpace: "normal",
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
                                           overflow: "hidden",
                                           textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          display: "inline-block",
                                           textAlign: "start",
                                         }}
                                         className="badge rounded-pill"

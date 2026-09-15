@@ -27,6 +27,11 @@ export interface KanbanModalFrameProps {
   isSearching?: boolean;
   isRefreshing?: boolean;
 
+  // Extra controls rendered right after the search box (e.g. the task-kanban
+  // board's All/My and Internal/External/All top toggles). Omit for boards
+  // with nothing to show here.
+  headerExtra?: React.ReactNode;
+
   // Omit onOpenFilter entirely for a board with no filter concept.
   onOpenFilter?: () => void;
   hasActiveFilter?: boolean;
@@ -51,6 +56,7 @@ export const KanbanModalFrame: React.FC<KanbanModalFrameProps> = ({
   onRefresh,
   isSearching = false,
   isRefreshing = false,
+  headerExtra,
   onOpenFilter,
   hasActiveFilter = false,
   filterTitle = "Filter",
@@ -162,6 +168,8 @@ export const KanbanModalFrame: React.FC<KanbanModalFrameProps> = ({
                   isLoading={isSearching}
                   isRefreshing={isRefreshing}
                 />
+
+                {headerExtra}
 
                 {onOpenFilter && (
                   <button

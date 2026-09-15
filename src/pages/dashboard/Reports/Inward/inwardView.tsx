@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -20,9 +19,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -42,10 +41,8 @@ import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
-  exportAllInwardData,
   fetchCartReport,
   fetchInwardPdfmeTemplates,
-  fetchInwardReportForExport,
   generateAndPrintInwardPdf,
   IFlatCartItem,
   isPdfmeEnabledForInward,
@@ -345,6 +342,7 @@ const TeamInwardDataReportsView = ({
     filters.checkedGstOptions,
     filters.selectedProductId,
     filters.selectedCategoryId,
+    filters.selectedApproveStatus,
   ]);
 
   useEffect(() => {
@@ -501,6 +499,7 @@ const TeamInwardDataReportsView = ({
         filters.checkedGstOptions,
         filters.selectedProductId,
         filters.selectedCategoryId,
+        filters.selectedApproveStatus,
       );
 
       const newData = data?.items || [];
@@ -755,123 +754,6 @@ const TeamInwardDataReportsView = ({
   //   });
   //   saveAsExcelFile(excelBuffer, "team_cart_report");
   // };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchInwardReportForExport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      filters.checkedOptionsStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsSeries,
-      filters.selectedContactId,
-      filters.checkedGstOptions,
-      filters.selectedProductId,
-      filters.selectedCategoryId,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData = await exportAllInwardData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      // collect custom fields
-      const customFieldMap: Record<string, string> = {};
-      exportData.forEach((item) => {
-        (item.customForm || [])
-          .filter((cf: any) => cf.report_print_or_not === 1)
-          .forEach((cf: any) => {
-            customFieldMap[cf.reference_column_name] =
-              cf.title || cf.reference_column_name;
-          });
-      });
-
-      const customFieldKeys = Object.keys(customFieldMap);
-      const customFieldColumnKeys = new Set(
-        uniqueCustomFields.map((field: any) => field.fieldName),
-      );
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-
-        visibleColumns.forEach((col) => {
-          if (customFieldColumnKeys.has(col.key)) return;
-
-          const label =
-            col.key === "cart_number" ? "Goods Received Note Number" : col.label;
-
-          row[label] = getExportCellValue(col, item, "excel");
-        });
-
-        EXTRA_EXPORT_COLUMNS_EXCEL.forEach((extra) => {
-          row[extra.label] = getExtraExportValue(extra.key, item);
-        });
-
-        row[`Grand Total (${currencyName})`] = item.grand_total_wo_c || "-";
-
-        customFieldKeys.forEach((fieldName: string) => {
-          const label = customFieldMap[fieldName];
-          const val = item[fieldName];
-          row[label] =
-            val !== null && val !== undefined && val !== "" ? val : "-";
-        });
-
-        return row;
-      });
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Inward Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `inward_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (e) {
-      console.error(e);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
@@ -1222,6 +1104,34 @@ const TeamInwardDataReportsView = ({
     resetColumns,
   } = useColumnPreferences("inward_report", baseColumnDefs);
 
+  // Relabels a few columns for export (document-type-specific number
+  // column, currency-suffixed money columns) and appends 3 export-only
+  // columns not shown on screen - ported from the old client-side
+  // exportExcel's per-report relabeling.
+  const cartExportColumns = visibleColumns
+    .map((col) => ({
+      key: col.key,
+      label:
+        col.key === "cart_number"
+          ? `${title} Number`
+          : col.key === "taxable_amt"
+            ? `Taxable Amount (${currencyName})`
+            : col.key === "gst_amt"
+              ? `Tax Amount (${currencyName})`
+              : col.key === "tcs_amt"
+                ? `TCS Amount (${currencyName})`
+                : col.key === "round_off"
+                  ? `Round Off (${currencyName})`
+                  : col.key === "grand_total"
+                    ? `Grand Total (${currencyName})`
+                    : col.label,
+    }))
+    .concat([
+      { key: "to_customer_phone", label: "Customer Phone" },
+      { key: "to_customer_company_name", label: "Company Name" },
+      { key: "is_approve.name", label: "Approval Status" },
+    ]);
+
   const getExportCellValue = (
     col: CartColumnDef,
     item: any,
@@ -1372,7 +1282,7 @@ const TeamInwardDataReportsView = ({
               ""
             ) : ( */}
             <div
-              className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+              className={`d-flex gap-2 flex-wrap align-items-center`}
               style={{
                 position: "relative",
                 paddingLeft: MobileFlag ? "10px" : "",
@@ -1495,27 +1405,30 @@ const TeamInwardDataReportsView = ({
                     },
                   }}
                 />
-                <Button
-                  icon="pi pi-plus"
-                  className="report_button"
-                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                  rounded
-                  onClick={() => {
-                    if (canAddInward) {
-                      fetchContact(setContactData);
-                      setIsOrderShow(true);
-                    } else {
-                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }
-                  }}
-                  tooltip={`Add ${title}`}
-                  tooltipOptions={{
-                    position: "top",
-                    style: {
-                      fontSize: "14px",
-                    },
-                  }}
-                />
+                {!MobileFlag && (
+                  <Button
+                    icon="pi pi-plus"
+                    className="report_button"
+                    style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                    rounded
+                    onClick={() => {
+                      if (canAddInward) {
+                        fetchContact(setContactData);
+                        setIsOrderShow(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                    tooltip={`Add ${title}`}
+                    tooltipOptions={{
+                      position: "top",
+                      style: {
+                        fontSize: "14px",
+                      },
+                    }}
+                  />
+                )}
+                {!MobileFlag && (
                 <div ref={dropdownRef} style={{ position: "relative" }}>
                   <Button
                     icon="pi pi-ellipsis-v"
@@ -1549,25 +1462,26 @@ const TeamInwardDataReportsView = ({
                       scrollbarWidth: "none",
                     }}
                   >
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportExcel()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportExcelMenuItem
+                      reportType="inward_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-excel"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export Excel
-                    </li>
+                      columns={cartExportColumns}
+                      fileName="Inward_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers}
+                    />
 
                     <li
                       className="listItem text-start"
@@ -1696,6 +1610,7 @@ const TeamInwardDataReportsView = ({
                     )}
                   </ul>
                 </div>
+                )}
 
                 <Button
                   icon="pi pi-refresh"
@@ -1954,7 +1869,7 @@ const TeamInwardDataReportsView = ({
               message="Please select the Dates and Team Members for the Report."
               btn1="Clear"
               btn2="Apply"
-              filtersToShow={[1, 4, 5, 7, 15, 18, 22]}
+              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 30]}
               pageId={1}
               stageandStatusOrderType={7}
               filtershowSeriesOrderType={"inward_prefix"}

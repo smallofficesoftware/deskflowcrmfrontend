@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -22,13 +21,14 @@ import {
   useState,
 } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { AppContext } from "../../../../common/AppContext";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
+import FindDuplicateContactsModal from "../../../left-side/header/Setting/duplicate-contacts/FindDuplicateContactsModal";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   ITEMS_PER_PAGE,
@@ -43,11 +43,7 @@ import {
   IUserList,
 } from "../../../left-side/LeftSideController";
 import RightView from "../../../right-side/RightView";
-import {
-  fetchAllcontact,
-  fetchAllContactsForExport,
-  IAllcontact,
-} from "./allContactReportController";
+import { fetchAllcontact, IAllcontact } from "./allContactReportController";
 
 interface LazyTableState {
   first: number;
@@ -152,6 +148,7 @@ const AllcontactReport = ({
     useState<boolean>(false);
   const [refreshContact, setRefreshContact] = useState(false);
   const [isArchivState, setIsArchivState] = useState<boolean>(false);
+  const [showFindDuplicatesModal, setShowFindDuplicatesModal] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
     {},
@@ -303,6 +300,11 @@ const AllcontactReport = ({
 
   const canViewMsg = useCheckUserPermission(
     PAGE_ID.CONTACT_MESSAGE_HISTORY,
+    PERMISSION_TYPE.VIEW,
+  );
+
+  const canMergeContacts = useCheckUserPermission(
+    PAGE_ID.CONTACT_MERGE,
     PERMISSION_TYPE.VIEW,
   );
 
@@ -1163,88 +1165,6 @@ const AllcontactReport = ({
     doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await fetchAllContactsForExport({
-        selectedDates: filters.selectedDateArray,
-        setActive,
-        setActiveDay,
-        MobileToken,
-        getID,
-        MobileFlag,
-        selectedLabels: filters.checkedOptions,
-        selectedSourceTypes: filters.checkedSourceTypes,
-        selectedStageStatus: filters.checkedOptionsStageStatus,
-        selectedTeamMembers: filters.checkedOptionsUser,
-        selectedDemography: selectedDemography
-          ? Object.values(selectedDemography).filter(Boolean)
-          : null,
-        selectedProductSearchId: filters.selectedProductSearchId,
-        setSelectOrderType: filters.selectedOrderListId,
-        globalSearch: debouncedSearchText,
-        assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
-        createdByMultiTeamMember: filters.createdByMultiTeamMember,
-        leadAgingBucket: filters.leadAgingBucket,
-        leadAgingActivityTypes: filters.leadAgingActivityTypes,
-      });
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer, "plain");
-        });
-        return row;
-      });
-
-            if (showCartColumns.grand_total) {
-        const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : allContacts).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
-        exportData.push({
-          Person_Name: "Total",
-          Grand_Total: grandTotalSum.toFixed(2),
-        });
-      }
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = {
-        Sheets: { Contacts: worksheet },
-        SheetNames: ["Contacts"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "All_Contacts_Report");
-    } catch (error) {
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1423,7 +1343,7 @@ const AllcontactReport = ({
           ""
         ) : ( */}
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
@@ -1507,26 +1427,30 @@ const AllcontactReport = ({
                 },
               }}
             />
-            <Button
-              icon="pi pi-plus"
-              className="report_button"
-              style={{ backgroundColor: "rgb(245, 134, 52)" }}
-              rounded
-              onClick={() => {
-                if (canAdd) {
-                  setIsCreateContact(true);
-                } else {
-                  toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                }
-              }}
-              tooltip={`Add Contact`}
-              tooltipOptions={{
-                position: "top",
-                style: {
-                  fontSize: "14px",
-                },
-              }}
-            />
+            {!MobileFlag && (
+              <Button
+                icon="pi pi-plus"
+                className="report_button"
+                style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                rounded
+                onClick={() => {
+                  if (canAdd) {
+                    setIsCreateContact(true);
+                  } else {
+                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  }
+                }}
+                tooltip={`Add Contact`}
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
+            )}
+            {!MobileFlag && (
+              <>
             <Button
               icon="pi pi-ellipsis-v"
               className="report_button"
@@ -1559,25 +1483,47 @@ const AllcontactReport = ({
                 scrollbarWidth: "none",
               }}
             >
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportExcel()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportExcelMenuItem
+                reportType="all_contact_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  setActive,
+                  setActiveDay,
+                  selectedLabels: filters.checkedOptions,
+                  selectedSourceTypes: filters.checkedSourceTypes,
+                  selectedStageStatus: filters.checkedOptionsStageStatus,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDemography: selectedDemography
+                    ? Object.values(selectedDemography).filter(Boolean)
+                    : null,
+                  selectedProductSearchId: filters.selectedProductSearchId,
+                  setSelectOrderType: filters.selectedOrderListId,
+                  globalSearch: debouncedSearchText,
+                  assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
+                  createdByMultiTeamMember: filters.createdByMultiTeamMember,
+                  leadAgingBucket: filters.leadAgingBucket,
+                  leadAgingActivityTypes: filters.leadAgingActivityTypes,
                 }}
-              >
-                <i
-                  className="pi pi-file-excel"
-                  style={{ marginRight: "4px" }}
-                />
-                Export Excel
-              </li>
+                columns={visibleColumns}
+                fileName="All_Contacts_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+                footer={
+                  showCartColumns.grand_total
+                    ? {
+                        sums: [{ outputKey: "grand_total", sourceKey: "grand_total" }],
+                        rows: [
+                          {
+                            person_name: "Total",
+                            grand_total: { fromSum: "grand_total" },
+                          },
+                        ],
+                      }
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"
@@ -1637,7 +1583,25 @@ const AllcontactReport = ({
 
                 {isArchivState ? "UnArchive Contacts" : "Archive Contacts"}
               </li>
+              {canMergeContacts && (
+                <li
+                  className="listItem"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    setShowFindDuplicatesModal(true);
+                  }}
+                >
+                  <i
+                    className="pi pi-copy"
+                    style={{ marginRight: "4px" }}
+                  />
+                  Find Duplicate Contacts
+                </li>
+              )}
             </ul>
+              </>
+            )}
           </div>
 
           <Button
@@ -1753,7 +1717,7 @@ const AllcontactReport = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          {fromSideView && (
+          {fromSideView && !MobileFlag && (
             <Column
               field="actions"
               header={<span>Action</span>}
@@ -1851,6 +1815,13 @@ const AllcontactReport = ({
           btn2="Import"
           sampleLocation="sampleContact.xlsx"
           potions={1}
+        />
+      )}
+      {showFindDuplicatesModal && (
+        <FindDuplicateContactsModal
+          show={showFindDuplicatesModal}
+          onHide={() => setShowFindDuplicatesModal(false)}
+          onMerged={handleRefresh}
         />
       )}
       {/* {isCloseConfirmation && (

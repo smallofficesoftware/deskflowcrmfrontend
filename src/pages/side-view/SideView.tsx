@@ -87,6 +87,7 @@ const DraggableWidget = ({
 const SideView = ({ profileDetail }: IProp) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isEmbed = searchParams.get("embed") === "1";
   const { slug: reportSlug } = useParams<{ slug?: string }>();
   const location = useLocation();
   const openedReportSlugRef = useRef<string | null>(null);
@@ -99,19 +100,24 @@ const SideView = ({ profileDetail }: IProp) => {
     }
   }, [navigate]);
 
-  const [activeView, setActiveView] = useState(() =>
-    searchParams.get("view") === "reports" ? "reports_home" : "dashboard",
-  );
+  const viewParamToActiveView = (viewParam: string | null) => {
+    if (viewParam === "reports") return "reports_home";
+    if (viewParam === "forms") return "forms_home";
+    return "dashboard";
+  };
 
-  // Keep activeView in sync with the URL for the Insights/Smart Reports sidebar
-  // buttons (browser back/forward, or landing directly on /SideView?view=reports).
-  // Skips while a specific report is open (reportSlug set) — the report-deep-link
-  // effect further down owns that case, and activeView is reused elsewhere as an
-  // insight-tile category filter, so this intentionally only reacts to the
-  // dashboard/reports_home distinction, not every activeView value.
+  const [activeView, setActiveView] = useState(() => viewParamToActiveView(searchParams.get("view")));
+
+  // Keep activeView in sync with the URL for the Insights/Smart Reports/
+  // Forms sidebar buttons (browser back/forward, or landing directly on
+  // /SideView?view=reports or ?view=forms). Skips while a specific report
+  // is open (reportSlug set) — the report-deep-link effect further down
+  // owns that case, and activeView is reused elsewhere as an insight-tile
+  // category filter, so this intentionally only reacts to the
+  // dashboard/reports_home/forms_home distinction, not every activeView value.
   useEffect(() => {
-    if (reportSlug) return;
-    setActiveView(searchParams.get("view") === "reports" ? "reports_home" : "dashboard");
+    if (reportSlug || searchParams.get("customReportId")) return;
+    setActiveView(viewParamToActiveView(searchParams.get("view")));
   }, [reportSlug, searchParams]);
 
   const [isOpen, setIsOpen] = useState(true);
@@ -443,6 +449,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.PRODUCTINVENTORY_REPORT,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewSerialNumberStockCheck = useCheckUserPermission(
+    PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewMyTeamList = useCheckUserPermission(
     PAGE_ID.TEAM_MEMBER_WITH_ACCESS_RIGHT,
     PERMISSION_TYPE.VIEW,
@@ -453,6 +463,10 @@ const SideView = ({ profileDetail }: IProp) => {
   );
   const canViewEmployeeReport = useCheckUserPermission(
     PAGE_ID.EMP_ACCOUNT_HISTORY,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canViewTargetIncentiveReport = useCheckUserPermission(
+    PAGE_ID.TARGET_VS_INCENTIVE_REPORT,
     PERMISSION_TYPE.VIEW,
   );
   const canViewProductMovement = useCheckUserPermission(
@@ -497,6 +511,10 @@ const SideView = ({ profileDetail }: IProp) => {
   );
   const canViewCallReport = useCheckUserPermission(
     PAGE_ID.ALLCALL_REPORT,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canViewCustomerSalesPurchaseReport = useCheckUserPermission(
+    PAGE_ID.CUSTOMER_SALES_PURCHASE_REPORT,
     PERMISSION_TYPE.VIEW,
   );
   const canViewPendingOrder = useCheckUserPermission(
@@ -674,6 +692,22 @@ const SideView = ({ profileDetail }: IProp) => {
       );
       return;
     }
+    if (name === "custom_forms") {
+      // No permission gate, deliberately — matches the tile itself
+      // (reportsMenuData.tsx) having no pageId, since this is meant to
+      // behave like a static nav item, not a permission-gated report.
+      // setAppliedReportType("") is load-bearing, not decorative — every
+      // BottomView.tsx report block (e.g. CustomFieldFormReport) renders
+      // purely on `appliedReportType === "<value>"`, with NO activeView
+      // check at all, so it stays mounted forever once set until
+      // something clears it. Every other working nav branch here
+      // (onSmartReportsClick/onInsightsClick) already does this; an
+      // earlier draft of this branch didn't, so whatever report was open
+      // before clicking Custom Forms stayed stuck rendered underneath it.
+      setActiveView("forms_home");
+      setAppliedReportType("");
+      return;
+    }
     if (canViewTeamPerformance && name === "team_performance") {
       setActiveView("new reports");
       setAppliedReportType(name);
@@ -740,6 +774,13 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Inventory");
       setAppliedReportType(name);
       return;
+    } else if (
+      canViewSerialNumberStockCheck &&
+      name === "serial_number_stock_check"
+    ) {
+      setActiveView("Inventory");
+      setAppliedReportType(name);
+      return;
     } else if (canViewMyTeamList && name === "My_Team_Report") {
       setActiveView("HRMS");
       setAppliedReportType(name);
@@ -749,6 +790,13 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewEmployeeReport && name === "Emp_Transaction_Report") {
+      setActiveView("HRMS");
+      setAppliedReportType(name);
+      return;
+    } else if (
+      canViewTargetIncentiveReport &&
+      name === "target_incentive_report"
+    ) {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;
@@ -812,6 +860,13 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewCallReport && name === "all_call_report") {
+      setActiveView("CRM");
+      setAppliedReportType(name);
+      return;
+    } else if (
+      canViewCustomerSalesPurchaseReport &&
+      name === "customer_sales_purchase_report"
+    ) {
       setActiveView("CRM");
       setAppliedReportType(name);
       return;
@@ -1250,6 +1305,24 @@ const SideView = ({ profileDetail }: IProp) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportSlug, permissions, searchParams, location.key]);
 
+  // ── URL-driven Custom Report open ───────────────────────────────────────
+  // /SideView?view=reports&customReportId=73 — lets a link elsewhere in the
+  // app (e.g. ReportBuilderListView.tsx's own report-name link, the build
+  // screen reached via Settings) open a specific Custom Report inside this
+  // sidebar shell. Bypasses handleSingleReportShow entirely (same reasoning
+  // as ReportsTileView.tsx's onCustomReportClick — a dynamic numeric id
+  // isn't one of its ~50 fixed names, its fallback branch would just toast
+  // a permission error), setting appliedReportType directly instead.
+  const openedCustomReportIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const customReportId = searchParams.get("customReportId");
+    if (!customReportId) return;
+    if (openedCustomReportIdRef.current === customReportId) return;
+    openedCustomReportIdRef.current = customReportId;
+    setActiveView("custom_report");
+    setAppliedReportType(`custom_report:${customReportId}`);
+  }, [searchParams]);
+
   const { taskCategories, fetchTaskCategoriesSideView } =
     useTaskCategoryStoreSideView();
 
@@ -1373,33 +1446,51 @@ const SideView = ({ profileDetail }: IProp) => {
     );
   }
 
+  // Report tiles must navigate rather than call handleSingleReportShow
+  // directly — that function only sets local state, so a direct call never
+  // touches the URL, and refresh/back-forward then has nothing to restore
+  // from and falls back to whatever ?view= says. Navigating to the report's
+  // own /SideView/report/:slug URL lets the existing deep-link effect
+  // (which already calls handleSingleReportShow(reportSlug) correctly)
+  // apply the same state, just from a URL that persists across refresh.
+  const openReport = (name: string) =>
+    navigate(`/SideView/report/${name}${isEmbed ? "?embed=1" : ""}`);
+
+  const handleEmbedBackToReports = () => {
+    setActiveView("reports_home");
+    setAppliedReportType("");
+    navigate("/SideView?view=reports&embed=1");
+  };
+
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* SIDEBAR */}
-      <div
-        style={{
-          padding: "2px",
-          background: "rgb(240 242 245)",
-          height: "100vh",
-        }}
-      >
-        <SidebarView
-          onReportClick={handleSingleReportShow}
-          onInsightsClick={() => {
-            setActiveView("dashboard");
-            setAppliedReportType("");
-            navigate("/SideView");
+      {!isEmbed && (
+        <div
+          style={{
+            padding: "2px",
+            background: "rgb(240 242 245)",
+            height: "100vh",
           }}
-          onSmartReportsClick={() => {
-            setActiveView("reports_home");
-            setAppliedReportType("");
-            navigate("/SideView?view=reports");
-          }}
-          isOpen={isOpen}
-          setIsOpen={setIsOpen}
-          activeReport={appliedReportType}
-        />
-      </div>
+        >
+          <SidebarView
+            onReportClick={openReport}
+            onInsightsClick={() => {
+              setActiveView("dashboard");
+              setAppliedReportType("");
+              navigate("/SideView");
+            }}
+            onSmartReportsClick={() => {
+              setActiveView("reports_home");
+              setAppliedReportType("");
+              navigate("/SideView?view=reports");
+            }}
+            isOpen={isOpen}
+            setIsOpen={setIsOpen}
+            activeReport={appliedReportType}
+          />
+        </div>
+      )}
 
       {/* RIGHT SIDE */}
       <div
@@ -1413,9 +1504,11 @@ const SideView = ({ profileDetail }: IProp) => {
           height: "100vh",
         }}
       >
-        <div>
-          <UpperView profileDetail={loginById} />
-        </div>
+        {!isEmbed && (
+          <div>
+            <UpperView profileDetail={loginById} />
+          </div>
+        )}
         {/* <div>
                     <MiddleView />
                 </div> */}
@@ -1428,15 +1521,19 @@ const SideView = ({ profileDetail }: IProp) => {
             reportType={reportType}
             setActiveView={setActiveView}
             setAppliedReportType={setAppliedReportType}
-            onReportClick={handleSingleReportShow}
+            onReportClick={openReport}
+            isEmbed={isEmbed}
+            onEmbedBack={handleEmbedBackToReports}
           />
         </div>
-        <TaskStickyIcon
-          categoryIds={categoryIds}
-        // categoryNames={categoryNames}
-        />
+        {!isEmbed && (
+          <TaskStickyIcon
+            categoryIds={categoryIds}
+          // categoryNames={categoryNames}
+          />
+        )}
       </div>
-      {Number(flag) === 2 && (
+      {!isEmbed && Number(flag) === 2 && (
         <DndContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
           <DraggableWidget position={widgetPosition}>
             <div
@@ -1510,7 +1607,7 @@ const SideView = ({ profileDetail }: IProp) => {
           </DraggableWidget>
         </DndContext>
       )}
-      {Number(flag) === 2 && showForm && (
+      {!isEmbed && Number(flag) === 2 && showForm && (
         <div
           style={{
             position: "fixed",

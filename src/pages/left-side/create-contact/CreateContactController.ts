@@ -194,7 +194,7 @@ export const createCustomerInitialValues = (
     gst_number: contactData?.gst_number || "",
     gst_reg_type:
       (contactData as any)?.gst_reg_type ||
-      (contactData?.gst_number ? "Regular" : "Unregistered"),
+      (contactData?.gst_number ? "Regular" : "Consumer"),
     gst_reg_date:
       (contactData as any)?.gst_reg_date || "2017-07-01",
     qty: "",

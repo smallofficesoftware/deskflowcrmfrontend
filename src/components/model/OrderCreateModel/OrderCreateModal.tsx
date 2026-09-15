@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-table";
 import axios from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import { SingleValue } from "react-select";
 import { useReactToPrint } from "react-to-print";
@@ -71,7 +72,6 @@ import CustomSearchDropdown from "../../CustomSearchDropdown";
 import ConfirmationModal from "../ConfirmationModal";
 import "../ConfirmationModal.css";
 import PrintSettingModal from "../PrintSettingModal";
-import ReportModal from "../ReportsModel";
 import RibbonBanner from "../RibbonBedgetLeftSide/RibbonBannerLeft";
 import { whatsappTemplateCloudeSend } from "../whatsapp_template_sender/WhatsappTemplateSenderController";
 import { startWorkflow } from "../workflowConformatioModel/workFlowModelController";
@@ -283,6 +283,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [updateDate, setUpdateDate] = useState("");
   const [oldUpdateDate, setOldUpdateDate] = useState("");
   const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
   const componentRef = useRef<HTMLDivElement>(null);
   const [defaultCurrency, setDefaultCurrency] =
     useState<SingleValue<IOption> | null>(null);
@@ -326,9 +327,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
   const [convertCartNumber, setConvertCartNumber] = useState("");
   const [refreshCarts, setRefreshCarts] = useState(false);
-
-  const [isOrderCreateFromContactShow, setIsOrderCreateFromContactShow] =
-    useState(false);
   const [isMakeCartCopyConfirmation, setIsMakeCartCopyConfirmation] =
     useState(false);
   const [makeCopyType, setMakeCopyType] = useState(0);
@@ -1832,6 +1830,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setnewOrderShowNumAfterConversion(undefined);
     setSelectedPaymentMode("");
     setSelectedMiracleLedgerAdv("");
+    setSelectedPriceList(undefined);
+    setCurrentPage(0);
+    setFocusedProductIndex(null);
+    setProductList([]);
   };
 
   const handleClear = () => {
@@ -1870,6 +1872,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setnewOrderShowNumAfterConversion(undefined);
     setSelectedPaymentMode("");
     setSelectedMiracleLedgerAdv("");
+    setSelectedPriceList(undefined);
+    setCurrentPage(0);
+    setFocusedProductIndex(null);
+    setProductList([]);
   };
 
   const handleCategoryChange = (selectedOption: SingleValue<IOption>) => {
@@ -3740,7 +3746,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setPackingForwardingCharge(value);
   };
   const handelChangeShowModelReport = () => {
-    setIsOrderCreateFromContactShow(true);
+    navigate(`/SideView/report/${reportName}`);
   };
 
   const handleTransportCharge = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5748,7 +5754,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     } else if (orderTypesNameFind == "Purchase Order") {
       setReportName("purchase_order");
     } else if (orderTypesNameFind == "Proforma Invoice") {
-      setReportName("profoma_invoice");
+      setReportName("proforma_invoice_report");
     }
   });
 
@@ -6043,8 +6049,22 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   useEscapeKey(handleReportClose);
 
   const parts = cartnumber.split("/");
-  const firstPastOfCartNumber = parts[0];
-  const lastPastOfCartNumber = parts[parts.length - 1];
+  // cart_number is one opaque string built from the tenant's configured
+  // pattern — some patterns put prefix and number back-to-back with no
+  // separator (e.g. "RJT1773/26-27"), which makes a plain "/"-split lump
+  // the prefix and number together as one chunk (parts[0] = "RJT1773"),
+  // showing the number twice: once stuck to the prefix, once again in the
+  // editable SR No. box. Preferring the authoritative sr_by_prifix field
+  // (always just the prefix, regardless of pattern) avoids that. Falls
+  // back to the naive split for any cart missing sr_by_prifix, so nothing
+  // regresses for data this doesn't apply to.
+  const authoritativePrefix =
+    orderById?.cart?.sr_by_prifix || orderbyidList?.cart?.sr_by_prifix || "";
+  const prefixAndNumber = `${authoritativePrefix}${srNumber}`;
+  const firstPastOfCartNumber = authoritativePrefix || parts[0];
+  const lastPastOfCartNumber = authoritativePrefix && cartnumber.startsWith(prefixAndNumber)
+    ? cartnumber.slice(prefixAndNumber.length).replace(/^\//, "")
+    : parts[parts.length - 1];
 
   useEffect(() => {
     if (!printDate?.length) return;
@@ -11572,19 +11592,6 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           setRefreshProduct={setRefreshProduct}
         />
       )}
-      {isOrderCreateFromContactShow && (
-        <ReportModal
-          show={isOrderCreateFromContactShow}
-          onHide={() => setIsOrderCreateFromContactShow(false)}
-          handleSubmit={() => setIsOrderCreateFromContactShow(false)}
-          titles={"Create"}
-          message={"Please Enter Your Order Details"}
-          btn1={"CANCEL"}
-          btn2={"Approve"}
-          reportName={reportName}
-        />
-      )}
-
       {isConvertIntoProformaConfirmation && (
         <ConfirmationModal
           show={isConvertIntoProformaConfirmation}

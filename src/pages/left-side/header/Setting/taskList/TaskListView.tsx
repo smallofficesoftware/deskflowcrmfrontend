@@ -20,7 +20,10 @@ import ConfirmationModal from "../../../../../components/model/ConfirmationModal
 import EventLogs from "../../../../../components/model/EventLogModel/EventLogsModel";
 import ImportExcelForContactModal from "../../../../../components/model/ImportExcelForContactModal";
 import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
-import { TaskKanbanModal } from "../../../../../components/model/task-kanban/components/KanbanModal";
+import {
+  queryClient as kanbanQueryClient,
+  TaskKanbanModal,
+} from "../../../../../components/model/task-kanban/components/KanbanModal";
 import { useTheme } from "../../../../../components/ThemeContext";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
@@ -778,6 +781,8 @@ const TaskListView = ({
       return;
     }
     await updateStageStatusRadioButton(idsToUpdate, checkedOptions, setLoading);
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-items"] });
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-columns"] });
     setTimeout(() => {
       fetchApiTask(
         setTargetVsIncentiveList,
@@ -847,6 +852,8 @@ const TaskListView = ({
       checkedOptions,
       setLoading,
     );
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-items"] });
+    kanbanQueryClient.invalidateQueries({ queryKey: ["shared-kanban-columns"] });
     setTimeout(() => {
       fetchApiTask(
         setTargetVsIncentiveList,
@@ -943,6 +950,10 @@ const TaskListView = ({
           0,
           filterParams.checkedOptions,
           filterParams.labelwiseContactShowAndOrNot,
+          filterParams.filterData?.country,
+          filterParams.filterData?.state,
+          filterParams.filterData?.city,
+          filterParams.filterData?.area,
         );
 
         await fetchStageStatusContact(setStageStatusList);
@@ -973,6 +984,12 @@ const TaskListView = ({
     selectedPriorityId,
     filterParams.checkedOptionsTaskType,
     filterParams.checkedOptionsShowTemplateTask,
+    filterParams.checkedOptions,
+    filterParams.labelwiseContactShowAndOrNot,
+    filterParams.filterData?.country,
+    filterParams.filterData?.state,
+    filterParams.filterData?.city,
+    filterParams.filterData?.area,
   ]);
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -1913,6 +1930,10 @@ const TaskListView = ({
             0,
             filterParams.checkedOptions,
             filterParams.labelwiseContactShowAndOrNot,
+            filterParams.filterData?.country,
+            filterParams.filterData?.state,
+            filterParams.filterData?.city,
+            filterParams.filterData?.area,
           );
         }
       }
@@ -2031,6 +2052,10 @@ const TaskListView = ({
         0,
         filterParams.checkedOptions,
         filterParams.labelwiseContactShowAndOrNot,
+        filterParams.filterData?.country,
+        filterParams.filterData?.state,
+        filterParams.filterData?.city,
+        filterParams.filterData?.area,
       );
       setRefreshTaskBothSide(0);
     }
@@ -2095,6 +2120,14 @@ const TaskListView = ({
         : endSearchDate;
 
     setIsModalFilterVisible(false);
+
+    // Apply didn't previously trigger a refetch — filterParams only took
+    // effect the next time some unrelated action happened to refresh the
+    // list. Force it through the same tick-counter refresh this file uses
+    // everywhere else (see the refreshTaskBothSide effect above).
+    setCurrentPage(0);
+    setHasMore(true);
+    setRefreshTaskBothSide((tick) => tick + 1);
   };
 
   const handleModalClose = () => {
@@ -4360,7 +4393,11 @@ const TaskListView = ({
           message="Please select the Dates , Status And Team Member."
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 4, 10, 9, 11, 12, 21, 2]} // 10 = unassigned
+          filtersToShow={
+            supportTicketFlag == 1
+              ? [1, 4, 10, 9, 11, 12, 21, 2, 6] // 6 = Demography, Support Ticket only
+              : [1, 4, 10, 9, 11, 12, 21, 2] // 10 = unassigned
+          }
           stageandStatusOrderType={8}
           pageId={1}
           initialFilterData={filterParams.filterData}

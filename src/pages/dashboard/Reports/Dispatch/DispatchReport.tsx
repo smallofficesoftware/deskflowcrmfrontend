@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -20,9 +19,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -39,10 +38,8 @@ import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
 import {
-  exportAllDispatchData,
   fetchCartReport,
   fetchDispatchPdfmeTemplates,
-  fetchDispatchReportForExport,
   generateAndPrintDispatchPdf,
   IFlatCartItem,
   isPdfmeEnabledForDispatch,
@@ -341,6 +338,7 @@ const TeamDispatchDataReportsView = ({
     filters.checkedGstOptions,
     filters.selectedProductId,
     filters.selectedCategoryId,
+    filters.selectedApproveStatus,
   ]);
 
   useEffect(() => {
@@ -499,6 +497,7 @@ const TeamDispatchDataReportsView = ({
         filters.checkedGstOptions,
         filters.selectedProductId,
         filters.selectedCategoryId,
+        filters.selectedApproveStatus,
       );
 
       const newData = data?.items || [];
@@ -954,79 +953,6 @@ const TeamDispatchDataReportsView = ({
     doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
-  const fetchAccountOutstandingForExport = async (
-    offset: number,
-    limit: number,
-  ): Promise<IFlatCartItem[]> => {
-    return fetchDispatchReportForExport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      filters.checkedOptionsStageStatus,
-      MobileToken,
-      getID,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.checkedOptionsSeries,
-      filters.selectedContactId,
-      filters.checkedGstOptions,
-      filters.selectedProductId,
-      filters.selectedCategoryId,
-    );
-  };
-
-  const exportExcel = async () => {
-    try {
-      setLoading(false);
-
-      const exportData = await exportAllDispatchData<IFlatCartItem>(
-        fetchAccountOutstandingForExport,
-        500,
-      );
-
-      if (!exportData.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const excelRows = (
-        selectedCustomers.length > 0 ? selectedCustomers : exportData
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        EXTRA_EXPORT_COLUMNS.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const ws = xlsx.utils.json_to_sheet(excelRows);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, "Dispatch Report");
-
-      const buffer = xlsx.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `dispatch_report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (e) {
-      console.error(e);
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
       (filter) =>
@@ -1226,7 +1152,7 @@ const TeamDispatchDataReportsView = ({
               ""
             ) : ( */}
             <div
-              className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+              className={`d-flex gap-2 flex-wrap align-items-center`}
               style={{
                 position: "relative",
                 paddingLeft: MobileFlag ? "10px" : "",
@@ -1349,27 +1275,30 @@ const TeamDispatchDataReportsView = ({
                     },
                   }}
                 />
-                <Button
-                  icon="pi pi-plus"
-                  className="report_button"
-                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                  rounded
-                  onClick={() => {
-                    if (canAddDispatch) {
-                      fetchContact(setContactData);
-                      setIsOrderShow(true);
-                    } else {
-                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                    }
-                  }}
-                  tooltip={`Add ${title}`}
-                  tooltipOptions={{
-                    position: "top",
-                    style: {
-                      fontSize: "14px",
-                    },
-                  }}
-                />
+                {!MobileFlag && (
+                  <Button
+                    icon="pi pi-plus"
+                    className="report_button"
+                    style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                    rounded
+                    onClick={() => {
+                      if (canAddDispatch) {
+                        fetchContact(setContactData);
+                        setIsOrderShow(true);
+                      } else {
+                        toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                      }
+                    }}
+                    tooltip={`Add ${title}`}
+                    tooltipOptions={{
+                      position: "top",
+                      style: {
+                        fontSize: "14px",
+                      },
+                    }}
+                  />
+                )}
+                {!MobileFlag && (
                 <div ref={dropdownRef} style={{ position: "relative" }}>
                   <Button
                     icon="pi pi-ellipsis-v"
@@ -1403,25 +1332,30 @@ const TeamDispatchDataReportsView = ({
                       scrollbarWidth: "none",
                     }}
                   >
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportExcel()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportExcelMenuItem
+                      reportType="dispatch_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-excel"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export Excel
-                    </li>
+                      columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                      fileName="Dispatch_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers.map((item) => ({
+                        ...item,
+                        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
+                        to_customer_name: `${item.to_customer_company_name || ""}(${item.to_customer_name || "-"})`,
+                      }))}
+                    />
 
                     <li
                       className="listItem text-start"
@@ -1550,6 +1484,7 @@ const TeamDispatchDataReportsView = ({
                     )}
                   </ul>
                 </div>
+                )}
 
                 <Button
                   icon="pi pi-refresh"
@@ -1808,7 +1743,7 @@ const TeamDispatchDataReportsView = ({
               message="Please select the Dates and Team Members for the Report."
               btn1="Clear"
               btn2="Apply"
-              filtersToShow={[1, 4, 5, 7, 15, 18, 22]}
+              filtersToShow={[1, 4, 5, 7, 15, 18, 22, 30]}
               pageId={1}
               stageandStatusOrderType={7}
               filtershowSeriesOrderType={"dispatch_prefix"}

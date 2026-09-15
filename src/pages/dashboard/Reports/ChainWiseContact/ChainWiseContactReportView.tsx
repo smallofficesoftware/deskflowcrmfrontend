@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -15,12 +14,12 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import {
   formatDateAndTime,
   useEscapeKey,
 } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -28,11 +27,7 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import {
-  fetchAllcontact,
-  fetchAllContactsForExport,
-  IChainContact,
-} from "./ChainWiseContactController";
+import { fetchAllcontact, IChainContact } from "./ChainWiseContactController";
 
 interface LazyTableState {
   first: number;
@@ -411,6 +406,7 @@ const ChainWiseContactReportView = ({
 
   const dataArray: IChainContact[] = useMemo(() => {
     return customers.map((item) => ({
+      id: item.id,
       person_name: item.person_name || "-",
       mobile_number: item.mobile_number || "-",
       company_name: item.company_name || "-",
@@ -775,75 +771,6 @@ const ChainWiseContactReportView = ({
     doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
   };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await fetchAllContactsForExport({
-        selectedDates: filters.selectedDateArray,
-        setActive,
-        setActiveDay,
-        MobileToken,
-        getID,
-        MobileFlag,
-        selectedLabels: filters.checkedOptions,
-        selectedSourceTypes: filters.checkedSourceTypes,
-        selectedStageStatus: filters.checkedOptionsStageStatus,
-        selectedTeamMembers: filters.checkedOptionsUser,
-        selectedDemography: selectedDemography
-          ? Object.values(selectedDemography).filter(Boolean)
-          : null,
-        globalSearch: debouncedSearchText,
-        selectedContactId: filters.selectedContactId,
-      });
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0 ? selectedCustomers : allContacts
-      ).map((customer) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, customer);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = {
-        Sheets: { Contacts: worksheet },
-        SheetNames: ["Contacts"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "All_Contacts_Report");
-    } catch (error) {
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -928,7 +855,7 @@ const ChainWiseContactReportView = ({
                     ""
                 ) : ( */}
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
@@ -1012,6 +939,7 @@ const ChainWiseContactReportView = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1046,25 +974,29 @@ const ChainWiseContactReportView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="chain_wise_contact_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    setActive,
+                    setActiveDay,
+                    selectedLabels: filters.checkedOptions,
+                    selectedSourceTypes: filters.checkedSourceTypes,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography
+                      ? Object.values(selectedDemography).filter(Boolean)
+                      : null,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Chain_Wise_Contact_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1104,6 +1036,7 @@ const ChainWiseContactReportView = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"

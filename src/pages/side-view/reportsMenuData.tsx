@@ -80,6 +80,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "call",
         description: "Call log history against every contact.",
       },
+      {
+        label: "Customer Sales & Purchase",
+        value: "customer_sales_purchase_report",
+        pageId: PAGE_ID.CUSTOMER_SALES_PURCHASE_REPORT,
+        icon: "cart",
+        description: "Sales and purchase totals per customer.",
+      },
     ],
   },
 
@@ -215,6 +222,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "listAlt",
         description: "Line-item detail of every expense claimed.",
       },
+      {
+        label: "Target vs Incentive",
+        value: "target_incentive_report",
+        pageId: PAGE_ID.TARGET_VS_INCENTIVE_REPORT,
+        icon: "payments",
+        description: "Sales target vs achieved, with incentive payout per team member.",
+      },
     ],
   },
 
@@ -274,6 +288,41 @@ export const reportsMenuData: IReportMenuGroup[] = [
         pageId: PAGE_ID.STOCK_ADJUSTMENT,
         icon: "tune",
         description: "Manual stock quantity adjustments and reasons.",
+      },
+    ],
+  },
+
+  {
+    menu: "Forms",
+    key: "Forms",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        height="24px"
+        viewBox="0 -960 960 960"
+        width="24px"
+        fill="rgb(245, 134, 52)"
+      >
+        <path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520Z" />
+      </svg>
+    ),
+    subMenus: [
+      {
+        label: "Custom Forms",
+        value: "custom_forms",
+        // No pageId, deliberately — this is meant to behave like a static
+        // nav item (per explicit ask: "static like CRM, HRMS, Production"),
+        // not a dynamic permission-gated report tile. This same menu
+        // system filters a subMenu out of the grid entirely when its
+        // pageId has no application_login_type_rights row, and page 178 is
+        // brand new (zero rows anywhere, no owner-bypass in this check) —
+        // an earlier draft set pageId here and the tile silently vanished
+        // for everyone as a result. Real access control (create/edit/
+        // publish/etc.) is already enforced server-side by
+        // formBuilderRights.js regardless of whether this tile itself is
+        // gated, so omitting pageId here doesn't open anything up.
+        icon: "description",
+        description: "Build custom forms and manage their submissions.",
       },
     ],
   },
@@ -419,6 +468,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         pageId: PAGE_ID.PRODUCTINVENTORY_REPORT,
         icon: "warehouse",
         description: "Current stock levels and low-stock alerts.",
+      },
+      {
+        label: "Serial Number Wise Stock Check",
+        value: "serial_number_stock_check",
+        pageId: PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
+        icon: "qrCode",
+        description: "Track every transaction for a specific serial number.",
       },
     ],
   },
@@ -726,13 +782,6 @@ export const reportsMenuData: IReportMenuGroup[] = [
         value: "Print_QR_Code",
         icon: "qrCode",
         description: "Generate and print a QR code for quick lead capture.",
-      },
-      {
-        label: "AI Assistant",
-        value: "AI_chat_Dashboard",
-        pageId: PAGE_ID.AI_ASSISTANT,
-        icon: "smartToy",
-        description: "Chat with the AI assistant for quick answers.",
       },
       {
         label: "Route Planner",

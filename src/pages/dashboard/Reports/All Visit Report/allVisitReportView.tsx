@@ -4,7 +4,6 @@ import {
   Marker,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -23,9 +22,9 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -39,7 +38,6 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { IUserList } from "../../../left-side/LeftSideController"; // Adjust path as needed
 import {
-  exportAllVisitData,
   fetchVisitReport,
   IVisitData,
   IVisitItem,
@@ -421,6 +419,7 @@ const AllVisitReportsView = ({
       username: { value: null, matchMode: "contains" },
       person_name: { value: null, matchMode: "custom" },
       address: { value: null, matchMode: "contains" },
+      contact_address: { value: null, matchMode: "contains" },
       start_date: { value: null, matchMode: "contains" },
       end_date: { value: null, matchMode: "contains" },
       start_day: { value: null, matchMode: "contains" },
@@ -859,6 +858,33 @@ const AllVisitReportsView = ({
       },
       {
         key: "address",
+        label: "Visit Location",
+        header: (
+          <span>
+            Visit <br />Location
+          </span>
+        ),
+        width: "150px",
+        bodyStyle: {
+          fontSize: "14px",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+        },
+        body: (rowData) => (
+          <div
+            style={{
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {rowData.address || "-"}
+          </div>
+        ),
+      },
+      {
+        key: "contact_address",
         label: "Contact Address",
         header: (
           <span>
@@ -880,9 +906,24 @@ const AllVisitReportsView = ({
               overflowWrap: "break-word",
             }}
           >
-            {rowData.address || "-"}
+            {rowData.contact_address || "-"}
           </div>
         ),
+      },
+      {
+        key: "distance_km",
+        label: "Distance",
+        header: (
+          <span>
+            Distance <br />(km)
+          </span>
+        ),
+        width: "100px",
+        bodyStyle: { fontSize: "14px" },
+        body: (rowData) =>
+          rowData.distance_km !== null && rowData.distance_km !== undefined
+            ? `${rowData.distance_km} km`
+            : "-",
       },
       {
         key: "username",
@@ -1170,74 +1211,6 @@ const AllVisitReportsView = ({
   //   saveAsExcelFile(excelBuffer, "visit_report");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allVisitGroups = await exportAllVisitData<IVisitData>(
-        (offset, limit) =>
-          fetchVisitReport(
-            filters.selectedDateArray,
-            filters.checkedOptionsUser,
-            MobileToken,
-            getID,
-            MobileFlag,
-            selectedDemography,
-            offset,
-            limit,
-            debouncedSearchText,
-            filters.selectedContactId,
-          ),
-        500,
-      );
-
-      const flattenedVisits = flattenVisitData(allVisitGroups);
-
-      if (!flattenedVisits.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedVisits.length > 0 ? selectedVisits : flattenedVisits
-      ).map((item) => {
-        const row: any = {};
-        exportableColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item);
-        });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      const workbook = {
-        Sheets: { Visits: worksheet },
-        SheetNames: ["Visits"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAsExcelFile(excelBuffer, "visit_report_full");
-    } catch {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedVisits.length > 0 ? selectedVisits : filteredData;
@@ -1359,7 +1332,7 @@ const AllVisitReportsView = ({
             ""
           ) : ( */}
           <div
-            className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+            className={`d-flex gap-2 flex-wrap align-items-center`}
             style={{
               position: "relative",
               paddingLeft: MobileFlag ? "10px" : "",
@@ -1443,6 +1416,8 @@ const AllVisitReportsView = ({
                   },
                 }}
               />
+              {!MobileFlag && (
+                <>
               <Button
                 icon="pi pi-ellipsis-v"
                 className="report_button"
@@ -1475,25 +1450,22 @@ const AllVisitReportsView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (visits.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="all_visit_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={exportableColumns}
+                  fileName="Visit_Report"
+                  canShare={canShare}
+                  disabled={visits.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1532,6 +1504,8 @@ const AllVisitReportsView = ({
                   Print
                 </li>
               </ul>
+                </>
+              )}
 
               <Button
                 icon="pi pi-refresh"

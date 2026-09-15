@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -18,9 +17,9 @@ import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppContext } from "../../../../common/AppContext";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { truncateText, useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxModal from "../../../../components/model/CheckBoxModal";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
@@ -70,10 +69,7 @@ import {
 import { fetchLabelApi } from "../../../left-side/header/Setting/label/LabelController";
 import { taskPriorityList, taskTypesList } from "../../../right-side/create-task/CreateTaskController";
 import CreateTaskView from "../../../right-side/create-task/CreateTaskView";
-import {
-  exportTaskAndSupportTicketData,
-  ITaskitem,
-} from "./allTaskReportController";
+import { ITaskitem } from "./allTaskReportController";
 
 interface IVisitReportsProps {
   selectedDates?: Date[];
@@ -271,7 +267,7 @@ const AllTaskReportsView = ({
     fetchStageStatusContact(setStageStatusList);
     fetchTaskCategoryForTask(setTaskCategoryList);
     fetchLabel(setLabelList);
-    fetchAllCompanyApi(setOptionJoinCompany, setLoading);
+    fetchAllCompanyApi(setOptionJoinCompany);
   }, []);
 
   useEffect(() => {
@@ -450,6 +446,7 @@ const AllTaskReportsView = ({
   );
 
   const [lazyFilters, setLazyFilters] = useState<DataTableFilterMeta>({
+    id: { value: null, matchMode: "contains" },
     task_title: { value: null, matchMode: "contains" },
     status_name: { value: null, matchMode: "contains" },
     category_name: { value: null, matchMode: "contains" },
@@ -519,7 +516,11 @@ const AllTaskReportsView = ({
           selectedLabelId,
           selectedContactId ? Number(selectedContactId) : 0,
           filters.checkedOptions,
-          filters.labelwiseContactShowAndOrNot
+          filters.labelwiseContactShowAndOrNot,
+          filters.filterData?.country,
+          filters.filterData?.state,
+          filters.filterData?.city,
+          filters.filterData?.area,
         );
       } catch (err) {
         setHasMore(false);
@@ -573,7 +574,7 @@ const AllTaskReportsView = ({
   };
 
   const onVirtualScroller = (event: any) => {
-    if (event.last === allTasks.length && hasMore && !isLoadingMore.current) {
+    if (event.last >= allTasks.length - 1 && hasMore && !isLoadingMore.current) {
       const nextPage = Math.floor(allTasks.length / ITEMS_PER_PAGE);
       loadTasks(nextPage, ITEMS_PER_PAGE, false);
     }
@@ -923,28 +924,32 @@ const AllTaskReportsView = ({
 
   const baseColumnDefs: TaskColumnDef[] = useMemo(() => {
     const defs: TaskColumnDef[] = [
-      {
-        key: "action",
-        label: "Actions",
-        header: "",
-        width: "50px",
-        locked: true,
-        body: (rowData) => (
-          <Button
-            icon="pi pi-cog"
-            className="p-button-text p-0"
-            style={{ color: "green", width: "24px", height: "24px" }}
-            onClick={(e) => {
-              setSelectedRow(rowData);
-              op.current?.toggle(e);
-              requestAnimationFrame(() => {
-                const panel = op.current?.getElement();
-                if (panel) panel.style.transform = "translate(40px, -25px)";
-              });
-            }}
-          />
-        ),
-      },
+      ...(!MobileFlag
+        ? [
+            {
+              key: "action",
+              label: "Actions",
+              header: "",
+              width: "50px",
+              locked: true,
+              body: (rowData) => (
+                <Button
+                  icon="pi pi-cog"
+                  className="p-button-text p-0"
+                  style={{ color: "green", width: "24px", height: "24px" }}
+                  onClick={(e) => {
+                    setSelectedRow(rowData);
+                    op.current?.toggle(e);
+                    requestAnimationFrame(() => {
+                      const panel = op.current?.getElement();
+                      if (panel) panel.style.transform = "translate(40px, -25px)";
+                    });
+                  }}
+                />
+              ),
+            } as TaskColumnDef,
+          ]
+        : []),
       {
         key: "id",
         label: is_support_ticket_flag === 0 ? "Task ID" : "Support Ticket ID",
@@ -1171,6 +1176,47 @@ const AllTaskReportsView = ({
             : rowData.assigned_team_member_names || "-",
       },
     );
+
+    // Demography columns — resolved off the linked contact, Support Ticket only.
+    if (is_support_ticket_flag == 1) {
+      defs.push(
+        {
+          key: "contact_person_name",
+          label: "Contact Name",
+          header: "Contact Name",
+          width: "150px",
+          body: (rowData) => rowData.contact_person_name || "-",
+        },
+        {
+          key: "contact_country",
+          label: "Country",
+          header: "Country",
+          width: "130px",
+          body: (rowData) => rowData.contact_country || "-",
+        },
+        {
+          key: "contact_state",
+          label: "State",
+          header: "State",
+          width: "130px",
+          body: (rowData) => rowData.contact_state || "-",
+        },
+        {
+          key: "contact_city",
+          label: "City",
+          header: "City",
+          width: "130px",
+          body: (rowData) => rowData.contact_city || "-",
+        },
+        {
+          key: "contact_area",
+          label: "Area",
+          header: "Area",
+          width: "130px",
+          body: (rowData) => rowData.contact_area || "-",
+        },
+      );
+    }
 
     if (displayTasks?.length > 0 && displayTasks[0]?.customForm) {
       displayTasks[0].customForm.forEach((item: any) => {
@@ -1477,49 +1523,6 @@ const AllTaskReportsView = ({
   };
 
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-      const dataToExport = selectedTasks.length > 0 ? selectedTasks : displayTasks;
-
-      if (!dataToExport.length) {
-        toast.warn("No data to export");
-        return;
-      }
-      const exportData = dataToExport.map((item: any) => {
-        const row: any = {};
-        exportableColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
-        });
-        return row;
-      });
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0] || {}).map(() => ({
-        wch: 25,
-      }));
-
-      const workbook = {
-        Sheets: { Tasks: worksheet },
-        SheetNames: ["Tasks"],
-      };
-
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-      });
-
-      saveAs(blob, `${title}_report_${Date.now()}.xlsx`);
-    } catch (error) {
-      toast.error("Excel export failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const printTable = () => {
     const dataToExport =
       selectedTasks.length > 0 ? selectedTasks : filteredAndSortedData;
@@ -1642,7 +1645,7 @@ const AllTaskReportsView = ({
           </h3>
 
           <div
-            className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+            className={`d-flex gap-2 flex-wrap align-items-center`}
             style={{
               position: "relative",
               paddingLeft: MobileFlag ? "10px" : "",
@@ -1726,26 +1729,29 @@ const AllTaskReportsView = ({
                   },
                 }}
               />
-              <Button
-                icon="pi pi-plus"
-                className="report_button"
-                style={{ backgroundColor: "rgb(245, 134, 52)" }}
-                rounded
-                onClick={() => {
-                  if (canAdd) {
-                    setIsCreateModel(true);
-                  } else {
-                    toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                  }
-                }}
-                tooltip={`Add ${is_support_ticket_flag ? "Support Ticket" : "Task"}`}
-                tooltipOptions={{
-                  position: "top",
-                  style: {
-                    fontSize: "14px",
-                  },
-                }}
-              />
+              {!MobileFlag && (
+                <Button
+                  icon="pi pi-plus"
+                  className="report_button"
+                  style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                  rounded
+                  onClick={() => {
+                    if (canAdd) {
+                      setIsCreateModel(true);
+                    } else {
+                      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    }
+                  }}
+                  tooltip={`Add ${is_support_ticket_flag ? "Support Ticket" : "Task"}`}
+                  tooltipOptions={{
+                    position: "top",
+                    style: {
+                      fontSize: "14px",
+                    },
+                  }}
+                />
+              )}
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -1779,23 +1785,26 @@ const AllTaskReportsView = ({
                     scrollbarWidth: "none",
                   }}
                 >
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-                      if (allTasks.length === 0) return;
-                      canShare
-                        ? exportExcel()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportExcelMenuItem
+                    reportType="all_task_report"
+                    filters={{
+                      selectedDates,
+                      selectedTeamMembers,
+                      selectedStageStatus,
+                      globalSearch,
+                      is_support_ticket_flag,
+                      selectedContactId,
+                      referenceWiseContact,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-excel"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export Excel
-                  </li>
+                    columns={exportableColumns}
+                    fileName={`${title}_Report`}
+                    canShare={canShare}
+                    disabled={allTasks.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={
+                      selectedTasks.length > 0 ? selectedTasks : undefined
+                    }
+                  />
 
                   <li
                     className="listItem text-start"
@@ -1831,6 +1840,7 @@ const AllTaskReportsView = ({
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"
@@ -2555,7 +2565,7 @@ const AllTaskReportsView = ({
                   textAlign: "right",
                 }}
               >
-                Total Tasks: {filteredAndSortedData.length}{" "}
+                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}{" "}
                 {hasMore && "(loading more...)"}
               </div>
             }
@@ -2575,7 +2585,7 @@ const AllTaskReportsView = ({
                 field={col.key}
                 header={col.header}
                 sortable={col.key !== "action"}
-                filter={col.key !== "id" && col.key !== "action"}
+                filter={col.key !== "action"}
                 filterPlaceholder="Search"
                 headerStyle={{ width: col.width || "150px", fontSize: "14px" }}
                 bodyStyle={
@@ -2858,7 +2868,11 @@ const AllTaskReportsView = ({
             message="Please select the Dates , Status And Team Member."
             btn1="Clear"
             btn2="Apply"
-            filtersToShow={[1, 4, 10, 9, 11, 12, 21, 2]}
+            filtersToShow={
+              is_support_ticket_flag == 1
+                ? [1, 4, 10, 9, 11, 12, 21, 2, 6] // 6 = Demography, Support Ticket only
+                : [1, 4, 10, 9, 11, 12, 21, 2]
+            }
             pageId={1}
             stageandStatusOrderType={8}
             initialFilterData={{

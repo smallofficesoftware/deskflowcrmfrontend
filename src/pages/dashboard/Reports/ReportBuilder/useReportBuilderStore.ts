@@ -1,9 +1,57 @@
 import { create } from "zustand";
 import { IReportDefinition } from "./ReportBuilderController";
 
+// Display-only formatting for a date/number/currency-typed column — never
+// affects the underlying value queryEngine.js returns, only how
+// ReportRunnerView.tsx's grid (and, for a later pass, Excel export) renders
+// it. `date` is a date-fns format pattern (or the literal "relative", e.g.
+// "3 days ago") — a curated preset list in the picker UI, not free text.
+// `currencySymbol` is a literal string the author picks (e.g. "₹"), not a
+// resolved company setting — keeps this self-contained, no dependency on
+// company currency lookup from the grid.
+export interface IColumnFormat {
+  date?: string;
+  decimals?: number;
+  thousands?: boolean;
+  currencySymbol?: string;
+  // Slice 2 — a lookup/number flag column (is_archive, is_support_ticket)
+  // rendered as Yes/No or a checkmark instead of the raw 0/1.
+  boolean?: "yesno" | "checkmark";
+  // Max characters before the grid clips with an ellipsis and shows the
+  // full value in a title tooltip — string-typed columns only.
+  truncate?: number;
+  align?: "left" | "center" | "right";
+  // Fixed grid column width in px — undefined keeps today's default (150).
+  width?: number;
+  // Raw value -> {label?, color} — renders as a colored badge instead of
+  // plain text. Keyed by the value AS A STRING (row values compare loosely
+  // since a lookup id can come back as either a number or a numeric string
+  // depending on the DB driver).
+  statusColors?: Record<string, { label?: string; color: string }>;
+  // Dotted "relKey.colKey" (e.g. "status.name") naming a whitelisted
+  // relation+column this same base lookup column resolves through, so the
+  // grid shows that relation's own label instead of the raw id even
+  // though the author never separately picked the relation column itself.
+  // Author-picked from the same relation list StepColumns.tsx already
+  // renders for this table — never inferred automatically, since a lookup
+  // column can in principle have more than one relation on the same
+  // foreignKey.
+  labelRelation?: string;
+}
+
 export interface IColumnPick {
   column: string;
   aggregate?: string;
+  // Presentation-only flags, independent of `aggregate` (a column can be
+  // grouped/aggregated in the results AND still be excluded from Excel, or
+  // vice versa). Undefined means "on" for showInGrid/showInExcel (so an
+  // existing saved report with no flags at all needs no backfill — every
+  // picked column already shows everywhere, today's exact behavior) and
+  // "off" for showTotal (no report shows a totals row today).
+  showInGrid?: boolean;
+  showInExcel?: boolean;
+  showTotal?: boolean;
+  format?: IColumnFormat;
 }
 
 export interface IFilterRow {
@@ -25,19 +73,46 @@ interface ReportBuilderFormState {
   // dimension (team members) is fixed server-side, no column/filter/groupBy
   // pickers apply.
   metricKeys: string[];
+  // Step 2 — author's default subset of the table's generalFilters slots
+  // (see generalFilterAdapter.ts's SLOT_LABELS). A run-tier viewer can
+  // still widen/narrow this for their own session; this is only the
+  // default they land on. Empty array (the default) means "show every
+  // slot this table has" — same as omitting it.
+  filtersToShow: number[];
+  // Step 10 — tenant-defined organization (report_groups.id), orthogonal
+  // to type/model_key so it's never reset when either changes. null =
+  // ungrouped.
+  reportGroupId: number | null;
+  // Report-picker search matches name + description (Step 5's "Search
+  // scope" decision) — orthogonal to type/model_key, same as reportGroupId.
+  description: string;
+  // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) for this report's
+  // tile — "" means "use the default (report)".
+  icon: string;
 
   setType: (type: "query" | "plugin" | "composite") => void;
   setName: (name: string) => void;
+  setDescription: (description: string) => void;
+  setIcon: (icon: string) => void;
   setModelKey: (key: string) => void;
   setPluginKey: (key: string) => void;
   toggleColumn: (columnKey: string) => void;
   setColumnAggregate: (columnKey: string, aggregate: string) => void;
+  setColumnFlag: (columnKey: string, flag: "showInGrid" | "showInExcel" | "showTotal", value: boolean) => void;
+  setColumnFormat: (columnKey: string, patch: Partial<IColumnFormat>) => void;
+  // Step 4's reorder control — the author's saved display order (what
+  // columns_json's own array order drives at run/export time), distinct
+  // from the run screen's own per-viewer ColumnsButton reorder.
+  moveColumn: (index: number, direction: -1 | 1) => void;
+  moveMetric: (index: number, direction: -1 | 1) => void;
   toggleGroupBy: (columnKey: string) => void;
   addFilterRow: (row: IFilterRow) => void;
   updateFilterRow: (index: number, patch: Partial<IFilterRow>) => void;
   removeFilterRow: (index: number) => void;
   setFilterValue: (column: string, value: string) => void;
   toggleMetric: (metricKey: string) => void;
+  toggleFilterSlot: (slot: number) => void;
+  setReportGroupId: (id: number | null) => void;
   loadForEdit: (definition: IReportDefinition) => void;
   reset: () => void;
 }
@@ -59,10 +134,16 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   filters: [],
   groupBy: [],
   metricKeys: [],
+  filtersToShow: [],
+  reportGroupId: null,
+  description: "",
+  icon: "",
 
-  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [] }),
+  setType: (type) => set({ type, modelKey: "", pluginKey: "", columns: [], filters: [], groupBy: [], metricKeys: [], filtersToShow: [] }),
   setName: (name) => set({ name }),
-  setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [] }),
+  setDescription: (description) => set({ description }),
+  setIcon: (icon) => set({ icon }),
+  setModelKey: (modelKey) => set({ modelKey, columns: [], filters: [], groupBy: [], filtersToShow: [] }),
   setPluginKey: (pluginKey) => set({ pluginKey, filters: [] }),
 
   toggleColumn: (columnKey) =>
@@ -76,6 +157,34 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
     set((state) => ({
       columns: state.columns.map((c) => (c.column === columnKey ? { ...c, aggregate: aggregate || undefined } : c)),
     })),
+
+  setColumnFlag: (columnKey, flag, value) =>
+    set((state) => ({
+      columns: state.columns.map((c) => (c.column === columnKey ? { ...c, [flag]: value } : c)),
+    })),
+
+  setColumnFormat: (columnKey, patch) =>
+    set((state) => ({
+      columns: state.columns.map((c) => (c.column === columnKey ? { ...c, format: { ...c.format, ...patch } } : c)),
+    })),
+
+  moveColumn: (index, direction) =>
+    set((state) => {
+      const target = index + direction;
+      if (target < 0 || target >= state.columns.length) return state;
+      const columns = [...state.columns];
+      [columns[index], columns[target]] = [columns[target], columns[index]];
+      return { columns };
+    }),
+
+  moveMetric: (index, direction) =>
+    set((state) => {
+      const target = index + direction;
+      if (target < 0 || target >= state.metricKeys.length) return state;
+      const metricKeys = [...state.metricKeys];
+      [metricKeys[index], metricKeys[target]] = [metricKeys[target], metricKeys[index]];
+      return { metricKeys };
+    }),
 
   toggleGroupBy: (columnKey) =>
     set((state) => ({
@@ -107,6 +216,13 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       metricKeys: state.metricKeys.includes(metricKey) ? state.metricKeys.filter((k) => k !== metricKey) : [...state.metricKeys, metricKey],
     })),
 
+  toggleFilterSlot: (slot) =>
+    set((state) => ({
+      filtersToShow: state.filtersToShow.includes(slot) ? state.filtersToShow.filter((s) => s !== slot) : [...state.filtersToShow, slot],
+    })),
+
+  setReportGroupId: (reportGroupId) => set({ reportGroupId }),
+
   loadForEdit: (definition) => {
     // composite-type columns_json is already the metric-keys string array —
     // no {column,op,value} shape to reconstruct, unlike query/plugin below.
@@ -122,6 +238,10 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         filters: [],
         groupBy: [],
         metricKeys,
+        filtersToShow: [],
+        reportGroupId: definition.report_group_id ?? null,
+        description: definition.description || "",
+        icon: definition.icon || "",
       });
       return;
     }
@@ -152,6 +272,10 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filters,
       groupBy,
       metricKeys: [],
+      filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
+      reportGroupId: definition.report_group_id ?? null,
+      description: definition.description || "",
+      icon: definition.icon || "",
     });
   },
 
@@ -166,5 +290,9 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filters: [],
       groupBy: [],
       metricKeys: [],
+      filtersToShow: [],
+      reportGroupId: null,
+      description: "",
+      icon: "",
     }),
 }));

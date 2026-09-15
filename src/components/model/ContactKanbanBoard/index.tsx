@@ -248,11 +248,29 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
         }): Promise<KanbanFetchResult<ContactKanbanItem>> => {
             return new Promise((resolve) => {
                 let settled = false;
-                let capturedTotal = 0;
+                // fetchDataUser invokes its setUsers callback before its
+                // setTotalContactCount callback (same synchronous call) — resolving
+                // as soon as items arrive would always capture total at its
+                // pre-set value of 0. Wait for both before resolving. But
+                // fetchDataUser only fires the total callback for its first page
+                // (page===0, i.e. params.page===1 here) — later pages must not
+                // wait for a callback that will never come.
+                const isFirstPage = params.page === 1;
+                let capturedItems: any[] | undefined;
+                let capturedTotal: number | undefined;
                 const safeResolve = (result: KanbanFetchResult<ContactKanbanItem>) => {
                     if (settled) return;
                     settled = true;
                     resolve(result);
+                };
+                const tryResolve = () => {
+                    if (capturedItems === undefined) return;
+                    if (isFirstPage && capturedTotal === undefined) return;
+                    safeResolve({
+                        items: capturedItems.map(mapContactToKanbanItem),
+                        total: capturedTotal ?? 0,
+                        hasMore: capturedItems.length === params.limit,
+                    });
                 };
 
                 fetchDataUser(
@@ -263,11 +281,8 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                             typeof usersOrUpdater === "function"
                                 ? usersOrUpdater([])
                                 : usersOrUpdater || [];
-                        safeResolve({
-                            items: items.map(mapContactToKanbanItem),
-                            total: capturedTotal,
-                            hasMore: items.length === params.limit,
-                        });
+                        capturedItems = items;
+                        tryResolve();
                     },
                     params.limit,
                     () => {},
@@ -293,6 +308,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                     null,
                     (total: number) => {
                         capturedTotal = total;
+                        tryResolve();
                     },
                     undefined,
                     filters.selectedActiveId,

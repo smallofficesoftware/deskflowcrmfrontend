@@ -5,8 +5,17 @@ import { axiosInstance } from "../../../../services/axiosInstance";
 import { FilterParams } from "../../../../pages/left-side/header/Setting/taskList/TaskListView";
 
 // ─── Column / Board APIs ──────────────────────────────────────────────────────
+// "status" board columns come from stage_status_masters (status_type=8),
+// which mixes two dimensions in one list: internal workflow stages
+// (visibility=0 - initiate/start/pause/complete/rejected) and the
+// customer-facing ticket status (visibility=1 - e.g. "Pending for review").
+// A ticket normally has both set at once, so showing every column together
+// pulls the same ticket into two columns (and double-counts it) unless the
+// caller picks one dimension. `visibilityFilter` narrows to just one; leave
+// it undefined for the "All" (both dimensions, as before) scope.
 export const fetchBoardColumns = async (
   boardType: BoardType,
+  visibilityFilter?: 0 | 1,
 ): Promise<BoardColumn[]> => {
   const config = getBoardConfig(boardType);
   const response = await axiosInstance.post(
@@ -15,11 +24,15 @@ export const fetchBoardColumns = async (
   );
 
   const raw = response.data;
-  const data: Record<string, unknown>[] = Array.isArray(raw)
+  let data: Record<string, unknown>[] = Array.isArray(raw)
     ? raw
     : Array.isArray(raw?.data)
       ? raw.data
       : [];
+
+  if (visibilityFilter !== undefined) {
+    data = data.filter((item) => Number(item.visibility) === visibilityFilter);
+  }
 
   const columns: BoardColumn[] = data.map((item) => ({
     id: Number(
@@ -48,6 +61,8 @@ export interface GetTaskListParams {
   boardType: BoardType;
   filterParams?: FilterParams | null; // Feature 5: global filter
   supportTicketFlag?: number | null; // Feature 5: global filter
+  ownerFilter?: "all" | "my"; // All vs My top toggle
+  statusScope?: "all" | "internal" | "external"; // Internal/External/All top toggle
 }
 
 export interface GetTaskListResponse {
@@ -65,6 +80,8 @@ export const getTaskList = async ({
   boardType,
   filterParams = null,
   supportTicketFlag = null,
+  ownerFilter = "all",
+  statusScope = "all",
 }: GetTaskListParams): Promise<GetTaskListResponse> => {
   const filterKey = {
     status: "statusFilter",
@@ -85,6 +102,13 @@ export const getTaskList = async ({
     ul: offset,
     ll: limit,
     supportTicketFlag,
+    taskFilter: ownerFilter === "my" ? 2 : 1,
+    statusField:
+      statusScope === "internal"
+        ? "status"
+        : statusScope === "external"
+          ? "external_status"
+          : undefined,
   };
 
   // Feature 5: merge active filter params into payload
@@ -125,7 +149,13 @@ export const getTaskList = async ({
     ? (inner!.item as Record<string, unknown>[])
     : [];
 
-  const total = Number(inner?.all_count ?? inner?.my_count ?? rawTasks.length);
+  // all_count/my_count come back together regardless of which was asked
+  // for - pick the one matching the requested owner scope, not always
+  // all_count, or the column badge shows the wrong number while on "My".
+  const total = Number(
+    (ownerFilter === "my" ? inner?.my_count : inner?.all_count) ??
+      rawTasks.length,
+  );
 
   // Feature 1: unread_count may come per-column in the response
   const unread_count = inner?.unread_count
@@ -140,15 +170,19 @@ export const getTaskList = async ({
 // ─── Update Task Column + Position (Drag & Drop) ──────────────────────────────
 // Status-board-only (the only BoardType actually used anywhere in the app —
 // the other entries in BOARD_CONFIG_MAP are unexercised scaffolding).
+// `field` picks which column the drag actually writes - when viewing the
+// External scope the columns are external_status values, not status ones;
+// writing those into `status` would corrupt the internal workflow stage.
 export const updateTaskColumnAndPosition = async (
   taskId: number,
   columnId: number,
   position: number,
+  field: "status" | "external_status" = "status",
 ): Promise<void> => {
   await axiosInstance.post("commonUpdate", {
     table: "task_managements",
     where: JSON.stringify({ id: taskId }),
-    data: JSON.stringify({ status: columnId, position }),
+    data: JSON.stringify({ [field]: columnId, position }),
   });
 };
 

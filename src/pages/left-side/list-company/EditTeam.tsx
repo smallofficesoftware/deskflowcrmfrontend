@@ -393,6 +393,12 @@ const EditTeamMemberView = ({
               ? Number(data.salary_cal_month_count)
               : null,
 
+          // compulsary_attendance/compulsary_attendance_image/
+          // compulsary_gps_app_use: attendanceSalaryInitialValues already
+          // sourced these from companyTeamInfo (a_application_logins), not
+          // payrollData - ...data above already carries the right values,
+          // this just keeps the same explicit-string-coercion style as the
+          // other dropdown-bound fields here.
           compulsary_attendance:
             data?.compulsary_attendance != null
               ? String(data.compulsary_attendance)
@@ -401,6 +407,11 @@ const EditTeamMemberView = ({
           compulsary_attendance_image:
             data?.compulsary_attendance_image != null
               ? String(data.compulsary_attendance_image)
+              : "0",
+
+          compulsary_gps_app_use:
+            data?.compulsary_gps_app_use != null
+              ? String(data.compulsary_gps_app_use)
               : "0",
 
           // default bonus percentage
@@ -516,6 +527,11 @@ const EditTeamMemberView = ({
               compulsary_attendance_image:
                 data?.compulsary_attendance_image != null
                   ? String(data.compulsary_attendance_image)
+                  : "0",
+
+              compulsary_gps_app_use:
+                data?.compulsary_gps_app_use != null
+                  ? String(data.compulsary_gps_app_use)
                   : "0",
 
               bonus_percentage:
@@ -1381,6 +1397,46 @@ const EditTeamMemberView = ({
                                   />
                                   <ErrorMessage
                                     name="compulsary_attendance_image"
+                                    component="div"
+                                    className="field-error text-danger"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* GPS Compulsory for App Use */}
+                              <div className="col-4">
+                                <div className="form-group">
+                                  <label className="pb-2 form_label">
+                                    GPS Compulsory for App Use
+                                  </label>
+                                  <FormikCustomSearchDropdown
+                                    name="compulsary_gps_app_use"
+                                    options={yesNoOptions}
+                                    value={yesNoOptions.find(
+                                      (o) =>
+                                        o.value ===
+                                        String(
+                                          values.compulsary_gps_app_use,
+                                        ),
+                                    )}
+                                    className={
+                                      errors.compulsary_gps_app_use &&
+                                        touched.compulsary_gps_app_use
+                                        ? "is-invalid input-box-error"
+                                        : ""
+                                    }
+                                    onChange={(
+                                      selected: SingleValue<IOption>,
+                                    ) =>
+                                      setFieldValue(
+                                        "compulsary_gps_app_use",
+                                        selected?.value ?? "0",
+                                        true,
+                                      )
+                                    }
+                                  />
+                                  <ErrorMessage
+                                    name="compulsary_gps_app_use"
                                     component="div"
                                     className="field-error text-danger"
                                   />

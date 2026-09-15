@@ -46,7 +46,7 @@ import RightSideProfile from "./Profile";
 import RightSearch from "./Search";
 
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import useSocketEvent from "../../hooks/useSocketEvent";
 import { AppContext } from "../../common/AppContext";
@@ -64,7 +64,6 @@ import ExploreNearbyModal from "../../components/model/ExploreNearbyModel";
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
 import ReminderModal from "../../components/model/ReminderModal";
-import ReportModal from "../../components/model/ReportsModel";
 import PinnedMessageShow from "../../components/PinnedMessageShow";
 import SafeHtml from "../../components/SafeHtml";
 import {
@@ -162,6 +161,19 @@ interface IDynamicOptions {
   task_title: string;
   is_support_ticket: number;
 }
+
+// nextTrainingEvent.start_time is a bare "HH:mm" (24h) string, not a full
+// date — formatDate/formatTimeOnly (SharedFunction) both expect a real
+// Date/datetime, so this stays local rather than forcing a fake date
+// through those.
+const formatHHmmToAmPm = (hhmm: string): string => {
+  const [hStr, mStr] = hhmm.split(":");
+  const hours24 = Number(hStr);
+  if (Number.isNaN(hours24) || mStr === undefined) return "";
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${mStr.padStart(2, "0")} ${ampm}`;
+};
 
 const RightView = ({
   openCreateContact,
@@ -402,7 +414,7 @@ const RightView = ({
   const [messageId, setmessageId] = useState<any>();
   const [pinnedMessageContent, setPinnedMessageContent] = useState<string>("");
   const { advertisement } = useAdvertisementStore();
-  const { isTrainingDisabled } = useTrainingStore();
+  const { isTrainingDisabled, nextTrainingEvent } = useTrainingStore();
   const [focus, setFocus] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [hover, setHover] = useState(false);
@@ -412,8 +424,7 @@ const RightView = ({
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const [dynamicOptions, setDynamicOptions] = useState<IDynamicOptions[]>([]);
 
-  const [isReportShow, setIsReportShow] = useState(false);
-  const [reportName, setReportName] = useState("");
+  const navigate = useNavigate();
 
   const [hasSearchedDB, setHasSearchedDB] = useState(false);
   // const [taskCategoryLists, setTaskCategoryList] = useState<
@@ -595,159 +606,117 @@ const RightView = ({
 
   const handleSingleReportShow = (name: string) => {
     if (canViewTeam && name === "team_performance") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewQuotation && name === "quotation") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewOrder && name === "order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewDispath && name === "dispatch_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewOrderInvoice && name === "order_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewReturnSalesInvoice && name === "return_sales_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewPurchaseOrder && name === "purchase_order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewInward && name === "inward_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewPurchaseInvoice && name === "purchase_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewReturnPurchaseInvoice &&
       name === "return_purchase_invoice"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewAccountOutstanding && name === "account") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewEmpAccountOutstanding && name === "employee_account") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewPendingWork && name === "pending") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewProductInventory && name === "product_inventory") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewAttendanceSalary && name === "attendance_salary") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewProcessAttendance && name === "process_attendance") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewSalaryProcess && name === "salary_register") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewProductMovement && name === "product_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewProductPending &&
       name === "product_wise_pending_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewCategoryMovement && name === "category_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewCategoryPending &&
       name === "category_wise_pending_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewContact && name === "all_contact_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewALLDeletedContact &&
       name === "all_deleted_contact_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewSourceReport &&
       name === "source_wise_contact_statistic_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewLabelReport &&
       name === "label_wise_contact_statistics_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewInquiry && name === "all_inquiry_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewTeamExpense && name === "team_day_wise_expanse_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewDetailedExpense && name === "expanse_detailed_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewVisitReport && name === "all_visit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewCallReport && name === "all_call_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewPendingOrder && name === "pending_order") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewPendingPurchase && name === "pending_purchase") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewTask && name === "alltask_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewSupportTicket && name === "support_ticket_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewAllAccountTransition && name === "allaccount_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (
       canViewAllAccountTransition &&
       name === "account_credit_report"
     ) {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewAllAccountTransition && name === "account_debit_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (name === "payment_type_wise_account") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewAllReminder && name === "allreminder_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canViewChainWise && name === "all_contact_chainwise_report") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else if (canStatusWise && name === "status_wise_report") {
-      setIsReportShow(true);
-      setReportName(name);
-    } else if (canViewProformaInvoiceReport && name === "profoma_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
+    } else if (
+      canViewProformaInvoiceReport &&
+      name === "proforma_invoice_report"
+    ) {
+      navigate(`/SideView/report/${name}`);
     } else if (name === "daily_sales_invoice") {
-      setIsReportShow(true);
-      setReportName(name);
+      navigate(`/SideView/report/${name}`);
     } else {
-      setIsReportShow(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      setReportName(name);
     }
   };
 
@@ -1624,7 +1593,7 @@ const RightView = ({
       Number: "120",
       text: "Proforma Invoice",
       action: () => {
-        handleSingleReportShow("profoma_invoice");
+        handleSingleReportShow("proforma_invoice_report");
       },
     },
     {
@@ -3819,7 +3788,7 @@ const RightView = ({
                               </span>
                             </button>
                             <a
-                              href={`https://api.whatsapp.com/send?phone=91${getData?.mobile_number}`}
+                              href={`https://api.whatsapp.com/send?phone=${getData?.mobile_number}`}
                               target="_blank"
                             >
                               <button className="icons mx-1">
@@ -5342,7 +5311,15 @@ const RightView = ({
                         <path d="M13 9a2 2 0 0 1 4 0v2" />
                         <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
                       </svg>
-                      Scheduled Training &gt;&gt;
+                      Scheduled Training
+                      {nextTrainingEvent && (
+                        <span style={{ fontWeight: 400 }}>
+                          &nbsp;— {formatDate(nextTrainingEvent.date)}
+                          {nextTrainingEvent.start_time &&
+                            ` ${formatHHmmToAmPm(nextTrainingEvent.start_time)}`}
+                        </span>
+                      )}
+                      &nbsp;&gt;&gt;
                     </a>
                   )}
 
@@ -5808,7 +5785,7 @@ const RightView = ({
                                     textAlign: "center",
                                   }}
                                 >
-                                  {taskCount}
+                                  {taskCount > 99 ? "99+" : taskCount}
                                 </span>
                               )}
 
@@ -6235,7 +6212,7 @@ const RightView = ({
                                       textAlign: "center",
                                     }}
                                   >
-                                    {supportTicketCount}
+                                    {supportTicketCount > 99 ? "99+" : supportTicketCount}
                                   </span>
                                 )}
                               </button>
@@ -6675,20 +6652,6 @@ const RightView = ({
               opt3={"Always"}
             />
           )}
-          {isReportShow && (
-            <ReportModal
-              show={isReportShow}
-              onHide={() => setIsReportShow(false)}
-              handleSubmit={() => setIsReportShow(false)}
-              titles={"Create"}
-              message={"Please Enter Your Order Details"}
-              btn1={"CANCEL"}
-              btn2={"Approve"}
-              reportName={reportName}
-            // date={selectedDates}
-            />
-          )}
-
           {isExploreNearbyShow && (
             <ExploreNearbyModal
               show={isExploreNearbyShow}

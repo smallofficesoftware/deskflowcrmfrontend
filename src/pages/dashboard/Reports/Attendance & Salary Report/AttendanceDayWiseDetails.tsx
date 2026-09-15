@@ -72,7 +72,7 @@ const AttendanceDayWiseDetails: React.FC<AttendanceDayDetailModalProps> = ({
                 style={{ display: "block", zIndex: 1050 }}
                 role="dialog"
             >
-                <div className="modal-dialog modal-dialog-top" role="document" style={{ maxWidth: "60%" }}>
+                <div className="modal-dialog modal-dialog-top" role="document" style={{ width: "90vw", maxWidth: "900px" }}>
                     <div className="modal-content" style={{ borderRadius: "12px", overflow: "hidden" }}>
 
                         <div

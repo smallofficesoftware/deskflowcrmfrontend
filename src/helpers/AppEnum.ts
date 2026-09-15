@@ -150,6 +150,28 @@ export enum PAGE_ID {
   DOCUMENT_DESIGNER_RIGHTS = 157,
   REVIEWS_REPORT = 158,
   REPORT_BUILDER = 159,
+  // Dashboard's own feature gate — independent of REPORT_BUILDER's, so a
+  // company can be granted one without the other. Migration
+  // 20260905160000-add-dashboard-builder-application-page.js (master DB).
+  DASHBOARD_BUILDER = 160,
+  // Custom Form Maker's own feature gate — independent of REPORT_BUILDER's
+  // and DASHBOARD_BUILDER's. Migration
+  // 20260908130000-add-form-builder-application-page.js (master DB).
+  // id 178, not 161 — verified live against a_application_pages; 161-177
+  // were already taken (161 by an existing row, 162-177 by adminpanel's
+  // own pages sharing this table). See that migration's own comment.
+  FORM_BUILDER = 178,
+  // Find/Merge Duplicate Contacts feature gate. Migration
+  // 20260914120000-add-contact-merge-application-page.js (master DB).
+  // id 184 — VERIFIED against live a_application_pages (2026-09-15, dev):
+  // 179-183 were already taken by other rows (adminpanel shares this
+  // table); MAX(id) was 183.
+  CONTACT_MERGE = 184,
+  // Serial Number Wise Stock Check, as its own report tile (previously
+  // only reachable from Products Report's ⋮ menu). Migration
+  // 20260915120000-add-serial-number-stock-check-application-page.js
+  // (master DB). id 185 = next after CONTACT_MERGE (184).
+  SERIAL_NUMBER_STOCK_CHECK = 185,
 
   // Add more pages as needed
 }

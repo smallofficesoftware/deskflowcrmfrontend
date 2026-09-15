@@ -23,7 +23,6 @@ import CreateContactUsingQR from "../pages/public/create-contact";
 import CompanyQRCodeCard from "../pages/qr-view";
 import VideoTutorial from "../pages/video Tutorial/VideoTutorial";
 import Google from "../pages/voice/Google";
-// import ReportModal from "../components/model/ReportsModel";
 import NewReportModel from "../components/model/NewReportModel";
 import AccountTransactionV1 from "../pages/account-transaction/AccountTransactionV1View";
 // import TeamPerformanceReports from "../pages/dashboard/Reports/TeamPerformanceReports"
@@ -39,7 +38,11 @@ import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAc
 import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
-import ReportBuilderView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderView";
+import PublicFormFillView from "../pages/public-form/PublicFormFillView";
+import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
+import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
+import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
+import DashboardCanvasView from "../pages/dashboard/DashboardBuilder/DashboardCanvasView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
 import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
 import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
@@ -74,6 +77,11 @@ const RoutesIndex = () => {
               element={<CompanyVsReferralCode />}
             />
             <Route path="/website/:qrCode" element={<OnlineStore />} />
+            {/* Custom Form Maker — public, no-login fill link (plan §7),
+                mounted alongside online-store's own public route the same
+                way. Tenant/company resolved server-side from qrCode +
+                shareToken, no auth here. */}
+            <Route path="/f/:qrCode/:shareToken" element={<PublicFormFillView />} />
             <Route
               path="/AccountTransactionV1/:id/:MobileToken/:getID"
               element={<AccountTransactionV1 />}
@@ -253,9 +261,29 @@ const RoutesIndex = () => {
               path="/document-designer"
               element={<DocumentDesignerView />}
             />
+            {/* Step 12 (wizard rebuild), piece 6 — /report-builder is now
+                list-only (ReportBuilderListView.tsx); Add/Edit live on
+                their own screen (ReportBuilderWizardView.tsx), reached via
+                "New Report" / a card's "Edit" button. */}
             <Route
               path="/report-builder"
-              element={<ReportBuilderView />}
+              element={<ReportBuilderListView />}
+            />
+            <Route
+              path="/report-builder/new"
+              element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/report-builder/:id/edit"
+              element={<ReportBuilderWizardView />}
+            />
+            <Route
+              path="/dashboard-builder"
+              element={<DashboardListView />}
+            />
+            <Route
+              path="/dashboard-builder/:id"
+              element={<DashboardCanvasView />}
             />
             <Route
               path="/custom-field/designer-page-sources"

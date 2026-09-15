@@ -960,7 +960,7 @@ const VisitView = ({
                                   </div>
 
                                   <a
-                                    href={`https://api.whatsapp.com/send?phone=91${item?.contact_mobile}`}
+                                    href={`https://api.whatsapp.com/send?phone=${item?.contact_mobile}`}
                                     target="_blank"
                                   >
                                     <button className="icons mx-1">

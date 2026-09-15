@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -9,14 +8,15 @@ import {
   type DataTableFilterEvent,
   type DataTableFilterMeta,
   type DataTableSortEvent,
+  type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import { exportReportExcel } from "../../../../services/reportExportService";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -35,7 +35,7 @@ interface LazyTableState {
   rows: number;
   page: number;
   sortField?: string | null;
-  sortOrder?: number | null;
+  sortOrder?: SortOrder | null;
   filters: DataTableFilterMeta;
 }
 
@@ -322,38 +322,45 @@ const CustomerSalesPurchaseReport: React.FC<
       return `${currSym}${absVal}`;
     };
 
-    // Export functions with permission verification
-    const exportExcel = () => {
+    // Selection export sends the already-loaded rows as-is (server skips
+    // its own fetch); full export now goes through the backend registry
+    // (customer_sales_purchase_report) so it pulls the complete filtered
+    // dataset instead of only whatever's currently loaded on screen.
+    const exportExcel = async () => {
       if (!canShare) {
         toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
         return;
       }
-      const dataToExport =
-        selectedCustomers.length > 0 ? selectedCustomers : customers;
-      if (dataToExport.length === 0) return;
+      if (selectedCustomers.length === 0 && customers.length === 0) return;
 
-      const formattedData = dataToExport.map((item, idx) => {
-        const row: Record<string, string | number> = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, idx);
+      const rows =
+        selectedCustomers.length > 0
+          ? selectedCustomers.map((item, idx) => {
+              const row: Record<string, string | number> = {};
+              visibleColumns.forEach((col) => {
+                row[col.key] = getExportCellValue(col, item, idx);
+              });
+              return row;
+            })
+          : undefined;
+
+      try {
+        await exportReportExcel({
+          reportType: "customer_sales_purchase_report",
+          filters: {
+            selectedDates: reportSelectedDates,
+            selectedTeamMembers: selectedTeamMembers || filters.checkedOptionsUser,
+            selectedContactId: selectedContactId || filters.selectedContactId,
+            globalSearch: globalSearch || debouncedSearchText,
+          },
+          columns: visibleColumns,
+          fileName: "Customer_Wise_Sales_Purchase_Report",
+          rows,
         });
-        return row;
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(formattedData);
-      const workbook = { Sheets: { data: worksheet }, SheetNames: ["data"] };
-      const excelBuffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-      });
-      saveAs(
-        blob,
-        `Customer_Wise_Sales_Purchase_Report_${new Date().getTime()}.xlsx`,
-      );
-      toast.success("Excel exported successfully!");
+        toast.success("Excel exported successfully!");
+      } catch {
+        toast.error("Failed to export data");
+      }
     };
 
     const exportPdf = () => {
@@ -597,7 +604,7 @@ const CustomerSalesPurchaseReport: React.FC<
           </h3>
 
           <div
-            className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+            className={`d-flex gap-2 flex-wrap align-items-center`}
             style={{
               position: "relative",
               paddingLeft: MobileFlag ? "10px" : "",
@@ -681,6 +688,7 @@ const CustomerSalesPurchaseReport: React.FC<
                 }}
               />
 
+              {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
                   icon="pi pi-ellipsis-v"
@@ -764,6 +772,7 @@ const CustomerSalesPurchaseReport: React.FC<
                   </li>
                 </ul>
               </div>
+              )}
 
               <Button
                 icon="pi pi-refresh"

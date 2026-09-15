@@ -100,6 +100,8 @@ const ListEmpAccountTransactionView = ({
         useState<boolean>(false);
     const [hasData, setHasData] = useState<boolean>(false);
     const [closingBalance, setClosingBalance] = useState<number>(0);
+    const [openingBalance, setOpeningBalance] = useState<number>(0);
+    const [currencySymbol, setCurrencySymbol] = useState<string>("₹");
     const [refreshTransactions, setRefreshTransactions] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(
@@ -205,6 +207,8 @@ const ListEmpAccountTransactionView = ({
                         filterParams.endSearchDate,
                         filterParams.initialCheckedShowCreditData,
                         filterParams.initialCheckedShowDebitData,
+                        setOpeningBalance,
+                        setCurrencySymbol,
                     );
                 }
                 setCurrentPage((prevPage) => prevPage + 1);
@@ -281,6 +285,7 @@ const ListEmpAccountTransactionView = ({
     useEffect(() => {
         if (teamId) {
             setClosingBalance(0);
+            setOpeningBalance(0);
             setAccountTransactionList([]);
             // closeListAccountTransaction();
         } else {
@@ -432,6 +437,8 @@ const ListEmpAccountTransactionView = ({
                     filterParams.endSearchDate,
                     filterParams.initialCheckedShowCreditData,
                     filterParams.initialCheckedShowDebitData,
+                    setOpeningBalance,
+                    setCurrencySymbol,
                 );
             } else {
                 toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -492,6 +499,8 @@ const ListEmpAccountTransactionView = ({
                     filterParams.endSearchDate,
                     filterParams.initialCheckedShowCreditData,
                     filterParams.initialCheckedShowDebitData,
+                    setOpeningBalance,
+                    setCurrencySymbol,
                 );
                 setRefreshAccount && setRefreshAccount(true);
                 toast.success(data.ack_msg);
@@ -518,6 +527,8 @@ const ListEmpAccountTransactionView = ({
             filterParams.endSearchDate,
             filterParams.initialCheckedShowCreditData,
             filterParams.initialCheckedShowDebitData,
+            setOpeningBalance,
+            setCurrencySymbol,
         );
     };
 
@@ -544,6 +555,8 @@ const ListEmpAccountTransactionView = ({
             endSearchDate,
             initialCheckedShowCreditData,
             initialCheckedShowDebitData,
+            setOpeningBalance,
+            setCurrencySymbol,
         );
 
         setIsModalFilterVisible(false);
@@ -654,8 +667,11 @@ const ListEmpAccountTransactionView = ({
                 filterParams.endSearchDate,
                 filterParams.initialCheckedShowCreditData,
                 filterParams.initialCheckedShowDebitData,
+                setOpeningBalance,
+                setCurrencySymbol,
             );
             setClosingBalance(0);
+            setOpeningBalance(0);
             setAccountTransactionList([]);
             setRefreshAccount && setRefreshAccount(true);
         }
@@ -675,6 +691,8 @@ const ListEmpAccountTransactionView = ({
                 filterParams.endSearchDate,
                 filterParams.initialCheckedShowCreditData,
                 filterParams.initialCheckedShowDebitData,
+                setOpeningBalance,
+                setCurrencySymbol,
             );
 
             setRefreshAccount && setRefreshAccount(true);
@@ -717,6 +735,8 @@ const ListEmpAccountTransactionView = ({
                         filterParams.endSearchDate,
                         filterParams.initialCheckedShowCreditData,
                         filterParams.initialCheckedShowDebitData,
+                        setOpeningBalance,
+                        setCurrencySymbol,
                     );
                     setCurrentPage(0);
                 }, 1000)
@@ -745,6 +765,8 @@ const ListEmpAccountTransactionView = ({
                     filterParams.endSearchDate,
                     filterParams.initialCheckedShowCreditData,
                     filterParams.initialCheckedShowDebitData,
+                    setOpeningBalance,
+                    setCurrencySymbol,
                 );
                 setCurrentPage(0);
             }, 1000)
@@ -1241,33 +1263,39 @@ const ListEmpAccountTransactionView = ({
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="text-center">
-                                                    <b>
-                                                        Closing Balance on&nbsp;
-                                                        {filterParams.endSearchDate
-                                                            ? formatDate(filterParams.endSearchDate)
-                                                            : formatDate(new Date().toDateString())}
-                                                    </b>
-                                                    <h4
-                                                        className={`account-transaction-front-amount ${closingBalance !== undefined && closingBalance < 0
-                                                            ? "text-danger"
-                                                            : "text-success"
-                                                            } `}
-                                                    >
-                                                        <b>
-                                                            <svg
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                height="22px"
-                                                                viewBox="0 -960 960 960"
-                                                                width="22px"
-                                                                fill="currentColor"
-                                                                style={{ fontWeight: "bold" }}
+                                                <div className="balance-summary-row">
+                                                    {filterParams.startSearchDate && (
+                                                        <div className="balance-card">
+                                                            <span className="balance-card-label">
+                                                                Opening Balance
+                                                                <em>{formatDate(filterParams.startSearchDate)}</em>
+                                                            </span>
+                                                            <span
+                                                                className={`balance-card-amount ${openingBalance < 0 ? "text-danger" : "text-success"
+                                                                    }`}
                                                             >
-                                                                <path d="M549-120 280-400v-80h140q53 0 91.5-34.5T558-600H240v-80h306q-17-35-50.5-57.5T420-760H240v-80h480v80H590q14 17 25 37t17 43h88v80h-81q-8 85-70 142.5T420-400h-29l269 280H549Z" />
-                                                            </svg>
-                                                        </b>
-                                                        <b> {Math.abs(closingBalance)}</b>
-                                                    </h4>
+                                                                <span className="balance-card-currency">{currencySymbol}</span>
+                                                                {Math.abs(openingBalance)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div className="balance-card balance-card-primary">
+                                                        <span className="balance-card-label">
+                                                            Closing Balance
+                                                            <em>
+                                                                {filterParams.endSearchDate
+                                                                    ? formatDate(filterParams.endSearchDate)
+                                                                    : formatDate(new Date().toDateString())}
+                                                            </em>
+                                                        </span>
+                                                        <span
+                                                            className={`balance-card-amount ${closingBalance !== undefined && closingBalance < 0 ? "text-danger" : "text-success"
+                                                                }`}
+                                                        >
+                                                            <span className="balance-card-currency">{currencySymbol}</span>
+                                                            {Math.abs(closingBalance)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </button>

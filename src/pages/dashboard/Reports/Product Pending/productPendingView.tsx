@@ -1,4 +1,3 @@
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
@@ -17,9 +16,9 @@ import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
-import * as xlsx from "xlsx";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -30,11 +29,7 @@ import {
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
-import {
-  exportAllProductPendingData,
-  fetchProductPendingForExport,
-  fetchProductReport,
-} from "./productPendingController";
+import { fetchProductReport } from "./productPendingController";
 
 export interface IProductSalesData {
   item_product_id: number;
@@ -997,106 +992,6 @@ const ProductPendingView = ({
   //   saveAsExcelFile(excelBuffer, "product_sales_purchase_pending");
   // };
 
-  const exportExcel = async () => {
-    try {
-      setLoading(true);
-
-      const allContacts = await exportAllProductPendingData(
-        (offset, limit) =>
-          fetchProductPendingForExport(
-            filters.selectedDateArray,
-            setError,
-            MobileToken,
-            getID,
-            MobileFlag,
-            filters.selectedProductId,
-            filters.selectedCategoryId,
-            debouncedSearchText,
-            filters.selectedContactId,
-            offset,
-            limit,
-          ),
-        500,
-      );
-
-      if (!allContacts.length) {
-        toast.warn("No data to export");
-        return;
-      }
-
-      const exportData = (
-        selectedCustomers.length > 0
-          ? selectedCustomers
-          : isFilterApplied()
-            ? customers
-            : dataArray
-      ).map((item) => {
-        const row: any = {};
-        visibleColumns.forEach((col) => {
-          row[col.label] = getExportCellValue(col, item, "excel");
-        });
-        return row;
-      });
-
-      // ✅ Totals row
-      exportData.push({
-        "Product Name": "Total",
-        "Product Category": "",
-        Quotation: calculateColumnTotals(exportData, "Quotation"),
-        Order: calculateColumnTotals(exportData, "Order"),
-        Invoice: calculateColumnTotals(exportData, "Invoice"),
-        "Purchase Order": calculateColumnTotals(exportData, "Purchase Order"),
-        "Purchase Invoice": calculateColumnTotals(
-          exportData,
-          "Purchase Invoice",
-        ),
-        "Pending Purchase": calculateColumnTotals(
-          exportData,
-          "Pending Purchase",
-        ),
-      });
-
-      const worksheet = xlsx.utils.json_to_sheet(exportData);
-      worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 25 }));
-
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Product Wise Movement",
-      );
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      });
-
-      saveAs(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-        `Product_Pending_Report_${Date.now()}.xlsx`,
-      );
-
-      toast.success("Excel exported successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to export full data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAsExcelFile = (buffer: BlobPart, fileName: string) => {
-    const EXCEL_TYPE =
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-    const EXCEL_EXTENSION = ".xlsx";
-    const data = new Blob([buffer], { type: EXCEL_TYPE });
-    saveAs(
-      data,
-      fileName + "_export_" + new Date().getTime() + EXCEL_EXTENSION,
-    );
-  };
 
   const printTable = () => {
     const dataToExport =
@@ -1207,7 +1102,7 @@ const ProductPendingView = ({
           ""
         ) : ( */}
         <div
-          className={`d-flex gap-2 ${MobileFlag ? "flex-column align-items-start" : "align-items-center"}`}
+          className={`d-flex gap-2 flex-wrap align-items-center`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
@@ -1291,6 +1186,7 @@ const ProductPendingView = ({
                 },
               }}
             />
+            {!MobileFlag && (
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <Button
                 icon="pi pi-ellipsis-v"
@@ -1325,25 +1221,22 @@ const ProductPendingView = ({
                   scrollbarWidth: "none",
                 }}
               >
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportExcel()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportExcelMenuItem
+                  reportType="product_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-excel"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export Excel
-                </li>
+                  columns={visibleColumns}
+                  fileName="Product_Pending_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1383,6 +1276,7 @@ const ProductPendingView = ({
                 </li>
               </ul>
             </div>
+            )}
 
             <Button
               icon="pi pi-refresh"
