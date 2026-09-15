@@ -401,7 +401,7 @@ const RightView = ({
   const [messageId, setmessageId] = useState<any>();
   const [pinnedMessageContent, setPinnedMessageContent] = useState<string>("");
   const { advertisement } = useAdvertisementStore();
-  const { isTrainingDisabled } = useTrainingStore();
+  const { isTrainingDisabled, nextTrainingEvent } = useTrainingStore();
   const [focus, setFocus] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [hover, setHover] = useState(false);
@@ -5298,7 +5298,13 @@ const RightView = ({
                         <path d="M13 9a2 2 0 0 1 4 0v2" />
                         <path d="M17 10a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-2l-4-4a2 2 0 0 1 3-3l2 2" />
                       </svg>
-                      Scheduled Training &gt;&gt;
+                      Scheduled Training
+                      {nextTrainingEvent && (
+                        <span style={{ fontWeight: 400 }}>
+                          &nbsp;— {formatDate(nextTrainingEvent.date)}
+                        </span>
+                      )}
+                      &nbsp;&gt;&gt;
                     </a>
                   )}
 
