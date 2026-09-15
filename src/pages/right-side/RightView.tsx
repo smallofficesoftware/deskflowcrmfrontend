@@ -162,6 +162,19 @@ interface IDynamicOptions {
   is_support_ticket: number;
 }
 
+// nextTrainingEvent.start_time is a bare "HH:mm" (24h) string, not a full
+// date — formatDate/formatTimeOnly (SharedFunction) both expect a real
+// Date/datetime, so this stays local rather than forcing a fake date
+// through those.
+const formatHHmmToAmPm = (hhmm: string): string => {
+  const [hStr, mStr] = hhmm.split(":");
+  const hours24 = Number(hStr);
+  if (Number.isNaN(hours24) || mStr === undefined) return "";
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${mStr.padStart(2, "0")} ${ampm}`;
+};
+
 const RightView = ({
   openCreateContact,
   closeCreateContact,
@@ -5302,6 +5315,8 @@ const RightView = ({
                       {nextTrainingEvent && (
                         <span style={{ fontWeight: 400 }}>
                           &nbsp;— {formatDate(nextTrainingEvent.date)}
+                          {nextTrainingEvent.start_time &&
+                            ` ${formatHHmmToAmPm(nextTrainingEvent.start_time)}`}
                         </span>
                       )}
                       &nbsp;&gt;&gt;

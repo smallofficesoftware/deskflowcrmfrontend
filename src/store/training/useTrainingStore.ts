@@ -3,6 +3,10 @@ import { create } from "zustand";
 export interface NextTrainingEvent {
   title: string;
   date: string;
+  // "HH:mm" (24h), null when not set or the column isn't migrated yet on
+  // this environment (backend falls back gracefully rather than omitting
+  // the whole event).
+  start_time: string | null;
 }
 
 interface TrainingState {
