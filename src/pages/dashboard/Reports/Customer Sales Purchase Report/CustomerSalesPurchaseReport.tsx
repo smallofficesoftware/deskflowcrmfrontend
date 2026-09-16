@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -16,7 +14,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { exportReportExcel } from "../../../../services/reportExportService";
+import { exportReportExcel, exportReportPdf } from "../../../../services/reportExportService";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -363,34 +361,41 @@ const CustomerSalesPurchaseReport: React.FC<
       }
     };
 
-    const exportPdf = () => {
+    const exportPdf = async () => {
       if (!canShare) {
         toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
         return;
       }
-      const dataToExport =
-        selectedCustomers.length > 0 ? selectedCustomers : customers;
-      if (dataToExport.length === 0) return;
+      if (selectedCustomers.length === 0 && customers.length === 0) return;
 
-      const doc = new jsPDF("l", "pt", "a4");
-      doc.text("Customer-Wise Sales & Purchase Report", 40, 40);
+      const rows =
+        selectedCustomers.length > 0
+          ? selectedCustomers.map((item, idx) => {
+              const row: Record<string, string | number> = {};
+              visibleColumns.forEach((col) => {
+                row[col.key] = getExportCellValue(col, item, idx);
+              });
+              return row;
+            })
+          : undefined;
 
-      const head = [visibleColumns.map((col) => col.label)];
-
-      const body = dataToExport.map((item, idx) =>
-        visibleColumns.map((col) => getExportCellValue(col, item, idx)),
-      );
-
-      autoTable(doc, {
-        head: head,
-        body: body,
-        startY: 60,
-        theme: "striped",
-        styles: { fontSize: 9 },
-      });
-
-      doc.save(`Customer_Wise_Sales_Purchase_Report_${new Date().getTime()}.pdf`);
-      toast.success("PDF exported successfully!");
+      try {
+        await exportReportPdf({
+          reportType: "customer_sales_purchase_report",
+          filters: {
+            selectedDates: reportSelectedDates,
+            selectedTeamMembers: selectedTeamMembers || filters.checkedOptionsUser,
+            selectedContactId: selectedContactId || filters.selectedContactId,
+            globalSearch: globalSearch || debouncedSearchText,
+          },
+          columns: visibleColumns,
+          fileName: "Customer_Wise_Sales_Purchase_Report",
+          rows,
+        });
+        toast.success("PDF exported successfully!");
+      } catch {
+        toast.error("Failed to export data");
+      }
     };
 
     const printTable = () => {

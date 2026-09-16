@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
@@ -22,6 +20,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -891,11 +890,6 @@ const TeamDispatchDataReportsView = ({
     }
   };
 
-  const exportColumns = [
-    ...visibleColumns.map((col) => ({ title: col.label, dataKey: col.key })),
-    ...EXTRA_EXPORT_COLUMNS.map((col) => ({ title: col.label, dataKey: col.key })),
-  ];
-
   const handelChangeShowModelDispatch = (item: IUserList) => {
     if (canEditDispatch) {
       setContactInfoOrder(item);
@@ -905,52 +899,6 @@ const TeamDispatchDataReportsView = ({
     } else if (!canEditDispatch) {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
-  };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied
-          ? customers
-          : filteredData;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item);
-      });
-      EXTRA_EXPORT_COLUMNS.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
   const printTable = () => {
@@ -1357,25 +1305,30 @@ const TeamDispatchDataReportsView = ({
                       }))}
                     />
 
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportPdf()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportPdfMenuItem
+                      reportType="dispatch_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-pdf"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export PDF
-                    </li>
+                      columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                      fileName="Dispatch_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers.map((item) => ({
+                        ...item,
+                        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
+                        to_customer_name: `${item.to_customer_company_name || ""}(${item.to_customer_name || "-"})`,
+                      }))}
+                    />
 
                     <li
                       className="listItem text-start"
