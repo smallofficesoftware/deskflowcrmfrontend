@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -19,6 +17,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -685,64 +684,6 @@ const AccountCreaditReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTransactions.length > 0 ? selectedTransactions : getExportData();
-
-    const tableData = dataToExport.map((txn) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, txn);
-      });
-      return row;
-    });
-
-        tableData.push({
-      ID: "Total Credit Balance",
-      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
-      "Contact Phone": "",
-      "Payment Type": "",
-      "Payment Mode": "",
-      [`Amount (${currencyName})`]: "",
-      "Payment Date & Time": "",
-      "Approved By": "",
-      "Created By": "",
-      Remark: "",
-    });
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No credit transactions available", 10, 10);
-      doc.save(`credit_report_${Date.now()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.setFontSize(16);
-        doc.text("Account Credit Report", 14, 15);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-    doc.save(`credit_report_${Date.now()}.pdf`);
-  };
-
   // const formatDate = (value: any) => {
   //   if (!value) return "";
   //   const date = new Date(value);
@@ -969,25 +910,32 @@ const AccountCreaditReport = ({
                     }}
                   />
 
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-
-                      if (transactions.length === 0) return;
-
-                      canShare
-                        ? exportPdf()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportPdfMenuItem
+                    reportType="account_credit_report"
+                    filters={{
+                      selected_dates: filters.selectedDateArray,
+                      selectedTeamMembers: filters.checkedOptionsUser,
+                      selectedContactId: filters.selectedContactId,
+                      globalSearch: debouncedSearchText,
+                      credit_debit_flag,
+                      selectedPaymentBy: filters.checkedOptionsPaymentBy,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-pdf"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export PDF
-                  </li>
+                    columns={visibleColumns}
+                    fileName="account_transactions_full"
+                    canShare={canShare}
+                    disabled={transactions.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={selectedTransactions}
+                    footer={{
+                      sums: [],
+                      rows: [
+                        {
+                          acc_series: "Total Credit Balance",
+                          contact_masters_id: `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Cr)`,
+                        },
+                      ],
+                    }}
+                  />
 
                   <li
                     className="listItem text-start"
