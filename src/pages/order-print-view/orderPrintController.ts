@@ -5,6 +5,10 @@ import {
   MESSAGE_UNKNOWN_ERROR_OCCURRED,
 } from "../../helpers/AppConstants";
 import { TReactSetState } from "../../helpers/AppType";
+import {
+  DOCUMENT_DESIGNER_FEATURE_KEYS,
+  documentDesignerFeatureKeyForDocType,
+} from "../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../services/axiosInstance";
 import { ItemDetails } from "../order-pdf-view/OrderPdfController";
 
@@ -201,7 +205,7 @@ export const fetchContactDetail = async (
 // pickDocumentTemplate() and V1's Print action already follow (skip the
 // picker below 2 templates). Mirrors orderServices.js's
 // PDFME_DOC_TYPE_BY_CART_TYPE — keep both in sync when adding a doc type.
-const PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
+export const PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
   1: "quotation",
   2: "salesOrder",
   3: "salesInvoice",
@@ -217,6 +221,9 @@ const PDFME_DOC_TYPE_BY_CART_TYPE: Record<number, string> = {
 export const isPdfmeSupportedCartType = (cartType: number | undefined): boolean =>
   !!PDFME_DOC_TYPE_BY_CART_TYPE[Number(cartType)];
 
+export const pdfmeDocTypeForCartType = (cartType: number | undefined): string | undefined =>
+  PDFME_DOC_TYPE_BY_CART_TYPE[Number(cartType)];
+
 export const fetchPdfmeTemplatesForPicker = async (
   cartType: number | undefined,
 ): Promise<{ id: number; template_name: string; is_default: number }[]> => {
@@ -227,7 +234,7 @@ export const fetchPdfmeTemplatesForPicker = async (
   try {
     const { data: flagData } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(docType),
     });
     if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
 
@@ -254,7 +261,7 @@ export const fetchTemplatesForDocType = async (
   try {
     const { data: flagData } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(docType),
     });
     if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
 
@@ -282,11 +289,15 @@ export const fetchAllDocumentTemplatesForPicker = async (): Promise<
   const companyMastersId = localStorage.getItem("COMPANY_ID");
   if (!companyMastersId) return [];
   try {
-    const { data: flagData } = await axiosInstance.post("get-feature-flag", {
-      company_masters_id: companyMastersId,
-      feature_key: "document_designer",
-    });
-    if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
+    const flagResults = await Promise.all(
+      DOCUMENT_DESIGNER_FEATURE_KEYS.map(({ key }) =>
+        axiosInstance
+          .post("get-feature-flag", { company_masters_id: companyMastersId, feature_key: key })
+          .then(({ data }) => data?.ack === 1 && !!data.data.item.is_enabled)
+          .catch(() => false),
+      ),
+    );
+    if (!flagResults.some(Boolean)) return [];
 
     const { data: listData } = await axiosInstance.post("document-templates/list-all", {
       company_masters_id: companyMastersId,

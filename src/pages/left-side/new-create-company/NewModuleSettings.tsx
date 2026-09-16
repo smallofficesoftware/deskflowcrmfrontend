@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { AppContext } from "../../../common/AppContext";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
+import { DOCUMENT_DESIGNER_FEATURE_KEYS } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
 import {
   createCompany,
@@ -57,28 +58,51 @@ const NewModuleSettings = ({
 
   // company_feature_flags is a separate table (not a company_masters
   // column), so this fires its own immediate call on toggle instead of
-  // folding into the big Formik-submitted company-update payload.
-  const [documentDesignerEnabled, setDocumentDesignerEnabled] = useState(false);
+  // folding into the big Formik-submitted company-update payload. One row
+  // per document type, so a company can enable e.g. Quotation without
+  // also getting Sales Order/Shipping Label/etc.
+  const [documentDesignerFlags, setDocumentDesignerFlags] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!companyToEdit?.id) return;
-    axiosInstance
-      .post("get-feature-flag", {
-        company_masters_id: companyToEdit.id,
-        feature_key: "document_designer",
-      })
-      .then(({ data }) => {
-        if (data?.ack === 1) setDocumentDesignerEnabled(!!data.data.item.is_enabled);
-      });
+    Promise.all(
+      DOCUMENT_DESIGNER_FEATURE_KEYS.map(({ key }) =>
+        axiosInstance
+          .post("get-feature-flag", {
+            company_masters_id: companyToEdit.id,
+            feature_key: key,
+          })
+          .then(({ data }) => [key, !!data?.data?.item?.is_enabled] as const),
+      ),
+    ).then((entries) => setDocumentDesignerFlags(Object.fromEntries(entries)));
   }, [companyToEdit?.id]);
 
-  const handleDocumentDesignerToggle = async (checked: boolean) => {
-    setDocumentDesignerEnabled(checked);
+  const handleDocumentDesignerToggle = async (key: string, checked: boolean) => {
+    setDocumentDesignerFlags((prev) => ({ ...prev, [key]: checked }));
     await axiosInstance.post("set-feature-flag", {
       company_masters_id: companyToEdit?.id,
-      feature_key: "document_designer",
+      feature_key: key,
       is_enabled: checked,
     });
   };
+
+  const handleDocumentDesignerSelectAll = async (checked: boolean) => {
+    setDocumentDesignerFlags(
+      Object.fromEntries(DOCUMENT_DESIGNER_FEATURE_KEYS.map(({ key }) => [key, checked])),
+    );
+    await Promise.all(
+      DOCUMENT_DESIGNER_FEATURE_KEYS.map(({ key }) =>
+        axiosInstance.post("set-feature-flag", {
+          company_masters_id: companyToEdit?.id,
+          feature_key: key,
+          is_enabled: checked,
+        }),
+      ),
+    );
+  };
+
+  const allDocumentDesignerEnabled =
+    DOCUMENT_DESIGNER_FEATURE_KEYS.length > 0 &&
+    DOCUMENT_DESIGNER_FEATURE_KEYS.every(({ key }) => documentDesignerFlags[key]);
   const [isContactValidation, setisContactValidation] = useState(
     companyToEdit?.is_contact_validation || 1,
   );
@@ -335,17 +359,31 @@ const NewModuleSettings = ({
                         }}
                       />
                     </div>
-                    <div className="form-check form-switch">
-                      <label htmlFor="document_designer_enabled">
-                        Document Designer (Quotation)
-                      </label>
-                      <input
-                        type="checkbox"
-                        id="document_designer_enabled"
-                        className="form-check-input"
-                        checked={documentDesignerEnabled}
-                        onChange={(e) => handleDocumentDesignerToggle(e.target.checked)}
-                      />
+                    <div className="mt-2 mb-2">
+                      <div className="form-check form-switch">
+                        <label htmlFor="document_designer_select_all">
+                          <strong>Document Designer — Select All</strong>
+                        </label>
+                        <input
+                          type="checkbox"
+                          id="document_designer_select_all"
+                          className="form-check-input"
+                          checked={allDocumentDesignerEnabled}
+                          onChange={(e) => handleDocumentDesignerSelectAll(e.target.checked)}
+                        />
+                      </div>
+                      {DOCUMENT_DESIGNER_FEATURE_KEYS.map(({ key, label }) => (
+                        <div className="form-check form-switch ms-3" key={key}>
+                          <label htmlFor={key}>{label}</label>
+                          <input
+                            type="checkbox"
+                            id={key}
+                            className="form-check-input"
+                            checked={!!documentDesignerFlags[key]}
+                            onChange={(e) => handleDocumentDesignerToggle(key, e.target.checked)}
+                          />
+                        </div>
+                      ))}
                     </div>
                     <div className="form-check form-switch">
                       <label htmlFor="view_inquiry_form_in_contact">

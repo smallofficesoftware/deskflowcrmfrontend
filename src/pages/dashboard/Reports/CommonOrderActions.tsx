@@ -18,6 +18,7 @@ import {
     MESSAGE_UNKNOWN_ERROR_OCCURRED
 } from "../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE, PRINT_SETTING_TYPE_OBJ } from "../../../helpers/AppEnum";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import CreateTaskView from "../../../pages/right-side/create-task/CreateTaskView";
 import {
@@ -1958,7 +1959,7 @@ const CommonOrderActions = ({
         try {
             const { data } = await axiosInstance.post("get-feature-flag", {
                 company_masters_id: companyMastersId,
-                feature_key: "document_designer",
+                feature_key: documentDesignerFeatureKeyForDocType(PENDING_DOC_TYPE_BY_CART_TYPE[cartTypeId]),
             });
             return data?.ack === 1 && !!data.data.item.is_enabled;
         } catch {
@@ -2040,7 +2041,7 @@ const CommonOrderActions = ({
         try {
             const { data } = await axiosInstance.post("get-feature-flag", {
                 company_masters_id: companyMastersId,
-                feature_key: "document_designer",
+                feature_key: documentDesignerFeatureKeyForDocType(REGULAR_PDFME_DOC_TYPE_BY_CART_TYPE[cartTypeId]),
             });
             return data?.ack === 1 && !!data.data.item.is_enabled;
         } catch {

@@ -60,7 +60,8 @@ import {
   handleModalConvertIntoReturnSalesInvoices,
   syncMiracleInvoice,
 } from "../../../pages/right-side/list-order/ListOrderController";
-import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType } from "../../../pages/order-print-view/orderPrintController";
+import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType, pdfmeDocTypeForCartType } from "../../../pages/order-print-view/orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
@@ -4975,7 +4976,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     try {
       const { data } = await axiosInstance.post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(cartTypeId)!),
       });
       return data?.ack === 1 && !!data.data.item.is_enabled;
     } catch {

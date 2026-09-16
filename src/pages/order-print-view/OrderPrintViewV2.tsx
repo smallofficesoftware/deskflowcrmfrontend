@@ -40,7 +40,9 @@ import {
   fetchPdfmeTemplatesForPicker,
   handleDownload,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "./orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 
 interface CustomFormField {
   id: number;
@@ -302,7 +304,7 @@ const OrderPrintViewV2 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(orderPrintById?.cart?.type)!),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
@@ -1618,6 +1620,10 @@ const OrderPrintViewV2 = () => {
                                               {orderPrintById?.cart.state_name}
                                               {orderPrintById?.cart.city_name
                                                 ? ` - ${orderPrintById?.cart.city_name}`
+                                                : ""}
+                                              {printSetting?.setting_details.supplyToArea &&
+                                              orderPrintById?.cart.area_name
+                                                ? ` - ${orderPrintById?.cart.area_name}`
                                                 : ""}
                                             </span>{" "}
                                           </strong>

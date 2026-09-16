@@ -35,7 +35,9 @@ import {
   fetchPdfmeTemplatesForPicker,
   handleDownload,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "./orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 
 // Define interface for custom form fields based on console output
 interface CustomFormField {
@@ -304,7 +306,7 @@ const OrderPrintViewV4 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(orderPrintById?.cart?.type)!),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
