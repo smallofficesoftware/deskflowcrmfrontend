@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import moment from "moment";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
@@ -18,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -721,55 +720,6 @@ const AllTeamExpense = ({
   //   setRefreshReport(false);
   // }, [refreshReport, setRefreshReport1]);
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      (selectedCustomers?.length ?? 0 > 0) ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, customer, "inr");
-      });
-      return row;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text(
-          "Team Wise Daily Expense Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-    });
-
-    doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
-  };
-
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1020,22 +970,20 @@ const AllTeamExpense = ({
                 selectedRows={selectedCustomers}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (dataArray.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="team_day_wise_expense_report"
+                filters={{
+                  selectedDates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName="team_expense"
+                canShare={canShare}
+                disabled={dataArray.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+              />
 
               <li
                 className="listItem text-start"

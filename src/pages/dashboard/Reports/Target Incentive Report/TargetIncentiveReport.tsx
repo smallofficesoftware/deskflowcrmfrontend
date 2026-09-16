@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -17,6 +15,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -303,42 +302,6 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   };
 
   // Export functions with permission verification & dynamic currency symbol
-  const exportPdf = () => {
-    if (!canShare) {
-      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      return;
-    }
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : customers;
-    if (dataToExport.length === 0) return;
-
-    const doc = new jsPDF("l", "pt", "a4");
-    doc.text("Target & Incentive Report", 40, 40);
-
-    const head = [
-      [
-        ...visibleColumns.map((col) => col.label),
-        ...EXTRA_EXPORT_COLUMNS.map((col) => col.label),
-      ],
-    ];
-
-    const body = dataToExport.map((item) => [
-      ...visibleColumns.map((col) => getExportCellValue(col, item)),
-      ...EXTRA_EXPORT_COLUMNS.map((col) => (item as any)[col.key] || "-"),
-    ]);
-
-    autoTable(doc, {
-      head: head,
-      body: body,
-      startY: 60,
-      theme: "striped",
-      styles: { fontSize: 9 },
-    });
-
-    doc.save(`Target_Incentive_Report_${new Date().getTime()}.pdf`);
-    toast.success("PDF exported successfully!");
-  };
-
   const printTable = () => {
     if (!canPrint) {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -705,23 +668,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-                    if (customers.length === 0) return;
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="target_incentive_report"
+                  filters={{
+                    selectedDates: reportSelectedDates,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="Target_Incentive_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
