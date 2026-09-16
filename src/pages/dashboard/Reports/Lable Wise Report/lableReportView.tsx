@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -18,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -419,50 +418,6 @@ const AlllableReport = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`all_label_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("All Label Report", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`all_label_report_${new Date().getTime()}.pdf`);
-  };
-
   // const exportExcel = () => {
   //   const filteredData = getFilteredData();
   //   const exportData = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).map((customer) => ({
@@ -699,25 +654,21 @@ const AlllableReport = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (dataArray.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="label_wise_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    selectedLabels: filters.checkedOptions,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="label_Wise_Static_Report"
+                  canShare={canShare}
+                  disabled={dataArray.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
