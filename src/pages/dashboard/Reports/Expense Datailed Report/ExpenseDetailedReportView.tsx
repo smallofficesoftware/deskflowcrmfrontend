@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
@@ -19,6 +17,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -673,64 +672,6 @@ const ExpenseDetailedReport = ({
     dataKey: col.key,
   }));
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      (selectedExpenses?.length ?? 0 > 0) ? selectedExpenses : filteredData
-    ).map((exp) => {
-      const row: Record<string, any> = {};
-      exportableColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, exp);
-      });
-      return row;
-    });
-
-        const totalAmount = tableData.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.amount).replace(/[^0-9.-]+/g, ""));
-      return sum + (isNaN(val) ? 0 : val);
-    }, 0);
-    const totalPassAmount = tableData.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.pass_amount).replace(/[^0-9.-]+/g, ""));
-      return sum + (isNaN(val) ? 0 : val);
-    }, 0);
-    tableData.push({
-      type: "Total",
-      amount: totalAmount.toFixed(2),
-      pass_amount: totalPassAmount.toFixed(2),
-      remark: "",
-      date: "",
-      employee: "",
-      status: "",
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("Expense Detailed Report", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`expense_detailed_report_${new Date().getTime()}.pdf`);
-  };
-
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -1049,25 +990,35 @@ const ExpenseDetailedReport = ({
                       }}
                     />
 
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (dataArray.length === 0) return;
-
-                        canShare
-                          ? exportPdf()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportPdfMenuItem
+                      reportType="expense_detailed_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedExpenseTypes: filters.checkedExpenseTypes,
+                        selectedExpenseStatus: filters.checkedOptionsExpenseStatus,
+                        globalSearch: debouncedSearchText,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-pdf"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export PDF
-                    </li>
+                      columns={exportableColumns}
+                      fileName="expense_detailed_report"
+                      canShare={canShare}
+                      disabled={dataArray.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedExpenses}
+                      footer={{
+                        sums: [
+                          { outputKey: "amount", sourceKey: "amount" },
+                          { outputKey: "pass_amount", sourceKey: "pass_amount" },
+                        ],
+                        rows: [
+                          {
+                            expense_name: "Total",
+                            amount: { fromSum: "amount" },
+                            pass_amount: { fromSum: "pass_amount" },
+                          },
+                        ],
+                      }}
+                    />
 
                     <li
                       className="listItem text-start"
