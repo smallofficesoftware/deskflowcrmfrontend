@@ -5,18 +5,21 @@ export interface ExportColumn {
   key: string;
   label: string;
   // Drives a real typed Excel cell + numFmt in exporter.js (date/number/
-  // currency) instead of a stringified value. "badge" is PDF-only (a
-  // colored pill, matching the on-screen grid's status badges) - the xlsx
-  // branch ignores it and falls back to a plain string, same as omitting
-  // format entirely. Omit for string/lookup columns - unchanged, today's
-  // exact behavior.
-  format?: "date" | "number" | "currency" | "badge";
+  // currency) instead of a stringified value. "badge"/"multiline"/
+  // "nested-table" are PDF-only - the xlsx branch ignores them and falls
+  // back to a plain string, same as omitting format entirely. Omit for
+  // string/lookup columns - unchanged, today's exact behavior.
+  format?: "date" | "number" | "currency" | "badge" | "multiline" | "nested-table";
   // format: "badge" only - row field(s) holding the badge's background
   // color (hex/CSS color). Checked in order; first truthy value wins,
   // "#eeeeee" if none are set. Mirrors the grid's own
   // `rowData.stage_status_color || rowData.status_colour || "#eeeeee"`
   // fallback chains.
   colorKeys?: string[];
+  // format: "nested-table" only - the inner table's own columns; the
+  // row's value at this column's key must be an array of objects, each
+  // rendered as one inner-table row via these {key,label} pairs.
+  subColumns?: { key: string; label: string }[];
 }
 
 // One named aggregate over the exported row set - optionally restricted to
