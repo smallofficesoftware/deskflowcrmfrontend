@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
@@ -10,6 +8,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ReminderModal from "../../../../components/model/ReminderModal";
@@ -648,61 +647,6 @@ const AllReminderReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const dataToExport =
-      selectedReminders.length > 0 ? selectedReminders : displayReminders;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item, "plain");
-      });
-      return rowData;
-    });
-
-        tableData.push({
-      id: `Total Reminders: ${dataToExport.length}`,
-      contact_name: "",
-      reminder_data_time: "",
-      status_display: "",
-      completed_date_time: "",
-      assigned_to_name: "",
-      created_by_username: "",
-      remark: "",
-    } as any);
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No reminders to export", 10, 10);
-      doc.save(`${title}_report_${Date.now()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.text(`${title} Report`, 14, 15);
-      },
-    });
-
-    doc.save(`${title}_report_${Date.now()}.pdf`);
-  };
 
   const printTable = () => {
     const dataToExport =
@@ -1044,25 +988,40 @@ const AllReminderReport = ({
                   }
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (reminders.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_reminder_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    is_support_ticket_flag: is_support_ticket_flag,
+                    selectedContactId: filters.selectedContactId,
+                    referenceWiseContact: filters.referenceWiseContact,
+                    typeFilter: filterType,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName={`${title}_Report`}
+                  canShare={canShare}
+                  disabled={reminders.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedReminders.length > 0
+                      ? [
+                          ...selectedReminders,
+                          {
+                            id: `Total Reminders: ${selectedReminders.length}`,
+                            contact_name: "",
+                            reminder_data_time: "",
+                            status_display: "",
+                            completed_date_time: "",
+                            assigned_to_name: "",
+                            created_by_username: "",
+                            remark: "",
+                          },
+                        ]
+                      : selectedReminders
+                  }
+                />
 
                 <li
                   className="listItem text-start"

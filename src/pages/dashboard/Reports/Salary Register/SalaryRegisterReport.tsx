@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -16,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
@@ -821,81 +820,6 @@ const SalaryRegisterReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-
-    // Use customers (all loaded data) or selectedCustomers
-    const dataToExport =
-      selectedSalaries.length > 0 ? selectedSalaries : salaries;
-
-    if (!dataToExport || dataToExport.length === 0) {
-      toast.info("No data available to export");
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const tableData = dataToExport.map((salary) => {
-      const row: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, salary);
-      });
-      return row;
-    });
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      startY: 40,
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 5, bottom: 10 },
-      willDrawPage: (data) => {
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(16);
-        doc.text("Salary Register", pageWidth / 2, 12, {
-          align: "center",
-        });
-
-        doc.setFont("Poppins", "normal");
-        doc.setFontSize(8);
-        doc.text(
-          "Note: Scroll or pan horizontally in your PDF viewer to see all columns.",
-          10,
-          20,
-        );
-
-        // Printed By
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(9);
-        doc.text(
-          `Printed By: ${String(localStorage.getItem("USERNAME"))}`,
-          10,
-          28,
-        );
-
-        // Printed On
-        doc.text(`Printed On: ${formatCurrentDateTime()}`, pageWidth - 10, 28, {
-          align: "right",
-        });
-      },
-    });
-
-    doc.save(`salary_register_${Date.now()}.pdf`);
-  };
-
-
   const printTable = () => {
     const dataToPrint =
       selectedSalaries.length > 0 ? selectedSalaries : salaries;
@@ -1163,22 +1087,19 @@ const SalaryRegisterReport = ({
                 selectedRows={selectedSalaries}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (salaries.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="salary_register_report"
+                filters={{
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDayMonthYear: activeDayMonthYear,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                fileName={`Salary_Register_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`}
+                canShare={canShare}
+                disabled={salaries.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedSalaries}
+              />
 
               <li
                 className="listItem text-start"

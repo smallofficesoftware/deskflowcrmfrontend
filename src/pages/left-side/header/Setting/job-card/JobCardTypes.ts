@@ -128,13 +128,22 @@ export interface IProductionEntryProcessRows {
   process_name: string;
   consumption: IProductionEntryRow[];
   rejection: IProductionEntryRow[];
+  actual_time: number; // seconds spent on this process for this entry
+}
+
+// ─── Production Entry: actual time spent per BOM process, as sent to / received from the API ─
+export interface IProductionEntryProcessTimePayload {
+  process_id: number;
+  actual_time: number; // seconds
 }
 
 // ─── Production Entry: material line item as sent to / received from the API ─
 export interface IProductionEntryMaterialPayload {
   process_id: number;
+  process_name?: string; // present on the read-only view detail
   material_id: number;
   warehouse_id: number | null;
+  warehouse_name?: string; // present on the read-only view detail
   qty: number;
   material_name?: string;
   unit?: string;
@@ -155,6 +164,7 @@ export interface IProductionEntrySavePayload {
   team_member_id: number | null;
   consumption_items: IProductionEntryMaterialPayload[];
   rejection_items: IProductionEntryMaterialPayload[];
+  process_times: IProductionEntryProcessTimePayload[];
 }
 
 // ─── Production Entry: list row (shown before "+ Add Production Entry") ──────
@@ -182,6 +192,16 @@ export const stockKey = (
   warehouseId: number | null | undefined,
 ): string => `${itemId}_${warehouseId ?? ""}`;
 
+// ─── Production Entry: one process grouped for the read-only view popup ──────
+export interface IProductionEntryDetailProcess {
+  process_id: number;
+  process_name: string;
+  actual_time: number; // seconds
+  consumption: IProductionEntryMaterialPayload[];
+  rejection: IProductionEntryMaterialPayload[];
+}
+
+// ─── Production Entry: full saved-entry detail, for the read-only view popup ─
 export interface IProductionEntryDetail {
   id: number;
   job_id: number;
@@ -190,6 +210,10 @@ export interface IProductionEntryDetail {
   entry_date: string;
   remark: string;
   team_member_id: number | null;
+  team_member_name?: string;
   consumption_items: IProductionEntryMaterialPayload[];
   rejection_items: IProductionEntryMaterialPayload[];
+  total_actual_time?: number; // seconds
+  process_times?: IProductionEntryProcessTimePayload[];
+  processes?: IProductionEntryDetailProcess[];
 }

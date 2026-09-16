@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -27,6 +25,7 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
+import { exportReportPdf } from "../../../../services/reportExportService";
 import { IUserList } from "../../../left-side/LeftSideController";
 import { openPrint } from "../Quotations/QuotationController";
 import {
@@ -869,127 +868,65 @@ ${fields
     };
   };
 
-  // Cell width used for the PDF export table, per column key
-  const EXPORT_COLUMN_WIDTH: Record<string, number> = {
-    contact_details: 65,
-    invoice_details: 85,
-    product_items: 115,
-  };
+  // ==================== EXPORT PDF (server-side, with nested table in Product Details) ====================
+  const exportPdf = async () => {
+    if (!canShare) {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+      return;
+    }
 
-  const getExportCellText = (col: DailyInvoiceColumnDef, row: any): string => {
-    if (col.key === "contact_details") return row.contact_details || "-";
-    if (col.key === "invoice_details") return row.invoice_details || "-";
-    if (col.key === "product_items") return ""; // nested table drawn separately
-    return row[col.key] ?? "-";
-  };
+    const dataToExport = customers || [];
+    if (dataToExport.length === 0) return;
 
-  // ==================== EXPORT PDF (with nested table in Product Details) ====================
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
+    const rows = dataToExport.map((item: any) => buildRowForExport(item));
 
-    const dataToExport = customers || []; // Safety check
+    const totalAmount = dataToExport
+      .reduce(
+        (sum: number, item: any) =>
+          sum +
+          (parseFloat(
+            String(item.cart_details?.grand_total || item.grand_total_wo_c).replace(
+              /[^0-9.-]+/g,
+              "",
+            ),
+          ) || 0),
+        0,
+      )
+      .toFixed(2);
 
-    const productColIndex = visibleColumns.findIndex(
-      (col) => col.key === "product_items",
-    );
-
-    // Prepare main table body (without product details)
-    const body = dataToExport.map((item: any) => {
-      const row = buildRowForExport(item);
-      return visibleColumns.map((col) => getExportCellText(col, row));
+    rows.push({
+      __isFooter: true,
+      contact_details: `Total Invoices: ${dataToExport.length}`,
+      invoice_details: `Total Amount: ${totalAmount}`,
+      product_details: [],
     });
 
-    const columnStyles: Record<number, { cellWidth: number }> = {};
-    visibleColumns.forEach((col, idx) => {
-      columnStyles[idx] = { cellWidth: EXPORT_COLUMN_WIDTH[col.key] || 80 };
-    });
-
-    autoTable(doc, {
-      head: [visibleColumns.map((col) => col.label)],
-      body,
-      foot: [
-        [
-          `Total Invoices: ${dataToExport.length}`,
-          `Total Amount:  ${dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.cart_details?.grand_total || item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2)}`,
-          "",
+    try {
+      await exportReportPdf({
+        reportType: "daily_invoice_report",
+        filters: {},
+        columns: [
+          { key: "contact_details", label: "Contact Details", format: "multiline" },
+          { key: "invoice_details", label: "Invoice Details", format: "multiline" },
+          {
+            key: "product_details",
+            label: "Product Details",
+            format: "nested-table",
+            subColumns: [
+              { key: "name", label: "Product Name" },
+              { key: "qty", label: "Qty" },
+              { key: "rate", label: "Rate" },
+            ],
+          },
         ],
-      ],
-      styles: {
-        fontSize: 8,
-        cellPadding: 3,
-        valign: "top",
-        overflow: "linebreak",
-      },
-      columnStyles,
-      didParseCell: (data) => {
-        // Optional: Increase row height if needed for nested tables
-        if (
-          productColIndex !== -1 &&
-          data.column.index === productColIndex &&
-          data.section === "body"
-        ) {
-          data.cell.styles.minCellHeight = 25; // Adjust based on your data
-        }
-      },
-      didDrawCell: (data) => {
-        // Only process body cells in the Product Details column
-        if (
-          productColIndex !== -1 &&
-          data.section === "body" &&
-          data.column.index === productColIndex
-        ) {
-          const rowIndex = data.row.index;
-
-          // Safety checks to prevent undefined error
-          if (
-            rowIndex === undefined ||
-            rowIndex < 0 ||
-            rowIndex >= dataToExport.length
-          ) {
-            return;
-          }
-
-          const item = dataToExport[rowIndex];
-          if (!item) return;
-
-          const products = buildRowForExport(item).product_details || [];
-
-          if (products.length === 0) return;
-
-          // Draw nested table inside the cell
-          try {
-            doc.autoTable({
-              startY: data.cell.y + 2,
-              margin: {
-                left: data.cell.x + 2,
-                right:
-                  doc.internal.pageSize.width -
-                  (data.cell.x + data.cell.width - 2),
-              },
-              tableWidth: data.cell.width - 6,
-              styles: {
-                fontSize: 7,
-                cellPadding: 1.5,
-                lineColor: [200, 200, 200],
-                lineWidth: 0.1,
-              },
-              head: [["Product Name", "Qty", "Rate"]],
-              headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
-              body: products.map((p: any) => [
-                p.name || "-",
-                p.qty || "-",
-                p.rate || "-",
-              ]),
-              theme: "grid",
-            });
-          } catch (e) {
-            console.error("Nested table error:", e);
-          }
-        }
-      },
-    });
-
-    doc.save(`${title || "report"}_report.pdf`);
+        fileName: `${title || "Daily_Invoice"}_Report`,
+        rows,
+      });
+      toast.success("PDF exported successfully!");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to export data");
+    }
   };
 
   // ==================== PRINT TABLE (with nested HTML table) ====================

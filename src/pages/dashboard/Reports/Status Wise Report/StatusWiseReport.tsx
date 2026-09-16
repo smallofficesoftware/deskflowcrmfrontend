@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -11,6 +9,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -299,45 +298,6 @@ const StatusWiseReport = ({
       }));
     });
 
-  const exportColumns = [
-    ...visibleColumns.map((col) => ({ title: col.label, dataKey: col.key })),
-    ...EXTRA_EXPORT_COLUMNS.map((col) => ({ title: col.label, dataKey: col.key })),
-  ];
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const tableData = getExportRows();
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`status_wise_report_${Date.now()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text(
-          "Status Wise Task Or Supp. Ticket Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-    });
-
-    doc.save(`status_wise_report_${Date.now()}.pdf`);
-  };
-
   const printTable = () => {
     const tableData = getExportRows();
     const printContent = `
@@ -529,23 +489,20 @@ const StatusWiseReport = ({
                   disabled={!statusWiseReport}
                   onSelect={() => setIsExportDropdownOpen(false)}
                 />
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-                    if (!statusWiseReport) return;
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="status_wise_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="status_Wise_Report"
+                  canShare={canShare}
+                  disabled={!statusWiseReport}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                />
                 <li
                   className="listItem text-start"
                   role="button"

@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -25,6 +23,7 @@ import { AppContext } from "../../../../common/AppContext";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
@@ -1108,62 +1107,6 @@ const AllcontactReport = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer, "inr");
-      });
-      return rowData;
-    });
-
-        if (showCartColumns.grand_total) {
-      const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
-      tableData.push({
-        Person_Name: "Total",
-        Grand_Total: grandTotalSum.toFixed(2),
-      } as any);
-    }
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("All Contact Report", data.settings.margin.left, 10);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body" && showCartColumns.grand_total) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-
-    doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1525,22 +1468,47 @@ const AllcontactReport = ({
                 }
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="all_contact_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  setActive,
+                  setActiveDay,
+                  selectedLabels: filters.checkedOptions,
+                  selectedSourceTypes: filters.checkedSourceTypes,
+                  selectedStageStatus: filters.checkedOptionsStageStatus,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDemography: selectedDemography
+                    ? Object.values(selectedDemography).filter(Boolean)
+                    : null,
+                  selectedProductSearchId: filters.selectedProductSearchId,
+                  setSelectOrderType: filters.selectedOrderListId,
+                  globalSearch: debouncedSearchText,
+                  assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
+                  createdByMultiTeamMember: filters.createdByMultiTeamMember,
+                  leadAgingBucket: filters.leadAgingBucket,
+                  leadAgingActivityTypes: filters.leadAgingActivityTypes,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName="All_Contacts_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+                footer={
+                  showCartColumns.grand_total
+                    ? {
+                        sums: [{ outputKey: "grand_total", sourceKey: "grand_total" }],
+                        rows: [
+                          {
+                            person_name: "Total",
+                            grand_total: { fromSum: "grand_total" },
+                          },
+                        ],
+                      }
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"

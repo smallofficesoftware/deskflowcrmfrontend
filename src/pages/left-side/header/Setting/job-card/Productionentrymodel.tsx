@@ -5,7 +5,6 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import {
   fetchJobCardDetail,
-  fetchProductionEntryDetail,
   fetchTeamMemberList,
   fetchWarehouseList,
   saveProductionEntry,
@@ -14,19 +13,20 @@ import {
   IBomProcess,
   IContactDetail,
   IItemDetail,
-  IProductionEntryDetail,
   IProductionEntrySavePayload,
   ITeamMemberOption,
   IWarehouseOption,
 } from "./JobCardTypes";
 import ProductionEntrySection from "./sections/ProductionEntrySection";
 
+// Add-only — production entries are never edited in place (each run is a
+// distinct, immutable record; its stock adjustments are tied to it).
+// Viewing a saved entry uses the separate read-only ProductionEntryViewModel.
 interface IProps {
   show: boolean;
   onHide: () => void;
   jobId: number;
   order_item_id: number;
-  entryId?: number | null; // provided when editing an existing production entry
   isStockCheckRequired: boolean;
   onSaved?: () => void; // lets the list modal refresh after a successful save
 }
@@ -35,7 +35,6 @@ const ProductionEntryModel = ({
   show,
   onHide,
   jobId,
-  entryId,
   order_item_id,
   isStockCheckRequired,
   onSaved,
@@ -58,11 +57,6 @@ const ProductionEntryModel = ({
   const [loadingWarehouse, setLoadingWarehouse] = useState(false);
   const [loadingTeamMembers, setLoadingTeamMembers] = useState(false);
 
-  // ── Existing entry (edit mode) ──
-  const [existingEntry, setExistingEntry] =
-    useState<IProductionEntryDetail | null>(null);
-  const [loadingExisting, setLoadingExisting] = useState(false);
-
   // ── Save state ──
   const [saving, setSaving] = useState(false);
 
@@ -72,7 +66,6 @@ const ProductionEntryModel = ({
     if (!show) return;
     setItemDetail(null);
     setBomProcesses([]);
-    setExistingEntry(null);
 
     fetchJobCardDetail(
       jobId,
@@ -83,11 +76,7 @@ const ProductionEntryModel = ({
     );
     fetchWarehouseList(setWarehouseOptions, setLoadingWarehouse);
     fetchTeamMemberList(setTeamMemberOptions, setLoadingTeamMembers);
-
-    if (entryId) {
-      fetchProductionEntryDetail(entryId, setExistingEntry, setLoadingExisting);
-    }
-  }, [show, jobId, entryId]);
+  }, [show, jobId]);
 
   // ── Single Save action ──
 
@@ -107,8 +96,7 @@ const ProductionEntryModel = ({
 
   if (!show) return null;
 
-  const isEditMode = !!entryId;
-  const isLoadingAny = loading || (isEditMode && loadingExisting);
+  const isLoadingAny = loading;
 
   return (
     <div
@@ -157,9 +145,7 @@ const ProductionEntryModel = ({
                 fontSize: "1.05rem",
               }}
             >
-              {isEditMode
-                ? "✏️ Edit Production Entry"
-                : "⚙️ Add Production Entry"}
+              ⚙️ Add Production Entry
             </h5>
             {itemDetail && (
               <span
@@ -224,7 +210,6 @@ const ProductionEntryModel = ({
               teamMemberOptions={teamMemberOptions}
               loadingWarehouse={loadingWarehouse}
               loadingTeamMembers={loadingTeamMembers}
-              existingEntry={existingEntry}
               saving={saving}
               isStockCheckRequired={isStockCheckRequired}
               onSave={handleSave}

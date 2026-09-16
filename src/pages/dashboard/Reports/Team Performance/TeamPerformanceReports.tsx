@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -17,6 +15,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -939,68 +938,6 @@ const TeamPerformanceReports = ({
     }
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied
-          ? customers
-          : dataArray;
-
-    const tableData = dataToExport.map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.label] = getExportCellValue(col, customer);
-      });
-      return row;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`team_performance_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.label,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        font: "helvetica",
-        halign: "left",
-        overflow: "linebreak",
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "left",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(12);
-        doc.text("Team Performance Reports", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`team_performance_${new Date().getTime()}.pdf`);
-  };
-
   // const exportExcel = () => {
   //   const isFilterApplied = Object.values(lazyState.filters).some(
   //     (filter) => "value" in filter && filter.value !== null && filter.value !== ""
@@ -1331,25 +1268,40 @@ const TeamPerformanceReports = ({
                   }}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="team_performance_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Team_Performance_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                  footer={{
+                    sums: [
+                      { outputKey: "contactCount", sourceKey: "contactCount" },
+                      { outputKey: "inquiryCount", sourceKey: "inquiryCount" },
+                      { outputKey: "visitCount", sourceKey: "visitCount" },
+                      { outputKey: "pendingReminder", sourceKey: "pendingReminder" },
+                      { outputKey: "dueTaskCount", sourceKey: "dueTaskCount" },
+                      { outputKey: "dueSupportTicketCount", sourceKey: "dueSupportTicketCount" },
+                    ],
+                    rows: [
+                      {
+                        username: "Total",
+                        contactCount: { fromSum: "contactCount" },
+                        inquiryCount: { fromSum: "inquiryCount" },
+                        visitCount: { fromSum: "visitCount" },
+                        pendingReminder: { fromSum: "pendingReminder" },
+                        dueTaskCount: { fromSum: "dueTaskCount" },
+                        dueSupportTicketCount: { fromSum: "dueSupportTicketCount" },
+                      },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"

@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -18,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -482,76 +481,6 @@ const EmployeeAccountOutstandingReport = ({
 
   const grandTotal = payableTotal + receivableTotal;
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedEmployees.length > 0 ? selectedEmployees : filteredData
-    ).map((emp) => ({
-      employee_name: emp.employee_name || "-",
-      total_outstanding_amount: emp.total_outstanding_amount ?? "-",
-      outstanding_type: emp.outstanding_type || "-",
-    }));
-
-    const exportPayableTotal = tableData.reduce((sum, emp) => {
-      console.log("nan", sum);
-      if (emp.outstanding_type.toLowerCase() === "payable") {
-        return sum + Number(emp.total_outstanding_amount || 0);
-      }
-      return sum;
-    }, 0);
-
-    const exportReceivableTotal = tableData.reduce((sum, emp) => {
-      if (emp.outstanding_type.toLowerCase() === "receivable") {
-        return sum + Number(emp.total_outstanding_amount || 0);
-      }
-      return sum;
-    }, 0);
-
-    const exportGrandTotal = exportPayableTotal + exportReceivableTotal;
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`accounting_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      foot: [
-        [
-          `Payable:   ${exportPayableTotal}`,
-          `Receivable:   ${exportReceivableTotal}`,
-          `Grand Total:   ${exportGrandTotal}`,
-        ],
-      ],
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      footStyles: {
-        fillColor: [200, 200, 200],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text(
-          "Employee Accounting Outstanding Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-    });
-
-    doc.save(`accounting_${new Date().getTime()}.pdf`);
-  };
-
   const filteredData = useMemo(() => {
     let data = [...employees];
 
@@ -962,25 +891,41 @@ const EmployeeAccountOutstandingReport = ({
                   }}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (employees.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="employee_account_outstanding_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    globalSearch: debouncedSearchText,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    Flag: type,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="employee_account_outstanding"
+                  canShare={canShare}
+                  disabled={employees.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedEmployees}
+                  footer={{
+                    sums: [
+                      {
+                        outputKey: "payable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Payable" },
+                      },
+                      {
+                        outputKey: "receivable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Receivable" },
+                      },
+                      { outputKey: "grand", sourceKey: "total_outstanding_amount" },
+                    ],
+                    rows: [
+                      { employee_name: "Payable", total_outstanding_amount: { fromSum: "payable" } },
+                      { employee_name: "Receivable", total_outstanding_amount: { fromSum: "receivable" } },
+                      { employee_name: "Grand Total", total_outstanding_amount: { fromSum: "grand" } },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"

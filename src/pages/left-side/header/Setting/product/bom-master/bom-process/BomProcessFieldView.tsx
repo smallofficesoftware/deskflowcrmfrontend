@@ -3,7 +3,7 @@ import CustomSearchDropdown from "../../../../../../../components/CustomSearchDr
 import MultiSelect from "../../../../../../../components/MultiSelect";
 import { IMachineView } from "../../../machineManagement/Machine-managementController";
 import { IProductView } from "../../ProductController";
-import { createProcess, fetchMachineApi, searchProcessApi, updateProcess } from "./BomProcessFieldController";
+import { createProcess, fetchMachineApi, hmsToSeconds, searchProcessApi, secondsToHms, updateProcess } from "./BomProcessFieldController";
 
 interface IPropsBOM {
     show: boolean;
@@ -26,6 +26,9 @@ const BomProcessField = ({
     const [processName, setProcessName] = useState("");
     const [workstation, setWorkstation] = useState("");
     const [requiredTime, setRequiredTime] = useState("");
+    const [requiredHours, setRequiredHours] = useState("");
+    const [requiredMinutes, setRequiredMinutes] = useState("");
+    const [requiredSeconds, setRequiredSeconds] = useState("");
     const [cost, setCost] = useState("");
     const [manPowerCost, setManPowerCost] = useState("");
     const [machineList, setMachineList] = useState<IMachineView[]>([]);
@@ -70,6 +73,9 @@ const BomProcessField = ({
         setProcessName("");
         setWorkstation("");
         setRequiredTime("");
+        setRequiredHours("");
+        setRequiredMinutes("");
+        setRequiredSeconds("");
         setCost("");
         setManPowerCost("");
         setSelectedMachines([]);
@@ -118,6 +124,10 @@ const BomProcessField = ({
                 setWorkstation(ids.join(","));
             }
             setRequiredTime(editTimeData.required_time);
+            const hms = secondsToHms(editTimeData.required_time);
+            setRequiredHours(hms.hours);
+            setRequiredMinutes(hms.minutes);
+            setRequiredSeconds(hms.seconds);
             setCost(editTimeData.process_cost);
             setManPowerCost(editTimeData.manpower_cost);
         }
@@ -136,7 +146,7 @@ const BomProcessField = ({
                                             Process Name<span className="text-danger">*</span>
                                         </th>
                                         <th className="text-end">Workstation</th>
-                                        <th className="text-end">Required Time (In Minute)</th>
+                                        <th className="text-end">Required Time (H : M : S)</th>
                                         <th className="text-end">Process Cost</th>
                                         <th className="text-end">Manpower Cost</th>
                                         <th className="text-end">Action</th>
@@ -182,20 +192,43 @@ const BomProcessField = ({
                                             </div>
                                         </td>
                                         <td className="text-start">
-                                            <div className="search-bar ">
-                                                <div className="add-source-of-type-section ">
-                                                    <input
-                                                        type="text"
-                                                        title="Required Time"
-                                                        placeholder="Required Time"
-                                                        value={requiredTime}
-                                                        onChange={(e) => {
-                                                            const value = e.target.value.replace(/[^0-9]/g, "");
-                                                            setRequiredTime(value);
-                                                        }}
-                                                        style={{ textAlign: "end" }}
-                                                    />
-                                                </div>
+                                            <div className="search-bar d-flex gap-1">
+                                                <input
+                                                    type="text"
+                                                    title="Hours"
+                                                    placeholder="HH"
+                                                    value={requiredHours}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value.replace(/[^0-9]/g, "");
+                                                        setRequiredHours(value);
+                                                        setRequiredTime(String(hmsToSeconds(value, requiredMinutes, requiredSeconds)));
+                                                    }}
+                                                    style={{ textAlign: "end", width: "50px" }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    title="Minutes"
+                                                    placeholder="MM"
+                                                    value={requiredMinutes}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value.replace(/[^0-9]/g, "");
+                                                        setRequiredMinutes(value);
+                                                        setRequiredTime(String(hmsToSeconds(requiredHours, value, requiredSeconds)));
+                                                    }}
+                                                    style={{ textAlign: "end", width: "50px" }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    title="Seconds"
+                                                    placeholder="SS"
+                                                    value={requiredSeconds}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value.replace(/[^0-9]/g, "");
+                                                        setRequiredSeconds(value);
+                                                        setRequiredTime(String(hmsToSeconds(requiredHours, requiredMinutes, value)));
+                                                    }}
+                                                    style={{ textAlign: "end", width: "50px" }}
+                                                />
                                             </div>
                                         </td>
                                         <td className="text-start">

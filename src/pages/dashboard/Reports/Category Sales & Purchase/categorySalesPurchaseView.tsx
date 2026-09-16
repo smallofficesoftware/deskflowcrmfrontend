@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -19,6 +17,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -630,73 +629,6 @@ const CategorySalesPurchaseReport = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied()
-          ? getFilteredData()
-          : customers;
-    const tableData = dataToExport.map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, customer);
-      });
-      return row;
-    });
-
-    const totals: any = {};
-    visibleColumns.forEach((col) => {
-      totals[col.key] =
-        col.key === "item_category_name"
-          ? "Total"
-          : calculateColumnTotals(dataToExport, col.key);
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    tableData.push(totals);
-
-    autoTable(doc, {
-      columns: visibleColumns.map((col) => ({
-        title: col.label,
-        dataKey: col.key,
-      })),
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 10,
-        overflow: "linebreak",
-        cellPadding: 2,
-      },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(
-          "Category Wise Movement Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-      didParseCell: (data: any) => {
-        if (
-          data.row.index === tableData.length - 1 &&
-          data.row.section === "body"
-        ) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-
-    doc.save(`category_sales_purchase_${new Date().getTime()}.pdf`);
-  };
-
-
   // const exportExcel = () => {
   //      const filteredData = getFilteredData();
   //   const exportData = (
@@ -1005,25 +937,36 @@ const CategorySalesPurchaseReport = ({
                   }
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="category_sales_purchase_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Category_Wise_Movement"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedCustomers.length > 0
+                      ? [
+                          ...selectedCustomers,
+                          {
+                            item_category_name: "Total",
+                            quotation: calculateColumnTotals(selectedCustomers, "quotation"),
+                            salesorder: calculateColumnTotals(selectedCustomers, "salesorder"),
+                            salesinvoice: calculateColumnTotals(selectedCustomers, "salesinvoice"),
+                            purchaseorder: calculateColumnTotals(selectedCustomers, "purchaseorder"),
+                            purchaseinvoice: calculateColumnTotals(selectedCustomers, "purchaseinvoice"),
+                          },
+                        ]
+                      : selectedCustomers
+                  }
+                />
 
                 <li
                   className="listItem text-start"

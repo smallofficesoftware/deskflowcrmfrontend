@@ -1,4 +1,8 @@
 import React, { useState } from "react";
+import {
+  hmsToSeconds,
+  secondsToHms,
+} from "../../product/bom-master/bom-process/BomProcessFieldController";
 import { IOption } from "../JobCardController";
 import {
   IProductionEntryProcessRows,
@@ -27,6 +31,7 @@ interface IProps {
     materialId: number,
     warehouseId: number | null,
   ) => void;
+  onActualTimeChange: (processId: number, actualTimeSeconds: number) => void;
 }
 
 const ProductionEntryProcessCard = ({
@@ -39,11 +44,17 @@ const ProductionEntryProcessCard = ({
   isStockCheckRequired,
   onQtyChange,
   onWarehouseChange,
+  onActualTimeChange,
 }: IProps) => {
   const [open, setOpen] = useState(defaultOpen);
   const [activeSection, setActiveSection] = useState<
     "consumption" | "rejection"
   >("consumption");
+
+  const hms = secondsToHms(processRows.actual_time);
+  const updateTime = (hours: string, minutes: string, seconds: string) => {
+    onActualTimeChange(processRows.process_id, hmsToSeconds(hours, minutes, seconds));
+  };
 
   const subtotal = (type: "consumption" | "rejection") =>
     processRows[type].reduce((s, r) => s + r.qty, 0);
@@ -51,8 +62,9 @@ const ProductionEntryProcessCard = ({
   return (
     <div className="rounded-3 mb-2" style={{ border: "1.5px solid #e9ecef" }}>
       {/* Header */}
-      <button
+      <div
         onClick={() => setOpen(!open)}
+        role="button"
         style={{
           width: "100%",
           background: open ? "#fff5ec" : "#f8f9fa",
@@ -97,10 +109,47 @@ const ProductionEntryProcessCard = ({
             Rej: {subtotal("rejection").toFixed(3)}
           </span>
         </div>
-        <span style={{ color: "#adb5bd", fontSize: "0.75rem" }}>
-          {open ? "▲" : "▼"}
-        </span>
-      </button>
+
+        <div className="d-flex align-items-center gap-2">
+          <div
+            className="d-flex align-items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#374151" }}>
+              ⏱
+            </span>
+            <input
+              type="text"
+              placeholder="HH"
+              value={hms.hours}
+              onChange={(e) => updateTime(e.target.value.replace(/[^0-9]/g, ""), hms.minutes, hms.seconds)}
+              style={{ width: "38px", textAlign: "center", fontSize: "0.74rem", padding: "2px 4px" }}
+              className="form-control form-control-sm"
+            />
+            <span>:</span>
+            <input
+              type="text"
+              placeholder="MM"
+              value={hms.minutes}
+              onChange={(e) => updateTime(hms.hours, e.target.value.replace(/[^0-9]/g, ""), hms.seconds)}
+              style={{ width: "38px", textAlign: "center", fontSize: "0.74rem", padding: "2px 4px" }}
+              className="form-control form-control-sm"
+            />
+            <span>:</span>
+            <input
+              type="text"
+              placeholder="SS"
+              value={hms.seconds}
+              onChange={(e) => updateTime(hms.hours, hms.minutes, e.target.value.replace(/[^0-9]/g, ""))}
+              style={{ width: "38px", textAlign: "center", fontSize: "0.74rem", padding: "2px 4px" }}
+              className="form-control form-control-sm"
+            />
+          </div>
+          <span style={{ color: "#adb5bd", fontSize: "0.75rem" }}>
+            {open ? "▲" : "▼"}
+          </span>
+        </div>
+      </div>
 
       {/* Body */}
       {open && (

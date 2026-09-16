@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -20,6 +18,8 @@ import { toast } from "react-toastify";
 import { truncateText, useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
+import { ExportColumn } from "../../../../services/reportExportService";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxModal from "../../../../components/model/CheckBoxModal";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
@@ -390,6 +390,7 @@ const AllTaskReportsView = ({
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
@@ -1301,29 +1302,21 @@ const AllTaskReportsView = ({
     (col) => !col.isAttachment && col.key !== "action"
   );
 
-  const EXPORT_WIDTH_MAP: Record<string, number> = {
-    id: 10,
-    task_title: 38,
-    status_name: 40,
-    external_status_name: 70,
-    category_name: 30,
-    priority_name: 15,
-    type_name: 15,
-    task_remark: 40,
-    selected_days_names: 20,
-    task_fromdate: 28,
-    task_enddate: 28,
-    created_by_name: 28,
-    assigned_team_member_names: 32,
+  // Excel/PDF export columns, distinct from exportableColumns (the grid's
+  // own TaskColumnDef[], which carries JSX `body` renderers PDF/Excel export
+  // can't use). format: "badge" is PDF-only (xlsx ignores it) - colorKeys
+  // mirrors the grid's own badge color fallback chains exactly (see
+  // status_name/external_status_name's `body` above).
+  const BADGE_COLOR_KEYS: Record<string, string[]> = {
+    status_name: ["stage_status_color", "status_colour"],
+    external_status_name: ["external_status_color", "external_status_colour"],
   };
-
-  const EXPORT_CENTER_KEYS = new Set([
-    "id",
-    "priority_name",
-    "type_name",
-    "task_fromdate",
-    "task_enddate",
-  ]);
+  const exportColumnsWithFormat: ExportColumn[] = exportableColumns.map((col) => {
+    const colorKeys = BADGE_COLOR_KEYS[col.key];
+    return colorKeys
+      ? { key: col.key, label: col.label, format: "badge", colorKeys }
+      : { key: col.key, label: col.label };
+  });
 
   const getExportCellValue = (
     col: TaskColumnDef,
@@ -1380,148 +1373,6 @@ const AllTaskReportsView = ({
       }
     }
   };
-
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTasks.length > 0 ? selectedTasks : filteredAndSortedData;
-    const tableData = dataToExport.map((item: any) => {
-      const rowData: any = {
-        status_colour: item.stage_status_color || item.status_colour || "#eeeeee",
-        external_status_colour:
-          item.external_status_color || item.external_status_colour || "#eeeeee",
-      };
-
-      exportableColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item, "pdf");
-      });
-
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const BADGE_COLUMNS = exportableColumns
-      .filter(
-        (col) => col.key === "status_name" || col.key === "external_status_name",
-      )
-      .map((col) => col.key);
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margins = 30;
-    const usableWidth = pageWidth - margins;
-
-    const totalFixedWidth = exportableColumns.reduce(
-      (sum, col) => sum + (EXPORT_WIDTH_MAP[col.key] ?? 30),
-      0,
-    );
-
-    const scale = usableWidth / totalFixedWidth;
-
-    const COLUMN_CONFIG: Record<string, any> = Object.fromEntries(
-      exportableColumns.map((col) => [
-        col.key,
-        {
-          cellWidth: (EXPORT_WIDTH_MAP[col.key] ?? 30) * scale,
-          overflow: "linebreak",
-          ...(EXPORT_CENTER_KEYS.has(col.key) ? { halign: "center" } : {}),
-        },
-      ]),
-    );
-
-    const exportColumns = exportableColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: "linebreak",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        fontSize: 8,
-        fontStyle: "bold",
-        halign: "center",
-      },
-      columnStyles: COLUMN_CONFIG,
-      margin: { top: 20, left: 15, right: 15 },
-
-      didParseCell: (data: any) => {
-        if (
-          data.section === "body" &&
-          BADGE_COLUMNS.includes(data.column.dataKey)
-        ) {
-          data.cell.text = [];
-        }
-      },
-
-      didDrawCell: (data: any) => {
-        if (
-          data.section === "body" &&
-          BADGE_COLUMNS.includes(data.column.dataKey)
-        ) {
-          const row = tableData[data.row.index];
-          if (!row) return;
-
-          const isExternal = data.column.dataKey === "external_status_name";
-
-          const statusText =
-            (isExternal ? row.external_status_name : row.status_name) || "-";
-          const bgColor =
-            (isExternal ? row.external_status_colour : row.status_colour) ||
-            "#aaaaaa";
-
-          const hex = bgColor.replace("#", "");
-          const r = parseInt(hex.substring(0, 2), 16) || 170;
-          const g = parseInt(hex.substring(2, 4), 16) || 170;
-          const b = parseInt(hex.substring(4, 6), 16) || 170;
-
-          doc.setFontSize(10);
-          const padding = 2;
-          const textW = doc.getTextWidth(statusText);
-          const badgeW = Math.min(textW + padding * 3, data.cell.width - 4);
-          const badgeH = 5;
-          const x = data.cell.x + (data.cell.width - badgeW) / 2;
-          const y = data.cell.y + (data.cell.height - badgeH) / 2;
-
-          doc.setFillColor(r, g, b);
-          doc.roundedRect(x, y, badgeW, badgeH, 2, 2, "F");
-
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-          const textColor = brightness > 128 ? 30 : 255;
-          doc.setTextColor(textColor, textColor, textColor);
-          doc.text(statusText, x + badgeW / 2, y + badgeH / 2 + 0.5, {
-            align: "center",
-            baseline: "middle",
-            maxWidth: badgeW - 2,
-          });
-
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(8);
-        }
-      },
-
-      didDrawPage: (data: any) => {
-        doc.setFontSize(11);
-        doc.text(`${title} Report`, data.settings.margin.left, 12);
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
-
 
   const printTable = () => {
     const dataToExport =
@@ -1788,15 +1639,16 @@ const AllTaskReportsView = ({
                   <ExportExcelMenuItem
                     reportType="all_task_report"
                     filters={{
-                      selectedDates,
-                      selectedTeamMembers,
-                      selectedStageStatus,
-                      globalSearch,
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers:
+                        filters.assignedByMultiTeamMember || filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      globalSearch: debouncedSearchText || globalSearchText,
                       is_support_ticket_flag,
                       selectedContactId,
                       referenceWiseContact,
                     }}
-                    columns={exportableColumns}
+                    columns={exportColumnsWithFormat}
                     fileName={`${title}_Report`}
                     canShare={canShare}
                     disabled={allTasks.length === 0}
@@ -1806,23 +1658,27 @@ const AllTaskReportsView = ({
                     }
                   />
 
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-                      if (allTasks.length === 0) return;
-                      canShare
-                        ? exportPdf()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportPdfMenuItem
+                    reportType="all_task_report"
+                    filters={{
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers:
+                        filters.assignedByMultiTeamMember || filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      globalSearch: debouncedSearchText || globalSearchText,
+                      is_support_ticket_flag,
+                      selectedContactId,
+                      referenceWiseContact,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-pdf"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export PDF
-                  </li>
+                    columns={exportColumnsWithFormat}
+                    fileName={`${title}_Report`}
+                    canShare={canShare}
+                    disabled={allTasks.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={
+                      selectedTasks.length > 0 ? selectedTasks : undefined
+                    }
+                  />
 
                   <li
                     className="listItem text-start"

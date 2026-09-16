@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -19,6 +17,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -879,8 +878,12 @@ const ProductPendingView = ({
     return format === "pdf" ? total.replace(/₹/g, "INR") : total;
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+  // The old jsPDF export computed a per-column totals row over whatever's
+  // currently loaded (never the full server-side dataset - same limitation
+  // here) that Excel's export never had. Server-side PDF generation renders
+  // the real ₹ symbol fine, so unlike the old jsPDF this uses the "excel"
+  // formatting branch (no ₹->INR substitution) for that row.
+  const buildPdfExportRows = () => {
     const dataToExport =
       selectedCustomers.length > 0
         ? selectedCustomers
@@ -888,56 +891,12 @@ const ProductPendingView = ({
           ? customers
           : dataArray;
 
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const tableData = dataToExport.map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, customer, "pdf");
-      });
-      return row;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`product_sales_purchase_pending_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const totals: any = {};
+    const totals: any = { __isFooter: true };
     visibleColumns.forEach((col) => {
-      totals[col.key] = getExportTotalValue(col, dataToExport, "pdf");
-    });
-    tableData.push(totals);
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(
-          "Product Sales & Purchase Pending Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-      didParseCell: (data: any) => {
-        if (
-          data.row.index === tableData.length - 1 &&
-          data.row.section === "body"
-        ) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
+      totals[col.key] = getExportTotalValue(col, dataToExport, "excel");
     });
 
-    doc.save(`product_sales_purchase_pending_${new Date().getTime()}.pdf`);
+    return [...dataToExport, totals];
   };
 
   // const exportExcel = () => {
@@ -1238,25 +1197,22 @@ const ProductPendingView = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="product_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Product_Pending_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={buildPdfExportRows()}
+                />
 
                 <li
                   className="listItem text-start"
