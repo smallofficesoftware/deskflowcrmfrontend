@@ -682,6 +682,25 @@ const ProductSalesPurchaseReport = ({
     return calculateColumnTotals(dataToExport, col.key);
   };
 
+  // The old jsPDF export computed a per-column totals row over whatever's
+  // currently loaded (never the full server-side dataset - same limitation
+  // here) that Excel's export never had.
+  const buildPdfExportRows = () => {
+    const dataToExport =
+      selectedCustomers.length > 0
+        ? selectedCustomers
+        : isFilterApplied()
+          ? getFilteredData()
+          : customers;
+
+    const totals: any = { __isFooter: true };
+    visibleColumns.forEach((col) => {
+      totals[col.key] = getExportTotalValue(col, dataToExport);
+    });
+
+    return [...dataToExport, totals];
+  };
+
   const getFilteredData = () => {
     let filteredData = [...customers];
 
@@ -1025,7 +1044,7 @@ const ProductSalesPurchaseReport = ({
                   canShare={canShare}
                   disabled={customers.length === 0}
                   onSelect={() => setIsExportDropdownOpen(false)}
-                  selectedRows={selectedCustomers}
+                  selectedRows={buildPdfExportRows()}
                 />
 
                 <li

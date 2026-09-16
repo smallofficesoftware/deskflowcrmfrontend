@@ -878,6 +878,27 @@ const ProductPendingView = ({
     return format === "pdf" ? total.replace(/₹/g, "INR") : total;
   };
 
+  // The old jsPDF export computed a per-column totals row over whatever's
+  // currently loaded (never the full server-side dataset - same limitation
+  // here) that Excel's export never had. Server-side PDF generation renders
+  // the real ₹ symbol fine, so unlike the old jsPDF this uses the "excel"
+  // formatting branch (no ₹->INR substitution) for that row.
+  const buildPdfExportRows = () => {
+    const dataToExport =
+      selectedCustomers.length > 0
+        ? selectedCustomers
+        : isFilterApplied()
+          ? customers
+          : dataArray;
+
+    const totals: any = { __isFooter: true };
+    visibleColumns.forEach((col) => {
+      totals[col.key] = getExportTotalValue(col, dataToExport, "excel");
+    });
+
+    return [...dataToExport, totals];
+  };
+
   // const exportExcel = () => {
   //     const filteredData = getFilteredData();
   //   const exportData = (
@@ -1190,7 +1211,7 @@ const ProductPendingView = ({
                   canShare={canShare}
                   disabled={customers.length === 0}
                   onSelect={() => setIsExportDropdownOpen(false)}
-                  selectedRows={selectedCustomers}
+                  selectedRows={buildPdfExportRows()}
                 />
 
                 <li
