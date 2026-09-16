@@ -5,19 +5,22 @@ import {
   MESSAGE_UNKNOWN_ERROR_OCCURRED,
 } from "../../../helpers/AppConstants";
 import { TFilterDate } from "../../../helpers/AppInterface";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
 
 // Standalone flag check — separate from fetchAccountPdfmeTemplatesForPicker
 // below, whose empty-array return can't distinguish "flag is off" from
 // "flag is on but only 1 template" and callers need to tell those apart
 // (off -> legacy page/URL, on -> new popup flow either way).
-export const isDocumentDesignerEnabled = async (): Promise<boolean> => {
+export const isDocumentDesignerEnabled = async (
+  docType: "accountStatement" | "accountTransaction",
+): Promise<boolean> => {
   const companyMastersId = localStorage.getItem("COMPANY_ID");
   if (!companyMastersId) return false;
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(docType),
     });
     return data?.ack === 1 && !!data.data.item.is_enabled;
   } catch {
@@ -37,7 +40,7 @@ export const fetchAccountPdfmeTemplatesForPicker = async (
   try {
     const { data: flagData } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(docType),
     });
     if (flagData?.ack !== 1 || !flagData.data.item.is_enabled) return [];
 

@@ -41,7 +41,23 @@ import {
 import { PAGE_ID, PERMISSION_TYPE, PRINT_SETTING_TYPE_OBJ } from "../../../helpers/AppEnum";
 import { IOption } from "../../../helpers/AppInterface";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
+
+// Keep in sync with orderPrintController.ts's PDFME_DOC_TYPE_BY_CART_TYPE —
+// the set of doc types this view's "<Type> View Format" pickers gate on.
+const ORDER_PDFME_DOC_TYPES = [
+  "quotation",
+  "salesOrder",
+  "salesInvoice",
+  "purchaseInvoice",
+  "purchaseOrder",
+  "returnSalesInvoice",
+  "returnPurchaseInvoice",
+  "inward",
+  "dispatch",
+  "proformaInvoice",
+] as const;
 import useWhatsappPlatformStore from "../../../store/whatsapp/useWhatsappPlateformFlagStore";
 import {
   fetchprintSetting,
@@ -316,21 +332,26 @@ const CreateCompanyView = ({
   // isPdfmeEnabledForType pattern used in ListOrderView.tsx/
   // OrderCreateModal.tsx. workorder_view_formate is left alone — pdfme has
   // no Work Order doc type yet.
-  const [pdfmeDesignerEnabled, setPdfmeDesignerEnabled] = useState(false);
+  // One flag per doc type now (not a single blanket flag) — each "<Type>
+  // View Format" picker below only hides once ITS OWN doc type is enabled,
+  // not whenever any doc type is.
+  const [pdfmeDesignerFlags, setPdfmeDesignerFlags] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!companyToEdit?.id) {
-      setPdfmeDesignerEnabled(false);
+      setPdfmeDesignerFlags({});
       return;
     }
-    axiosInstance
-      .post("get-feature-flag", {
-        company_masters_id: companyToEdit.id,
-        feature_key: "document_designer",
-      })
-      .then(({ data }) => {
-        setPdfmeDesignerEnabled(data?.ack === 1 && !!data.data.item.is_enabled);
-      })
-      .catch(() => setPdfmeDesignerEnabled(false));
+    Promise.all(
+      ORDER_PDFME_DOC_TYPES.map((docType) =>
+        axiosInstance
+          .post("get-feature-flag", {
+            company_masters_id: companyToEdit.id,
+            feature_key: documentDesignerFeatureKeyForDocType(docType),
+          })
+          .then(({ data }) => [docType, data?.ack === 1 && !!data.data.item.is_enabled] as const)
+          .catch(() => [docType, false] as const),
+      ),
+    ).then((entries) => setPdfmeDesignerFlags(Object.fromEntries(entries)));
   }, [companyToEdit?.id]);
 
   interface ICurrency {
@@ -3997,7 +4018,7 @@ const CreateCompanyView = ({
                                       </div>
                                     </div>
                                     {/* Quotation View Format */}
-                                    {!pdfmeDesignerEnabled ? (
+                                    {!pdfmeDesignerFlags.quotation ? (
                                     <div className="col-12 col-md-3">
                                       <div className="form-group">
                                         <label
@@ -4141,7 +4162,7 @@ const CreateCompanyView = ({
                                       </div>
                                     </div>
                                     {/* profoma Invoice View Format */}
-                                    {!pdfmeDesignerEnabled ? (
+                                    {!pdfmeDesignerFlags.proformaInvoice ? (
                                     <div className="col-12 col-md-3">
                                       <div className="form-group">
                                         <label
@@ -4283,7 +4304,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.salesOrder ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4435,7 +4456,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.salesInvoice ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4590,7 +4611,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.returnSalesInvoice ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4737,7 +4758,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.purchaseOrder ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -4880,7 +4901,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.purchaseInvoice ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -5024,7 +5045,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.returnPurchaseInvoice ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -5172,7 +5193,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.inward ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label
@@ -5318,7 +5339,7 @@ const CreateCompanyView = ({
                                     </div>
                                   </div>
                                   {/* Print Version */}
-                                  {!pdfmeDesignerEnabled ? (
+                                  {!pdfmeDesignerFlags.dispatch ? (
                                   <div className="col-12 col-md-3 ">
                                     <div className="form-group">
                                       <label

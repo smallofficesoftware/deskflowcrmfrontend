@@ -12,7 +12,9 @@ import { IUserList } from "../../left-side/LeftSideController";
 import {
   fetchPdfmeTemplatesForPicker,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "../../order-print-view/orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 export interface IStageStatusView {
   order_type: number;
   name: string;
@@ -592,7 +594,7 @@ const isPdfmeEnabledForCartType = async (cartTypeId: number): Promise<boolean> =
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(cartTypeId)!),
     });
     return data?.ack === 1 && !!data.data.item.is_enabled;
   } catch {

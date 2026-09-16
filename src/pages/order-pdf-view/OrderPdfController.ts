@@ -112,6 +112,7 @@ interface IOrderCartPdf {
   state_id: number;
   state_name: string;
   city_name: string;
+  area_name: string;
   PinCode: string;
   cart_remark: string;
   referance_cart_name: string;
@@ -293,6 +294,7 @@ export interface IprintSetting {
     signSignatory: boolean;
     footerImage: boolean;
     supplyTo: boolean;
+    supplyToArea: boolean;
     closingBalance: boolean;
     productImage: boolean;
     productBottomBorder: boolean;
