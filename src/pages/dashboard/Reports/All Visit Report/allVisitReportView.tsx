@@ -4,8 +4,6 @@ import {
   Marker,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -25,6 +23,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -1140,37 +1139,6 @@ const AllVisitReportsView = ({
     dataKey: col.key,
   }));
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const dataToExport =
-      selectedVisits.length > 0 ? selectedVisits : filteredData;
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      exportableColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-    });
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
   // const exportExcel = () => {
   //   const dataToExport = selectedVisits.length > 0 ? selectedVisits : filteredData;
   //   const exportData = dataToExport.map((item) => {
@@ -1467,25 +1435,22 @@ const AllVisitReportsView = ({
                   selectedRows={selectedVisits}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (visits.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_visit_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={exportableColumns}
+                  fileName="Visit_Report"
+                  canShare={canShare}
+                  disabled={visits.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"

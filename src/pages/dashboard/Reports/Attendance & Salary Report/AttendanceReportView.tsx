@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -17,6 +15,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -624,115 +623,6 @@ const TeamAttendanceReportsView = ({
     }
   };
 
-  // ──────────────────────────────────────────────────────────────
-  //  EXPORT COLUMNS (derived from visibleColumns; date columns are
-  //  not part of the toggle system so they're always included at
-  //  their original position, right after the Team Member column)
-  // ──────────────────────────────────────────────────────────────
-  const buildExportColumns = () => [
-    ...visibleColumns
-      .filter((c) => c.key === "username")
-      .map((col) => ({ title: col.label, dataKey: col.key })),
-    ...allDates.map((date) => ({
-      title: formatDateDisplay(date),
-      dataKey: formatDate(date),
-    })),
-    ...visibleColumns
-      .filter((c) => c.key !== "username")
-      .map((col) => ({ title: col.label, dataKey: col.key })),
-  ];
-
-  const buildExportRow = (customer: IAttendanceHistory) => {
-    const row: Record<string, any> = {};
-
-    visibleColumns.forEach((col) => {
-      row[col.key] = getExportCellValue(col, customer);
-    });
-
-    // All date columns
-    allDates.forEach((date) => {
-      const formattedDate = formatDate(date);
-      const attendance = customer.attendanceData?.find(
-        (a) => a.date === formattedDate,
-      );
-      let cellValue = "-";
-      if (attendance) {
-        const status =
-          attendance.status === "L" && attendance.leave_type
-            ? `${attendance.status} (${attendance.leave_type})`
-            : attendance.status;
-        const times =
-          attendance.messages
-            ?.filter((m) => m.attendanceDate === formattedDate)
-            .map((m) => m.attendanceTime) || [];
-
-        cellValue = status; // show status first
-        if (times.length > 0) {
-          cellValue += ` (${times.join(", ")})`; // optional: include times
-        }
-      }
-      row[formattedDate] = cellValue;
-    });
-
-    return row;
-  };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-
-    // Use customers (all loaded data) or selectedCustomers
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : customers;
-
-    if (!dataToExport || dataToExport.length === 0) {
-      toast.info("No data available to export");
-      return;
-    }
-
-    const tableData = dataToExport.map((customer) => buildExportRow(customer));
-
-    autoTable(doc, {
-      columns: buildExportColumns(),
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 5, bottom: 10 },
-      columnStyles: {
-        username: { cellWidth: 28 },
-        total_working_hours: { cellWidth: 22 },
-        company_paid_leave: { cellWidth: 18 },
-        employee_paid_leave: { cellWidth: 18 },
-        paid_days_paid_hours: { cellWidth: 22 },
-        salary: { cellWidth: 18 },
-        ...allDates.reduce(
-          (acc, date) => {
-            acc[formatDate(date)] = { cellWidth: 14 };
-            return acc;
-          },
-          {} as Record<string, { cellWidth: number }>,
-        ),
-      },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("Team Attendance Report", data.settings.margin.left, 10);
-        doc.setFontSize(7);
-        doc.text(
-          "Note: Scroll or pan horizontally in your PDF viewer to see all columns.",
-          data.settings.margin.left,
-          15,
-        );
-      },
-    });
-
-    doc.save(`team_attendance_${Date.now()}.pdf`);
-  };
-
   // Export interleaves one column PER DATE in the selected range, which
   // useColumnPreferences (fixed summary columns) can't express - build the
   // export column list dynamically instead, matching the on-screen layout
@@ -1064,22 +954,24 @@ const TeamAttendanceReportsView = ({
                 }
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="attendance_report"
+                filters={{
+                  selectedDates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={buildAttendanceExportColumns()}
+                fileName="Team_Attendance_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={
+                  selectedCustomers.length > 0
+                    ? selectedCustomers.map(flattenAttendanceForExport)
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"
