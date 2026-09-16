@@ -40,6 +40,7 @@ interface PrintSettings {
     signSignatory: boolean;
     footerImage: boolean;
     supplyTo: boolean;
+    supplyToArea: boolean;
     closingBalance: boolean;
     productImage: boolean;
     productBottomBorder: boolean;
@@ -129,6 +130,7 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
         signSignatory: true,
         footerImage: true,
         supplyTo: true,
+        supplyToArea: true,
         closingBalance: true,
         productImage: true,
         productBottomBorder: true,
@@ -215,6 +217,7 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
                 signSignatory: orderById.signSignatory ?? false,
                 footerImage: orderById.footerImage ?? false,
                 supplyTo: orderById.supplyTo ?? false,
+                supplyToArea: orderById.supplyToArea ?? false,
                 closingBalance: orderById.closingBalance ?? false,
                 productImage: orderById.productImage ?? false,
                 productBottomBorder: orderById.productBottomBorder ?? false,
@@ -671,6 +674,27 @@ const PrintSettingModal: React.FC<IOrderCreateModal> = ({
                                                                 />
                                                             </div>
                                                         </div>
+                                                        {printSettings.supplyTo && (
+                                                        <div
+                                                            className="col-12"
+                                                            style={{
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                alignItems: "center",
+                                                                paddingLeft: "16px",
+                                                            }}
+                                                        >
+                                                            <div><p>Supply To — Area</p></div>
+                                                            <div className="form-check form-switch">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="form-check-input"
+                                                                    checked={printSettings.supplyToArea}
+                                                                    onChange={() => handleSwitchChange('supplyToArea')}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        )}
                                                         <div
                                                             className="col-12"
                                                             style={{
