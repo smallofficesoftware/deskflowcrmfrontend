@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -19,6 +17,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -652,55 +651,6 @@ const EmployeeTransactionReports = ({
     }
   };
 
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTransactions.length > 0 ? selectedTransactions : getExportData();
-
-    const tableData = dataToExport.map((txn) =>
-      visibleColumns.map((col) => getExportCellValue(col, txn)),
-    );
-
-    tableData.push(
-      visibleColumns.map((col) => {
-        if (col.key === "acc_series") return "Closing Balance";
-        if (col.key === "amount") {
-          return finalBalance.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-        }
-        return "";
-      }),
-    );
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No data available", 10, 10);
-      doc.save(`employee_account_transactions_${Date.now()}.pdf`);
-      return;
-    }
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    autoTable(doc, {
-      head: [visibleColumns.map((col) => col.label)],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.setFontSize(16);
-        doc.text("Employee Account Transactions Report", 14, 15);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-    doc.save(`employee_account_transactions_${Date.now()}.pdf`);
-  };
-
   const formatDate = (value: any) => {
     console.log("aaaaa", value);
     if (!value) return "";
@@ -948,22 +898,28 @@ const EmployeeTransactionReports = ({
                 }}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (transactions.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="employee_account_transaction_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName="employee_account_transactions_full"
+                canShare={canShare}
+                disabled={transactions.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedTransactions}
+                footer={{
+                  sums: [],
+                  rows: [
+                    {
+                      acc_series: "Closing Balance",
+                      contact_masters_id: `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    },
+                  ],
+                }}
+              />
 
               <li
                 className="listItem text-start"
