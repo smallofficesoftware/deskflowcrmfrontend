@@ -8,6 +8,7 @@ import {
 } from "./JobCardController";
 import { IProductionEntryListItem } from "./JobCardTypes";
 import ProductionEntryModel from "./Productionentrymodel";
+import ProductionEntryViewModel from "./ProductionEntryViewModel";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
@@ -46,9 +47,10 @@ const ProductionEntryListModel = ({
   const [entries, setEntries] = useState<IProductionEntryListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Add / Edit form modal
+  // Add form
   const [showForm, setShowForm] = useState(false);
-  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  // Read-only view popup
+  const [viewEntryId, setViewEntryId] = useState<number | null>(null);
 
   const [deleteEntryId, setDeleteEntryId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,16 +79,21 @@ const ProductionEntryListModel = ({
 
   const handleAdd = () => {
     if (canAdd) {
-      setEditingEntryId(null);
       setShowForm(true);
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
 
-  const handleEdit = (entry: IProductionEntryListItem) => {
-    /*  setEditingEntryId(entry.id);
-    setShowForm(true); */
+  // Entries are never edited in place — each production run is a distinct,
+  // immutable record (its stock adjustments are tied to it). Clicking a row
+  // opens it read-only; "+ Add Production Entry" is the only way to record one.
+  const handleView = (entry: IProductionEntryListItem) => {
+    if (canView) {
+      setViewEntryId(entry.id);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
   };
 
   // 1. Opens the custom modal
@@ -247,7 +254,7 @@ const ProductionEntryListModel = ({
                 entries.map((entry) => (
                   <button
                     key={entry.id}
-                    onClick={() => handleEdit(entry)}
+                    onClick={() => handleView(entry)}
                     className="w-100 text-start rounded-3 mb-2 p-3"
                     style={{
                       background: "#fafafa",
@@ -377,16 +384,24 @@ const ProductionEntryListModel = ({
         </div>
       </div>
 
-      {/* Add / Edit form */}
+      {/* Add form */}
       {showForm && (
         <ProductionEntryModel
           show={showForm}
           onHide={() => setShowForm(false)}
           jobId={jobId}
           order_item_id={order_item_id}
-          entryId={editingEntryId}
           isStockCheckRequired={isStockCheckRequired}
           onSaved={handleFormSaved}
+        />
+      )}
+
+      {/* Read-only view of an existing entry */}
+      {viewEntryId != null && (
+        <ProductionEntryViewModel
+          show={viewEntryId != null}
+          onHide={() => setViewEntryId(null)}
+          entryId={viewEntryId}
         />
       )}
 

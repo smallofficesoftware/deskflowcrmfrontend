@@ -6,6 +6,26 @@ import { IMachineView } from "../../../machineManagement/Machine-managementContr
 import { IProcessView } from "../../../process-master/ProcessMasterController";
 
 
+export const hmsToSeconds = (hours: string, minutes: string, seconds: string): number =>
+    (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
+
+export const secondsToHms = (totalSeconds: any) => {
+    const total = Number(totalSeconds) || 0;
+    return {
+        hours: String(Math.floor(total / 3600)),
+        minutes: String(Math.floor((total % 3600) / 60)),
+        seconds: String(Math.floor(total % 60)),
+    };
+};
+
+export const formatSecondsToHms = (totalSeconds: any): string => {
+    const total = Number(totalSeconds) || 0;
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = Math.floor(total % 60);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
 export const fetchMachineApi = async (inputValue: string) => {
     const getUUID = localStorage.getItem("UUID");
 

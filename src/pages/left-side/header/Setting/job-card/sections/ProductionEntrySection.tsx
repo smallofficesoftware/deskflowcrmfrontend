@@ -4,9 +4,9 @@ import { fetchWarehouseStockBatch, IOption } from "../JobCardController";
 import {
   IBomMaterial,
   IBomProcess,
-  IProductionEntryDetail,
   IProductionEntryMaterialPayload,
   IProductionEntryProcessRows,
+  IProductionEntryProcessTimePayload,
   IProductionEntryRow,
   IProductionEntrySavePayload,
   ITeamMemberOption,
@@ -15,8 +15,8 @@ import {
   WarehouseStockMap,
 } from "../JobCardTypes";
 import CustomSearchDropdown from "../../../../../../components/CustomSearchDropdown";
+import { formatSecondsToHms } from "../../product/bom-master/bom-process/BomProcessFieldController";
 import ProductionEntryProcessCard from "./ProductionEntryProcessCard";
-// import ProductionEntryProcessCard from "./ProductionEntryProcessCard";
 
 interface IProps {
   jobId: number;
@@ -29,7 +29,6 @@ interface IProps {
   teamMemberOptions: ITeamMemberOption[];
   loadingWarehouse: boolean;
   loadingTeamMembers: boolean;
-  existingEntry: IProductionEntryDetail | null; // pre-fill when editing
   saving: boolean;
   isStockCheckRequired: boolean; // true = insufficient consumption stock blocks Save
   onSave: (payload: IProductionEntrySavePayload) => void;
@@ -90,26 +89,11 @@ const buildEntries = (
         defaultWarehouseId,
         prev?.rejection,
       ),
+      actual_time: prev?.actual_time ?? 0,
     };
   });
   return result;
 };
-
-// Overlay a saved entry's items onto freshly-built rows, marking them `edited`
-// so they don't get silently recalculated.
-const overlaySavedItems = (
-  rows: IProductionEntryRow[],
-  saved: IProductionEntryMaterialPayload[],
-  processId: number,
-): IProductionEntryRow[] =>
-  rows.map((r) => {
-    const match = saved.find(
-      (s) => s.process_id === processId && s.material_id === r.material_id,
-    );
-    return match
-      ? { ...r, qty: match.qty, warehouse_id: match.warehouse_id, edited: true }
-      : r;
-  });
 
 const ProductionEntrySection = ({
   order_item_id,
@@ -122,36 +106,19 @@ const ProductionEntrySection = ({
   teamMemberOptions,
   loadingWarehouse,
   loadingTeamMembers,
-  existingEntry,
   isStockCheckRequired,
   saving,
   onSave,
 }: IProps) => {
-  const [producedQtyStr, setProducedQtyStr] = useState(
-    existingEntry ? String(existingEntry.produced_qty) : "",
-  );
+  const [producedQtyStr, setProducedQtyStr] = useState("");
   const producedQty = parseFloat(producedQtyStr) || 0;
   const isValidQty = producedQty > 0;
 
-  // ── Header fields (pre-filled if editing an existing entry) ──
-  const [remark, setRemark] = useState(existingEntry?.remark ?? "");
-  const [entryDate, setEntryDate] = useState(
-    existingEntry?.entry_date || todayIso(),
-  );
+  // ── Header fields ──
+  const [remark, setRemark] = useState("");
+  const [entryDate, setEntryDate] = useState(todayIso());
   const [selectedTeamMember, setSelectedTeamMember] =
     useState<SingleValue<IOption>>(null);
-
-  // Team member option arrives asynchronously — match it once the list loads
-  useEffect(() => {
-    if (!existingEntry?.team_member_id || teamMemberOptions.length === 0)
-      return;
-    const match = teamMemberOptions.find(
-      (t) => t.value === existingEntry.team_member_id,
-    );
-    if (match)
-      setSelectedTeamMember({ value: match.value, label: match.label });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingEntry, teamMemberOptions]);
 
   // ── Default warehouse: auto-selected only when exactly one option exists ──
   const defaultWarehouse: IOption | null =
@@ -163,66 +130,31 @@ const ProductionEntrySection = ({
   const [finishGoodWarehouse, setFinishGoodWarehouse] =
     useState<SingleValue<IOption>>(null);
 
-  // Pre-fill from an existing entry, or fall back to the single-warehouse default
+  // Fall back to the single-warehouse default once warehouses load
   useEffect(() => {
     if (warehouseOptions.length === 0) return;
-    if (existingEntry?.finish_good_warehouse_id != null) {
-      const match = warehouseOptions.find(
-        (w) => w.value === existingEntry.finish_good_warehouse_id,
-      );
-      if (match) {
-        setFinishGoodWarehouse({ value: match.value, label: match.label });
-        return;
-      }
-    }
     if (!finishGoodWarehouse && defaultWarehouse)
       setFinishGoodWarehouse(defaultWarehouse);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [warehouseOptions, existingEntry, defaultWarehouse]);
+  }, [warehouseOptions, defaultWarehouse]);
 
   // ── Editable entries, keyed by process id ──
   const [entriesByProcess, setEntriesByProcess] = useState<
     Record<number, IProductionEntryProcessRows>
   >({});
-  const seededRef = React.useRef(false);
 
   useEffect(() => {
-    setEntriesByProcess((prev) => {
-      const rebuilt = buildEntries(
+    setEntriesByProcess((prev) =>
+      buildEntries(
         bomProcesses,
         producedQty,
         orderQty,
         defaultWarehouse?.value != null ? Number(defaultWarehouse.value) : null,
         prev,
-      );
-
-      // First time we have both BOM + an existing entry to edit, overlay the
-      // saved qty/warehouse values so the form opens pre-filled.
-      if (!seededRef.current && existingEntry && bomProcesses.length > 0) {
-        Object.values(rebuilt).forEach((p) => {
-          p.consumption = overlaySavedItems(
-            p.consumption,
-            existingEntry.consumption_items,
-            p.process_id,
-          );
-          p.rejection = overlaySavedItems(
-            p.rejection,
-            existingEntry.rejection_items,
-            p.process_id,
-          );
-        });
-        seededRef.current = true;
-      }
-      return rebuilt;
-    });
+      ),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    bomProcesses,
-    producedQty,
-    orderQty,
-    defaultWarehouse?.value,
-    existingEntry,
-  ]);
+  }, [bomProcesses, producedQty, orderQty, defaultWarehouse?.value]);
 
   // ── Row edit handlers ──
 
@@ -243,6 +175,17 @@ const ProductionEntrySection = ({
             r.material_id === materialId ? { ...r, qty, edited: true } : r,
           ),
         },
+      };
+    });
+  };
+
+  const handleActualTimeChange = (processId: number, actualTimeSeconds: number) => {
+    setEntriesByProcess((prev) => {
+      const proc = prev[processId];
+      if (!proc) return prev;
+      return {
+        ...prev,
+        [processId]: { ...proc, actual_time: actualTimeSeconds },
       };
     });
   };
@@ -338,6 +281,15 @@ const ProductionEntrySection = ({
       ]),
     [entriesByProcess],
   );
+
+  const totalActualTime = useMemo(
+    () =>
+      Object.values(entriesByProcess).reduce(
+        (sum, p) => sum + (p.actual_time || 0),
+        0,
+      ),
+    [entriesByProcess],
+  );
   const missingWarehouse = allRows.some((r) => r.warehouse_id == null);
 
   const insufficientConsumption =
@@ -374,6 +326,7 @@ const ProductionEntrySection = ({
   const handleSaveClick = () => {
     const consumption_items: IProductionEntryMaterialPayload[] = [];
     const rejection_items: IProductionEntryMaterialPayload[] = [];
+    const process_times: IProductionEntryProcessTimePayload[] = [];
 
     Object.values(entriesByProcess).forEach((p) => {
       p.consumption.forEach((r) =>
@@ -392,6 +345,12 @@ const ProductionEntrySection = ({
           qty: r.qty,
         }),
       );
+      if (p.actual_time > 0) {
+        process_times.push({
+          process_id: p.process_id,
+          actual_time: p.actual_time,
+        });
+      }
     });
 
     onSave({
@@ -409,23 +368,12 @@ const ProductionEntrySection = ({
         : null,
       consumption_items,
       rejection_items,
+      process_times,
     });
   };
 
   return (
     <div>
-      {existingEntry && (
-        <div
-          className="d-flex align-items-center gap-2 rounded-2 px-3 py-2 mb-3"
-          style={{ background: "#eef6ff", border: "1px solid #bfdbfe" }}
-        >
-          <span style={{ fontSize: "1rem" }}>✏️</span>
-          <span style={{ fontSize: "0.78rem", color: "#1e40af" }}>
-            Editing an existing production entry.
-          </span>
-        </div>
-      )}
-
       {/* Production Qty + Finish Good Warehouse */}
       <div
         className="rounded-3 p-3 mb-3"
@@ -582,6 +530,7 @@ const ProductionEntrySection = ({
                 isStockCheckRequired={isStockCheckRequired}
                 onQtyChange={handleQtyChange}
                 onWarehouseChange={handleWarehouseChange}
+                onActualTimeChange={handleActualTimeChange}
               />
             );
           })}
@@ -607,6 +556,14 @@ const ProductionEntrySection = ({
         className="rounded-3 p-3 mt-3"
         style={{ background: "#fafafa", border: "1.5px solid #e9ecef" }}
       >
+        {totalActualTime > 0 && (
+          <div
+            className="d-flex align-items-center justify-content-end gap-2 mb-2"
+            style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}
+          >
+            ⏱ Total Actual Time: {formatSecondsToHms(totalActualTime)}
+          </div>
+        )}
         {blockedReason && (
           <div className="text-danger mb-2" style={{ fontSize: "0.76rem" }}>
             ⚠ {blockedReason}
@@ -635,8 +592,6 @@ const ProductionEntrySection = ({
                 />
                 Saving…
               </>
-            ) : existingEntry ? (
-              "💾 Update Production Entry"
             ) : (
               "💾 Save Production Entry"
             )}
