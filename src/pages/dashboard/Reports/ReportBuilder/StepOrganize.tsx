@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { REPORT_ICON_PATHS, ReportIcon } from "../../../side-view/reportIcons";
-import ManageGroupsModal from "./ManageGroupsModal";
-import { IMetricEntry, IModelRegistryEntry, IReportGroup, listReportGroups } from "./ReportBuilderController";
+import { IMetricEntry, IModelRegistryEntry, REPORT_CATEGORIES } from "./ReportBuilderController";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
 interface StepOrganizeProps {
@@ -75,20 +74,12 @@ const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (
 );
 
 // Step 4 of the wizard — ported field-for-field from ReportBuilderView.tsx's
-// existing group-select + icon-picker row. Fetches its own report_groups
-// list (small, per-company, same "list is already scoped and small"
-// reasoning the Saved Reports search box relies on) rather than threading
-// it down from ReportBuilderWizardView.tsx, so ManageGroupsModal's own
-// create/rename/delete only has to refresh state that lives right here.
+// existing group-select + icon-picker row. Category is now a fixed pick
+// from REPORT_CATEGORIES (same taxonomy SideBarView.tsx's openMenu keys
+// already group every built-in report by) instead of a tenant-created
+// report_groups list, so there's no more "manage groups" CRUD here.
 const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) => {
   const store = useReportBuilderStore();
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
-  const [showManageGroups, setShowManageGroups] = useState(false);
-
-  const loadReportGroups = async () => setReportGroups(await listReportGroups());
-  useEffect(() => {
-    loadReportGroups();
-  }, []);
 
   const columnLabelMap = buildColumnLabelMap(selectedModel);
   const metricLabelMap: Record<string, string> = {};
@@ -128,26 +119,20 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
 
       <div className="mb-3">
         <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>
-          Group
+          Category
         </label>
-        <div className="d-flex gap-1">
-          <select
-            className="form-select form-select-sm"
-            style={{ maxWidth: 260 }}
-            value={store.reportGroupId ?? ""}
-            onChange={(e) => store.setReportGroupId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">Ungrouped</option>
-            {reportGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.group_name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setShowManageGroups(true)}>
-            Groups
-          </button>
-        </div>
+        <select
+          className="form-select form-select-sm"
+          style={{ maxWidth: 260 }}
+          value={store.category}
+          onChange={(e) => store.setCategory(e.target.value)}
+        >
+          {REPORT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="mb-2">
@@ -203,8 +188,6 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
           })}
         </div>
       </div>
-
-      <ManageGroupsModal show={showManageGroups} onClose={() => setShowManageGroups(false)} onChanged={loadReportGroups} />
     </div>
   );
 };

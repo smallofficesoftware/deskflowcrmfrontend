@@ -87,9 +87,10 @@ export interface IReportDefinition {
   // generalFilterAdapter.ts's SLOT_LABELS) the author picked as this
   // report's default — null means "show every slot this table has."
   filters_to_show?: string | null;
-  // Step 10 — tenant-defined organization (report_groups.id). Distinct
-  // from the system gallery's admin-fixed `category`. null = ungrouped.
-  report_group_id?: number | null;
+  // Fixed category (same taxonomy SideBarView.tsx's openMenu keys already
+  // group every built-in report by) — replaces the old tenant-created
+  // report_group_id. null = "Others" (backend default).
+  category?: string | null;
   description?: string | null;
   // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) shown on this
   // report's tile — null falls back to "report".
@@ -196,9 +197,9 @@ export interface IRunnableReportDefinition {
   id: number;
   name: string;
   type: string;
-  // No "category" here — that column only ever existed on the master-DB
-  // system gallery, never on a tenant's own report_definitions. Tenant
-  // organization uses report_group_id instead (Step 10).
+  // Fixed category (same taxonomy SideBarView.tsx's openMenu keys already
+  // group every built-in report by).
+  category: string | null;
   description: string | null;
   // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) — null falls
   // back to "report".
@@ -215,9 +216,6 @@ export interface IRunnableReportDefinition {
   // Step 9's Drill Down — query-type only (empty for plugin/composite).
   // Just the column-key list, no aggregate/having internals.
   group_by_columns: string[];
-  // Step 10 — which report_groups bucket this falls into on the "Custom
-  // Reports" tile grid; null = the "Ungrouped" bucket.
-  report_group_id: number | null;
   // Build-time showInGrid:false picks, reduced to bare display-keys (same
   // key-derivation the backend's resolveDisplayColumns() uses) — the run
   // screen derives its column list from the returned ROWS, not from
@@ -233,65 +231,25 @@ export interface IRunnableReportDefinition {
   column_formats: Record<string, IColumnFormat>;
 }
 
-// Step 10 — Report groups. Flat, single-level; read (list) is flag-only/
-// no-PIN (group names sit at the same non-sensitive tier `category`/
-// `description` already do — every viewer needs them to render tile
-// bucket headers, not just the owner); create/update/delete stay
-// build-tier owner+PIN.
-export interface IReportGroup {
-  id: number;
-  company_masters_id: number;
-  group_name: string;
-  display_order: number;
-}
-
-export const listReportGroups = async (): Promise<IReportGroup[]> => {
-  try {
-    const { data } = await axiosInstance.post("report-groups/list", { a_application_login_id: loginId() });
-    if (data?.ack === 1) return data.data.item;
-    reportError(data, "Failed to load report groups");
-    return [];
-  } catch (error) {
-    handleError(error, "Failed to load report groups");
-    return [];
-  }
-};
-
-export const createReportGroup = async (group_name: string, display_order?: number): Promise<IReportGroup | null> => {
-  try {
-    const { data } = await axiosInstance.post("report-groups/create", { a_application_login_id: loginId(), group_name, display_order });
-    if (data?.ack === 1) return data.data.item;
-    reportError(data, "Failed to create report group");
-    return null;
-  } catch (error) {
-    handleError(error, "Failed to create report group");
-    return null;
-  }
-};
-
-export const updateReportGroup = async (id: number, group_name: string, display_order?: number): Promise<boolean> => {
-  try {
-    const { data } = await axiosInstance.post(`report-groups/${id}/update`, { a_application_login_id: loginId(), group_name, display_order });
-    if (data?.ack === 1) return true;
-    reportError(data, "Failed to update report group");
-    return false;
-  } catch (error) {
-    handleError(error, "Failed to update report group");
-    return false;
-  }
-};
-
-export const deleteReportGroup = async (id: number): Promise<boolean> => {
-  try {
-    const { data } = await axiosInstance.post(`report-groups/${id}/delete`, { a_application_login_id: loginId() });
-    if (data?.ack === 1) return true;
-    reportError(data, "Failed to delete report group");
-    return false;
-  } catch (error) {
-    handleError(error, "Failed to delete report group");
-    return false;
-  }
-};
+// Same fixed taxonomy SideBarView.tsx's openMenu keys already group every
+// built-in report by — replaces the old tenant-created report_groups.
+export const REPORT_CATEGORIES = [
+  "CompanySetup",
+  "HR",
+  "Activities",
+  "CRM",
+  "HRMS",
+  "Production",
+  "Account",
+  "Automation",
+  "Settings",
+  "Masters",
+  "Product Settings",
+  "Others",
+  "new reports",
+  "Inventory",
+  "CS",
+] as const;
 
 // Step 8a — Scheduling. recipients mixes internal team members (logins,
 // picked from the same team-member list Manage Access already fetches)
@@ -485,7 +443,7 @@ export interface IReportDefinitionPayload {
   filters_json?: any;
   group_by_json?: any;
   filters_to_show?: number[];
-  report_group_id?: number | null;
+  category?: string | null;
   description?: string | null;
   icon?: string | null;
 }

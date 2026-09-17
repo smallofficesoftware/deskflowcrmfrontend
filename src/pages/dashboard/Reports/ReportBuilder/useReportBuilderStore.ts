@@ -79,12 +79,12 @@ interface ReportBuilderFormState {
   // default they land on. Empty array (the default) means "show every
   // slot this table has" — same as omitting it.
   filtersToShow: number[];
-  // Step 10 — tenant-defined organization (report_groups.id), orthogonal
-  // to type/model_key so it's never reset when either changes. null =
-  // ungrouped.
-  reportGroupId: number | null;
+  // Fixed category (same taxonomy SideBarView.tsx's openMenu keys already
+  // group every built-in report by), orthogonal to type/model_key so it's
+  // never reset when either changes.
+  category: string;
   // Report-picker search matches name + description (Step 5's "Search
-  // scope" decision) — orthogonal to type/model_key, same as reportGroupId.
+  // scope" decision) — orthogonal to type/model_key, same as category.
   description: string;
   // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key) for this report's
   // tile — "" means "use the default (report)".
@@ -112,7 +112,7 @@ interface ReportBuilderFormState {
   setFilterValue: (column: string, value: string) => void;
   toggleMetric: (metricKey: string) => void;
   toggleFilterSlot: (slot: number) => void;
-  setReportGroupId: (id: number | null) => void;
+  setCategory: (category: string) => void;
   loadForEdit: (definition: IReportDefinition) => void;
   reset: () => void;
 }
@@ -135,7 +135,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
   groupBy: [],
   metricKeys: [],
   filtersToShow: [],
-  reportGroupId: null,
+  category: "Others",
   description: "",
   icon: "",
 
@@ -221,7 +221,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       filtersToShow: state.filtersToShow.includes(slot) ? state.filtersToShow.filter((s) => s !== slot) : [...state.filtersToShow, slot],
     })),
 
-  setReportGroupId: (reportGroupId) => set({ reportGroupId }),
+  setCategory: (category) => set({ category }),
 
   loadForEdit: (definition) => {
     // composite-type columns_json is already the metric-keys string array —
@@ -239,7 +239,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
         groupBy: [],
         metricKeys,
         filtersToShow: [],
-        reportGroupId: definition.report_group_id ?? null,
+        category: definition.category || "Others",
         description: definition.description || "",
         icon: definition.icon || "",
       });
@@ -273,7 +273,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       groupBy,
       metricKeys: [],
       filtersToShow: definition.filters_to_show ? JSON.parse(definition.filters_to_show) : [],
-      reportGroupId: definition.report_group_id ?? null,
+      category: definition.category || "Others",
       description: definition.description || "",
       icon: definition.icon || "",
     });
@@ -291,7 +291,7 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       groupBy: [],
       metricKeys: [],
       filtersToShow: [],
-      reportGroupId: null,
+      category: "Others",
       description: "",
       icon: "",
     }),

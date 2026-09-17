@@ -1,11 +1,10 @@
 import { useContext, useEffect, useState } from "react";
 import { AppContext } from "../../common/AppContext";
-import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import { PAGE_ID, PERMISSION_TYPE } from "../../helpers/AppEnum";
 import {
-  IReportGroup,
   IRunnableReportDefinition,
-  listReportGroups,
   listRunnableReportDefinitions,
+  REPORT_CATEGORIES,
 } from "../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import { ReportIcon } from "./reportIcons";
 import { reportsMenuData } from "./reportsMenuData";
@@ -61,17 +60,12 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
   // merged into that data shape — reportsMenuData stays untouched.
   const [customReports, setCustomReports] = useState<IRunnableReportDefinition[]>([]);
   const [loadingCustomReports, setLoadingCustomReports] = useState(true);
-  // Step 10 — report groups. Flag-only/no-PIN read (same tier
-  // list-runnable's own category/description already sit at), so any
-  // run-tier viewer can render group headers, not just the owner.
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
 
   useEffect(() => {
     listRunnableReportDefinitions().then((rows) => {
       setCustomReports(rows);
       setLoadingCustomReports(false);
     });
-    listReportGroups().then(setReportGroups);
   }, []);
 
   const filteredCustomReports = customReports.filter((r) =>
@@ -80,23 +74,18 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     r.description?.toLowerCase().includes(searchValue.toLowerCase()),
   );
 
-  // Bucketed by report_group_id, in the tenant's own display_order, with
-  // an "Ungrouped" bucket last for anything with no group_id (or one that
-  // no longer resolves to a live group). When no groups exist at all,
-  // this collapses to a single "Ungrouped" bucket — rendered as one flat
-  // section below (no sub-heading), so a tenant who never created groups
-  // sees no visual change from before this feature existed.
-  const sortedGroups = [...reportGroups].sort((a, b) => a.display_order - b.display_order);
-  const reportsByGroup: { group: IReportGroup | null; reports: IRunnableReportDefinition[] }[] = [
-    ...sortedGroups.map((group) => ({
-      group,
-      reports: filteredCustomReports.filter((r) => r.report_group_id === group.id),
-    })),
-    {
-      group: null,
-      reports: filteredCustomReports.filter((r) => !sortedGroups.some((g) => g.id === r.report_group_id)),
-    },
-  ].filter((bucket) => bucket.reports.length > 0);
+  // Bucketed by the fixed category taxonomy (REPORT_CATEGORIES — same
+  // list SideBarView.tsx's openMenu keys already group every built-in
+  // report by), in that fixed order. A sub-heading only renders once more
+  // than one category is actually present — a tenant whose reports are
+  // all "Others" (the default) sees the same flat grid as before this
+  // feature existed.
+  const reportsByGroup: { category: string; reports: IRunnableReportDefinition[] }[] = REPORT_CATEGORIES
+    .map((category) => ({
+      category,
+      reports: filteredCustomReports.filter((r) => (r.category || "Others") === category),
+    }))
+    .filter((bucket) => bucket.reports.length > 0);
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -140,6 +129,13 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     }))
     .filter((menu) => menu.subMenus.length > 0);
 
+  // Same gate Setting.tsx's old "Report Builder" menu item used
+  // (isCompanyOwnerForReportBuilder || REPORT_BUILDER view rights) — the
+  // owner side of that check isn't available here, so this is the
+  // rights-only half; a non-owner still needs an explicit grant to see
+  // "+ Add Report".
+  const canAddReport = hasPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
+
   const filteredMenus = permissionFilteredMenus
     .map((menu) => {
       if (!searchValue) return menu;
@@ -165,40 +161,61 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
         }
       `}</style>
 
-      <div style={{ position: "relative", maxWidth: "400px", marginBottom: "24px" }}>
-        <input
-          type="text"
-          placeholder="Search Reports..."
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          className="form-control"
-          style={{
-            padding: "10px 14px",
-            borderRadius: "10px",
-            border: "1px solid #d1d5db",
-            background: "#fff",
-          }}
-        />
-        {searchValue && (
-          <span
-            onClick={() => setSearchValue("")}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+        <div style={{ position: "relative", maxWidth: "400px", flex: 1 }}>
+          <input
+            type="text"
+            placeholder="Search Reports..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="form-control"
             style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              cursor: "pointer",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              border: "1px solid #d1d5db",
+              background: "#fff",
+            }}
+          />
+          {searchValue && (
+            <span
+              onClick={() => setSearchValue("")}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                cursor: "pointer",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                height="20px"
+                viewBox="0 -960 960 960"
+                width="20px"
+                fill="#5f6368"
+              >
+                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+              </svg>
+            </span>
+          )}
+        </div>
+        {canAddReport && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => onReportClick("report_builder_new")}
+            style={{
+              flexShrink: 0,
+              padding: "10px 16px",
+              borderRadius: "10px",
+              border: "none",
+              background: THEME_COLOR,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: "13px",
             }}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="20px"
-              viewBox="0 -960 960 960"
-              width="20px"
-              fill="#5f6368"
-            >
-              <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-            </svg>
-          </span>
+            + Add Report
+          </button>
         )}
       </div>
 
@@ -304,15 +321,11 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
           {customReports.length === 0 ? (
             <div className="text-muted" style={{ fontSize: "13px" }}>No reports available yet.</div>
           ) : (
-            reportsByGroup.map(({ group, reports }) => (
-              <div key={group?.id ?? "ungrouped"} style={{ marginBottom: "20px" }}>
-                {/* A sub-heading appears only once this tenant actually has
-                    groups — a tenant who never created any sees the exact
-                    same flat grid as before this feature existed (single
-                    bucket, group: null, no heading rendered). */}
-                {sortedGroups.length > 0 && (
+            reportsByGroup.map(({ category, reports }) => (
+              <div key={category} style={{ marginBottom: "20px" }}>
+                {reportsByGroup.length > 1 && (
                   <div style={{ fontSize: "13px", fontWeight: 600, color: "#4a4a4a", marginBottom: "8px" }}>
-                    {group?.group_name ?? "Ungrouped"}
+                    {category}
                   </div>
                 )}
                 <div

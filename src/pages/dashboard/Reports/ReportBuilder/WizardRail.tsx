@@ -18,21 +18,21 @@ interface WizardRailProps {
   // marked "N/A" rather than hidden, so the 4-step shape stays constant
   // and Continue/Back (in the wizard view, not here) can skip over them.
   notApplicableSteps?: Set<number>;
-  advanced: boolean;
-  onAdvancedChange: (value: boolean) => void;
   onGoto: (step: number) => void;
 }
 
 // Left-rail step nav — mirrors the approved wizard mock's rail (step
-// buttons + an "Advanced mode" toggle at the bottom), rebuilt as a real
-// component instead of the mock's vanilla-JS render function since this
-// now drives actual React state (ReportBuilderWizardView.tsx). Visual pass
+// buttons), rebuilt as a real component instead of the mock's vanilla-JS
+// render function since this now drives actual React state
+// (ReportBuilderWizardView.tsx). Advanced mode is always on now (its own
+// toggle removed) — every field that used to be advanced-only shows
+// unconditionally. Visual pass
 // #4: wrapped in the same card treatment (radius/shadow) the rest of this
 // feature already uses (ReportBuilderListView.tsx's report tiles), and a
 // connecting line between step dots — a small, real "progress" affordance
 // the earlier flat list didn't have, not present in the base mock either
 // but consistent with how a stepper reads.
-const WizardRail: React.FC<WizardRailProps> = ({ steps, activeStep, furthest, notApplicableSteps, advanced, onAdvancedChange, onGoto }) => (
+const WizardRail: React.FC<WizardRailProps> = ({ steps, activeStep, furthest, notApplicableSteps, onGoto }) => (
   <nav
     style={{
       width: 240,
@@ -102,18 +102,6 @@ const WizardRail: React.FC<WizardRailProps> = ({ steps, activeStep, furthest, no
           </React.Fragment>
         );
       })}
-    </div>
-
-    <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, marginTop: 16 }}>
-      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, cursor: "pointer" }}>
-        <span>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1a1a" }}>Advanced mode</div>
-          <div style={{ fontSize: 10.5, color: "#8a8a8a", maxWidth: 160 }}>
-            Report type, plugin/team-metrics sources, group-by, general filter defaults
-          </div>
-        </span>
-        <input type="checkbox" checked={advanced} onChange={(e) => onAdvancedChange(e.target.checked)} style={{ flexShrink: 0 }} />
-      </label>
     </div>
   </nav>
 );

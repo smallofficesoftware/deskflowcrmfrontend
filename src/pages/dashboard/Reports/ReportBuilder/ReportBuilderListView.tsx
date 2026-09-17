@@ -1,3 +1,4 @@
+import { Button } from "primereact/button";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
@@ -5,7 +6,6 @@ import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
 import { ReportIcon } from "../../../side-view/reportIcons";
-import ManageGroupsModal from "./ManageGroupsModal";
 import {
   copyFromSystemReportDefinition,
   createReportSchedule,
@@ -19,12 +19,10 @@ import {
   IDataScope,
   IModelRegistryEntry,
   IReportDefinition,
-  IReportGroup,
   IReportSchedule,
   ISystemReportDefinition,
   importReportDefinitionFile,
   listReportDefinitions,
-  listReportGroups,
   listReportSchedules,
   listSystemReportDefinitions,
   saveReportTeamRights,
@@ -42,7 +40,13 @@ import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 // pieces 1-5), reached via "New Report" / a card's "Edit" button — this
 // view holds no useReportBuilderStore reference at all, it only reads
 // already-saved IReportDefinition rows.
-const ReportBuilderListView: React.FC = () => {
+interface IProps {
+  onHide: () => void;
+  onNewReport: () => void;
+  onEditReport: (id: number) => void;
+}
+
+const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditReport }) => {
   const navigate = useNavigate();
 
   // Report Builder's backend routes no longer require the owner PIN
@@ -55,7 +59,6 @@ const ReportBuilderListView: React.FC = () => {
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
   const [definitions, setDefinitions] = useState<IReportDefinition[]>([]);
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
   const [exportingId, setExportingId] = useState<number | null>(null);
@@ -65,8 +68,6 @@ const ReportBuilderListView: React.FC = () => {
   const [galleryReports, setGalleryReports] = useState<ISystemReportDefinition[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [copyingId, setCopyingId] = useState<number | null>(null);
-
-  const [showManageGroups, setShowManageGroups] = useState(false);
 
   // Manage Access (Step 7) — "none" means no grant at all (removed or
   // never granted); the map only ever holds one entry per login, no
@@ -115,15 +116,12 @@ const ReportBuilderListView: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadReportGroups = async () => setReportGroups(await listReportGroups());
-
   const loadListData = async () => {
     setLoadingList(true);
     const [reg, defs] = await Promise.all([getModelRegistry(), listReportDefinitions()]);
     setRegistry(reg);
     setDefinitions(defs);
     setLoadingList(false);
-    loadReportGroups();
   };
 
   useEffect(() => {
@@ -269,8 +267,7 @@ const ReportBuilderListView: React.FC = () => {
   // DocumentDesignerView.tsx already uses (one shared pending-action slot,
   // driven by the app's own ConfirmationModal instead of a native dialog).
   // Deleting a report or a schedule are the only two destructive actions on
-  // this screen (Manage Groups' own delete lives in ManageGroupsModal.tsx,
-  // gets its own copy of this same pattern).
+  // this screen.
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
 
@@ -383,7 +380,7 @@ const ReportBuilderListView: React.FC = () => {
       `}</style>
       <PromptModal
         show={showPinModal && !pinVerified}
-        onHide={() => navigate(-1)}
+        onHide={onHide}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
         message="Report Builder is an owner-only area. Enter the shared build PIN to continue (same PIN as Document Designer)."
@@ -393,49 +390,62 @@ const ReportBuilderListView: React.FC = () => {
 
       {pinVerified && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h4 style={{ margin: 0 }}>Report Builder</h4>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate(-1)}>
-              Back
-            </button>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <h4 style={{ margin: 0, whiteSpace: "nowrap" }}>Report Builder</h4>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, alignItems: "center" }}>
+              {definitions.length > 0 && (
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Search saved reports..."
+                  value={savedSearch}
+                  onChange={(e) => setSavedSearch(e.target.value)}
+                  style={{ width: 160, flexShrink: 1, minWidth: 90, marginBottom: 0 }}
+                />
+              )}
+              <div style={{ display: "flex", flexWrap: "nowrap", gap: 6, flexShrink: 0 }}>
+              <Button
+                icon="pi pi-plus"
+                className="report_button"
+                style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                rounded
+                onClick={onNewReport}
+                tooltip="New Report"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              <Button
+                icon="pi pi-book"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={openGallery}
+                tooltip="Browse Report Library"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              <Button
+                icon="pi pi-upload"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={() => importFileInputRef.current?.click()}
+                tooltip="Import"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              </div>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+            </div>
           </div>
 
           {/* --- saved reports --- */}
-          <div className="card p-3">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 className="mb-0">Saved Reports</h6>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn btn-sm rb-btn-primary" onClick={() => navigate("/report-builder/new")}>
-                  + New Report
-                </button>
-                <button className="btn btn-sm rb-btn-outline-primary" onClick={openGallery}>
-                  Browse Report Library
-                </button>
-                <button className="btn btn-sm rb-btn-outline-primary" onClick={() => importFileInputRef.current?.click()}>
-                  Import
-                </button>
-                <input
-                  ref={importFileInputRef}
-                  type="file"
-                  accept="application/json"
-                  style={{ display: "none" }}
-                  onChange={handleImportFile}
-                />
-              </div>
-            </div>
             {loadingList && <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p>}
             {!loadingList && definitions.length === 0 && (
               <p className="text-muted" style={{ fontSize: 13 }}>No reports yet — click "New Report" to build one.</p>
-            )}
-            {definitions.length > 0 && (
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="Search saved reports..."
-                value={savedSearch}
-                onChange={(e) => setSavedSearch(e.target.value)}
-                style={{ maxWidth: 320, marginBottom: 12 }}
-              />
             )}
             {(() => {
               const q = savedSearch.trim().toLowerCase();
@@ -454,7 +464,7 @@ const ReportBuilderListView: React.FC = () => {
                   }}
                 >
                   {filteredDefinitions.map((def) => {
-                    const group = reportGroups.find((g) => g.id === def.report_group_id)?.group_name;
+                    const group = def.category;
                     const source = def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key;
                     return (
                       <div
@@ -503,126 +513,140 @@ const ReportBuilderListView: React.FC = () => {
                         {def.description && (
                           <p style={{ margin: 0, marginBottom: 8, fontSize: 12, lineHeight: 1.5, color: "#8a8a8a" }}>{def.description}</p>
                         )}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(`/report-builder/${def.id}/edit`)}>
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => askConfirm(`Delete "${def.name}"? This can't be undone.`, () => handleDelete(def))}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
+                        <div style={{ position: "absolute", top: 8, right: 8 }}>
+                          <Button
+                            icon="pi pi-ellipsis-v"
+                            className="p-button-text p-button-rounded"
+                            style={{ color: "#4C4C4C" }}
                             onClick={() => setOpenMoreMenuId((v) => (v === def.id ? null : def.id))}
-                          >
-                            &#8942; More
-                          </button>
-                        </div>
+                            tooltip="More"
+                            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+                          />
                         {openMoreMenuId === def.id && (
-                          <div
+                          <ul
                             ref={moreMenuCardRef}
+                            className="labelDropLeft isVisible"
                             style={{
                               position: "absolute",
-                              right: 16,
+                              right: 0,
                               top: "100%",
+                              margin: 0,
+                              marginTop: 4,
                               zIndex: 1000,
                               width: 200,
-                              background: "#fff",
-                              borderRadius: 8,
-                              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-                              padding: 8,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
+                              maxHeight: "calc(100vh - 120px)",
+                              overflowY: "auto",
+                              scrollbarWidth: "none",
                             }}
                           >
-                            {/* display:contents keeps this <li> from breaking the flex
-                                column's layout while staying valid HTML (a plain <li>
-                                outside a <ul>/<ol> renders fine in every browser but
-                                isn't valid markup) — same component every legacy
-                                report's own export dropdown already uses. */}
-                            <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
-                              <ExportExcelMenuItem
-                                reportType="report_builder"
-                                filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
-                                columns={buildExportColumns(def)}
-                                footer={buildExportFooter(def)}
-                                fileName={def.name}
-                                disabled={buildExportColumns(def).length === 0}
-                                onSelect={() => setOpenMoreMenuId(null)}
-                              />
-                            </ul>
-                            <button
-                              className="btn btn-sm btn-outline-dark"
-                              disabled={exportingId === def.id}
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
+                                setOpenMoreMenuId(null);
+                                onEditReport(def.id);
+                              }}
+                            >
+                              <i className="pi pi-pencil" style={{ marginRight: "4px" }} />
+                              Edit
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
+                              onClick={() => {
+                                setOpenMoreMenuId(null);
+                                askConfirm(`Delete "${def.name}"? This can't be undone.`, () => handleDelete(def));
+                              }}
+                            >
+                              <i className="pi pi-trash" style={{ marginRight: "4px" }} />
+                              Delete
+                            </li>
+                            <ExportExcelMenuItem
+                              reportType="report_builder"
+                              filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
+                              columns={buildExportColumns(def)}
+                              footer={buildExportFooter(def)}
+                              fileName={def.name}
+                              disabled={buildExportColumns(def).length === 0}
+                              onSelect={() => setOpenMoreMenuId(null)}
+                            />
+                            <li
+                              className="listItem text-start"
+                              role="button"
+                              aria-disabled={exportingId === def.id}
+                              onClick={() => {
+                                if (exportingId === def.id) return;
                                 setOpenMoreMenuId(null);
                                 handleExportPdf(def);
                               }}
                             >
+                              <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
                               {exportingId === def.id ? "Exporting..." : "PDF / Print"}
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 handleDuplicate(def);
                               }}
                             >
+                              <i className="pi pi-copy" style={{ marginRight: "4px" }} />
                               Duplicate
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 exportReportDefinitionJson(def.id, def.name);
                               }}
                             >
+                              <i className="pi pi-file-export" style={{ marginRight: "4px" }} />
                               Export JSON
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 setTemplatesForDef(def);
                               }}
                             >
+                              <i className="pi pi-images" style={{ marginRight: "4px" }} />
                               Manage Templates
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 openManageAccess(def);
                               }}
                             >
+                              <i className="pi pi-users" style={{ marginRight: "4px" }} />
                               Manage Access
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 openSchedule(def);
                               }}
                             >
+                              <i className="pi pi-calendar" style={{ marginRight: "4px" }} />
                               Schedule
-                            </button>
-                          </div>
+                            </li>
+                          </ul>
                         )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               );
             })()}
-            <div style={{ marginTop: 12 }}>
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowManageGroups(true)}>
-                Manage Groups
-              </button>
-            </div>
-          </div>
         </>
       )}
 
@@ -870,8 +894,6 @@ const ReportBuilderListView: React.FC = () => {
           </div>
         </div>
       )}
-
-      <ManageGroupsModal show={showManageGroups} onClose={() => setShowManageGroups(false)} onChanged={loadReportGroups} />
 
       <ConfirmationModal
         show={!!confirmDialog}
