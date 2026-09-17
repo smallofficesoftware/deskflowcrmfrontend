@@ -229,6 +229,10 @@ export interface IRunnableReportDefinition {
   // the author actually set a format on. Grid-rendering only for now (see
   // ReportRunnerView.tsx); Excel export doesn't read this yet.
   column_formats: Record<string, IColumnFormat>;
+  // Step 4's header rename, keyed the same way — only present for a
+  // column the author actually typed an override for. Distinct from a
+  // computed/aggregate column's `alias` (the output row key, not this).
+  column_display_labels: Record<string, string>;
 }
 
 // Same fixed taxonomy SideBarView.tsx's openMenu keys already group every

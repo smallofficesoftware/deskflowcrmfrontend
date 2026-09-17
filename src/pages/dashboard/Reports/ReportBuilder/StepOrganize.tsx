@@ -30,8 +30,16 @@ const buildColumnLabelMap = (selectedModel?: IModelRegistryEntry): Record<string
 // composite-type metrics — no drag library, just two buttons per row.
 // This sets the AUTHOR's saved default display order (columns_json's own
 // array order), separate from and unrelated to the run screen's own
-// per-viewer ColumnsButton/useColumnPreferences reorder.
-const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (index: number, direction: -1 | 1) => void }> = ({ items, onMove }) => (
+// per-viewer ColumnsButton/useColumnPreferences reorder. `onRename`
+// (query-type columns only, so far — composite metrics have no per-item
+// object to carry a displayLabel on yet) swaps the plain label for an
+// editable input; item.label stays the placeholder/fallback shown when
+// the author hasn't typed an override.
+const ReorderList: React.FC<{
+  items: { key: string; label: string; displayLabel?: string }[];
+  onMove: (index: number, direction: -1 | 1) => void;
+  onRename?: (key: string, value: string) => void;
+}> = ({ items, onMove, onRename }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 420 }}>
     {items.map((item, index) => (
       <div
@@ -47,7 +55,19 @@ const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (
           fontSize: 13,
         }}
       >
-        <span style={{ flex: 1 }}>{item.label}</span>
+        {onRename ? (
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            style={{ flex: 1 }}
+            placeholder={item.label}
+            value={item.displayLabel || ""}
+            onChange={(e) => onRename(item.key, e.target.value)}
+            title="Rename this column's header — leave blank to use the default label"
+          />
+        ) : (
+          <span style={{ flex: 1 }}>{item.label}</span>
+        )}
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -94,10 +114,12 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
           </label>
           <div className="text-muted" style={{ fontSize: 11, marginBottom: 8 }}>
             Sets the default order columns appear in on the grid and in exports. Viewers can still reorder their own view.
+            Type in a field to rename its header — leave blank to keep the default.
           </div>
           <ReorderList
-            items={store.columns.map((c) => ({ key: c.column, label: columnLabelMap[c.column] || c.column }))}
+            items={store.columns.map((c) => ({ key: c.column, label: columnLabelMap[c.column] || c.column, displayLabel: c.displayLabel }))}
             onMove={store.moveColumn}
+            onRename={store.setColumnDisplayLabel}
           />
         </div>
       )}

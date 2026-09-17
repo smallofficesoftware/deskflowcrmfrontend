@@ -52,6 +52,12 @@ export interface IColumnPick {
   showInExcel?: boolean;
   showTotal?: boolean;
   format?: IColumnFormat;
+  // Author override for the grid/export header — e.g. renaming the
+  // registry's own "Source Type → Source Name" to just "Source". Distinct
+  // from `alias` (below/elsewhere in this shape for compute/case/aggregate
+  // columns), which names the OUTPUT ROW KEY, not what's shown to a viewer.
+  // Undefined means "show the resolved registry label" (today's behavior).
+  displayLabel?: string;
 }
 
 export interface IFilterRow {
@@ -105,6 +111,10 @@ interface ReportBuilderFormState {
   // from the run screen's own per-viewer ColumnsButton reorder.
   moveColumn: (index: number, direction: -1 | 1) => void;
   moveMetric: (index: number, direction: -1 | 1) => void;
+  // Step 4's rename control — sets/clears one column's displayLabel
+  // override. Composite-type metrics (plain string keys, no per-item
+  // object) don't have an equivalent yet.
+  setColumnDisplayLabel: (column: string, displayLabel: string) => void;
   toggleGroupBy: (columnKey: string) => void;
   addFilterRow: (row: IFilterRow) => void;
   updateFilterRow: (index: number, patch: Partial<IFilterRow>) => void;
@@ -185,6 +195,13 @@ export const useReportBuilderStore = create<ReportBuilderFormState>()((set, get)
       [metricKeys[index], metricKeys[target]] = [metricKeys[target], metricKeys[index]];
       return { metricKeys };
     }),
+
+  setColumnDisplayLabel: (column, displayLabel) =>
+    set((state) => ({
+      columns: state.columns.map((c) =>
+        c.column === column ? { ...c, displayLabel: displayLabel.trim() || undefined } : c,
+      ),
+    })),
 
   toggleGroupBy: (columnKey) =>
     set((state) => ({
