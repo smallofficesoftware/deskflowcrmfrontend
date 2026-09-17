@@ -43,21 +43,6 @@ import { IOption } from "../../../helpers/AppInterface";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
-
-// Keep in sync with orderPrintController.ts's PDFME_DOC_TYPE_BY_CART_TYPE —
-// the set of doc types this view's "<Type> View Format" pickers gate on.
-const ORDER_PDFME_DOC_TYPES = [
-  "quotation",
-  "salesOrder",
-  "salesInvoice",
-  "purchaseInvoice",
-  "purchaseOrder",
-  "returnSalesInvoice",
-  "returnPurchaseInvoice",
-  "inward",
-  "dispatch",
-  "proformaInvoice",
-] as const;
 import useWhatsappPlatformStore from "../../../store/whatsapp/useWhatsappPlateformFlagStore";
 import {
   fetchprintSetting,
@@ -82,6 +67,12 @@ import {
   updateCompany,
 } from "./CreateCompanyController";
 import GoogleSheetsColumnConfigModal from "./google-sheets-column-config/GoogleSheetsColumnConfigModal";
+import { PDFME_DOC_TYPE_BY_CART_TYPE } from "../../order-print-view/orderPrintController";
+
+// The set of doc types this view's "<Type> View Format" pickers gate on —
+// derived from the single source of truth instead of a hand-duplicated
+// list that could drift out of sync with it.
+const ORDER_PDFME_DOC_TYPES = Object.values(PDFME_DOC_TYPE_BY_CART_TYPE);
 
 // interface FormValues {
 //   quotation_view_formate: string;

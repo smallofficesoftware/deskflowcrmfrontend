@@ -32,6 +32,12 @@ module.exports = {
         clawpdf: false,
         "@pdfme/converter": false,
       };
+      webpackConfig.cache = {
+        type: "filesystem",
+        buildDependencies: {
+          config: [__filename],
+        },
+      };
       return webpackConfig;
     },
   },
