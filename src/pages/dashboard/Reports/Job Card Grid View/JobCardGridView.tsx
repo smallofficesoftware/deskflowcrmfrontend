@@ -13,6 +13,7 @@ import CheckBoxModal from "../../../../components/model/CheckBoxModal";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import { fetchAllCompanyApi } from "../../../left-side/LeftSideController";
+import { useCompanyStore } from "../../../../store/company/useCompanyStore";
 import { fetchDepartmentsApi } from "../../../left-side/list-company/EditTeamMemberController";
 import { fetchLabelApi } from "../../../left-side/header/Setting/label/LabelController";
 import {
@@ -62,6 +63,7 @@ interface FilterParams {
 }
 
 const JobCardGridView = ({ onHide }: IProps) => {
+  const companyInfo = useCompanyStore((state) => state.companyInfo);
   const [jobCardList, setJobCardList] = useState<IJobCardListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -1197,6 +1199,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
           jobId={selectedOrderItemId}
           itemName={selectedJobCardItem?.item_name}
           orderNo={selectedJobCardItem?.order_no}
+          isStockCheckRequired={companyInfo.is_strict_check_product_stock == 2}
           order_item_id={selectedJobCardItem?.order_item_id || 0}
         />
       )}

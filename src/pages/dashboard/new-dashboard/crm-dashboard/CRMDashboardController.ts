@@ -33,8 +33,8 @@ export interface ITitle {
   inward_view_formate: number;
   dispatch_title: string;
   dispatch_view_formate: number;
-
-
+  proforma_invoice_title: string;
+  proforma_invoice_view_formate: number;
 }
 interface OptionType {
   value: string | number;

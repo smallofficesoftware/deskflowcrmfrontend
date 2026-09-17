@@ -4034,7 +4034,7 @@ const TaskListView = ({
         <TaskChatRightSide
           showTaskChat={() => setOpenTaskChatModel(true)}
           onHideTaskChat={() => setOpenTaskChatModel(false)}
-          TaskData={targetVsIncentiveList} // Pass data, not setter
+          TaskData={targetVsIncentiveList as any} // Pass data, not setter
           signleDataTask={GetSingleTaskData}
           setRefreshTask={() => setRefreshTaskBothSide((tick) => tick + 1)}
           closeDashboard={() => setshowDashBoard(false)}

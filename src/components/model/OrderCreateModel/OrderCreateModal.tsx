@@ -11902,7 +11902,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                   cartCustomFieldValues[field.reference_column_name] || adminDefault,
                 __dropdownSources,
               };
-            })}
+            }) as (ICustomInquiryFromList & { __dropdownSources: string[] })[]}
           onLocalDataSourceChange={(fieldName, templateId) => {
             setCartCustomFieldValues((prev) => ({
               ...prev,

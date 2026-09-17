@@ -57,8 +57,11 @@ interface IAccount {
         approve_by_a_application_login_id: number;
         approve_date_time: string;
         employee_name: {
-            username: string
-        }
+            username: string;
+            recovery_email: string;
+            recovery_mobile: string;
+        };
+        payment_type_name: string;
     }[];
     companyDetails: IOrderCompanyDetail;
 

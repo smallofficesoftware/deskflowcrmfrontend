@@ -677,7 +677,7 @@ const BillOfMaterialsView = ({
           show={isBomDetailsOpen}
           onHide={() => setIsBomDetailsOpen(false)}
           product={selectedProduct}
-          handleRefreshCategory={handleRefreshCategory}
+          handelRefreshProduct={handleRefreshCategory}
         />
       )}
     </>

@@ -51,6 +51,7 @@ export interface ISystemDashboardDefinition {
 // One widget's live run result — same shape runDashboard() returns per
 // widget (base widget fields spread with the run's ack/data or ack:0/error).
 export interface IDashboardWidgetResult extends IDashboardWidget {
+  widget_id: number;
   ack?: number;
   ack_msg?: string;
   data?: { rows?: any[]; row_count?: number; duration_ms?: number };

@@ -86,7 +86,7 @@ const DashboardCanvasView: React.FC<IDashboardCanvasViewProps> = ({ dashboardIdO
     if (runData) {
       const byId: Record<number, IDashboardWidgetResult> = {};
       runData.widgets.forEach((w) => {
-        byId[w.widget_id as unknown as number] = w;
+        byId[w.widget_id] = w;
       });
       setResults(byId);
     }

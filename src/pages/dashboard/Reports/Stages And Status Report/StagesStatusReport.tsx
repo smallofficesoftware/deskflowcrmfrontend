@@ -495,7 +495,6 @@ const StagesStatusReport = ({ onHide }: IStagesStatusReport) => {
                     }}
                     setLoading={setLoading}
                     headerName="Create Stage & Status"
-                    handleRefreshStageStatus={handleRefreshStageStatus}
                     productToEdit={undefined}
                     handleOutsideOrderDisplayChange={handleOrderDisplayChange}
                 />
@@ -509,7 +508,6 @@ const StagesStatusReport = ({ onHide }: IStagesStatusReport) => {
                     }}
                     setLoading={setLoading}
                     headerName="Update Stage & Status"
-                    handleRefreshStageStatus={handleRefreshStageStatus}
                     productToEdit={editableProduct}
                     handleOutsideOrderDisplayChange={handleOrderDisplayChange}
                 />

@@ -82,6 +82,7 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
     checkedOptionsTaskassignOrNot: [],
     checkedOptionsTaskType: [],
     checkedOptionsShowTemplateTask: [],
+    labelwiseContactShowAndOrNot: 0,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [targetVsIncentiveList, setTargetVsIncentiveList] = useState<ITaskView[]>([]);
@@ -149,6 +150,7 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
           null,
           null,
           null,
+          null, // setUnreadCount
           "0", // is_archived
           filterParams.checkedOptionsTaskType,
           filterParams.checkedOptionsShowTemplateTask,
@@ -256,6 +258,7 @@ const KanbanBoard: React.FC<KanbanBoardModal> = ({
       assignedByMultiTeamMember,
       createdByMultiTeamMember,
       checkedOptionsTaskassignOrNot: checkedOptionsTaskassignOrNot || [],
+      labelwiseContactShowAndOrNot: 0,
       checkedOptionsTaskType: checkedOptionsTaskType || [],
       checkedOptionsShowTemplateTask: checkedOptionsShowTemplateTask || [],
     });

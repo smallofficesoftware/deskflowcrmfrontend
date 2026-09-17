@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import { ITaskCreate } from "../../../../right-side/create-task/CreateTaskController";
+import { ITaskView } from "../taskList/TaskListController";
 import CreateTaskView from "../../../../right-side/create-task/CreateTaskView";
 import { ITaskTemplateView } from "./TaskTemplateController";
 
@@ -51,7 +51,7 @@ const TaskTemplateDataSourceView = ({
   >([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [targetVsIncentiveList, setTargetVsIncentiveList] = useState<
-    ITaskCreate[]
+    ITaskView[]
   >([]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editingSrNo, setEditingSrNo] = useState<number | null>(null);

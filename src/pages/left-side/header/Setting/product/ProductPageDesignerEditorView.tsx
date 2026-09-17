@@ -223,6 +223,7 @@ const ProductPageDesignerEditorView: React.FC = () => {
 
   const handleUseAsProductPage = async () => {
     if (!productId || !designerRef.current) return;
+    const designer = designerRef.current;
     askPrompt(
       "Name this Page",
       async (name) => {
@@ -235,7 +236,7 @@ const ProductPageDesignerEditorView: React.FC = () => {
             const created = await createDocumentTemplate(
               PRODUCT_PAGE_DOC_TYPE,
               name || "Untitled Product Page",
-              designerRef.current.getTemplate(),
+              designer.getTemplate(),
               "product_page",
             );
             if (!created) {

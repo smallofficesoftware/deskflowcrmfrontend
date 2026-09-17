@@ -101,7 +101,7 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
   // toolbar already uses) — a card with 7 visible action buttons would be
   // more cluttered than the table it's replacing.
   const [openMoreMenuId, setOpenMoreMenuId] = useState<number | null>(null);
-  const moreMenuCardRef = useRef<HTMLDivElement>(null);
+  const moreMenuCardRef = useRef<HTMLUListElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   // Saved Reports search — client-side, same "the list is already scoped
   // and small (a company's own report count)" reasoning ReportsTileView.tsx's

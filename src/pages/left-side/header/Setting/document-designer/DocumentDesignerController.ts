@@ -104,7 +104,7 @@ export const createDocumentTemplate = async (
   // documentPrintTemplateServices.js's createDocumentTemplate for why that
   // matters (excluded from /document-designer's list and the real
   // print-time picker, never auto-set as is_default).
-  template_purpose?: "main" | "extra_page",
+  template_purpose?: "main" | "extra_page" | "product_page",
 ): Promise<IDocumentTemplateFull | null> => {
   try {
     const data = await postGated("document-templates/create", {

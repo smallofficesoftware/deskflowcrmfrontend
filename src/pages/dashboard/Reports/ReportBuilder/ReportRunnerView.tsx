@@ -812,8 +812,9 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
               // call while a real "scrolled near the bottom" event (which
               // only happens once rows already exist) still fires loadMore
               // exactly as before.
-              onLazyLoad: (e: { last: number }) => {
-                if (rows.length > 0 && e.last >= rows.length - 1 && hasMore && !loading) loadMore();
+              onLazyLoad: (e) => {
+                const last = typeof e.last === "number" ? e.last : 0;
+                if (rows.length > 0 && last >= rows.length - 1 && hasMore && !loading) loadMore();
               },
               appendOnly: true,
               showLoader: true,

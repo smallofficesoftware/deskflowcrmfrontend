@@ -1,5 +1,6 @@
 import { toast } from "react-toastify";
 import * as Yup from "yup";
+import { ICreateCompany as IGlobalCheckPlanCompany } from "../create-company/CreateCompanyController";
 import { handleRefresh } from "../../../common/SharedFunction";
 import {
   CONTACT_INSERT_API_LINK,
@@ -522,7 +523,7 @@ export const createCompany = async (
   setRefresh: TReactSetState<boolean>,
   onHide: any,
   mobileNumber: number,
-  setCheckPlan: TReactSetState<ICreateCompany | undefined>,
+  setCheckPlan: TReactSetState<IGlobalCheckPlanCompany | undefined>,
   isSetCheckPlan: TReactSetState<boolean>,
 ) => {
   setCheckPlan(undefined);

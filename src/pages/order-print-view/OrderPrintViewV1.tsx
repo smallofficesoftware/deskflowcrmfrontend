@@ -3066,7 +3066,7 @@ const OrderPrintViewV1 = () => {
                                                   orderPrintById?.cart
                                                     .currency_id,
                                               )?.symbol || "₹"
-                                                } ${formatNumber(row.value, 2)}`}
+                                                } ${formatNumber(Number(row.value) || 0, 2)}`}
                                             </td>
                                           </tr>
                                         ))}

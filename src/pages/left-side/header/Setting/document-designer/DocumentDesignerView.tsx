@@ -808,6 +808,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const applyMargins = async (top: number, right: number, bottom: number, left: number) => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
+    // This editor only ever operates on the app's own generated blank-page
+    // templates (basePdf as a { width, height, padding, staticSchema }
+    // descriptor), never a raw uploaded PDF (basePdf as string/ArrayBuffer/
+    // Uint8Array) — bail out rather than crash if that invariant ever breaks.
+    if (typeof template.basePdf !== "object" || template.basePdf === null || !("width" in template.basePdf)) {
+      return;
+    }
+    const basePdf = template.basePdf;
     // Full Page Border frames the actual content-margin box on all 4 sides
     // now (buildPageBorderField, backend-side) — patching padding here
     // without also repositioning an existing pageBorder field would leave
@@ -830,7 +838,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // auto-repositioning entirely — a margin edit shouldn't silently move
     // a box the user explicitly placed by hand.
     const isManualBorder = ["pageBorderX", "pageBorderY", "pageBorderWidthMM", "pageBorderHeightMM"].every(
-      (k) => typeof template.basePdf?.[k] === "number",
+      (k) => typeof (basePdf as any)?.[k] === "number",
     );
     // +1.5mm left/right gap — docTitle/buyer-info/etc. all start at x:10,
     // exactly matching the default margin the border would otherwise sit
@@ -838,12 +846,12 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // reasoning — a text field's backgroundColor generally only paints its
     // glyph/line box, not the full declared width, so the border line
     // showed through at that shared edge).
-    const { width: pageWidth, height: pageHeight } = template.basePdf;
+    const { width: pageWidth, height: pageHeight } = basePdf;
     const borderTop = Math.max(2, top - headerHeightMM);
     const borderBottom = footerImage ? Math.max(2, bottom - footerHeightMM) : bottom;
     const borderLeft = left + 1.5;
     const borderRight = right + 1.5;
-    const staticSchema = (template.basePdf.staticSchema || []).map((field: any) => {
+    const staticSchema = (basePdf.staticSchema || []).map((field: any) => {
       if (field.name === "pageBorder" && !isManualBorder) {
         return {
           ...field,
@@ -863,20 +871,25 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // through the backend rebuild, this one is a direct client-side edit
     // that would otherwise skip it entirely, leaving content overlapping
     // the header or floating in a gap that no longer matches the margin).
-    const oldTop = template.basePdf.padding?.[0] ?? top;
+    const oldTop = basePdf.padding?.[0] ?? top;
     const deltaY = top - oldTop;
     const schemas =
       deltaY === 0
         ? template.schemas
-        : template.schemas.map((page: any[]) =>
-            page.map((field: any) =>
+        : template.schemas.map((page) =>
+            page.map((field) =>
               HEADER_RELATIVE_FIELD_NAMES.has(field.name)
                 ? { ...field, position: { ...field.position, y: field.position.y + deltaY } }
                 : field,
             ),
           );
-    const updated = { ...template, schemas, basePdf: { ...template.basePdf, padding: [top, right, bottom, left], staticSchema } };
-    designerRef.current.updateTemplate(updated);
+    const updated = { ...template, schemas, basePdf: { ...basePdf, padding: [top, right, bottom, left], staticSchema } };
+    // The spread-reconstructed object is real Template data plus the computed
+    // overrides above, but pdfme's exact structural Template type can't be
+    // re-verified through a manual spread like this (same reasoning as the
+    // other updateTemplate() calls in this file that go through
+    // injectRealCompanyHeaderData's typed helper instead).
+    designerRef.current.updateTemplate(updated as any);
     await saveDraftSilently();
   };
 

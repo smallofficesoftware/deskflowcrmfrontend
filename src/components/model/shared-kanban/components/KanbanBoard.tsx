@@ -23,7 +23,7 @@ export function KanbanBoard<T extends KanbanItem>({
   onError,
   onSuccess,
 }: KanbanBoardProps<T>) {
-  const boardRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
 
   const {

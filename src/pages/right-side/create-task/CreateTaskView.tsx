@@ -977,7 +977,7 @@ const CreateTaskView = ({
           </div>
         );
       case 13:
-        const currentValue = values?.[fieldName];
+        const currentValue = (values as any)?.[fieldName];
 
         return (
           <div style={{ width: "calc(50% - 15px)" }} key={item.id}>

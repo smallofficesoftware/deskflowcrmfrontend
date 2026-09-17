@@ -2677,7 +2677,7 @@ ${printSetting?.setting_details.productImageinColumn &&
                                           style={{ borderRight: "0px" }}
                                         >
                                           {`${getCurrencySymbol()}${formatNumber(
-                                            row.value,
+                                            Number(row.value) || 0,
                                             2,
                                           )}`}
                                         </td>

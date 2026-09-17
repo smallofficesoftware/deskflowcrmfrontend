@@ -1130,6 +1130,7 @@ const ListInquiryView = ({
                       assinged_to_price_list: 0,
                       a_application_login_id: 0,
                       is_pin_by_a_application_login_id: "",
+                      reminderDueCount: 0,
                     };
                     return (
                       <>
@@ -1675,10 +1676,10 @@ const ListInquiryView = ({
           setTargetVsIncentiveList={setTargetVsIncentiveList}
           setLoading={setLoading}
           headerName={"Create Task Of Inquiry"}
-          setRefreshProduct={setRefreshProduct}
+          onTaskCreated={() => setRefreshProduct(true)}
           productToEdit={undefined}
           messageId={taskData.inquiryId}
-          messageDescription={taskData.task}
+          messageDescription={taskData.taskTitle}
           contactId={taskData.contactId}
           referenceTable={taskData.referenceTable}
           supportTicketFlag={0}

@@ -323,7 +323,7 @@ export const fetchCartReport = async (
 };
 
 export const flattenCartDataForExport = (apiItems: any[]): IFlatCartItem[] => {
-    return apiItems.map((item: any) => {
+    return apiItems.map((item: any, index: number) => {
         const cart = item.cart_details || {};
         const contact = item.contact_details || {};
         const custom = item.custom_fields || {};
@@ -337,6 +337,7 @@ export const flattenCartDataForExport = (apiItems: any[]): IFlatCartItem[] => {
 
         return {
             id: item.id,
+            srno: index + 1,
 
             // ✅ CART DETAILS
             username: cart.username,

@@ -270,6 +270,7 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
     // persisted yet) — expected here, not a guard failure; only designerRef
     // needs to actually be mounted.
     if (!fieldId || !designerRef.current) return;
+    const designer = designerRef.current;
     askPrompt(
       "Name this Data Source",
       async (name) => {
@@ -284,7 +285,7 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
             const created = await createDocumentTemplate(
               docType,
               name || "Untitled Designer Page",
-              designerRef.current.getTemplate(),
+              designer.getTemplate(),
               "extra_page",
             );
             if (!created) {

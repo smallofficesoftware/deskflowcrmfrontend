@@ -331,6 +331,8 @@ const SideView = ({ profileDetail }: IProp) => {
               state_id: company.state_id || 0,
               state_name: company.state_name || "",
               company_email: company.company_email || "",
+              is_strict_check_product_stock:
+                company.is_strict_check_product_stock,
             });
           }
 

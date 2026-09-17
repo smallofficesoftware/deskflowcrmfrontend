@@ -878,7 +878,7 @@ ${fields
     const dataToExport = customers || [];
     if (dataToExport.length === 0) return;
 
-    const rows = dataToExport.map((item: any) => buildRowForExport(item));
+    const rows: any[] = dataToExport.map((item: any) => buildRowForExport(item));
 
     const totalAmount = dataToExport
       .reduce(

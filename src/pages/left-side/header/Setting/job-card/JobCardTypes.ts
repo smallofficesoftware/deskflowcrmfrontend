@@ -217,3 +217,14 @@ export interface IProductionEntryDetail {
   process_times?: IProductionEntryProcessTimePayload[];
   processes?: IProductionEntryDetailProcess[];
 }
+
+// ─── Stock Entry Process: step-by-step progress for StockEntryProgress ───────
+export type StockEntryStepStatus = "pending" | "running" | "success" | "error";
+
+export interface IStockEntryStep {
+  key: string;
+  label: string;
+  status: StockEntryStepStatus;
+  message?: string;
+  processedQty?: number;
+}

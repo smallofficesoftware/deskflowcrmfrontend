@@ -349,7 +349,7 @@ const EditTeamMemberView = ({
     }
   }, [activeTab, show, companyTeamInfo]);
 
-  const loadTabData = (tab: "basic" | "attendance" | "penalty") => {
+  const loadTabData = (tab: "basic" | "attendance" | "penalty" | "hourly_leave") => {
     if (!companyTeamInfo?.id) return;
 
     if (tab === "basic") {

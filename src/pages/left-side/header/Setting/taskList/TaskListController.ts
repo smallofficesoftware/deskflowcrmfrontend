@@ -46,6 +46,12 @@ export interface ITaskView {
   contact_person_name?: string;
   contact_person_number?: string;
   contact_company_name?: string;
+  contact_country?: string;
+  contact_state?: string;
+  contact_city?: string;
+  contact_area?: string;
+  checklist_total?: number;
+  checklist_done?: number;
   is_archive?: string | number;
   category_color_code?: string | number;
   task_attechment?: string;
