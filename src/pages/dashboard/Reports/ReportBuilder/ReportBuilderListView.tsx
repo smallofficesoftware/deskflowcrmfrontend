@@ -68,6 +68,7 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
   const [galleryReports, setGalleryReports] = useState<ISystemReportDefinition[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [copyingId, setCopyingId] = useState<number | null>(null);
+  const [gallerySearch, setGallerySearch] = useState("");
 
   // Manage Access (Step 7) — "none" means no grant at all (removed or
   // never granted); the map only ever holds one entry per login, no
@@ -130,6 +131,7 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
 
   const openGallery = async () => {
     setShowGallery(true);
+    setGallerySearch("");
     setLoadingGallery(true);
     const rows = await listSystemReportDefinitions();
     setGalleryReports(rows);
@@ -158,7 +160,12 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
   // {category -> reports[]} — a company builds their own reports across
   // many categories, so grouping the gallery the same way the PDF's own
   // 15 sections are organized makes the picker scannable, not one flat list.
-  const galleryByCategory = galleryReports.reduce<Record<string, ISystemReportDefinition[]>>((acc, g) => {
+  const filteredGalleryReports = galleryReports.filter((g) =>
+    !gallerySearch.trim() ||
+    g.name.toLowerCase().includes(gallerySearch.trim().toLowerCase()) ||
+    (g.description || "").toLowerCase().includes(gallerySearch.trim().toLowerCase()),
+  );
+  const galleryByCategory = filteredGalleryReports.reduce<Record<string, ISystemReportDefinition[]>>((acc, g) => {
     const key = g.category || "Other";
     (acc[key] = acc[key] || []).push(g);
     return acc;
@@ -652,50 +659,102 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
 
       {showGallery && (
         <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <div className="modal-content1" style={{ width: 480, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5>System Report Library</h5>
+          <div className="modal-content1" style={{ width: "min(900px, 92vw)", marginTop: "4%", maxHeight: "86vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="mb-0">System Report Library</h5>
               <span className="close" onClick={() => setShowGallery(false)}>&times;</span>
             </div>
-            {loadingGallery && <p>Loading...</p>}
-            {!loadingGallery && galleryReports.length === 0 ? <p>No reports in the library yet.</p> : null}
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Search the library..."
+              value={gallerySearch}
+              onChange={(e) => setGallerySearch(e.target.value)}
+              style={{ maxWidth: 320, marginBottom: 16 }}
+            />
+            {loadingGallery && <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p>}
+            {!loadingGallery && galleryReports.length === 0 && (
+              <p className="text-muted" style={{ fontSize: 13 }}>No reports in the library yet.</p>
+            )}
+            {!loadingGallery && galleryReports.length > 0 && filteredGalleryReports.length === 0 && (
+              <p className="text-muted" style={{ fontSize: 13 }}>No reports match "{gallerySearch}".</p>
+            )}
             {Object.entries(galleryByCategory).map(([category, reports]) => (
-              <div key={category} className="mb-3">
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{category}</div>
-                <hr style={{ margin: "4px 0 8px" }} />
-                {reports.map((g) => {
-                  const alreadyAdded = alreadyAddedIds.has(g.id);
-                  return (
-                    <div key={g.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                      <div>
-                        <div style={{ fontWeight: 600 }}>
-                          {g.name}
+              <div key={category} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#8a8a8a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                  {category}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+                  {reports.map((g) => {
+                    const alreadyAdded = alreadyAddedIds.has(g.id);
+                    return (
+                      <div
+                        key={g.id}
+                        className="report-tile"
+                        style={{
+                          padding: 14,
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: "50%",
+                              background: "#fff3eb",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <ReportIcon name={g.icon || "report"} size={15} color="#F58634" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              {g.name}
+                              {g.priority && (
+                                <span
+                                  className={`badge ${g.priority === "critical" ? "bg-danger" : g.priority === "high" ? "bg-warning text-dark" : "bg-secondary"}`}
+                                  style={{ fontSize: 9 }}
+                                >
+                                  {g.priority}
+                                </span>
+                              )}
+                            </div>
+                            {g.description && (
+                              <div style={{ fontSize: 11, color: "#8a8a8a", marginTop: 2, lineHeight: 1.4 }}>{g.description}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          {/* Badge-only, re-copying is still allowed (Step 1's
+                              decision) — button stays enabled so the owner can
+                              add a fresh copy even after one's already here. */}
                           {alreadyAdded && (
-                            <span className="badge bg-light text-dark ms-2" style={{ fontSize: 10 }}>
+                            <span className="badge bg-light text-dark" style={{ fontSize: 10, fontWeight: 400 }}>
                               Already Added
                             </span>
                           )}
-                          {g.priority && (
-                            <span
-                              className={`badge ms-2 ${g.priority === "critical" ? "bg-danger" : g.priority === "high" ? "bg-warning text-dark" : "bg-secondary"}`}
-                              style={{ fontSize: 10 }}
-                            >
-                              {g.priority}
-                            </span>
-                          )}
+                          <button
+                            className="btn btn-sm rb-btn-outline-primary"
+                            disabled={copyingId === g.id}
+                            onClick={() => handleCopyFromGallery(g.id)}
+                          >
+                            {copyingId === g.id ? "Adding..." : "Use This"}
+                          </button>
                         </div>
-                        {g.description && <div style={{ fontSize: 11, color: "#888" }}>{g.description}</div>}
                       </div>
-                      <button
-                        className="btn btn-sm rb-btn-outline-primary"
-                        disabled={copyingId === g.id}
-                        onClick={() => handleCopyFromGallery(g.id)}
-                      >
-                        {copyingId === g.id ? "Adding..." : "Use This"}
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>

@@ -394,6 +394,10 @@ export interface ISystemReportDefinition {
   category: string | null;
   description: string | null;
   priority: "critical" | "high" | "normal" | null;
+  // Named icon (reportIcons.tsx's REPORT_ICON_PATHS key), admin-picked in
+  // adminpanel's own Editor.tsx — null falls back to "report", same
+  // convention every other report tile in this app already follows.
+  icon: string | null;
 }
 
 // "Browse Report Library" gallery — flag-only, no PIN (same tier Document
