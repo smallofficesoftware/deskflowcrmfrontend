@@ -1092,6 +1092,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
+    } else if (name === "report_builder" || name === "report_builder_new") {
+      setActiveView("Settings");
+      setAppliedReportType(name);
+      return;
     } else if (name === "miracle_integration") {
       setDropdownOpenMiracle(true);
       return;

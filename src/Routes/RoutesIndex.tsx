@@ -39,8 +39,6 @@ import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/Bom
 import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
 import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
 import PublicFormFillView from "../pages/public-form/PublicFormFillView";
-import ReportBuilderListView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderListView";
-import ReportBuilderWizardView from "../pages/dashboard/Reports/ReportBuilder/ReportBuilderWizardView";
 import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
 import DashboardCanvasView from "../pages/dashboard/DashboardBuilder/DashboardCanvasView";
 import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
@@ -261,22 +259,9 @@ const RoutesIndex = () => {
               path="/document-designer"
               element={<DocumentDesignerView />}
             />
-            {/* Step 12 (wizard rebuild), piece 6 — /report-builder is now
-                list-only (ReportBuilderListView.tsx); Add/Edit live on
-                their own screen (ReportBuilderWizardView.tsx), reached via
-                "New Report" / a card's "Edit" button. */}
-            <Route
-              path="/report-builder"
-              element={<ReportBuilderListView />}
-            />
-            <Route
-              path="/report-builder/new"
-              element={<ReportBuilderWizardView />}
-            />
-            <Route
-              path="/report-builder/:id/edit"
-              element={<ReportBuilderWizardView />}
-            />
+            {/* Report Builder moved into /SideView's Settings panel
+                (ReportBuilderSideView.tsx, via reportsMenuData.tsx's
+                "report_builder" entry) — no standalone route anymore. */}
             <Route
               path="/dashboard-builder"
               element={<DashboardListView />}

@@ -19,7 +19,9 @@ import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, tra
 import {
   exportReportPdf,
   getGeneralFilterConfig,
+  getModelRegistry,
   IGeneralFilterConfig,
+  IModelRegistryEntry,
   IRunnableReportDefinition,
   listRunnableReportDefinitions,
   runReportDefinition,
@@ -54,6 +56,25 @@ interface ReportRunnerViewProps {
 
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Same traversal StepOrganize.tsx's own copy uses (base columns, then one
+// hop of relations, then a second hop of nested relations) — resolves a
+// dotted display key (e.g. "contact.referance_contact") back to its real
+// registry label ("Contact → Referred By (Contact)") instead of the raw
+// key humanize() alone would mangle into something like "Contact.referance
+// Contact".
+const buildColumnLabelMap = (entry: IModelRegistryEntry | null): Record<string, string> => {
+  const map: Record<string, string> = {};
+  if (!entry) return map;
+  entry.columns.forEach((c) => (map[c.key] = c.label));
+  (entry.relations || []).forEach((rel) => {
+    rel.columns.forEach((c) => (map[c.key] = `${rel.label} → ${c.label}`));
+    (rel.relations || []).forEach((sub) => {
+      sub.columns.forEach((c) => (map[c.key] = `${rel.label} → ${sub.label} → ${c.label}`));
+    });
+  });
+  return map;
+};
 
 // Step 4's per-column display format, applied here at render time only —
 // queryEngine.js's own row values are untouched, this never affects what
@@ -392,6 +413,21 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     }
   }, [definition]);
 
+  // Real column/relation labels for the grid header (see
+  // buildColumnLabelMap above) — same query-type-only scope as the
+  // filterConfig effect right above (plugin/composite columns come from a
+  // different shape, not this table's own registry entry).
+  const [modelRegistryEntry, setModelRegistryEntry] = useState<IModelRegistryEntry | null>(null);
+  useEffect(() => {
+    if (definition?.type === "query" && definition.model_key) {
+      getModelRegistry().then((entries) => {
+        setModelRegistryEntry(entries.find((e) => e.key === definition.model_key) || null);
+      });
+    } else {
+      setModelRegistryEntry(null);
+    }
+  }, [definition]);
+
   useEffect(() => {
     if (definition) runFromStart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -475,7 +511,11 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
   // column), they just never become a Column/ColumnsButton option here.
   const hiddenGridKeys = useMemo(() => new Set(definition?.hidden_grid_columns || []), [definition?.hidden_grid_columns]);
   const columns = rows.length > 0 ? Object.keys(rows[0]).filter((k) => !hiddenGridKeys.has(k)) : [];
-  const defaultColumns = columns.map((key) => ({ key, label: humanize(key) }));
+  const columnLabelMap = useMemo(() => buildColumnLabelMap(modelRegistryEntry), [modelRegistryEntry]);
+  const defaultColumns = columns.map((key) => ({
+    key,
+    label: definition?.column_display_labels?.[key] || columnLabelMap[key] || humanize(key),
+  }));
   // Same reportKey convention useCommonFilterStore's slot would use
   // (report_${id}) — server-persisted show/hide/reorder per report, shared
   // with every legacy report through the same hook/component, not a
@@ -700,7 +740,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
         </div>
       </div>
 
-      {definition?.description && <p className="text-muted" style={{ fontSize: 13 }}>{definition.description}</p>}
       {canDrillDown && <p className="text-muted" style={{ fontSize: 12 }}>Click a row to see its underlying detail rows.</p>}
 
       {filtersToShow.length > 0 && (
@@ -709,34 +748,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
           startDate={appliedPayload?.startSearchDate}
           endDate={appliedPayload?.endSearchDate}
         />
-      )}
-
-      {/* Row-level per-column filters — a separate, finer-grained layer
-          from the general filter modal above (Step 5's plan), shipped
-          alongside it rather than instead of it. Deliberately a plain
-          input row here rather than PrimeReact's own filterDisplay="row"
-          (see this file's own header comment) — these go to the server as
-          an extra WHERE clause, not a client-side filter over whatever
-          page happens to be loaded. Only offered for a visible column
-          that's in filterConfig.filterableColumns (real, queryEngine-
-          whitelisted base columns) — an aggregate alias or relation-dotted
-          display column simply gets no input here, since filtering on
-          either would make the run throw. */}
-      {filterConfig && visibleColumns.some((c) => filterConfig.filterableColumns[c.key]) && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          {visibleColumns
-            .filter((c) => filterConfig.filterableColumns[c.key])
-            .map((c) => (
-              <input
-                key={c.key}
-                className="form-control form-control-sm"
-                style={{ width: 140 }}
-                placeholder={c.label}
-                value={columnFilterValues[c.key] || ""}
-                onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
-              />
-            ))}
-        </div>
       )}
 
       {compareMode && (
@@ -789,8 +800,20 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             virtualScrollerOptions={{
               itemSize: 46,
               lazy: true,
+              // PrimeReact's virtual scroller fires onLazyLoad once immediately
+              // on mount, before the first real load — at that moment
+              // rows.length is 0, so the old `e.last >= rows.length - 1` check
+              // (>= -1) was always true, firing loadMore() in a race against
+              // this component's own runFromStart() effect. Both requested
+              // offset 0, and whichever resolved second appended a duplicate
+              // of the first page on top of runFromStart's already-set rows —
+              // the actual cause of the double /run call + duplicated rows
+              // bug. Requiring rows.length > 0 skips that spurious mount-time
+              // call while a real "scrolled near the bottom" event (which
+              // only happens once rows already exist) still fires loadMore
+              // exactly as before.
               onLazyLoad: (e: { last: number }) => {
-                if (e.last >= rows.length - 1 && hasMore && !loading) loadMore();
+                if (rows.length > 0 && e.last >= rows.length - 1 && hasMore && !loading) loadMore();
               },
               appendOnly: true,
               showLoader: true,
@@ -830,11 +853,38 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
               // Total checkbox) get one; every other column's footer stays
               // blank, same as a spreadsheet's own totals row.
               const totalValue = totals?.[c.key];
+              // Same visual layout as legacy reports' filterDisplay="row"
+              // (a filter input directly under each column's header label)
+              // without actually using that PrimeReact mechanism — see this
+              // file's own header comment: these filters go to the server
+              // as an extra WHERE clause (columnFilterValues, debounced
+              // into runFromStart via the columnFilterKey effect), not a
+              // client-side filter over whatever page happens to be loaded.
+              // Only offered for a column in filterConfig.filterableColumns
+              // (real, queryEngine-whitelisted base columns) — an aggregate
+              // alias or relation-dotted display column gets no input,
+              // since filtering on either would make the run throw.
+              const canFilterColumn = !!filterConfig?.filterableColumns[c.key];
               return (
                 <Column
                   key={c.key}
                   field={c.key}
-                  header={c.label}
+                  header={
+                    <div>
+                      <div>{c.label}</div>
+                      {canFilterColumn && (
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          style={{ marginTop: 4, fontWeight: 400 }}
+                          placeholder="Search"
+                          value={columnFilterValues[c.key] || ""}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  }
                   sortable
                   headerStyle={{
                     width: fmt?.width ? `${fmt.width}px` : "150px",

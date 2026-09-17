@@ -74,6 +74,7 @@ import TeamPurchaseOrderDataReportsView from "../dashboard/Reports/Purchase Orde
 import TeamQuotationDataReportsView from "../dashboard/Reports/Quotations/QuotationView";
 import TeamReturnPurchaseDataReportsView from "../dashboard/Reports/Return Purchase Invoice/ReturnPurchaseInvoiceView";
 import TeamReturnSalesDataReportsView from "../dashboard/Reports/Return Sales Invoice/ReturnSalesInvoiceView";
+import ReportBuilderSideView from "../dashboard/Reports/ReportBuilder/ReportBuilderSideView";
 import RoundOffMasterGridView from "../dashboard/Reports/Round Of Grid View/RoundOfGridView";
 import RoutePlannerGridView from "../dashboard/Reports/Route Planner Grid View/RoutePlannerGridView";
 import SalaryProcessGridView from "../dashboard/Reports/Salary Process Grid View/SalaryProcessGridView";
@@ -665,6 +666,9 @@ const BottomView = ({
         )}
         {appliedReportType === "whatsapp_template" && (
           <WhatsappTemplateReport onHide={handleonHide} />
+        )}
+        {(appliedReportType === "report_builder" || appliedReportType === "report_builder_new") && (
+          <ReportBuilderSideView onHide={handleonHide} startNew={appliedReportType === "report_builder_new"} />
         )}
         {appliedReportType === "workflow_automation" && (
           <WorkFlowAutomationReport />

@@ -524,6 +524,10 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "bolt",
         description: "Keyboard shortcuts configured for faster navigation.",
       },
+      // Report Builder moved out of this menu tree — reachable via
+      // ReportsTileView.tsx's own "+ Add Report" button instead
+      // (handleSingleReportShow("report_builder"/"report_builder_new")
+      // still wires it, just not listed here anymore).
     ],
   },
 

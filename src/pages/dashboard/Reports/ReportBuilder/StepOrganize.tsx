@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { REPORT_ICON_PATHS, ReportIcon } from "../../../side-view/reportIcons";
-import ManageGroupsModal from "./ManageGroupsModal";
-import { IMetricEntry, IModelRegistryEntry, IReportGroup, listReportGroups } from "./ReportBuilderController";
+import { IMetricEntry, IModelRegistryEntry, REPORT_CATEGORIES } from "./ReportBuilderController";
 import { useReportBuilderStore } from "./useReportBuilderStore";
 
 interface StepOrganizeProps {
@@ -31,8 +30,16 @@ const buildColumnLabelMap = (selectedModel?: IModelRegistryEntry): Record<string
 // composite-type metrics — no drag library, just two buttons per row.
 // This sets the AUTHOR's saved default display order (columns_json's own
 // array order), separate from and unrelated to the run screen's own
-// per-viewer ColumnsButton/useColumnPreferences reorder.
-const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (index: number, direction: -1 | 1) => void }> = ({ items, onMove }) => (
+// per-viewer ColumnsButton/useColumnPreferences reorder. `onRename`
+// (query-type columns only, so far — composite metrics have no per-item
+// object to carry a displayLabel on yet) swaps the plain label for an
+// editable input; item.label stays the placeholder/fallback shown when
+// the author hasn't typed an override.
+const ReorderList: React.FC<{
+  items: { key: string; label: string; displayLabel?: string }[];
+  onMove: (index: number, direction: -1 | 1) => void;
+  onRename?: (key: string, value: string) => void;
+}> = ({ items, onMove, onRename }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 420 }}>
     {items.map((item, index) => (
       <div
@@ -48,7 +55,19 @@ const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (
           fontSize: 13,
         }}
       >
-        <span style={{ flex: 1 }}>{item.label}</span>
+        {onRename ? (
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            style={{ flex: 1 }}
+            placeholder={item.label}
+            value={item.displayLabel || ""}
+            onChange={(e) => onRename(item.key, e.target.value)}
+            title="Rename this column's header — leave blank to use the default label"
+          />
+        ) : (
+          <span style={{ flex: 1 }}>{item.label}</span>
+        )}
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -75,20 +94,12 @@ const ReorderList: React.FC<{ items: { key: string; label: string }[]; onMove: (
 );
 
 // Step 4 of the wizard — ported field-for-field from ReportBuilderView.tsx's
-// existing group-select + icon-picker row. Fetches its own report_groups
-// list (small, per-company, same "list is already scoped and small"
-// reasoning the Saved Reports search box relies on) rather than threading
-// it down from ReportBuilderWizardView.tsx, so ManageGroupsModal's own
-// create/rename/delete only has to refresh state that lives right here.
+// existing group-select + icon-picker row. Category is now a fixed pick
+// from REPORT_CATEGORIES (same taxonomy SideBarView.tsx's openMenu keys
+// already group every built-in report by) instead of a tenant-created
+// report_groups list, so there's no more "manage groups" CRUD here.
 const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) => {
   const store = useReportBuilderStore();
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
-  const [showManageGroups, setShowManageGroups] = useState(false);
-
-  const loadReportGroups = async () => setReportGroups(await listReportGroups());
-  useEffect(() => {
-    loadReportGroups();
-  }, []);
 
   const columnLabelMap = buildColumnLabelMap(selectedModel);
   const metricLabelMap: Record<string, string> = {};
@@ -103,10 +114,12 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
           </label>
           <div className="text-muted" style={{ fontSize: 11, marginBottom: 8 }}>
             Sets the default order columns appear in on the grid and in exports. Viewers can still reorder their own view.
+            Type in a field to rename its header — leave blank to keep the default.
           </div>
           <ReorderList
-            items={store.columns.map((c) => ({ key: c.column, label: columnLabelMap[c.column] || c.column }))}
+            items={store.columns.map((c) => ({ key: c.column, label: columnLabelMap[c.column] || c.column, displayLabel: c.displayLabel }))}
             onMove={store.moveColumn}
+            onRename={store.setColumnDisplayLabel}
           />
         </div>
       )}
@@ -128,26 +141,20 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
 
       <div className="mb-3">
         <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>
-          Group
+          Category
         </label>
-        <div className="d-flex gap-1">
-          <select
-            className="form-select form-select-sm"
-            style={{ maxWidth: 260 }}
-            value={store.reportGroupId ?? ""}
-            onChange={(e) => store.setReportGroupId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">Ungrouped</option>
-            {reportGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.group_name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setShowManageGroups(true)}>
-            Groups
-          </button>
-        </div>
+        <select
+          className="form-select form-select-sm"
+          style={{ maxWidth: 260 }}
+          value={store.category}
+          onChange={(e) => store.setCategory(e.target.value)}
+        >
+          {REPORT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="mb-2">
@@ -203,8 +210,6 @@ const StepOrganize: React.FC<StepOrganizeProps> = ({ selectedModel, metrics }) =
           })}
         </div>
       </div>
-
-      <ManageGroupsModal show={showManageGroups} onClose={() => setShowManageGroups(false)} onChanged={loadReportGroups} />
     </div>
   );
 };
