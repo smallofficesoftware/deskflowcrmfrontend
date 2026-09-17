@@ -595,7 +595,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
       setSelectedOrderListId(
         orderlistselect
-          ? { value: orderlistselect.id, label: orderlistselect.type }
+          ? { value: orderlistselect.id, label: orderlistselect.type ?? "" }
           : null,
       );
     }
@@ -622,7 +622,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
 
       setSelectedOrderListId(
-        order ? { value: order.id, label: order.type } : null,
+        order ? { value: order.id, label: order.type ?? "" } : null,
       );
     }
   }, [

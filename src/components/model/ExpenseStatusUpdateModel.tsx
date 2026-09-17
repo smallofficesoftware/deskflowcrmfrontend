@@ -188,6 +188,7 @@ const ExpenseStatusUpdateModel = ({
           pass_amount: expense.amount.toString(),
           expenseId: expense.id,
           expense_status: 2,
+          kilometers: expense.kilometers,
         };
         await updateExpenseStatus(
           values,
@@ -210,6 +211,7 @@ const ExpenseStatusUpdateModel = ({
           pass_amount: "0",
           expenseId: expense.id,
           expense_status: 3,
+          kilometers: expense.kilometers,
         };
         await updateExpenseStatus(
           values,
@@ -496,7 +498,7 @@ const ExpenseStatusUpdateModel = ({
             onHide={() => setIsPass(false)}
             expenseToEdit={editExpenseStatusItem}
             headerName={`${statusFlag} Status`}
-            setRefreshExpense={setRefreshProduct}
+            handelRefreshExpense={() => setRefreshProduct(true)}
             status={statusFlag}
             pass_amount={editExpenseamount.toString()}
             setRefreshReport={() => setRefreshReport1(true)}
@@ -508,7 +510,7 @@ const ExpenseStatusUpdateModel = ({
             onHide={() => setIsReject(false)}
             expenseToEdit={editExpenseStatusItem}
             headerName={`${statusFlag} Status`}
-            setRefreshExpense={setRefreshProduct}
+            handelRefreshExpense={() => setRefreshProduct(true)}
             status={statusFlag}
             pass_amount={editExpenseamount.toString()}
             setRefreshReport={() => setRefreshReport1(true)}
