@@ -11,6 +11,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
@@ -34,7 +35,6 @@ import {
   syncMiracleProduct,
 } from "../../../left-side/header/Setting/product/ProductController";
 import ProductStockMovement from "../../../left-side/header/Setting/product/ProductStockMovement";
-import SerialNumberStockMovement from "../../../left-side/header/Setting/product/SerialNumberStockMovement";
 import {
   fetchProductForReport,
   handleDeleteProduct,
@@ -47,6 +47,7 @@ interface IProductReport {
 
 const PAGE_SIZE = 50;
 const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   const [productList, setProductList] = useState<IProductView[]>([]);
@@ -91,8 +92,6 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     useState<boolean>(false);
   const [isModalExcelProductForImportUpdate, setIsModalExcelProductForUpdate] =
     useState<boolean>(false);
-  const [isOpenStockMovementSNnumberWise, setIsOpenStockMovementSNnumberWise] =
-    useState(false);
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const { getFilter, setFilters } = useCommonFilterStore();
@@ -439,9 +438,8 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     setProductDropdown(null);
     setHasIdAvail(undefined);
     if (canView) {
-      setIsOpenStockMovementSNnumberWise(true);
+      navigate("/SideView/report/serial_number_stock_check");
     } else {
-      setIsOpenStockMovementSNnumberWise(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
@@ -1166,13 +1164,6 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
               btn2="Import"
               sampleLocation="sampleProductForUpdate.xlsx"
               potions={5}
-            />
-          )}
-          {isOpenStockMovementSNnumberWise && (
-            <SerialNumberStockMovement
-              show={isOpenStockMovementSNnumberWise}
-              onHide={() => setIsOpenStockMovementSNnumberWise(false)}
-              // passDataInAddItem={stockMovementData}
             />
           )}
           {isModalFilterVisible && (
