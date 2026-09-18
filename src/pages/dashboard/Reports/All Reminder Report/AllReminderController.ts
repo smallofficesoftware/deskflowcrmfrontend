@@ -46,6 +46,7 @@ export const fetchTaskReport = async (
   referenceWiseContact?: number,
   typeFilter: string = "due",
   setCounts?: (counts: { due: number; future: number; complete: number; all: number }) => void,
+  setTotalRecords?: (total: number) => void,
 ): Promise<IReminderItem[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const uuid = getID || localStorage.getItem("UUID");
@@ -90,6 +91,7 @@ export const fetchTaskReport = async (
     if (res.data?.data?.counts && setCounts) {
       setCounts(res.data.data.counts);
     }
+    setTotalRecords?.(Number(res.data?.data?.total) || 0);
     setData?.(items);
     return items;
   } catch (err: any) {
