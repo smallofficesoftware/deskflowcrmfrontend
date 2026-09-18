@@ -7,6 +7,7 @@ import {
   type DataTableFilterMeta,
   type DataTableFilterMetaData,
   type DataTableOperatorFilterMetaData,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -91,16 +92,12 @@ const AccountDebitReport = ({
   const [filteredTransactions, setFilteredTransactions] = useState<
     IAccountTransaction[]
   >([]);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
   const [currencyName, setCurrencyName] = useState<any>();
 
-  const isPaginationCall = useRef(false);
   const dt = useRef<DataTable<IAccountTransaction[]>>(null);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -271,7 +268,6 @@ const AccountDebitReport = ({
   useEffect(() => {
     if (!Array.isArray(transactions)) {
       setFilteredTransactions([]);
-      setTotalRecords(0);
       return;
     }
 
@@ -311,15 +307,12 @@ const AccountDebitReport = ({
     }
 
     setFilteredTransactions(result);
-    setTotalRecords(result.length);
   }, [transactions, lazyState]);
 
   useEffect(() => {
-    setTransactions([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedTransactions([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAccountData(0, 50, true);
+    loadAccountData(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -330,19 +323,13 @@ const AccountDebitReport = ({
     filters.checkedOptionsPaymentBy,
   ]);
 
-  const loadAccountData = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadAccountData = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchAccountTransactions(
+      const { data, total } = await fetchAccountTransactions(
         filters.selectedDateArray,
         MobileToken,
         getID,
@@ -357,35 +344,30 @@ const AccountDebitReport = ({
         filters.referenceWiseContact,
         filters.checkedOptionsPaymentBy,
       );
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
 
-      if (reset) {
-        setTransactions(newData);
-      } else {
-        setTransactions((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData);
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setTransactions(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setTransactions([]);
     setSelectedTransactions([]);
-    loadAccountData(0, 50, true);
+    loadAccountData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -407,7 +389,7 @@ const AccountDebitReport = ({
   const onSelectionChange = (event: { value: IAccountTransaction[] }) => {
     const value = event.value;
     setSelectedTransactions(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredTransactions.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -468,9 +450,7 @@ const AccountDebitReport = ({
   const { total: finalBalance, symbol: balanceSymbol } = totalDebitAmount;
 
   const getExportData = () => {
-    const start = lazyState.first;
-    const end = start + lazyState.rows;
-    return filteredTransactions.slice(start, end);
+    return filteredTransactions;
   };
 
   const formatDateTime = (dateStr: string | undefined | null): string => {
@@ -969,31 +949,19 @@ const AccountDebitReport = ({
         <DataTable
           ref={dt}
           value={transactions}
+          dataKey="id"
           totalRecords={totalRecords}
           lazy
+          paginator
+          rowsPerPageOptions={[25, 50, 100, 200]}
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= transactions.length - 1 &&
-                hasMore &&
-                !loading
-              ) {
-                loadAccountData(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           rows={lazyState.rows}
           first={lazyState.first}
+          onPage={onPageChange}
           onSort={onSort}
           selection={selectedTransactions}
           onSelectionChange={onSelectionChange}
