@@ -10,6 +10,11 @@ export interface IAccountOutstanding {
 
 
 
+export interface IAccountOutstandingResult {
+  data: IAccountOutstanding[];
+  total: number;
+}
+
 export const fetchAccountOutstanding = async (
   selectedDates: Date[] | undefined,
   ul: number,
@@ -18,7 +23,7 @@ export const fetchAccountOutstanding = async (
   selectedContactId?: string,
   referenceWiseContact?: number,
   Flag?:string
-): Promise<IAccountOutstanding[]> => {
+): Promise<IAccountOutstandingResult> => {
   try {
     const getUUID = localStorage.getItem("UUID");
 
@@ -36,11 +41,12 @@ export const fetchAccountOutstanding = async (
       }
     );
 
-    return Array.isArray(response.data?.data)
-      ? response.data.data
-      : [];
+    return {
+      data: Array.isArray(response.data?.data) ? response.data.data : [],
+      total: typeof response.data?.total === "number" ? response.data.total : 0,
+    };
   } catch {
-    return [];
+    return { data: [], total: 0 };
   }
 };
 

@@ -5,12 +5,12 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -28,7 +28,6 @@ import {
   fetchAccountOutstanding,
   IAccountOutstanding,
 } from "./AccountOutstandingReportsController";
-// import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 
 interface IPropDataTableView {
   showReportTable: boolean;
@@ -54,11 +53,6 @@ interface IPropAccountOutstandingReports {
   referenceWiseContact?: number;
   type?: string;
   onHide?: () => void;
-}
-
-interface VirtualScrollerLazyEvent {
-  first?: number | VirtualScrollerState;
-  last?: number | VirtualScrollerState;
 }
 
 const getNestedValue = (obj: any, path: string): any => {
@@ -92,14 +86,7 @@ const AccountOutstandingReports = ({
   const [selectedCustomers, setSelectedCustomers] = useState<
     IAccountOutstanding[]
   >([]);
-  const isPaginationCall = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
-  const PAGE_SIZE = 50;
-
-  const offsetRef = useRef(0);
   const fetchingRef = useRef(false);
-  const loadingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -235,32 +222,10 @@ const AccountOutstandingReports = ({
         }))
       : [];
 
-  // useEffect(() => {
-
-  //   if (isPaginationCall.current) {
-  //     isPaginationCall.current = false;
-  //     return;
-  //   }
-
-  //   let isMounted = true;
-
-  //   fetchAccountOutstanding(setAccountOutstanding, selectedDates, MobileToken, getID,
-  //     MobileFlag, 0,
-  //     50, debouncedGlobalSearch);
-
-  //   return () => {
-  //     isMounted = false;
-  //     if (networkTimeout.current) clearTimeout(networkTimeout.current);
-  //   };
-  // }, [selectedDates, setAccountOutstanding, debouncedGlobalSearch]);
-
   useEffect(() => {
-    currentOffset.current = 0; // Fixed ref name if it was offsetRef
-    setCustomers([]);
-    setHasMore(true);
-    setTotalRecords(0); // Reset total
+    setLazyState((prev) => ({ ...prev, first: 0, page: 1 }));
     setSelectedCustomers([]);
-    loadAccountData(true);
+    loadAccountData(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     debouncedSearchText,
@@ -269,18 +234,10 @@ const AccountOutstandingReports = ({
     type,
   ]);
 
-  const loadAccountData = async (reset = false) => {
+  const loadAccountData = async (first: number, rows: number) => {
     if (fetchingRef.current) return;
-
-    if (!hasMore && !reset) return;
-
     fetchingRef.current = true;
-
-    if (reset) {
-      setLoading(true);
-    }
-
-    const offset = reset ? 0 : offsetRef.current;
+    setLoading(true);
 
     try {
       const dateArrayToUse =
@@ -288,47 +245,20 @@ const AccountOutstandingReports = ({
           ? filters.selectedDateArray
           : getCurrentMonthDateRange();
 
-      const data = await fetchAccountOutstanding(
+      const { data, total } = await fetchAccountOutstanding(
         dateArrayToUse,
-        offset,
-        PAGE_SIZE,
+        first,
+        rows,
         debouncedSearchText,
         filters.selectedContactId,
         filters.referenceWiseContact,
         type,
       );
 
-      if (reset) {
-        setCustomers(data);
-        offsetRef.current = data.length;
-      } else {
-        setCustomers((prev) => {
-          // 🔥 duplicate protection
-          const merged = [...prev, ...data];
-
-          const unique = merged.filter(
-            (item, index, self) =>
-              index ===
-              self.findIndex(
-                (x) =>
-                  x.contact_name === item.contact_name &&
-                  x.total_outstanding_amount === item.total_outstanding_amount,
-              ),
-          );
-
-          return unique;
-        });
-
-        offsetRef.current += data.length;
-      }
-
-      // 🔥 stop only when API returns less than page size
-      if (data.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
+      setCustomers(data);
+      setTotalRecords(total);
     } catch (e) {
       console.error(e);
-      setHasMore(false);
     } finally {
       fetchingRef.current = false;
       setLoading(false);
@@ -336,22 +266,18 @@ const AccountOutstandingReports = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setCustomers([]);
-    setHasMore(true);
-    setTotalRecords(0);
     setSelectedCustomers([]);
-    loadAccountData(true);
+    loadAccountData(lazyState.first, lazyState.rows);
   };
 
-  const onLazyLoad = (event: VirtualScrollerLazyEvent) => {
-    const first =
-      typeof event.first === "number" ? event.first : (event.first?.first ?? 0);
-
-    if (first >= offsetRef.current && hasMore && !loadingRef.current) {
-      // loadAccountData(0, 50, true);
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: (event.page ?? 0) + 1,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -763,14 +689,6 @@ const AccountOutstandingReports = ({
     return value ?? "-";
   };
 
-  const getLastIndex = (
-    last: number | VirtualScrollerState | undefined,
-  ): number => {
-    if (typeof last === "number") return last;
-    if (last && typeof last === "object" && "last" in last) return last.last;
-    return 0;
-  };
-
   return (
     <div>
       <div
@@ -1056,41 +974,19 @@ const AccountOutstandingReports = ({
       >
         <DataTable
           value={customers}
+          dataKey="contact_name"
           scrollable
           scrollHeight="90vh"
           resizableColumns
           columnResizeMode="fit"
           loading={loading}
-          totalRecords={1000000}
-          virtualScrollerOptions={{
-            lazy: true,
-            itemSize: 52,
-            appendOnly: true,
-            showLoader: true,
-
-            onLazyLoad: (e) => {
-              const lastIndex = getLastIndex(e.last);
-
-              console.log("LazyLoad", {
-                lastIndex,
-                loaded: customers.length,
-                hasMore,
-                fetching: fetchingRef.current,
-              });
-
-              // 🔥 trigger before reaching end
-              const shouldLoad = lastIndex >= customers.length - 10;
-
-              if (shouldLoad && hasMore && !fetchingRef.current) {
-                loadAccountData(false);
-              }
-            },
-          }}
-          // dataKey="contact_name"
-          // paginator
+          paginator
+          lazy
           first={lazyState.first}
           rows={lazyState.rows}
-          // onPage={onPage}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
