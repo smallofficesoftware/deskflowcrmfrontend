@@ -73,6 +73,11 @@ export interface IInquiryReport {
   [key: string]: any;
 
 }
+export interface IInquiryReportResult {
+  data: IInquiryReport[];
+  total: number;
+}
+
 export const fetchInquiry = async (
   selectedDates: Date[] | undefined,
   MobileToken?: string,
@@ -90,7 +95,7 @@ export const fetchInquiry = async (
   ll?: number,
   globalSearch?: string,
   referenceWiseContact?: number
-): Promise<IInquiryReport[]> => {
+): Promise<IInquiryReportResult> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
 
@@ -119,20 +124,23 @@ export const fetchInquiry = async (
 
     if (response.data.ack === 3) {
       toast.error(response.data.ack_msg || "Permission denied");
-      return [];
+      return { data: [], total: 0 };
     }
 
     const items = response.data.data?.items || [];
 
     if (!Array.isArray(items)) {
       console.error("Expected array but got:", items);
-      return [];
+      return { data: [], total: 0 };
     }
 
-    return items;
+    return {
+      data: items,
+      total: typeof response.data.data?.total === "number" ? response.data.data.total : 0,
+    };
   } catch (error: any) {
     toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-    return [];   // ✅ IMPORTANT
+    return { data: [], total: 0 };
   }
 };
 

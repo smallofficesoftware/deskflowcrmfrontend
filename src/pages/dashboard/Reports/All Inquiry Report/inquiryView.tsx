@@ -7,6 +7,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -108,11 +109,7 @@ const AllInqueryReport = ({
   const [selectedCustomers, setSelectedCustomers] = useState<IInquiryReport[]>(
     [],
   );
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -259,26 +256,18 @@ const AllInqueryReport = ({
   });
 
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks(0, lazyState.rows);
   }, [searchDependencies, filters.referenceWiseContact]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchInquiry(
+      const { data, total } = await fetchInquiry(
         filters.selectedDateArray,
         MobileToken,
         getID,
@@ -299,34 +288,28 @@ const AllInqueryReport = ({
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData); // Append via splice on copy
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const dataArray: IInquiryReport[] = useMemo(() => {
@@ -646,7 +629,7 @@ const AllInqueryReport = ({
 
   const onSelectionChange = (event: { value: IInquiryReport[] }) => {
     setSelectedCustomers(event.value);
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === getFilteredData().length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1265,28 +1248,20 @@ const AllInqueryReport = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="inquiry_id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= customers.length - 1 && hasMore && !loading) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
-          // dataKey="inquiry_id"
-          // first={lazyState.first}
-          // rows={lazyState.rows}
+          paginator
+          lazy
+          first={lazyState.first}
+          rows={lazyState.rows}
           totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}
