@@ -1,7 +1,7 @@
 import { format as formatDateFns, formatDistanceToNow } from "date-fns";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, DataTableSortEvent } from "primereact/datatable";
+import { DataTable, DataTablePageEvent, DataTableSortEvent } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -158,16 +158,12 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
   const [durationMs, setDurationMs] = useState<number | null>(null);
   // Grand totals for whichever columns had "Total" checked in Step 2 —
   // computed server-side (queryEngine.js) over the WHOLE filtered result
-  // set, not just the rows currently loaded into this paginated grid.
-  // Keyed the same as each row's own field keys, so totals[c.key] lines up
-  // with that column directly. Only present in runFromStart's response
-  // (a fresh run/filter/sort/search change) — loadMore's own response
-  // carries the identical value, just not re-applied, since it can't have
-  // changed.
+  // set, not just the current page. Keyed the same as each row's own field
+  // keys, so totals[c.key] lines up with that column directly.
   const [totals, setTotals] = useState<Record<string, number | null> | undefined>(undefined);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const offsetRef = useRef(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const [sortField, setSortField] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<1 | -1 | null>(null);
@@ -323,18 +319,12 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     setLoadingDrillDown(false);
   };
 
-  // Fresh run — resets pagination to page 1. Called on mount and whenever
-  // sort or search changes (a new order/term invalidates the relative
-  // position of whatever pages were already loaded, same reset rule
-  // search/filter changes already follow elsewhere in this app).
-  const runFromStart = async () => {
+  const loadPage = async (offset: number, limit: number) => {
     setLoading(true);
-    setSelectedRows([]); // a re-run invalidates any prior selection's row objects
-    offsetRef.current = 0;
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
     const data = await runReportDefinition(definitionId, {
-      limit: PAGE_SIZE,
-      offset: 0,
+      limit,
+      offset,
       sort,
       search: globalSearchText || undefined,
       filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
@@ -343,7 +333,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     if (!data) {
       setAccessError("This report couldn't be run — you may not have access to it.");
       setRows([]);
-      setHasMore(false);
       setTotals(undefined);
       return;
     }
@@ -351,26 +340,23 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     setRowCount(data.row_count);
     setDurationMs(data.duration_ms);
     setTotals(data.totals);
-    setHasMore(data.rows.length === PAGE_SIZE);
-    offsetRef.current = data.rows.length;
   };
 
-  const loadMore = async () => {
-    if (loading || !hasMore) return;
-    setLoading(true);
-    const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, {
-      limit: PAGE_SIZE,
-      offset: offsetRef.current,
-      sort,
-      search: globalSearchText || undefined,
-      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
-    });
-    setLoading(false);
-    if (!data) return;
-    setRows((prev) => [...prev, ...data.rows]);
-    setHasMore(data.rows.length === PAGE_SIZE);
-    offsetRef.current += data.rows.length;
+  // Fresh run — resets pagination to page 1. Called on mount and whenever
+  // sort/search/filters change (a new order/term invalidates the relative
+  // position of whatever page was already loaded, same reset rule
+  // search/filter changes already follow elsewhere in this app).
+  const runFromStart = async () => {
+    setSelectedRows([]); // a re-run invalidates any prior selection's row objects
+    setPage(0);
+    await loadPage(0, pageSize);
+  };
+
+  const onPageChange = (e: DataTablePageEvent) => {
+    setSelectedRows([]); // a page change swaps out `rows` entirely — old selections no longer point at anything on screen
+    setPage(e.page ?? 0);
+    setPageSize(e.rows);
+    loadPage(e.first, e.rows);
   };
 
   useEffect(() => {
@@ -797,29 +783,13 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollHeight="90vh"
-            virtualScrollerOptions={{
-              itemSize: 46,
-              lazy: true,
-              // PrimeReact's virtual scroller fires onLazyLoad once immediately
-              // on mount, before the first real load — at that moment
-              // rows.length is 0, so the old `e.last >= rows.length - 1` check
-              // (>= -1) was always true, firing loadMore() in a race against
-              // this component's own runFromStart() effect. Both requested
-              // offset 0, and whichever resolved second appended a duplicate
-              // of the first page on top of runFromStart's already-set rows —
-              // the actual cause of the double /run call + duplicated rows
-              // bug. Requiring rows.length > 0 skips that spurious mount-time
-              // call while a real "scrolled near the bottom" event (which
-              // only happens once rows already exist) still fires loadMore
-              // exactly as before.
-              onLazyLoad: (e) => {
-                const last = typeof e.last === "number" ? e.last : 0;
-                if (rows.length > 0 && last >= rows.length - 1 && hasMore && !loading) loadMore();
-              },
-              appendOnly: true,
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={page * pageSize}
+            rows={pageSize}
+            totalRecords={rowCount ?? 0}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             onSort={onSort}
             sortField={sortField}
             sortOrder={sortOrder}
@@ -839,7 +809,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             footer={
               <div style={{ padding: 10, background: "#f8f9fa", position: "sticky", bottom: 0, zIndex: 1 }}>
                 <div style={{ textAlign: "right" }}>
-                  {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded${durationMs !== null ? ` · ${durationMs}ms` : ""}` : ""}
+                  {rowCount !== null ? `Showing ${rows.length} of ${rowCount} row(s)${durationMs !== null ? ` · ${durationMs}ms` : ""}` : ""}
                 </div>
               </div>
             }

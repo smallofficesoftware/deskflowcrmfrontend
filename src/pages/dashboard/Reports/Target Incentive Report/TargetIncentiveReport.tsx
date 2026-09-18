@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -60,7 +61,6 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
   const [customers, setCustomers] = useState<ITargetIncentiveItem[]>([]);
-  const [allRawData, setAllRawData] = useState<ITargetIncentiveItem[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<
     ITargetIncentiveItem[]
   >([]);
@@ -87,10 +87,9 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dt = useRef<DataTable<ITargetIncentiveItem[]>>(null);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const hasMoreRef = useRef(true);
-  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(50);
 
   const currSym =
     summaryData.currency_symbol || customers[0]?.currency_symbol || "₹";
@@ -186,45 +185,26 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
       .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
   }, [selectedDates, filters.startSearchDate, filters.endSearchDate]);
 
-  const loadData = async (reset = false) => {
+  const loadData = async (offset: number, limit: number) => {
     if (!canViewReport) return;
     if (isFetchingRef.current) return;
-    if (!hasMoreRef.current && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
 
     try {
-      if (reset) {
-        offsetRef.current = 0;
-        setCustomers([]);
-        hasMoreRef.current = true;
-      }
-
       await fetchTargetIncentiveReport(
-        (dataSetter) => {
-          const newData =
-            typeof dataSetter === "function"
-              ? dataSetter(allRawData)
-              : dataSetter;
-          setAllRawData(newData);
-          if (newData.length < PAGE_SIZE) {
-            hasMoreRef.current = false;
-          }
-          setCustomers((prev) => (reset ? newData : [...prev, ...newData]));
-        },
+        setCustomers,
         setTotalRecords,
         setSummaryData,
         reportSelectedDates,
         selectedTeamMembers || filters.checkedOptionsUser,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         globalSearch || debouncedSearchText,
       );
-
-      offsetRef.current += PAGE_SIZE;
     } catch (err) {
       console.error(err);
     } finally {
@@ -234,17 +214,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    setCustomers([]);
-    setAllRawData([]);
-    loadData(true);
+    setPage(0);
+    loadData(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadData(event.first, event.rows);
   };
 
   useEffect(() => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    loadData(true);
+    setPage(0);
+    loadData(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     reportSelectedDates,
     selectedTeamMembers,
@@ -771,7 +754,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
         endDate={filters.endSearchDate}
       />
 
-      {/* Main Table using Virtual Scroller */}
+      {/* Main Table */}
       <div
         className="report_card"
         style={{ height: "75vh", display: "flex", flexDirection: "column" }}
@@ -785,22 +768,13 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="65vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-            lazy: true,
-            onLazyLoad: (e: any) => {
-              if (
-                e.last >= customers.length - 1 &&
-                hasMoreRef.current &&
-                !loading
-              ) {
-                loadData(false);
-              }
-            },
-            appendOnly: true,
-            showLoader: true,
-            delay: 0,
-          }}
+          paginator
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           filterDisplay="row"
           onFilter={onFilter}
           filters={lazyState.filters}

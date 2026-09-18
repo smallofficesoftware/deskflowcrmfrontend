@@ -121,8 +121,6 @@ const AllTeamExpense = ({
   onHide,
 }: IPropsourceReportReports) => {
   const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<any[]>([]);
   const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
@@ -136,15 +134,7 @@ const AllTeamExpense = ({
   const [expenseTypeId, setExpenseTypeId] = useState<string>("");
   const [refreshReport, setRefreshReport] = useState(false);
 
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
-
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-
-  const PAGE_SIZE = 50;
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -283,9 +273,8 @@ const AllTeamExpense = ({
   };
 
   useEffect(() => {
-    offsetRef.current = 0;
-    setHasMore(true);
-    loadMoreData(true);
+    loadExpenseData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -441,9 +430,17 @@ const AllTeamExpense = ({
     return filteredData;
   };
 
-  const loadMoreData = async (reset = false) => {
+  // Backend's ul/ll don't actually paginate the team-member list (see
+  // teamDayExpenseServices.js - the outer team query has no limit at all,
+  // and the per-member offset/limit only ever applies to a single-id
+  // lookup where it's a no-op), so every call already returns every
+  // matching team member's full expense set regardless of what page was
+  // asked for. One fetch per filter/search change is therefore both
+  // correct and sufficient - the grid below paginates the already-complete
+  // `dataArray` client-side (PrimeReact's own non-lazy paginator) instead
+  // of re-fetching an identical response per page.
+  const loadExpenseData = async () => {
     if (isFetchingRef.current) return;
-    if (!hasMore && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -453,27 +450,17 @@ const AllTeamExpense = ({
         (await fetchExpense(
           filters.selectedDateArray,
           filters.checkedOptionsUser,
-          offsetRef.current,
-          PAGE_SIZE,
+          0,
+          50,
           debouncedSearchText,
           MobileToken,
           getID,
           MobileFlag,
         )) || [];
 
-      if (newData.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setSourceReport(newData);
-      } else {
-        setSourceReport((prev) => [...prev, ...newData]);
-      }
-
-      offsetRef.current += PAGE_SIZE;
+      setSourceReport(newData);
     } catch (e) {
-      setHasMore(false);
+      console.error(e);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -481,65 +468,9 @@ const AllTeamExpense = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    setHasMore(true);
-    setSourceReport([]);
-    loadMoreData(true);
+    loadExpenseData();
   };
 
-  // const loadLazyData = () => {
-  //   setLoading(true);
-  //   if (networkTimeout.current) clearTimeout(networkTimeout.current);
-
-  //   networkTimeout.current = setTimeout(() => {
-  //     const filteredData = getFilteredData();
-  //     const start = lazyState.first;
-  //     const end = start + lazyState.rows;
-  //     setCustomers(filteredData.slice(start, end));
-  //     setTotalRecords(filteredData.length);
-  //     setLoading(false);
-  //   }, 250);
-  // };
-
-  // const onPage = async (event: DataTablePageEvent) => {
-  //   const currentPage = event.page ?? 0;
-  //   const ul = currentPage * 50;        // upper limit (starting point)
-  //   const ll = 50;  // lower limit (ending point)
-
-  //   isPaginationCall.current = true;
-
-  //   setLazyState((prev) => ({
-  //     ...prev,
-  //     first: event.first,
-  //     rows: event.rows,
-  //     page: currentPage,
-  //   }));
-
-  //   setLoading(true);
-
-  //   try {
-  //     await fetchExpense(
-  //       setSourceReport,
-  //       setError,
-  //       selectedDates,
-  //       setLoading,
-  //       MobileToken,
-  //       getID,
-  //       MobileFlag,
-  //       selectedTeamMembers,
-  //       ul,
-  //       ll,
-  //       debouncedGlobalSearch
-  //     );
-  //   } catch (err) {
-  //     console.error("Error fetching paginated expense data:", err);
-  //   } finally {
-  //     setLoading(false);
-  //     setTimeout(() => {
-  //       isPaginationCall.current = false;
-  //     }, 100);
-  //   }
-  // };
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -559,7 +490,7 @@ const AllTeamExpense = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value || [];
     setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === dataArray.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1047,7 +978,6 @@ const AllTeamExpense = ({
         <DataTable
           ref={dt}
           value={dataArray}
-          lazy
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
@@ -1055,23 +985,9 @@ const AllTeamExpense = ({
           scrollHeight="80vh"
           filterDisplay="row"
           dataKey="username"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= customers.length - 1 && hasMore && !loading) {
-                loadMoreData();
-              }
-            },
-            appendOnly: true,
-            showLoader: false,
-            delay: 0,
-          }}
-          // paginator
-          // first={lazyState.first}
-          // rows={lazyState.rows}
-          // totalRecords={totalRecords}
-          // onPage={onPage}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}
