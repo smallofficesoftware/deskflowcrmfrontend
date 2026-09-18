@@ -5,12 +5,12 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
@@ -182,9 +182,7 @@ const ProductPendingView = ({
   >([]);
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -295,8 +293,8 @@ const ProductPendingView = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 500,
-    page: 1,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -332,12 +330,9 @@ const ProductPendingView = ({
   }));
 
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    isLoadingMore.current = false;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     debouncedSearchText,
@@ -345,77 +340,13 @@ const ProductPendingView = ({
     filters.referenceWiseContact,
   ]);
 
-  const mergeData = (
-    existing: IProductSalesData[],
-    newEntries: IProductSalesData[],
-  ) => {
-    const productMap = new Map<number, IProductSalesData>(
-      existing.map((item) => [item.item_product_id, { ...item }]),
-    );
-
-    type MutableFields = Pick<
-      IProductSalesData,
-      | "salesorder"
-      | "salesinvoice"
-      | "purchaseinvoice"
-      | "purchaseorder"
-      | "pending_sales"
-      | "pending_purchase"
-    >;
-
-    const fields: (keyof MutableFields)[] = [
-      "salesorder",
-      "salesinvoice",
-      "purchaseinvoice",
-      "purchaseorder",
-      "pending_sales",
-      "pending_purchase",
-    ];
-
-    newEntries.forEach((newItem) => {
-      const id = newItem.item_product_id;
-      if (productMap.has(id)) {
-        const existingItem = productMap.get(id)!;
-
-        fields.forEach((field) => {
-          const existingValue = existingItem[field] as string | undefined;
-          const newValue = newItem[field] as string | undefined;
-
-          if (newValue && newValue !== "-") {
-            if (existingValue && existingValue !== "-") {
-              const { quantity: q1, amount: a1 } =
-                parseQuantityAmount(existingValue);
-              const { quantity: q2, amount: a2 } =
-                parseQuantityAmount(newValue);
-              const totalQ = q1 + q2;
-              const totalA = a1 + a2;
-              existingItem[field] = `${totalQ}(₹${totalA.toFixed(2)})`;
-            } else {
-              existingItem[field] = newValue;
-            }
-          }
-        });
-      } else {
-        productMap.set(id, { ...newItem });
-      }
-    });
-
-    return Array.from(productMap.values());
-  };
-
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current) return;
-    if (!hasMore && !reset) return;
-
-    isLoadingMore.current = true;
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
     try {
-      const newData = await fetchProductReport(
+      const { data, total } = await fetchProductReport(
         filters.selectedDateArray,
         setError,
         MobileToken,
@@ -430,26 +361,28 @@ const ProductPendingView = ({
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      } else {
-        setHasMore(true); // ← add karo (safety ke liye)
-      }
-
-      setCustomers((prev) => (reset ? newData : mergeData(prev, newData)));
-
-      currentOffset.current += newData.length;
-    } catch {
-      isLoadingMore.current = false;
+      setCustomers(data);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const isFilterApplied = () => {
@@ -588,7 +521,7 @@ const ProductPendingView = ({
   const onSelectionChange = (event: { value: IProductSalesData[] }) => {
     const value = event.value;
     setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === dataArray.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1279,45 +1212,27 @@ const ProductPendingView = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="item_product_id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-            lazy: false,
-            appendOnly: true,
-            showLoader: true,
-            numToleratedItems: 50,
-            delay: 150,
-            onLazyLoad: (event: {
-              first: number;
-              last: number | VirtualScrollerState;
-            }) => {
-              const last =
-                typeof event.last === "number"
-                  ? event.last
-                  : ((event.last as VirtualScrollerState)?.last ?? 0);
-
-              if (
-                last >= customers.length - 10 &&
-                hasMore &&
-                !isLoadingMore.current
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-          }}
           filterDisplay="row"
+          paginator
+          lazy
+          first={lazyState.first}
           rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
           onFilter={onFilter}
           filters={lazyState.filters}
-          // loading={loading}
+          loading={loading}
           selection={selectedCustomers}
           onSelectionChange={onSelectionChange}
           selectAll={selectAll}
