@@ -122,12 +122,11 @@ const AllcontactReport = ({
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<IAllcontact[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<IAllcontact[]>([]);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
   // console.log("selectedProductSearchId",selectedProductSearchId);
   // console.log("setSelectOrderType",setSelectOrderType);
   // console.log("setActive",setActive);
 
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   const [isCreateContact, setIsCreateContact] = useState(false);
@@ -556,19 +555,17 @@ const AllcontactReport = ({
   });
 
   useEffect(() => {
-    setCustomers([]);
-    setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-
-    loadTasks(0, 50, true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDependencies, isArchivState, refreshContacts]);
 
   const loadTasks = useCallback(
-    async (offset: number, limit: number, reset: boolean = false) => {
+    // 3rd param kept only so existing call sites passing a trailing true/false
+    // (leftover from the old infinite-scroll append-vs-replace flag) don't all
+    // need updating — every call is a full-page replace now.
+    async (offset: number, limit: number, _reset: boolean = true) => {
       if (isLoadingMore.current) return;
-
-      if (!hasMore && !reset) return;
 
       isLoadingMore.current = true;
 
@@ -599,31 +596,12 @@ const AllcontactReport = ({
           isArchivState,
           filters.leadAgingBucket,
           filters.leadAgingActivityTypes,
+          setTotalRecords,
         );
 
-        if (newData.length < limit) {
-          setHasMore(false);
-        }
-
-        if (reset) {
-          setCustomers(newData);
-        } else {
-          setCustomers((prev) => {
-            const merged = [...prev, ...newData];
-
-            // duplicate protection
-            return merged.filter(
-              (item, index, self) =>
-                index === self.findIndex((x) => x.id === item.id),
-            );
-          });
-        }
-
-        currentOffset.current = offset + newData.length;
+        setCustomers(newData);
       } catch (err) {
         console.error(err);
-
-        setHasMore(false);
       } finally {
         setLoading(false);
 
@@ -649,15 +627,22 @@ const AllcontactReport = ({
       debouncedSearchText,
       filters.leadAgingBucket,
       filters.leadAgingActivityTypes,
-      hasMore,
     ],
   );
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
+  };
+
+  const onPage = (event: { first: number; rows: number; page?: number }) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const dataArray: IAllcontact[] = useMemo(() => {
@@ -1617,22 +1602,13 @@ const AllcontactReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= customers.length - 10 &&
-                hasMore &&
-                !isLoadingMore.current
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 200,
-          }}
+          paginator
+          lazy
+          first={lazyState.first}
+          rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPage}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           filterDisplay="row"
           // dataKey="id"
           onSort={onSort}
@@ -1730,7 +1706,10 @@ const AllcontactReport = ({
         <CreateContactView
           show={isCreateContact}
           onHide={() => setIsCreateContact(false)}
-          setContact={() => loadTasks(0, 50, true)}
+          setContact={() => {
+            setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+            loadTasks(0, lazyState.rows);
+          }}
           headerName={"Create Contact"}
         />
       )}

@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -147,13 +148,12 @@ const AllTaskReportsView = ({
   const [singleTaskData, setSingleTaskData] = useState<ITaskView | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [imageViewData, setImageViewData] = useState<any | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(ITEMS_PER_PAGE);
   const [isOpenCreateModel, setIsCreateModel] = useState(false);
   const [isOpenEditModel, setIsOpenEditModel] = useState(false);
   const [editTaskItem, setEditTaskItem] = useState<ITaskView | null>(null);
   const title = is_support_ticket_flag == 0 ? "All Task" : "All Support Ticket";
-  const isInitialLoad = useRef(true);
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   // Filters State (Pills & Dropdowns)
@@ -465,9 +465,11 @@ const AllTaskReportsView = ({
   const [sortOrder, setSortOrder] = useState<SortOrder | null>(null);
 
   const loadTasks = useCallback(
-    async (page: number = 0, limit: number = ITEMS_PER_PAGE, reset: boolean = false) => {
-      if (isLoadingMore.current && !reset) return;
-      if (!hasMore && !reset) return;
+    // 3rd param kept only so the many existing call sites passing a trailing
+    // true/false (leftover from the old infinite-scroll append-vs-replace
+    // flag) don't all need updating — every call is a full-page replace now.
+    async (page: number = 0, limit: number = ITEMS_PER_PAGE, _reset: boolean = true) => {
+      if (isLoadingMore.current) return;
 
       setLoading(true);
       isLoadingMore.current = true;
@@ -475,15 +477,7 @@ const AllTaskReportsView = ({
       try {
         await fetchApiTask(
           (newData: ITaskView[]) => {
-            if (newData.length < limit) {
-              setHasMore(false);
-            }
-            if (reset || page === 0) {
-              setAllTasks(newData);
-            } else {
-              setAllTasks((prev) => [...prev, ...newData]);
-            }
-            currentOffset.current = page * limit + newData.length;
+            setAllTasks(newData);
           },
           setLoading,
           debouncedSearchText || globalSearch || "",
@@ -524,11 +518,10 @@ const AllTaskReportsView = ({
           filters.filterData?.area,
         );
       } catch (err) {
-        setHasMore(false);
+        console.error(err);
       } finally {
         setLoading(false);
         isLoadingMore.current = false;
-        isInitialLoad.current = false;
       }
     },
     [
@@ -548,37 +541,30 @@ const AllTaskReportsView = ({
     ]
   );
 
-  // Reload data on filter/search change
+  // Reload data (from page 1) on filter/search change
   useEffect(() => {
-    setAllTasks([]);
-    setDisplayTasks([]);
-    currentOffset.current = 0;
-    isInitialLoad.current = true;
-    setHasMore(true);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadTasks]);
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    isInitialLoad.current = true;
-    setAllTasks([]);
-    setDisplayTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
   };
 
   const onhideTaskModal = () => {
     setIsCreateModel(false);
     setIsOpenEditModel(false);
     setEditTaskItem(null);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
   };
 
-  const onVirtualScroller = (event: any) => {
-    if (event.last >= allTasks.length - 1 && hasMore && !isLoadingMore.current) {
-      const nextPage = Math.floor(allTasks.length / ITEMS_PER_PAGE);
-      loadTasks(nextPage, ITEMS_PER_PAGE, false);
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadTasks(event.page ?? 0, event.rows);
   };
 
   const filteredAndSortedData = useMemo(() => {
@@ -720,7 +706,8 @@ const AllTaskReportsView = ({
   const handleDeleteTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await deleteTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsDeleteConfirmation(false);
     setSelectedTasks([]);
@@ -729,7 +716,8 @@ const AllTaskReportsView = ({
   const handleCompleteTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await complateTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsTaskCompletedConfirmation(false);
     setSelectedTasks([]);
@@ -738,7 +726,8 @@ const AllTaskReportsView = ({
   const handleArchiveTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await archiveTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsArchiveTaskConfirmation(false);
     setSelectedTasks([]);
@@ -747,7 +736,8 @@ const AllTaskReportsView = ({
   const handleUnArchiveTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await unarchiveTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsUnArchiveTaskConfirmation(false);
     setSelectedTasks([]);
@@ -756,7 +746,8 @@ const AllTaskReportsView = ({
   const handleConvertSupportTicketToTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await CovertSupportTikcetToTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsConvertSupportTicketToTask(false);
     setSelectedTasks([]);
@@ -807,7 +798,8 @@ const AllTaskReportsView = ({
             ? "Marked as read successfully"
             : "Marked as unread successfully"
         );
-        loadTasks(0, ITEMS_PER_PAGE, true);
+        setPage(0);
+        loadTasks(0, rows, true);
       }
     } catch (error) {
       console.error(error);
@@ -873,7 +865,8 @@ const AllTaskReportsView = ({
     await updateStageStatusRadioButton(idsToUpdate, selectedOption, setLoading);
     setIsModalAssignStatusVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmRadioButtonStatusCustomer = async (selectedOption: any) => {
@@ -883,7 +876,8 @@ const AllTaskReportsView = ({
     await updateStageStatusRadioButtonCustomer(idsToUpdate, selectedOption, setLoading);
     setIsModalAssignStatusVisibleCustomer(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmAssignLabel = async (
@@ -896,7 +890,8 @@ const AllTaskReportsView = ({
     await updateLabel(idsToUpdate, checkedOptions, setLoading);
     setIsModalAssignLabelVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmAssignUser = async (
@@ -909,7 +904,8 @@ const AllTaskReportsView = ({
     await updateUserCheckBox(idsToUpdate, checkedOptions, setLoading);
     setIsModalAssignUserVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const showExternalStatusColumn =
@@ -2394,12 +2390,13 @@ const AllTaskReportsView = ({
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="82vh"
-            virtualScrollerOptions={{
-              itemSize: 52,
-              lazy: true,
-              onLazyLoad: onVirtualScroller,
-              loading: loading && isInitialLoad.current,
-            }}
+            paginator
+            lazy
+            first={page * rows}
+            rows={rows}
+            totalRecords={taskCountGetAll}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             filterDisplay="row"
             dataKey="id"
             loading={loading}
@@ -2421,8 +2418,7 @@ const AllTaskReportsView = ({
                   textAlign: "right",
                 }}
               >
-                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}{" "}
-                {hasMore && "(loading more...)"}
+                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}
               </div>
             }
           >
@@ -3009,7 +3005,7 @@ const AllTaskReportsView = ({
               }}
               TaskData={allTasks as any}
               signleDataTask={singleTaskData}
-              setRefreshTask={() => loadTasks(0, ITEMS_PER_PAGE, true)}
+              setRefreshTask={() => { setPage(0); loadTasks(0, rows, true); }}
               closeDashboard={() => { }}
               openTaskRight={OpenTaskchatRightSide}
               supportTicketFlag={is_support_ticket_flag}

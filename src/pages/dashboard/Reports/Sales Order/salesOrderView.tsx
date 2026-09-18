@@ -10,6 +10,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -147,7 +148,8 @@ const TeamSalesOrderDataReportsView = ({
   const [contactInfoOrder, setContactInfoOrder] = useState<IUserList>();
   const [isOrderShowFromContactType, setIsOrderShowFromContactType] =
     useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(50);
 
   const [error, setError] = useState<string | null>(null);
   const [refreshReport, setRefreshReport] = useState(false);
@@ -156,11 +158,7 @@ const TeamSalesOrderDataReportsView = ({
   const [currencyName, setCurrencyName] = useState<any>();
 
   const [showProductDetails, setShowProductDetails] = useState(false);
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const PAGE_SIZE = 50;
   const [isOrderShow, setIsOrderShow] = useState(false);
   const [contactData, setContactData] = useState<IUserList | undefined>();
 
@@ -325,10 +323,9 @@ const TeamSalesOrderDataReportsView = ({
   );
 
   useEffect(() => {
-    offsetRef.current = 0;
-    currentOffset.current = 0;
-    setHasMore(true);
-    onVirtualScroll(0, 50, true);
+    setPage(0);
+    loadOrders(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     reportSelectedDates,
     filters.checkedOptionsUser,
@@ -466,18 +463,12 @@ const TeamSalesOrderDataReportsView = ({
     return data;
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  const onVirtualScroll = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadOrders = async (offset: number, limit: number) => {
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
 
-    setLoading(true); // only first load
+    setLoading(true);
 
     try {
       const data = await fetchCartReport(
@@ -486,8 +477,8 @@ const TeamSalesOrderDataReportsView = ({
         filters.checkedOptionsStageStatus,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         debouncedSearchText,
         filters.checkedOptionsSeries,
         setCurrencyName,
@@ -498,26 +489,12 @@ const TeamSalesOrderDataReportsView = ({
         filters.selectedCategoryId,
         filters.selectedApproveStatus,
       );
-      const newData = data?.items || [];
-      const getcurrncy = data?.getcurrncy;
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-      setCurrencyName(getcurrncy);
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = prev.concat(newData);
-          return updated;
-        });
-      }
 
-      currentOffset.current = offset + newData.length;
-
-      offsetRef.current += PAGE_SIZE;
+      setCustomers(data?.items || []);
+      setCurrencyName(data?.getcurrncy);
+      setTotalRecords(data?.total || 0);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -527,11 +504,14 @@ const TeamSalesOrderDataReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    onVirtualScroll(0, PAGE_SIZE, true);
+    setPage(0);
+    loadOrders(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadOrders(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1652,22 +1632,13 @@ const TeamSalesOrderDataReportsView = ({
               tableStyle={{ tableLayout: "fixed", width: "100%" }}
               scrollable
               scrollHeight="80vh"
-              virtualScrollerOptions={{
-                itemSize: 52,
-                lazy: true,
-                onLazyLoad: (event: { first: number; last: number }) => {
-                  if (
-                    event.last >= customers.length - 1 &&
-                    hasMore &&
-                    !loading
-                  ) {
-                    onVirtualScroll(currentOffset.current, 50);
-                  }
-                },
-                appendOnly: true,
-                showLoader: false,
-                delay: 0,
-              }}
+              paginator
+              lazy
+              first={page * rows}
+              rows={rows}
+              totalRecords={totalRecords}
+              onPage={onPageChange}
+              rowsPerPageOptions={[25, 50, 100, 200]}
               // dataKey="cart_number"
               onSort={onSort}
               sortField={lazyState.sortField ?? undefined}
