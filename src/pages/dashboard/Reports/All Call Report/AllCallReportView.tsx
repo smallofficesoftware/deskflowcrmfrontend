@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -244,10 +245,7 @@ const AllCallReportsView = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshReport, setRefreshReport] = useState(false);
 
-  const isPaginationCall = useRef(false);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -381,10 +379,8 @@ const AllCallReportsView = ({
   const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    currentOffset.current = 0;
-    setHasMore(true);
-
-    loadTasks(0, 50, true); // ✅ reset load
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -485,15 +481,13 @@ const AllCallReportsView = ({
   //   }, 250);
   // };
 
-  const loadTasks = async (offset: number, limit: number, reset = false) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchCallHistoryApi(
+      const { data, total } = await fetchCallHistoryApi(
         () => { },
         filters.selectedDateArray,
         filters.checkedOptionsUser,
@@ -509,35 +503,28 @@ const AllCallReportsView = ({
         filters.checkedOptionsStageStatus,
       );
 
-      console.log("PAGE offset:", offset, "usersReturned:", newData.length,
-        +   "totalCallsThisPage:", newData.reduce((a, u) => a + u.calls.length, 0));
-
-      // const totalCalls = newData.reduce(
-      //   (acc, user) => acc + user.calls.length,
-      //   0,
-      // );
-
-      if (!newData || newData.length === 0) {
-        setHasMore(false);
-      }
-
-      setCallData((prev) => (reset ? newData : [...prev, ...newData]));
-
-      // FIXED OFFSET
-      currentOffset.current = offset + limit;
+      setCallData(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCallData([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   //   const loadTasks = async (event: DataTablePageEvent) => {
@@ -622,7 +609,7 @@ const AllCallReportsView = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value;
     setSelectedVisits(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1181,28 +1168,20 @@ const AllCallReportsView = ({
           <DataTable
             ref={dt}
             value={filteredData}
+            dataKey="id"
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollable
             filterDisplay="row"
             scrollHeight="80vh"
-            virtualScrollerOptions={{
-              itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-              lazy: true,
-              onLazyLoad: (event: { first: number; last: number }) => {
-                if (
-                  event.last >= filteredData.length - 1 &&
-                  hasMore &&
-                  !loading
-                ) {
-                  loadTasks(currentOffset.current, 50);
-                }
-              },
-              appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             sortField={lazyState.sortField ?? undefined}
             sortOrder={lazyState.sortOrder ?? undefined}
             sortMode="single"
@@ -1277,7 +1256,7 @@ const AllCallReportsView = ({
             flexShrink: 0,
           }}
         >
-          <b>Total Calls: {filteredData.length}</b>
+          <b>Total Calls: {totalRecords}</b>
         </div>
         {viewerOpen && (
           <ImageViewer
