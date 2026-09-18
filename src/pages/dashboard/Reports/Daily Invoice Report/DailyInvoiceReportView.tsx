@@ -7,6 +7,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -129,13 +130,10 @@ const DailyInvoiceReportView = ({
   const [currencyName, setCurrencyName] = useState<any>();
 
   const dt = useRef<DataTable<any[]>>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [showProductDetails, setShowProductDetails] = useState(false);
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const isLoadingMore = useRef(false);
-  const currentOffset = useRef(0);
-  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(50);
 
   const [actionType, setActionType] = useState<string>("");
 
@@ -283,9 +281,9 @@ const DailyInvoiceReportView = ({
   );
 
   useEffect(() => {
-    offsetRef.current = 0;
-    currentOffset.current = 0;
-    onVirtualScroll(0, 50, true);
+    setPage(0);
+    loadInvoices(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -418,28 +416,8 @@ const DailyInvoiceReportView = ({
     return data;
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  useEffect(() => {
-    setCustomers([]);
-    setHasMore(true);
-    currentOffset.current = 0;
-    onVirtualScroll(0, PAGE_SIZE, true);
-  }, [
-    filters.selectedDateArray,
-    filters.checkedOptionsUser,
-    filters.checkedOptionsStageStatus,
-    filters.checkedOptionsSeries,
-    debouncedSearchText,
-    filters.selectedContactId,
-    filters.referenceWiseContact,
-  ]);
-
-  const onVirtualScroll = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
+  const loadInvoices = async (offset: number, limit: number) => {
     if (isFetchingRef.current) return;
-    if (!hasMore && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -460,23 +438,11 @@ const DailyInvoiceReportView = ({
         filters.referenceWiseContact,
       );
 
-      const newData = res?.items || [];
-
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
+      setCustomers(res?.items || []);
       setCurrencyName(res?.getcurrncy);
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setTotalRecords(res?.total || 0);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -484,10 +450,14 @@ const DailyInvoiceReportView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    onVirtualScroll(0, PAGE_SIZE, true);
+    setPage(0);
+    loadInvoices(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadInvoices(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1355,18 +1325,13 @@ ${fields
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="80vh"
-            virtualScrollerOptions={{
-              itemSize: 60,
-              lazy: true,
-              onLazyLoad: (e: any) => {
-                if (e.last >= customers.length - 1 && hasMore && !loading) {
-                  onVirtualScroll(currentOffset.current, PAGE_SIZE);
-                }
-              },
-              appendOnly: true,
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={page * rows}
+            rows={rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             // dataKey="id"
             filterDisplay="row"
             onFilter={onFilter}

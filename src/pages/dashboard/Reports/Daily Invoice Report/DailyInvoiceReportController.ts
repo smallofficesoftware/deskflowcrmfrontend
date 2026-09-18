@@ -305,11 +305,12 @@ export const fetchCartReport = async (
 
         const items: IFlatCartItem[] = response?.data?.data?.item || [];
         const getcurrncy = response?.data?.data.currency_name || " ";
+        const total = Number(response?.data?.data?.total) || 0;
 
         if (response.data.ack == 3) {
             toast.error(response.data.ack_msg);
         }
-        return { items, getcurrncy };
+        return { items, getcurrncy, total };
     } catch (error: any) {
         toast.error(
             error?.response?.data?.message ||
