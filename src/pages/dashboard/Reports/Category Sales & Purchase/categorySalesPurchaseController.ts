@@ -65,6 +65,11 @@ const pivotData = (data: {
 };
 
 
+export interface ICategoryReportResult {
+    data: ICategorySalesData[];
+    total: number;
+}
+
 export const fetchCategoryReport = async (
     selectedDates: DateObject[] | any | undefined,
     setError?: TReactSetState<string | null>,
@@ -78,7 +83,7 @@ export const fetchCategoryReport = async (
     offset?: number,
     limit?: number,
     referenceWiseContact?: number
-): Promise<any[]> => {
+): Promise<ICategoryReportResult> => {
 
     const token = MobileToken || localStorage.getItem("token");
     const getUUID = getID || localStorage.getItem("UUID");
@@ -87,7 +92,7 @@ export const fetchCategoryReport = async (
         const errorMessage = "Authentication details are missing";
         toast.error(errorMessage);
         setError?.(errorMessage);
-        return [];
+        return { data: [], total: 0 };
     }
 
     const requestedData = {
@@ -114,7 +119,7 @@ export const fetchCategoryReport = async (
 
         if (response.data.ack === 3) {
             toast.error(response.data.ack_msg);
-            return [];
+            return { data: [], total: 0 };
         }
 
         const data = response.data.data || {
@@ -129,7 +134,10 @@ export const fetchCategoryReport = async (
         const items = Array.isArray(pivotedData) ? pivotedData : [];
 
         setError?.(null);
-        return items;
+        return {
+            data: items,
+            total: typeof response.data.data?.total === "number" ? response.data.data.total : 0,
+        };
 
     } catch (error: any) {
         const errorMessage =
@@ -139,7 +147,7 @@ export const fetchCategoryReport = async (
 
         toast.error(errorMessage);
         setError?.(errorMessage);
-        return [];
+        return { data: [], total: 0 };
     }
 };
 

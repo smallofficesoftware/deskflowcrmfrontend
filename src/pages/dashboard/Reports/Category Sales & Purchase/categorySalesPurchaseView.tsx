@@ -5,12 +5,12 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
@@ -68,19 +68,6 @@ const getNestedValue = (obj: any, path: string): any => {
   } catch {
     return "";
   }
-};
-
-const parseQuantityAmount = (
-  value: string | undefined,
-): { quantity: number; amount: number } => {
-  if (!value || value === "-") return { quantity: 0, amount: 0 };
-  const match = value.match(/^(\d+)\(₹(\d*\.?\d*)\)$/);
-  if (!match) {
-    return { quantity: 0, amount: 0 };
-  }
-  const quantity = parseInt(match[1], 10) || 0;
-  const amount = parseFloat(match[2]) || 0;
-  return { quantity, amount };
 };
 
 const calculateColumnTotals = (data: any[], field: string): string => {
@@ -150,9 +137,7 @@ const CategorySalesPurchaseReport = ({
   >([]);
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -263,8 +248,8 @@ const CategorySalesPurchaseReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 500,
-    page: 1,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -289,86 +274,23 @@ const CategorySalesPurchaseReport = ({
     purchaseorder: item.purchaseorder ?? "-",
   }));
 
-  const mergeData = (
-    existing: ICategorySalesData[],
-    newEntries: ICategorySalesData[],
-  ) => {
-    const productMap = new Map<number, ICategorySalesData>(
-      existing.map((item) => [item.item_category_id, { ...item }]),
-    );
-
-    type MutableFields = Pick<
-      ICategorySalesData,
-      | "quotation"
-      | "salesorder"
-      | "salesinvoice"
-      | "purchaseinvoice"
-      | "purchaseorder"
-    >;
-
-    const fields: (keyof MutableFields)[] = [
-      "quotation",
-      "salesorder",
-      "salesinvoice",
-      "purchaseinvoice",
-      "purchaseorder",
-    ];
-
-    newEntries.forEach((newItem) => {
-      const id = newItem.item_category_id;
-      if (productMap.has(id)) {
-        const existingItem = productMap.get(id)!;
-
-        fields.forEach((field) => {
-          const existingValue = existingItem[field] as string | undefined;
-          const newValue = newItem[field] as string | undefined;
-
-          if (newValue && newValue !== "-") {
-            if (existingValue && existingValue !== "-") {
-              const { quantity: q1, amount: a1 } =
-                parseQuantityAmount(existingValue);
-              const { quantity: q2, amount: a2 } =
-                parseQuantityAmount(newValue);
-              const totalQ = q1 + q2;
-              const totalA = a1 + a2;
-              existingItem[field] = `${totalQ}(₹${totalA.toFixed(2)})`;
-            } else {
-              existingItem[field] = newValue;
-            }
-          }
-        });
-      } else {
-        productMap.set(id, { ...newItem });
-      }
-    });
-
-    return Array.from(productMap.values());
-  };
-
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     debouncedSearchText,
     filters.referenceWiseContact,
   ]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current) return;
-    if (!hasMore && !reset) return;
-    isLoadingMore.current = true;
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
     try {
-      const newData = await fetchCategoryReport(
+      const { data, total } = await fetchCategoryReport(
         filters.selectedDateArray,
         setError,
         MobileToken,
@@ -383,28 +305,28 @@ const CategorySalesPurchaseReport = ({
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      } else {
-        setHasMore(true); // ← add karo (safety ke liye)
-      }
-
-      setCustomers((prev) => (reset ? newData : mergeData(prev, newData)));
-
-      currentOffset.current += newData.length;
-      isLoadingMore.current = false;
-      setLoading(false);
-    } catch {
-      isLoadingMore.current = false;
+      setCustomers(data);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1034,44 +956,27 @@ const CategorySalesPurchaseReport = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="item_category_id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 48,
-            lazy: true,
-            appendOnly: true,
-            showLoader: true,
-            numToleratedItems: 50,
-            delay: 150,
-            onLazyLoad: (event: {
-              first: number;
-              last: number | VirtualScrollerState;
-            }) => {
-              const last =
-                typeof event.last === "number"
-                  ? event.last
-                  : ((event.last as VirtualScrollerState)?.last ?? 0);
-              if (
-                last >= customers.length - 10 &&
-                hasMore &&
-                !isLoadingMore.current
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-          }}
           filterDisplay="row"
+          paginator
+          lazy
+          first={lazyState.first}
           rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
           onFilter={onFilter}
           filters={lazyState.filters}
-          // loading={loading}
+          loading={loading}
           selection={selectedCustomers}
           onSelectionChange={onSelectionChange}
           selectAll={selectAll}
