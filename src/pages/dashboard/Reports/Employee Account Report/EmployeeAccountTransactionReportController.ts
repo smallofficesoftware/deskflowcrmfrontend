@@ -29,6 +29,11 @@ export interface IEmployeeAccountTransaction {
     amountwithoutcurrency: string;
 }
 
+export interface IEmployeeAccountTransactionResult {
+    data: IEmployeeAccountTransaction[];
+    total: number;
+}
+
 export const fetchEmployeeAccountTransactions = async (
     selectedDates: Date[] | undefined,
     MobileToken?: string,
@@ -38,7 +43,7 @@ export const fetchEmployeeAccountTransactions = async (
     offset: number = 0,
     limit: number = 50,
     setCurrencyName?: any,
-): Promise<IEmployeeAccountTransaction[]> => {
+): Promise<IEmployeeAccountTransactionResult> => {
     const token = MobileToken || localStorage.getItem("token");
     const getUUID = getID || localStorage.getItem("UUID");
 
@@ -55,7 +60,7 @@ export const fetchEmployeeAccountTransactions = async (
 
         if (response.data.ack === 3) {
             toast.error(response.data.ack_msg || "Permission denied");
-            return []; // Important: return empty array
+            return { data: [], total: 0 };
         }
 
         // Make sure this path is correct based on your API response
@@ -65,13 +70,16 @@ export const fetchEmployeeAccountTransactions = async (
 
         if (!Array.isArray(items)) {
             console.error("Expected array but got:", items);
-            return [];
+            return { data: [], total: 0 };
         }
 
-        return items; // This is the key — return the data!
+        return {
+            data: items,
+            total: typeof response.data?.data?.total === "number" ? response.data.data.total : 0,
+        };
     } catch (error: any) {
         toast.error(error.message || "Failed to fetch employees");
-        return []; // Always return array even on error
+        return { data: [], total: 0 };
     }
 };
 
