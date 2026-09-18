@@ -21,6 +21,7 @@ export interface IProductInventory {
   item_unit_name: string;
   total_closing_stock_value: string;
   total_closing_stock_rate: string;
+  _rowKey?: string;
 }
 
 export const fetchProductInventory = async (
