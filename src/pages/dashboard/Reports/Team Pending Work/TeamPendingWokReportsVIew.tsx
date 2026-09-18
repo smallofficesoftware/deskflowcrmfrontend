@@ -112,17 +112,13 @@ const TeamPendingWorkReportsView = ({
   onHide,
 }: ITeamPendingWorkReports) => {
   const [loading, setLoading] = useState(true);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [customers, setCustomers] = useState<IPendingWork[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<IPendingWork[]>(
     [],
   );
-  const isPaginationCall = useRef(false);
 
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -252,106 +248,31 @@ const TeamPendingWorkReportsView = ({
       reqExpenseAmount: { value: null, matchMode: "contains" },
     },
   });
-  const [pendingWork, setPendingWork] = useState<IPendingWork[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const dt = useRef<DataTable<IPendingWork[]>>(null);
 
-  const dataArray: IPendingWork[] = Array.isArray(pendingWork)
-    ? pendingWork.map((item) => ({
-        username: item.username || "-",
-        quotation: {
-          count: item.quotation?.count ?? 0,
-          amount: item.quotation?.amount ?? 0,
-        },
-        order: {
-          count: item.order?.count ?? 0,
-          amount: item.order?.amount ?? 0,
-        },
-        sell_invoice: {
-          count: item.sell_invoice?.count ?? 0,
-          amount: item.sell_invoice?.amount ?? 0,
-        },
-        purchase_invoice: {
-          count: item.purchase_invoice?.count ?? 0,
-          amount: item.purchase_invoice?.amount ?? 0,
-        },
-        purchase_order: {
-          count: item.purchase_order?.count ?? 0,
-          amount: item.purchase_order?.amount ?? 0,
-        },
-        pendingReminder: item.pendingReminder,
-        reqExpenseAmount: item.reqExpenseAmount,
-      }))
-    : [];
-
-  const filteredData = useMemo(() => {
-    let data = [...dataArray];
-    Object.entries(lazyState.filters).forEach(([field, meta]) => {
-      if ("value" in meta && meta.value !== null && meta.value !== "") {
-        const filterValue = meta.value.toString().toLowerCase();
-        const matchMode = meta.matchMode;
-
-        data = data.filter((item) => {
-          const fieldValue = getNestedValue(item, field);
-          if (fieldValue === undefined || fieldValue === null) return false;
-
-          const fieldStr = fieldValue.toString().toLowerCase();
-
-          switch (matchMode) {
-            case "contains":
-              return fieldStr.includes(filterValue);
-            case "notContains":
-              return !fieldStr.includes(filterValue);
-            case "startsWith":
-              return fieldStr.startsWith(filterValue);
-            case "endsWith":
-              return fieldStr.endsWith(filterValue);
-            case "equals":
-              return fieldStr === filterValue;
-            case "notEquals":
-              return fieldStr !== filterValue;
-            default:
-              return true;
-          }
-        });
-      }
-    });
-
-    if (lazyState.sortField) {
-      data.sort((a, b) => {
-        const aValue = getNestedValue(a, lazyState.sortField!);
-        const bValue = getNestedValue(b, lazyState.sortField!);
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      });
-      if (lazyState.sortOrder === -1) data.reverse();
-    }
-    return data;
-  }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
-
   useEffect(() => {
-    setCustomers([]);
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTeamPendingWork();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
-    setPendingWork,
-    debouncedSearchText,
     debouncedSearchText,
   ]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  // Backend's ul/ll don't actually paginate the team-member list (see
+  // teamPendingWorkReportServices.js - the outer team query has no limit
+  // at all, and the per-member offset/limit only ever applies to a
+  // single-id lookup where it's a no-op), so every call already returns
+  // every matching team member regardless of what page was asked for. One
+  // fetch per filter/search change is therefore both correct and
+  // sufficient - the grid below paginates the already-complete `customers`
+  // client-side (PrimeReact's own non-lazy paginator) instead of
+  // re-fetching an identical response per page.
+  const loadTeamPendingWork = async () => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
@@ -363,28 +284,14 @@ const TeamPendingWorkReportsView = ({
         MobileToken,
         getID,
         MobileFlag,
-        offset,
-        limit,
+        0,
+        50,
         debouncedSearchText,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData); // Append via splice on copy
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(newData);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -392,10 +299,7 @@ const TeamPendingWorkReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTeamPendingWork();
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -417,13 +321,13 @@ const TeamPendingWorkReportsView = ({
   const onSelectionChange = (event: { value: IPendingWork[] }) => {
     const value = event.value;
     setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === customers.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
     if (event.checked) {
       setSelectAll(true);
-      setSelectedCustomers([...filteredData]);
+      setSelectedCustomers([...getFilteredData()]);
     } else {
       setSelectAll(false);
       setSelectedCustomers([]);
@@ -965,31 +869,17 @@ const TeamPendingWorkReportsView = ({
         <DataTable
           ref={dt}
           value={customers}
-          lazy
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= customers.length - 1 && hasMore && !loading) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
           dataKey="username"
-          first={lazyState.first}
-          rows={lazyState.rows}
-          totalRecords={totalRecords}
-          // onPage={onPage}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
