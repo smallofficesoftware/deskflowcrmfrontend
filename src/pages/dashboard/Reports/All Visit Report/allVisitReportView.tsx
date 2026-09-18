@@ -13,6 +13,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -287,10 +288,7 @@ const AllVisitReportsView = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshReport, setRefreshReport] = useState(false);
 
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const isInitialLoad = useRef(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -558,14 +556,8 @@ const AllVisitReportsView = ({
   }, [visits, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   useEffect(() => {
-    setTotalRecords(filteredData.length);
-  }, [filteredData]);
-
-  useEffect(() => {
-    setVisits([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadMoreVisits(true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadMoreVisits(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -575,57 +567,49 @@ const AllVisitReportsView = ({
     filters.referenceWiseContact,
   ]);
 
-  const loadMoreVisits = async (reset = false) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
-    isLoadingMore.current = true;
+  const loadMoreVisits = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
-    const offset = reset ? 0 : currentOffset.current;
-    const limit = 50;
+    try {
+      const { data: rawData, total } = await fetchVisitReport(
+        filters.selectedDateArray,
+        filters.checkedOptionsUser,
+        MobileToken,
+        getID,
+        MobileFlag,
+        selectedDemography,
+        offset,
+        limit,
+        debouncedSearchText,
+        filters.selectedContactId,
+        filters.referenceWiseContact,
+      );
 
-    const rawData = await fetchVisitReport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      MobileToken,
-      getID,
-      MobileFlag,
-      selectedDemography,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.selectedContactId,
-      filters.referenceWiseContact,
-    );
-
-    const flattened = flattenVisitData(rawData);
-    setVisitData((prev) => (reset ? rawData : [...prev, ...rawData]));
-
-    setVisits((prev) => (reset ? flattened : [...prev, ...flattened]));
-
-    currentOffset.current = offset + rawData.length;
-    if (rawData.length < limit) setHasMore(false);
-
-    setLoading(false);
-    isLoadingMore.current = false;
+      setVisitData(rawData);
+      setVisits(flattenVisitData(rawData));
+      setTotalRecords(total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setVisits([]);
-    setVisitData([]);
-    loadMoreVisits(true);
+    loadMoreVisits(lazyState.first, lazyState.rows);
   };
 
-  const onVirtualScroller = (event: any) => {
-    const { last } = event;
-
-    // Trigger earlier (buffer zone)
-    if (last >= visits.length - 10 && hasMore && !loading) {
-      loadMoreVisits();
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadMoreVisits(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -688,7 +672,7 @@ const AllVisitReportsView = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value;
     setSelectedVisits(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1513,22 +1497,20 @@ const AllVisitReportsView = ({
           <DataTable
             ref={dt}
             value={visits}
+            dataKey="id"
             scrollable
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollHeight="90vh"
-            virtualScrollerOptions={{
-              itemSize: 52, // Approximate row height
-              lazy: true,
-              onLazyLoad: onVirtualScroller,
-              loading: loading && isInitialLoad.current,
-            }}
             filterDisplay="row"
-            // dataKey="id"
-            // first={lazyState.first}
-            // rows={lazyState.rows}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
             totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             onSort={onSort}
             sortField={lazyState.sortField ?? undefined}
             sortOrder={lazyState.sortOrder ?? undefined}
@@ -1554,7 +1536,7 @@ const AllVisitReportsView = ({
                 }}
               >
                 <div style={{ textAlign: "right" }}>
-                  Total Visits: {filteredData.length}
+                  Total Visits: {totalRecords}
                 </div>
               </div>
             }

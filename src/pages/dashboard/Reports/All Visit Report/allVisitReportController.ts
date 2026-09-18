@@ -86,6 +86,11 @@ export interface IVisitData {
 
 
 
+export interface IVisitReportResult {
+  data: IVisitData[];
+  total: number;
+}
+
 export const fetchVisitReport = async (
   selectedDates?: Date[],
   selectedTeamMembers?: string[] | null,
@@ -98,14 +103,14 @@ export const fetchVisitReport = async (
   globalSearch?: string,
   selectedContactId?: string | null,
   referenceWiseContact?: number
-): Promise<IVisitData[]> => {
+): Promise<IVisitReportResult> => {
 
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
 
   if (!token || !getUUID) {
     toast.error("Authentication details are missing");
-    return [];
+    return { data: [], total: 0 };
   }
 
   const requestedData = {
@@ -125,11 +130,14 @@ export const fetchVisitReport = async (
   try {
     const response = await axiosInstance.post("getVisitReport", requestedData);
 
-    if (response.data?.ack !== 1) return [];
-    return response.data.data || [];
+    if (response.data?.ack !== 1) return { data: [], total: 0 };
+    return {
+      data: response.data.data?.data || [],
+      total: typeof response.data.data?.total === "number" ? response.data.data.total : 0,
+    };
   } catch (error: any) {
     toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-    return [];
+    return { data: [], total: 0 };
   }
 };
 
