@@ -762,6 +762,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"

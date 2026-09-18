@@ -709,6 +709,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
           >
             <DataTable
               value={productList}
+              dataKey="id"
               loading={loading}
               resizableColumns
               columnResizeMode="fit"
