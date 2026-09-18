@@ -87,7 +87,7 @@ export const fetchCallHistoryApi = async (
     }
 
     if (response.status === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-      const items = data.data || [];
+      const items = data.data?.data || [];
       const processedData: ICallData[] = items.map((userItem: any) => {
         const user = userItem.user;
 
@@ -141,7 +141,7 @@ export const fetchCallHistoryApi = async (
 
       return {
         data: processedData,
-        total: typeof data.total === "number" ? data.total : 0,
+        total: typeof data.data?.total === "number" ? data.data.total : 0,
       };
     }
     else {

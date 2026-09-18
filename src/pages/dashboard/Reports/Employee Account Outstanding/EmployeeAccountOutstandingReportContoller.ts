@@ -38,8 +38,8 @@ export const fetchEmployeeAccountOutstanding = async (
         );
 
         return {
-            data: Array.isArray(response.data?.data) ? response.data.data : [],
-            total: typeof response.data?.total === "number" ? response.data.total : 0,
+            data: Array.isArray(response.data?.data?.data) ? response.data.data.data : [],
+            total: typeof response.data?.data?.total === "number" ? response.data.data.total : 0,
         };
     } catch {
         return { data: [], total: 0 };
