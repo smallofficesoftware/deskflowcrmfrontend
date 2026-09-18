@@ -7,6 +7,7 @@ import {
   type DataTableFilterMeta,
   type DataTableFilterMetaData,
   type DataTableOperatorFilterMetaData,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -89,10 +90,7 @@ const EmployeeTransactionReports = ({
   const [filteredTransactions, setFilteredTransactions] = useState<
     IEmployeeAccountTransaction[]
   >([]);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
+  const fetchingRef = useRef(false);
 
   const [lazyState, setLazyState] = useState<LazyState>({
     first: 0,
@@ -196,7 +194,6 @@ const EmployeeTransactionReports = ({
     if (!Array.isArray(transactions)) {
       console.warn("Transactions is not an array:", transactions);
       setFilteredTransactions([]);
-      setTotalRecords(0);
       return;
     }
 
@@ -233,30 +230,21 @@ const EmployeeTransactionReports = ({
     }
 
     setFilteredTransactions(result);
-    setTotalRecords(result.length);
   }, [transactions, lazyState]);
 
   useEffect(() => {
-    setTransactions([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedTransactions([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAccountData(0, 50, true);
+    loadAccountData(0, lazyState.rows);
   }, [filters.selectedDateArray, filters.checkedOptionsUser]);
 
-  const loadAccountData = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadAccountData = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchEmployeeAccountTransactions(
+      const { data, total } = await fetchEmployeeAccountTransactions(
         filters.selectedDateArray,
         MobileToken,
         getID,
@@ -267,35 +255,29 @@ const EmployeeTransactionReports = ({
         setCurrencyName,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setTransactions(newData);
-      } else {
-        setTransactions((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData);
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setTransactions(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setTransactions([]);
     setSelectedTransactions([]);
-    loadAccountData(0, 50, true);
+    loadAccountData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -319,7 +301,7 @@ const EmployeeTransactionReports = ({
   }) => {
     const value = event.value;
     setSelectedTransactions(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredTransactions.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -414,9 +396,7 @@ const EmployeeTransactionReports = ({
   const { total: finalBalance, symbol: balanceSymbol } = finalBalanceInfo;
 
   const getExportData = () => {
-    const start = lazyState.first;
-    const end = start + lazyState.rows;
-    return filteredTransactions.slice(start, end);
+    return filteredTransactions;
   };
 
   const formatDateTime = (dateStr: string | undefined | null): string => {
@@ -978,32 +958,19 @@ const EmployeeTransactionReports = ({
         <DataTable
           ref={dt}
           value={transactions}
+          dataKey="id"
           totalRecords={totalRecords}
           lazy
+          paginator
+          rowsPerPageOptions={[25, 50, 100, 200]}
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= transactions.length - 1 &&
-                hasMore &&
-                !loading
-              ) {
-                loadAccountData(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           rows={lazyState.rows}
           first={lazyState.first}
-          // onPage={onPage}
+          onPage={onPageChange}
           onSort={onSort}
           selection={selectedTransactions}
           onSelectionChange={onSelectionChange}
