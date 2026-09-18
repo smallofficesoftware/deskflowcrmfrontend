@@ -7,6 +7,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -168,14 +169,11 @@ const PendingPurchaseReportsView = ({
   const [currencyName, setCurrencyName] = useState<any>();
 
   const dt = useRef<DataTable<any[]>>(null);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-  const isLoadingMore = useRef(false);
   const [showProductDetails, setShowProductDetails] = useState(false);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const PAGE_SIZE = 100;
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(100);
   const [actionType, setActionType] = useState<string>("");
 
   const selectedIds = useMemo(() => {
@@ -309,10 +307,9 @@ const PendingPurchaseReportsView = ({
   );
 
   useEffect(() => {
-    offsetRef.current = 0;
-    currentOffset.current = 0;
-    setHasMore(true);
-    onVirtualScroll(0, 50, true);
+    setPage(0);
+    loadOrders(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -445,13 +442,7 @@ const PendingPurchaseReportsView = ({
     return data;
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  const onVirtualScroll = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadOrders = async (offset: number, limit: number) => {
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
@@ -466,34 +457,20 @@ const PendingPurchaseReportsView = ({
         undefined,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         debouncedSearchText,
         filters.checkedOptionsSeries,
         setCurrencyName,
         filters.selectedContactId,
         filters.referenceWiseContact,
       );
-      const newData = data?.items || [];
-      const getcurrncy = data?.getcurrncy;
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-      setCurrencyName(getcurrncy);
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = prev.concat(newData);
-          return updated;
-        });
-      }
 
-      currentOffset.current = offset + newData.length;
-
-      offsetRef.current += PAGE_SIZE;
+      setCustomers(data?.items || []);
+      setCurrencyName(data?.getcurrncy);
+      setTotalRecords(data?.total || 0);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -503,11 +480,14 @@ const PendingPurchaseReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    onVirtualScroll(0, PAGE_SIZE, true);
+    setPage(0);
+    loadOrders(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadOrders(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1492,18 +1472,13 @@ const PendingPurchaseReportsView = ({
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="90vh"
-            virtualScrollerOptions={{
-              itemSize: 52,
-              lazy: true,
-              onLazyLoad: (event: { first: number; last: number }) => {
-                if (event.last >= customers.length - 1 && hasMore && !loading) {
-                  onVirtualScroll(currentOffset.current, 50);
-                }
-              },
-              appendOnly: true,
-              showLoader: false,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={page * rows}
+            rows={rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             // dataKey="id"
             filterDisplay="row"
             onFilter={onFilter}
