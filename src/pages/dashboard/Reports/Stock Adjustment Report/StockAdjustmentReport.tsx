@@ -286,7 +286,10 @@ const StockAdjustmentReport = ({ onHide }: IStockAdjustmentReport) => {
                             filters={filters}
                             onFilter={onFilter}
                             key={openDropdownId}
-                            virtualScrollerOptions={{ itemSize: 52 }}
+                            dataKey="id"
+                            paginator
+                            rows={50}
+                            rowsPerPageOptions={[25, 50, 100, 200]}
                         >
                             <Column
                                 field="actions"

@@ -3,7 +3,6 @@ import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable, DataTableFilterEvent, DataTableFilterMeta } from "primereact/datatable";
 import { OverlayPanel } from "primereact/overlaypanel";
-import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -95,23 +94,8 @@ const AdjustmentTypeGridView = ({
         fetchAdjustmentTypes();
     }, []);
 
-    const onVirtualLoad = (event: VirtualScrollerLazyEvent) => {
-
-        // Safely get the last visible index
-        const lastVisible =
-            typeof event.last === "number"
-                ? event.last
-                : ((event.last as any)?.last ?? 0);
-
-        const loadedCount = adjustmentTypeList.length;
-
-        // Buffer: start loading more when user is ~20 rows from the end of loaded data
-
-        if (
-            lastVisible >= loadedCount &&
-            !isFetchingMore &&
-            hasMore
-        ) {
+    const loadNextPage = () => {
+        if (!isFetchingMore && hasMore) {
             const nextOffset = offset + PAGE_SIZE;
             setIsFetchingMore(true);
             fetchAdjustmentTypeApi(
@@ -127,6 +111,12 @@ const AdjustmentTypeGridView = ({
             });
         }
     };
+
+    useEffect(() => {
+        if (hasMore && !isFetchingMore && adjustmentTypeList.length >= offset + PAGE_SIZE) {
+            loadNextPage();
+        }
+    }, [hasMore, isFetchingMore, adjustmentTypeList.length, offset]);
 
     const handleRefreshAdjustmentType = async () => {
         if (true) {
@@ -365,14 +355,9 @@ const AdjustmentTypeGridView = ({
                         tableStyle={{ tableLayout: "fixed", width: "100%" }}
                         emptyMessage="No data found"
                         filterDisplay="row"
-                        virtualScrollerOptions={{
-                            itemSize: PAGE_SIZE,
-                            lazy: true,
-                            onLazyLoad: onVirtualLoad, // ← use the fixed version above
-                            showLoader: true,
-                            // numToleratedItems: 10,               // optional: render a few more rows for smoothness
-                            // delay: 100,                          // optional: small debounce
-                        }}
+                        paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                         filters={filters}
                         onFilter={onFilter}
                     >
