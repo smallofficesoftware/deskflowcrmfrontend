@@ -6,6 +6,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -94,12 +95,7 @@ const ExpenseDetailedReport = ({
 
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-
-  const PAGE_SIZE = 50;
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -240,7 +236,7 @@ const ExpenseDetailedReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 0,
     sortField: null,
     sortOrder: null,
@@ -260,13 +256,9 @@ const ExpenseDetailedReport = ({
 
   useEffect(() => {
     if (canView) {
-      offsetRef.current = 0;
-      setHasMore(true);
-      currentOffset.current = 0; // Fixed ref name if it was offsetRef
-      setTotalRecords(0); // Reset total
-      setSourceReport([]);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
       setSelectedExpenses([]);
-      loadMoreData(true);
+      loadMoreData(0, lazyState.rows);
     }
   }, [
     filters.selectedDateArray,
@@ -337,10 +329,9 @@ const ExpenseDetailedReport = ({
     return filteredData;
   };
 
-  const loadMoreData = async (reset = false) => {
+  const loadMoreData = async (offset: number, limit: number) => {
     if (!canView) return;
     if (isFetchingRef.current) return;
-    if (!hasMore && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -351,33 +342,23 @@ const ExpenseDetailedReport = ({
           ? filters.selectedDateArray
           : getCurrentMonthDateRange();
 
-      const newData =
-        (await fetchDetailedExpense(
-          dateArrayToUse,
-          filters.checkedOptionsUser,
-          filters.checkedExpenseTypes,
-          filters.checkedOptionsExpenseStatus,
-          offsetRef.current,
-          PAGE_SIZE,
-          debouncedSearchText,
-          MobileToken,
-          getID,
-          MobileFlag,
-        )) || [];
+      const { data, total } = await fetchDetailedExpense(
+        dateArrayToUse,
+        filters.checkedOptionsUser,
+        filters.checkedExpenseTypes,
+        filters.checkedOptionsExpenseStatus,
+        offset,
+        limit,
+        debouncedSearchText,
+        MobileToken,
+        getID,
+        MobileFlag,
+      );
 
-      if (newData.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setSourceReport(newData);
-      } else {
-        setSourceReport((prev) => [...prev, ...newData]);
-      }
-
-      offsetRef.current += PAGE_SIZE;
+      setSourceReport(data);
+      setTotalRecords(total);
     } catch (e) {
-      setHasMore(false);
+      console.error(e);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -385,21 +366,23 @@ const ExpenseDetailedReport = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    setHasMore(true);
-    setSourceReport([]);
-    loadMoreData(true);
+    loadMoreData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadMoreData(event.first, event.rows);
   };
 
   const handelRefreshExpense = async () => {
     if (canView) {
-      offsetRef.current = 0;
-      setHasMore(true);
-      currentOffset.current = 0; // Fixed ref name if it was offsetRef
-      setTotalRecords(0); // Reset total
-      setSourceReport([]);
       setSelectedExpenses([]);
-      await loadMoreData(true);
+      await loadMoreData(lazyState.first, lazyState.rows);
     }
   };
 
@@ -487,7 +470,7 @@ const ExpenseDetailedReport = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value || [];
     setSelectedExpenses(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === getFilteredData().length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1096,22 +1079,12 @@ const ExpenseDetailedReport = ({
                 scrollHeight="80vh"
                 filterDisplay="row"
                 dataKey="id"
-                virtualScrollerOptions={{
-                  itemSize: 52,
-                  lazy: true,
-                  onLazyLoad: (event: { first: number; last: number }) => {
-                    if (
-                      event.last >= expenses.length - 1 &&
-                      hasMore &&
-                      !loading
-                    ) {
-                      loadMoreData();
-                    }
-                  },
-                  appendOnly: true,
-                  showLoader: false,
-                  delay: 0,
-                }}
+                paginator
+                first={lazyState.first}
+                rows={lazyState.rows}
+                totalRecords={totalRecords}
+                onPage={onPageChange}
+                rowsPerPageOptions={[25, 50, 100, 200]}
                 onSort={onSort}
                 sortField={lazyState.sortField ?? undefined}
                 sortOrder={lazyState.sortOrder}
