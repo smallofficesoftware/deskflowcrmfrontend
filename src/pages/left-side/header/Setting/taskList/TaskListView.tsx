@@ -46,7 +46,7 @@ import {
   fetchStageStatusApi,
   fetchStageStatusApiCustomer,
   updateLabel,
-  updateUserCheckBox,
+  assignTaskTeamMembers,
 } from "../../../../right-side/task-chat/TaskChatRightController";
 import TaskChatRightSide from "../../../../right-side/task-chat/TaskChatRightSide";
 import { fetchDepartmentsApi } from "../../../list-company/EditTeamMemberController";
@@ -2198,6 +2198,7 @@ const TaskListView = ({
   const handleConfirmAssignUser = async (
     contactId: number | undefined,
     checkedOptions: any[],
+    isNotOverrideExisting?: boolean,
   ) => {
     let idsToUpdate: number | number[];
     if (selectedIds.length > 0) {
@@ -2207,7 +2208,15 @@ const TaskListView = ({
     } else {
       return;
     }
-    await updateUserCheckBox(idsToUpdate, checkedOptions, setLoading);
+    await assignTaskTeamMembers(
+      idsToUpdate,
+      checkedOptions,
+      setLoading,
+      !!isNotOverrideExisting,
+      Object.fromEntries(
+        targetVsIncentiveList.map((t) => [t.id, t.assigned_team_member]),
+      ),
+    );
     setTimeout(() => {
       fetchApiTask(
         setTargetVsIncentiveList,
@@ -4321,6 +4330,8 @@ const TaskListView = ({
           handleSubmit={handleConfirmAssignUser}
           title="Assign your User"
           message="Please select the Users for this Task"
+          isContactAssigedTeamMemberBirfercationShow={true}
+          notOverrideDefaultChecked={false}
           btn1="Cancel"
           btn2="Submit"
           options={optionJoinCompany}

@@ -386,6 +386,43 @@ export const fetchAllCompanyApi = async (
   }
 };
 
+/**
+ * Assign team members to one or more tasks / support tickets (both are
+ * task_managements rows). With `isNotOverrideExisting` the selected members
+ * are merged into each task's current assignees instead of replacing them.
+ */
+export const assignTaskTeamMembers = async (
+  taskIds: number | number[],
+  selectedOptions: any[],
+  setLoading: TReactSetState<boolean>,
+  isNotOverrideExisting: boolean,
+  existingByTaskId: Record<string | number, string | number | number[] | undefined>,
+) => {
+  if (!isNotOverrideExisting) {
+    await updateUserCheckBox(taskIds, selectedOptions, setLoading);
+    return;
+  }
+
+  const ids = Array.isArray(taskIds) ? taskIds : [taskIds];
+  const selected = (selectedOptions || []).map(Number).filter(Boolean);
+  for (const id of ids) {
+    const raw = existingByTaskId[id];
+    const existing = (
+      typeof raw === "string"
+        ? raw.split(",")
+        : Array.isArray(raw)
+          ? raw
+          : raw !== undefined && raw !== null
+            ? [raw]
+            : []
+    )
+      .map(Number)
+      .filter(Boolean);
+    const merged = [...new Set([...existing, ...selected])];
+    await updateUserCheckBox(id, merged, setLoading);
+  }
+};
+
 export const updateUserCheckBox = async (
   hasOneData: any | undefined,
   selectedOptions: any,
