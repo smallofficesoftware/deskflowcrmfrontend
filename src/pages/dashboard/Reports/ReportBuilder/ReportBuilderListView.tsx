@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../../components/BetaFeatureNotice";
 import { Button } from "primereact/button";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -385,6 +386,8 @@ const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditRe
         .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
         .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
       `}</style>
+
+      <BetaFeatureNotice />
       <PromptModal
         show={showPinModal && !pinVerified}
         onHide={onHide}
