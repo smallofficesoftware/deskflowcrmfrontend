@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../../components/BetaFeatureNotice";
 import { format as formatDateFns, formatDistanceToNow } from "date-fns";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -568,6 +569,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
 
   return (
     <div>
+      <BetaFeatureNotice />
       <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
         <h3 style={{ fontSize: "20px" }} className="dash-board-text-count">
           {definition?.name || (loadingMeta ? "Loading..." : "Report")}
