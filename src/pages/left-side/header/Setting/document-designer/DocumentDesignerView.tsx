@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import { ellipse, image, line, list, table, text } from "@pdfme/schemas";
 import React, { useEffect, useState } from "react";
 import { Accordion } from "react-bootstrap";
@@ -1667,6 +1668,9 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         .dd-accordion-panel .accordion-button:focus { box-shadow: 0 0 0 0.2rem rgba(245, 134, 52, 0.25); border-color: #f58634; }
         ${PDFME_HIDE_NATIVE_PAGE_MENU_CSS}
       `}</style>
+      <div style={{ padding: "8px 12px 0", flexShrink: 0 }}>
+        <BetaFeatureNotice />
+      </div>
       <div className="dd-topbar">
         {reportMode ? (
           <strong style={{ fontSize: 14 }}>PDF Templates — {reportMode.reportName}</strong>

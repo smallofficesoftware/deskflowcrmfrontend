@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, IFormBuilderForm } from "./FormBuilderController";
@@ -46,6 +47,7 @@ const FormBuilderListView: React.FC = () => {
   return (
     <div className="p-3">
       <FormBuilderBrandStyles />
+      <BetaFeatureNotice />
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>Custom Forms</h4>
       </div>
