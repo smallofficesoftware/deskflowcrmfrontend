@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -155,8 +156,6 @@ const TeamAttendanceReportsView = ({
     IAttendanceHistory[]
   >([]);
   const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -278,7 +277,7 @@ const TeamAttendanceReportsView = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 1,
     sortField: null,
     sortOrder: null,
@@ -534,30 +533,23 @@ const TeamAttendanceReportsView = ({
   ]);
 
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAttendance(0, 50, true);
+    loadAttendance(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
     debouncedSearchText,
   ]);
 
-  const loadAttendance = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadAttendance = async (offset: number, limit: number) => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
 
     try {
-      const newData = await fetchAttendanceReport(
+      const { data, total } = await fetchAttendanceReport(
         filters.selectedDateArray,
         filters.checkedOptionsUser,
         MobileToken,
@@ -568,17 +560,10 @@ const TeamAttendanceReportsView = ({
         debouncedSearchText,
       );
 
-      if (newData.length < limit) setHasMore(false);
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -586,10 +571,17 @@ const TeamAttendanceReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadAttendance(0, 50, true);
+    loadAttendance(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAttendance(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -610,7 +602,7 @@ const TeamAttendanceReportsView = ({
 
   const onSelectionChange = (event: { value: IAttendanceHistory[] }) => {
     setSelectedCustomers(event.value);
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1037,22 +1029,13 @@ const TeamAttendanceReportsView = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= customers.length - 1 && hasMore && !loading) {
-                loadAttendance(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true,
-            // showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
           dataKey="username"
+          paginator
           first={lazyState.first}
           rows={lazyState.rows}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
