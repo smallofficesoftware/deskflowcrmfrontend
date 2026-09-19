@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -134,8 +135,6 @@ const SalaryRegisterReport = ({
   );
   const [selectedSalariesIds, setSelectedSalariesIds] = useState<number[]>([]);
   const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
 
   const [hasData, setHasData] = useState<boolean>(false);
   const { getFilter, setFilter, setFilters, clearFilters } =
@@ -253,8 +252,8 @@ const SalaryRegisterReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
-    page: 1,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -276,27 +275,20 @@ const SalaryRegisterReport = ({
 
   useEffect(() => {
     if (canView) {
-      setSalaries([]);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
       setSelectedSalaries([]);
-      currentOffset.current = 0;
-      setHasMore(true);
-      loadAttendance(0, 50, true);
+      loadAttendance(0, lazyState.rows);
     }
   }, [activeDayMonthYear, filters.checkedOptionsUser, canView]);
 
-  const loadAttendance = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadAttendance = async (offset: number, limit: number) => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
 
     try {
-      const newData = await fetchSalaryRegister(
+      const { data, total } = await fetchSalaryRegister(
         filters.checkedOptionsUser,
         MobileToken,
         getID,
@@ -306,17 +298,10 @@ const SalaryRegisterReport = ({
         activeDayMonthYear,
       );
 
-      if (newData.length < limit) setHasMore(false);
-
-      if (reset) {
-        setSalaries(newData);
-      } else {
-        setSalaries((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setSalaries(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -324,10 +309,17 @@ const SalaryRegisterReport = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setSalaries([]);
-    loadAttendance(0, 50, true);
+    loadAttendance(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAttendance(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -349,7 +341,7 @@ const SalaryRegisterReport = ({
   const onSelectionChange = (event: { value: ISalaryRegister[] }) => {
     setSelectedSalaries(event.value);
     setSelectedSalariesIds(event.value.map((salary) => salary.employee_id));
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === salaries.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1195,22 +1187,13 @@ const SalaryRegisterReport = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= salaries.length - 1 && hasMore && !loading) {
-                loadAttendance(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true,
-            showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
           dataKey="id"
+          paginator
           first={lazyState.first}
           rows={lazyState.rows}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
