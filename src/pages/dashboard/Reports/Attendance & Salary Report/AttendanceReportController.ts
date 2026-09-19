@@ -82,6 +82,11 @@ export interface IAttendanceHistory {
 
 
 
+export interface IAttendanceReportResult {
+  data: IAttendanceHistory[];
+  total: number;
+}
+
 export const fetchAttendanceReport = async (
   selectedDates: Date[] | undefined,
   selectedTeamMembers: string[] | null,
@@ -91,7 +96,7 @@ export const fetchAttendanceReport = async (
   offset: number = 0,
   limit: number = 50,
   globalSearch?: string
-): Promise<IAttendanceHistory[]> => {
+): Promise<IAttendanceReportResult> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
 
@@ -110,7 +115,7 @@ export const fetchAttendanceReport = async (
 
     if (response.data.ack === 3) {
       toast.error(response.data.ack_msg || "Permission denied");
-      return []; // Important: return empty array
+      return { data: [], total: 0 };
     }
 
     // Make sure this path is correct based on your API response
@@ -118,13 +123,16 @@ export const fetchAttendanceReport = async (
 
     if (!Array.isArray(items)) {
       console.error("Expected array but got:", items);
-      return [];
+      return { data: [], total: 0 };
     }
 
-    return items; // This is the key — return the data!
+    return {
+      data: items,
+      total: typeof response.data.data?.total === "number" ? response.data.data.total : 0,
+    };
   } catch (error: any) {
     toast.error(error.message || "Failed to fetch contacts");
-    return []; // Always return array even on error
+    return { data: [], total: 0 };
   }
 };
 
