@@ -5,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -94,10 +95,7 @@ const CustomerSalesPurchaseReport: React.FC<
     const dropdownRef = useRef<HTMLDivElement>(null);
     const dt = useRef<DataTable<ICustomerSalesPurchaseItem[]>>(null);
 
-    const offsetRef = useRef(0);
     const isFetchingRef = useRef(false);
-    const hasMoreRef = useRef(true);
-    const PAGE_SIZE = 50;
 
     const currSym =
       summaryData.currency_symbol || customers[0]?.currency_symbol || "₹";
@@ -118,8 +116,8 @@ const CustomerSalesPurchaseReport: React.FC<
 
     const [lazyState, setLazyState] = useState<LazyTableState>({
       first: 0,
-      rows: 49,
-      page: 1,
+      rows: 50,
+      page: 0,
       sortField: null,
       sortOrder: null,
       filters: {
@@ -193,21 +191,14 @@ const CustomerSalesPurchaseReport: React.FC<
         .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
     }, [selectedDates, filters.startSearchDate, filters.endSearchDate]);
 
-    const loadData = async (reset = false) => {
+    const loadData = async (offset: number, limit: number) => {
       if (!canViewReport) return;
       if (isFetchingRef.current) return;
-      if (!hasMoreRef.current && !reset) return;
 
       isFetchingRef.current = true;
       setLoading(true);
 
       try {
-        if (reset) {
-          offsetRef.current = 0;
-          setCustomers([]);
-          hasMoreRef.current = true;
-        }
-
         await fetchCustomerSalesPurchaseReport(
           (dataSetter) => {
             const newData =
@@ -215,10 +206,7 @@ const CustomerSalesPurchaseReport: React.FC<
                 ? dataSetter(allRawData)
                 : dataSetter;
             setAllRawData(newData);
-            if (newData.length < PAGE_SIZE) {
-              hasMoreRef.current = false;
-            }
-            setCustomers((prev) => (reset ? newData : [...prev, ...newData]));
+            setCustomers(newData);
           },
           setTotalRecords,
           setSummaryData,
@@ -226,13 +214,11 @@ const CustomerSalesPurchaseReport: React.FC<
           selectedTeamMembers || filters.checkedOptionsUser,
           MobileToken,
           getID,
-          offsetRef.current,
-          PAGE_SIZE,
+          offset,
+          limit,
           globalSearch || debouncedSearchText,
           selectedContactId || filters.selectedContactId,
         );
-
-        offsetRef.current += PAGE_SIZE;
       } catch (err) {
         console.error(err);
       } finally {
@@ -242,15 +228,23 @@ const CustomerSalesPurchaseReport: React.FC<
     };
 
     const handleRefresh = async () => {
-      offsetRef.current = 0;
-      hasMoreRef.current = true;
-      loadData(true);
+      loadData(lazyState.first, lazyState.rows);
+    };
+
+    const onPageChange = (event: DataTablePageEvent) => {
+      setLazyState((prev) => ({
+        ...prev,
+        first: event.first,
+        rows: event.rows,
+        page: event.page ?? 0,
+      }));
+      loadData(event.first, event.rows);
     };
 
     useEffect(() => {
-      offsetRef.current = 0;
-      hasMoreRef.current = true;
-      loadData(true);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+      setSelectedCustomers([]);
+      loadData(0, lazyState.rows);
     }, [
       reportSelectedDates,
       selectedTeamMembers,
@@ -498,7 +492,7 @@ const CustomerSalesPurchaseReport: React.FC<
           label: "S.No",
           header: "S.No",
           width: "4rem",
-          body: (_rowData, options) => options.rowIndex + 1,
+          body: (_rowData, options) => lazyState.first + options.rowIndex + 1,
         },
         {
           key: "customer_code",
@@ -551,7 +545,7 @@ const CustomerSalesPurchaseReport: React.FC<
           body: relationshipBodyTemplate,
         },
       ];
-    }, [currSym]);
+    }, [currSym, lazyState.first]);
 
     const {
       visibleColumns,
@@ -864,28 +858,20 @@ const CustomerSalesPurchaseReport: React.FC<
           <DataTable
             ref={dt}
             value={customers}
+            dataKey="id"
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="65vh"
-            virtualScrollerOptions={{
-              itemSize: 50,
-              lazy: true,
-              onLazyLoad: (e: any) => {
-                if (
-                  e.last >= customers.length - 1 &&
-                  hasMoreRef.current &&
-                  !loading
-                ) {
-                  loadData(false);
-                }
-              },
-              appendOnly: true,
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             filterDisplay="row"
             onFilter={onFilter}
             filters={lazyState.filters}
