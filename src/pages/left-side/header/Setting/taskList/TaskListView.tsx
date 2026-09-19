@@ -2213,9 +2213,6 @@ const TaskListView = ({
       checkedOptions,
       setLoading,
       !!isNotOverrideExisting,
-      Object.fromEntries(
-        targetVsIncentiveList.map((t) => [t.id, t.assigned_team_member]),
-      ),
     );
     setTimeout(() => {
       fetchApiTask(

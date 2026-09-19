@@ -1728,9 +1728,6 @@ const ContactTaskListView = ({
             checkedOptions,
             setLoading,
             !!isNotOverrideExisting,
-            Object.fromEntries(
-                taskList.map((t) => [t.id, t.assigned_team_member]),
-            ),
         );
         setTimeout(() => {
             fetchApiTask(

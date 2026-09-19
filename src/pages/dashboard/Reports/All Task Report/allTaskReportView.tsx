@@ -907,9 +907,6 @@ const AllTaskReportsView = ({
       checkedOptions,
       setLoading,
       !!isNotOverrideExisting,
-      Object.fromEntries(
-        allTasks.map((t) => [t.id, t.assigned_team_member]),
-      ),
     );
     setIsModalAssignUserVisible(false);
     setSelectedTasks([]);
