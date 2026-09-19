@@ -18,6 +18,7 @@ export const fetchStatusWise = async (
     selectedStatus?: string[] | null,
     ul?: number,  // Add this
     ll?: number,
+    setTotalRecords?: TReactSetState<number>,
 ) => {
     const token = MobileToken || localStorage.getItem("token");
     const getUUID = getID || localStorage.getItem("UUID");
@@ -41,6 +42,8 @@ export const fetchStatusWise = async (
             toast.error(response.data.ack_msg)
         }
         setStatusWiseReport(response.data.data.item);
+        const total = response.data.data.total;
+        setTotalRecords?.(typeof total === "number" ? total : (response.data.data.item?.length ?? 0));
     } catch (error: any) {
         toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
