@@ -24,3 +24,27 @@ ol[class^="p-"],
 ol[class*=" p-"] {
   padding-left: 0;
 }
+
+/* Rows-per-page dropdown in PrimeReact paginators: with Bootstrap's global
+   line-height/reboot the label span sits at the top of the fixed-height
+   dropdown instead of the vertical centre. Centre it explicitly, scoped to
+   paginator dropdowns only. */
+.p-paginator .p-dropdown {
+  display: inline-flex;
+  align-items: center;
+}
+
+.p-paginator .p-dropdown .p-dropdown-label {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.p-paginator .p-dropdown .p-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
