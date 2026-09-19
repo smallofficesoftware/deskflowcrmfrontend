@@ -65,7 +65,7 @@ import {
   fetchAllCompanyApi,
   fetchStageStatusApiCustomer,
   updateLabel,
-  updateUserCheckBox,
+  assignTaskTeamMembers,
 } from "../../../right-side/task-chat/TaskChatRightController";
 import { fetchLabelApi } from "../../../left-side/header/Setting/label/LabelController";
 import { taskPriorityList, taskTypesList } from "../../../right-side/create-task/CreateTaskController";
@@ -896,12 +896,21 @@ const AllTaskReportsView = ({
 
   const handleConfirmAssignUser = async (
     contactId: number | undefined,
-    checkedOptions: any[]
+    checkedOptions: any[],
+    isNotOverrideExisting?: boolean,
   ) => {
     const idsToUpdate = selectedIds.length > 0 ? selectedIds : (contactId || userAssignTaskId || activeTaskId);
     if (!idsToUpdate) return;
 
-    await updateUserCheckBox(idsToUpdate, checkedOptions, setLoading);
+    await assignTaskTeamMembers(
+      idsToUpdate,
+      checkedOptions,
+      setLoading,
+      !!isNotOverrideExisting,
+      Object.fromEntries(
+        allTasks.map((t) => [t.id, t.assigned_team_member]),
+      ),
+    );
     setIsModalAssignUserVisible(false);
     setSelectedTasks([]);
     setPage(0);
@@ -2828,6 +2837,8 @@ const AllTaskReportsView = ({
             handleSubmit={handleConfirmAssignUser}
             title="Assign your User"
             message="Please select the Users for this Task"
+            isContactAssigedTeamMemberBirfercationShow={true}
+            notOverrideDefaultChecked={false}
             btn1="Cancel"
             btn2="Submit"
             options={optionJoinCompany}
