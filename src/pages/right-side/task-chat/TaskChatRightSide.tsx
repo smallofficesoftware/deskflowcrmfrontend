@@ -967,7 +967,6 @@ const TaskChatRightSide = ({
       checkedOptions,
       setLoading,
       !!isNotOverrideExisting,
-      { [userAssignTaskId]: signleDataTask?.assigned_team_member },
     );
     setTimeout(() => {
       setCurrentPage(0); // Reset page to 0 when search term changes

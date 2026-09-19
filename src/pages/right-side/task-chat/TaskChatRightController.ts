@@ -388,38 +388,37 @@ export const fetchAllCompanyApi = async (
 
 /**
  * Assign team members to one or more tasks / support tickets (both are
- * task_managements rows). With `isNotOverrideExisting` the selected members
- * are merged into each task's current assignees instead of replacing them.
+ * task_managements rows). The backend merges into each task's current
+ * assignees when `isNotOverrideExisting` is set, and notifies newly added
+ * members.
  */
 export const assignTaskTeamMembers = async (
   taskIds: number | number[],
   selectedOptions: any[],
   setLoading: TReactSetState<boolean>,
   isNotOverrideExisting: boolean,
-  existingByTaskId: Record<string | number, string | number | number[] | undefined>,
 ) => {
-  if (!isNotOverrideExisting) {
-    await updateUserCheckBox(taskIds, selectedOptions, setLoading);
-    return;
-  }
-
-  const ids = Array.isArray(taskIds) ? taskIds : [taskIds];
-  const selected = (selectedOptions || []).map(Number).filter(Boolean);
-  for (const id of ids) {
-    const raw = existingByTaskId[id];
-    const existing = (
-      typeof raw === "string"
-        ? raw.split(",")
-        : Array.isArray(raw)
-          ? raw
-          : raw !== undefined && raw !== null
-            ? [raw]
-            : []
-    )
-      .map(Number)
-      .filter(Boolean);
-    const merged = [...new Set([...existing, ...selected])];
-    await updateUserCheckBox(id, merged, setLoading);
+  setLoading(false);
+  try {
+    const { data } = await axiosInstance.post("assign-task-team-members", {
+      taskIds: Array.isArray(taskIds) ? taskIds : [taskIds],
+      teamMembers: selectedOptions || [],
+      keepExisting: isNotOverrideExisting,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      setLoading(true);
+      if (data.data?.skippedIndividual > 0) {
+        toast.warn(data.ack_msg);
+      }
+    } else {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  } catch (error: any) {
+    toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  } finally {
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
   }
 };
 
