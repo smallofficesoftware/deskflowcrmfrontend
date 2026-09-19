@@ -1491,10 +1491,13 @@ const CreateTaskView = ({
                                     )}
                                     <MultiSelect
                                       key={multiSelectKey}
-                                      allowSingle={isTeamListAllowSingle}
+                                      allowSingle={
+                                        isTeamListAllowSingle ||
+                                        (!!taskData?.id &&
+                                          selectedAssignmentTypeOption === "2")
+                                      }
                                       options={categoryOptions}
                                       value={selectedUsers}
-                                      isDisabled={taskData?.id ? true : false}
                                       onChange={(selected: any) => {
                                         setSelectedUsers(selected);
                                         setFieldValue(
