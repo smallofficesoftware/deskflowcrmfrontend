@@ -285,7 +285,7 @@ const ProcessAttendanceReportView = ({
     setSelectedEmployeesIds(
       event.value.map((emp) => emp.presentDates[0]?.employee_id),
     );
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === attendanceData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -915,6 +915,9 @@ const ProcessAttendanceReportView = ({
             }}
           >
             <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
               ref={dt}
               value={attendanceData}
               // lazy

@@ -183,7 +183,6 @@ const JobCardGridView = ({ onHide }: IProps) => {
   };
 
   const { darkMode } = useTheme();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const canView = useCheckUserPermission(
     PAGE_ID.JOB_CARD,
@@ -268,42 +267,32 @@ const JobCardGridView = ({ onHide }: IProps) => {
     filterParams.labelwiseContactShowAndOrNot,
   ]);
 
-  // Infinite scroll
+  // Keep fetching pages in the background until the list is complete so the
+  // client-side paginator always sees the full dataset.
   useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (
-        scrollTop + clientHeight >= scrollHeight - 60 &&
-        !isFetchingMore &&
-        hasMore
-      ) {
-        const nextOffset = offset + PAGE_SIZE;
-        setIsFetchingMore(true);
-        fetchJobCardList(
-          setJobCardList,
-          setLoading,
-          searchTerm,
-          PAGE_SIZE,
-          nextOffset,
-          true,
-          filterParams.checkedOptions,
-          filterParams.checkedOptionsStageStatus,
-          filterParams.assignedByMultiTeamMember,
-          filterParams.createdByMultiTeamMember,
-          filterParams.labelwiseContactShowAndOrNot,
-        ).then((more) => {
-          setOffset(nextOffset);
-          setHasMore(more);
-          setIsFetchingMore(false);
-        });
-      }
-    };
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [offset, hasMore, isFetchingMore, searchTerm, filterParams]);
+    if (!hasMore || isFetchingMore || jobCardList.length < offset + PAGE_SIZE) {
+      return;
+    }
+    const nextOffset = offset + PAGE_SIZE;
+    setIsFetchingMore(true);
+    fetchJobCardList(
+      setJobCardList,
+      setLoading,
+      searchTerm,
+      PAGE_SIZE,
+      nextOffset,
+      true,
+      filterParams.checkedOptions,
+      filterParams.checkedOptionsStageStatus,
+      filterParams.assignedByMultiTeamMember,
+      filterParams.createdByMultiTeamMember,
+      filterParams.labelwiseContactShowAndOrNot,
+    ).then((more) => {
+      setOffset(nextOffset);
+      setHasMore(more);
+      setIsFetchingMore(false);
+    });
+  }, [jobCardList.length, offset, hasMore, isFetchingMore]);
 
   const handleGlobalSearch = () => {
     const value = searchInputRef.current?.value || "";
@@ -840,6 +829,9 @@ const JobCardGridView = ({ onHide }: IProps) => {
       >
         <DataTable
           value={jobCardList}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           loading={loading}
           resizableColumns
           columnResizeMode="fit"

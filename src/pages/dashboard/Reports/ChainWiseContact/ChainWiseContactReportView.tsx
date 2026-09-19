@@ -114,9 +114,6 @@ const ChainWiseContactReportView = ({
   const [selectedCustomers, setSelectedCustomers] = useState<IChainContact[]>(
     [],
   );
-  const [hasMore, setHasMore] = useState(true);
-
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
@@ -334,18 +331,13 @@ const ChainWiseContactReportView = ({
   useEffect(() => {
     setCustomers([]);
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks();
   }, [searchDependencies, filters.referenceWiseContact]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  // The chain-contact endpoint ignores ul/ll and returns every parent with
+  // its children, so this is a single fetch; the table paginates client-side.
+  const loadTasks = async () => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
@@ -365,30 +357,16 @@ const ChainWiseContactReportView = ({
         selectedDemography
           ? Object.values(selectedDemography).filter(Boolean)
           : null,
-        offset,
-        limit,
+        0,
+        50,
         debouncedSearchText,
         filters.selectedContactId,
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData); // Append via splice on copy
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(newData);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -396,11 +374,8 @@ const ChainWiseContactReportView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
     setSelectedCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks();
   };
 
   const dataArray: IChainContact[] = useMemo(() => {
@@ -1040,6 +1015,9 @@ const ChainWiseContactReportView = ({
             (c) => c.chainContact && c.chainContact.length > 0,
           )}
           loading={loading}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           scrollable
           resizableColumns
           columnResizeMode="fit"
