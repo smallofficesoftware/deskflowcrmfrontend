@@ -1755,7 +1755,7 @@ const OrderPrintViewV4 = () => {
                           {printSetting?.setting_details.discountColumn ==
                             true && (
                               <>
-                                <th className="text-center">Dis(%)</th>
+                                <th className="text-center">Dis({Number(orderPrintById?.cart?.item_discount_type) === 2 ? "₹" : "%"})</th>
                               </>
                             )}
 
@@ -1986,9 +1986,9 @@ const OrderPrintViewV4 = () => {
                                             className={`text-right without_price_check ${showBorder ? "no-print-border" : ""
                                               }`}
                                           >
-                                            {item.item_discount_pct
+                                            {(Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct)
                                               ? formatNumber(
-                                                item.item_discount_pct,
+                                                (Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct),
                                                 2,
                                               )
                                               : "0"}
