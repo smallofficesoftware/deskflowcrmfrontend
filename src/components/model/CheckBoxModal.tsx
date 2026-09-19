@@ -22,6 +22,7 @@ interface ICheckBoxModalProps {
   hideSmallInfoMessageInCheck?: boolean;
   smallInfoMessage?: any;
   isContactAssigedTeamMemberBirfercationShow?: boolean;
+  notOverrideDefaultChecked?: boolean;
 }
 interface InfoMessageProps {
   text?: string;
@@ -67,12 +68,13 @@ const CheckBoxModal: React.FC<ICheckBoxModalProps> = ({
   hideSmallInfoMessageInCheck,
   smallInfoMessage,
   isContactAssigedTeamMemberBirfercationShow,
+  notOverrideDefaultChecked = true,
 }) => {
   const [checkedOptions, setCheckedOptions] = useState<any[] | undefined>([]);
   const [
     isNotOverrideExistingContactCheckbox,
     setIsNotOverrideExistingContactCheckbox,
-  ] = useState(true);
+  ] = useState(notOverrideDefaultChecked);
 
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");

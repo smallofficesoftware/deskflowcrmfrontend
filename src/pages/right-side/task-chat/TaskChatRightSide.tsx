@@ -64,7 +64,7 @@ import {
   TMessagesByDate,
   TMessageTask,
   tryPdfmeViewPrint,
-  updateUserCheckBox,
+  assignTaskTeamMembers,
 } from "./TaskChatRightController";
 
 interface IPropRightView {
@@ -958,10 +958,17 @@ const TaskChatRightSide = ({
   const handleConfirmAssignUser = async (
     contactId: number | undefined,
     checkedOptions: any[],
+    isNotOverrideExisting?: boolean,
   ) => {
     if (userAssignTaskId === undefined) return;
 
-    await updateUserCheckBox(userAssignTaskId, checkedOptions, setLoading);
+    await assignTaskTeamMembers(
+      userAssignTaskId,
+      checkedOptions,
+      setLoading,
+      !!isNotOverrideExisting,
+      { [userAssignTaskId]: signleDataTask?.assigned_team_member },
+    );
     setTimeout(() => {
       setCurrentPage(0); // Reset page to 0 when search term changes
     }, 100);
@@ -2346,6 +2353,8 @@ const TaskChatRightSide = ({
             handleSubmit={handleConfirmAssignUser}
             title="Assign your User"
             message="Please select the Users for this contact."
+            isContactAssigedTeamMemberBirfercationShow={true}
+            notOverrideDefaultChecked={false}
             btn1="Cancel"
             btn2="Submit"
             options={optionJoinCompany}

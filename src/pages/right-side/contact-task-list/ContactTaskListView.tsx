@@ -20,7 +20,7 @@ import { archiveTaskApi, complateTaskApi, CovertSupportTikcetToTaskApi, deleteTa
 import { fetchDepartmentsApi } from "../../left-side/list-company/EditTeamMemberController";
 import { taskPriorityList } from "../create-task/CreateTaskController";
 import CreateTaskView from "../create-task/CreateTaskView";
-import { fetchAllCompanyApi, fetchStageStatusApi, updateLabel, updateStageStatusRadioButton, updateUserCheckBox } from "../task-chat/TaskChatRightController";
+import { fetchAllCompanyApi, fetchStageStatusApi, updateLabel, updateStageStatusRadioButton, assignTaskTeamMembers } from "../task-chat/TaskChatRightController";
 import { fetchApiTask, ILabel, IStageStatus, ITaskCategory, ITaskView } from "./ContactTaskListController";
 
 interface IPropsTaskManagementView {
@@ -1713,6 +1713,7 @@ const ContactTaskListView = ({
     const handleConfirmAssignUser = async (
         taskId: number | undefined,
         checkedOptions: any[],
+        isNotOverrideExisting?: boolean,
     ) => {
         let idsToUpdate: number | number[];
         if (selectedIds.length > 0) {
@@ -1722,7 +1723,15 @@ const ContactTaskListView = ({
         } else {
             return;
         }
-        await updateUserCheckBox(idsToUpdate, checkedOptions, setLoading);
+        await assignTaskTeamMembers(
+            idsToUpdate,
+            checkedOptions,
+            setLoading,
+            !!isNotOverrideExisting,
+            Object.fromEntries(
+                taskList.map((t) => [t.id, t.assigned_team_member]),
+            ),
+        );
         setTimeout(() => {
             fetchApiTask(
                 setTaskList,
@@ -3552,6 +3561,8 @@ const ContactTaskListView = ({
                     handleSubmit={handleConfirmAssignUser}
                     title="Assign your User"
                     message="Please select the Users for this Task"
+                    isContactAssigedTeamMemberBirfercationShow={true}
+                    notOverrideDefaultChecked={false}
                     btn1="Cancel"
                     btn2="Submit"
                     options={optionJoinCompany}
