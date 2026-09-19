@@ -546,6 +546,9 @@ const CustomFieldFormReport = ({ onHide }: IVisitTypeReport) => {
                 }}
             >
                 <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     value={customInquiryFromList}
                     loading={loading}
                     resizableColumns

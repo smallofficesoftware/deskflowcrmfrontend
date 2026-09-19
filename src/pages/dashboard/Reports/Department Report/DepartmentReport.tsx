@@ -321,6 +321,9 @@ const DepartmentReport = ({ onHide }: IWhatsappTemplateReport) => {
                 }}
             >
                 <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     value={departmentList}
                     loading={loading}
                     resizableColumns
