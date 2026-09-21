@@ -463,6 +463,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.ATTEDANCESALARY_REPORT,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewTeamSalary = useCheckUserPermission(
+    PAGE_ID.TEAM_SALARY,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewEmployeeReport = useCheckUserPermission(
     PAGE_ID.EMP_ACCOUNT_HISTORY,
     PERMISSION_TYPE.VIEW,
@@ -1043,7 +1047,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;
-    } else if (name === "Salary_register_Report") {
+    } else if (canViewTeamSalary && name === "Salary_register_Report") {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;

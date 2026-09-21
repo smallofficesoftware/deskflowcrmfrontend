@@ -278,6 +278,10 @@ const SalaryRegisterReport = ({
       setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
       setSelectedSalaries([]);
       loadAttendance(0, lazyState.rows);
+    } else {
+      // No view right (or permissions not loaded yet): nothing will fetch, so
+      // don't leave the grid on its initial loading spinner.
+      setLoading(false);
     }
   }, [activeDayMonthYear, filters.checkedOptionsUser, canView]);
 
@@ -309,6 +313,7 @@ const SalaryRegisterReport = ({
   };
 
   const handleRefresh = async () => {
+    if (!canView) return;
     loadAttendance(lazyState.first, lazyState.rows);
   };
 

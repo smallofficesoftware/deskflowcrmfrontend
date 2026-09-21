@@ -149,6 +149,7 @@ export const reportsMenuData: IReportMenuGroup[] = [
       {
         label: "Salary Register",
         value: "Salary_register_Report",
+        pageId: PAGE_ID.TEAM_SALARY,
         icon: "payments",
         description: "Monthly salary register with earnings and deductions.",
       },
