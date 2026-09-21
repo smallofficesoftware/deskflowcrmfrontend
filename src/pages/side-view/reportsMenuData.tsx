@@ -143,6 +143,7 @@ export const reportsMenuData: IReportMenuGroup[] = [
       {
         label: "Attendance Register",
         value: "Attendance_register_Report",
+        pageId: PAGE_ID.PROCESS_ATTENDANCE,
         icon: "today",
         description: "Daily in/out register for every employee.",
       },
