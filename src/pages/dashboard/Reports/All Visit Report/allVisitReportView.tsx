@@ -4,8 +4,6 @@ import {
   Marker,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -15,6 +13,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -25,6 +24,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -288,10 +288,7 @@ const AllVisitReportsView = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshReport, setRefreshReport] = useState(false);
 
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const isInitialLoad = useRef(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -559,14 +556,8 @@ const AllVisitReportsView = ({
   }, [visits, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   useEffect(() => {
-    setTotalRecords(filteredData.length);
-  }, [filteredData]);
-
-  useEffect(() => {
-    setVisits([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadMoreVisits(true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadMoreVisits(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -576,57 +567,49 @@ const AllVisitReportsView = ({
     filters.referenceWiseContact,
   ]);
 
-  const loadMoreVisits = async (reset = false) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
-    isLoadingMore.current = true;
+  const loadMoreVisits = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
-    const offset = reset ? 0 : currentOffset.current;
-    const limit = 50;
+    try {
+      const { data: rawData, total } = await fetchVisitReport(
+        filters.selectedDateArray,
+        filters.checkedOptionsUser,
+        MobileToken,
+        getID,
+        MobileFlag,
+        selectedDemography,
+        offset,
+        limit,
+        debouncedSearchText,
+        filters.selectedContactId,
+        filters.referenceWiseContact,
+      );
 
-    const rawData = await fetchVisitReport(
-      filters.selectedDateArray,
-      filters.checkedOptionsUser,
-      MobileToken,
-      getID,
-      MobileFlag,
-      selectedDemography,
-      offset,
-      limit,
-      debouncedSearchText,
-      filters.selectedContactId,
-      filters.referenceWiseContact,
-    );
-
-    const flattened = flattenVisitData(rawData);
-    setVisitData((prev) => (reset ? rawData : [...prev, ...rawData]));
-
-    setVisits((prev) => (reset ? flattened : [...prev, ...flattened]));
-
-    currentOffset.current = offset + rawData.length;
-    if (rawData.length < limit) setHasMore(false);
-
-    setLoading(false);
-    isLoadingMore.current = false;
+      setVisitData(rawData);
+      setVisits(flattenVisitData(rawData));
+      setTotalRecords(total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setVisits([]);
-    setVisitData([]);
-    loadMoreVisits(true);
+    loadMoreVisits(lazyState.first, lazyState.rows);
   };
 
-  const onVirtualScroller = (event: any) => {
-    const { last } = event;
-
-    // Trigger earlier (buffer zone)
-    if (last >= visits.length - 10 && hasMore && !loading) {
-      loadMoreVisits();
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadMoreVisits(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -689,7 +672,7 @@ const AllVisitReportsView = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value;
     setSelectedVisits(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -1140,37 +1123,6 @@ const AllVisitReportsView = ({
     dataKey: col.key,
   }));
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const dataToExport =
-      selectedVisits.length > 0 ? selectedVisits : filteredData;
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      exportableColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-    });
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
   // const exportExcel = () => {
   //   const dataToExport = selectedVisits.length > 0 ? selectedVisits : filteredData;
   //   const exportData = dataToExport.map((item) => {
@@ -1467,25 +1419,22 @@ const AllVisitReportsView = ({
                   selectedRows={selectedVisits}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (visits.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_visit_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={exportableColumns}
+                  fileName="Visit_Report"
+                  canShare={canShare}
+                  disabled={visits.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1548,22 +1497,20 @@ const AllVisitReportsView = ({
           <DataTable
             ref={dt}
             value={visits}
+            dataKey="id"
             scrollable
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollHeight="90vh"
-            virtualScrollerOptions={{
-              itemSize: 52, // Approximate row height
-              lazy: true,
-              onLazyLoad: onVirtualScroller,
-              loading: loading && isInitialLoad.current,
-            }}
             filterDisplay="row"
-            // dataKey="id"
-            // first={lazyState.first}
-            // rows={lazyState.rows}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
             totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             onSort={onSort}
             sortField={lazyState.sortField ?? undefined}
             sortOrder={lazyState.sortOrder ?? undefined}
@@ -1589,7 +1536,7 @@ const AllVisitReportsView = ({
                 }}
               >
                 <div style={{ textAlign: "right" }}>
-                  Total Visits: {filteredData.length}
+                  Total Visits: {totalRecords}
                 </div>
               </div>
             }

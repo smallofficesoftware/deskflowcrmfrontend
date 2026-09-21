@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -17,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -61,7 +61,6 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
   const [customers, setCustomers] = useState<ITargetIncentiveItem[]>([]);
-  const [allRawData, setAllRawData] = useState<ITargetIncentiveItem[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<
     ITargetIncentiveItem[]
   >([]);
@@ -88,10 +87,9 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dt = useRef<DataTable<ITargetIncentiveItem[]>>(null);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const hasMoreRef = useRef(true);
-  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(50);
 
   const currSym =
     summaryData.currency_symbol || customers[0]?.currency_symbol || "₹";
@@ -187,45 +185,26 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
       .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
   }, [selectedDates, filters.startSearchDate, filters.endSearchDate]);
 
-  const loadData = async (reset = false) => {
+  const loadData = async (offset: number, limit: number) => {
     if (!canViewReport) return;
     if (isFetchingRef.current) return;
-    if (!hasMoreRef.current && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
 
     try {
-      if (reset) {
-        offsetRef.current = 0;
-        setCustomers([]);
-        hasMoreRef.current = true;
-      }
-
       await fetchTargetIncentiveReport(
-        (dataSetter) => {
-          const newData =
-            typeof dataSetter === "function"
-              ? dataSetter(allRawData)
-              : dataSetter;
-          setAllRawData(newData);
-          if (newData.length < PAGE_SIZE) {
-            hasMoreRef.current = false;
-          }
-          setCustomers((prev) => (reset ? newData : [...prev, ...newData]));
-        },
+        setCustomers,
         setTotalRecords,
         setSummaryData,
         reportSelectedDates,
         selectedTeamMembers || filters.checkedOptionsUser,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         globalSearch || debouncedSearchText,
       );
-
-      offsetRef.current += PAGE_SIZE;
     } catch (err) {
       console.error(err);
     } finally {
@@ -235,17 +214,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    setCustomers([]);
-    setAllRawData([]);
-    loadData(true);
+    setPage(0);
+    loadData(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadData(event.first, event.rows);
   };
 
   useEffect(() => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    loadData(true);
+    setPage(0);
+    loadData(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     reportSelectedDates,
     selectedTeamMembers,
@@ -303,42 +285,6 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   };
 
   // Export functions with permission verification & dynamic currency symbol
-  const exportPdf = () => {
-    if (!canShare) {
-      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-      return;
-    }
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : customers;
-    if (dataToExport.length === 0) return;
-
-    const doc = new jsPDF("l", "pt", "a4");
-    doc.text("Target & Incentive Report", 40, 40);
-
-    const head = [
-      [
-        ...visibleColumns.map((col) => col.label),
-        ...EXTRA_EXPORT_COLUMNS.map((col) => col.label),
-      ],
-    ];
-
-    const body = dataToExport.map((item) => [
-      ...visibleColumns.map((col) => getExportCellValue(col, item)),
-      ...EXTRA_EXPORT_COLUMNS.map((col) => (item as any)[col.key] || "-"),
-    ]);
-
-    autoTable(doc, {
-      head: head,
-      body: body,
-      startY: 60,
-      theme: "striped",
-      styles: { fontSize: 9 },
-    });
-
-    doc.save(`Target_Incentive_Report_${new Date().getTime()}.pdf`);
-    toast.success("PDF exported successfully!");
-  };
-
   const printTable = () => {
     if (!canPrint) {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
@@ -705,23 +651,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-                    if (customers.length === 0) return;
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="target_incentive_report"
+                  filters={{
+                    selectedDates: reportSelectedDates,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="Target_Incentive_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
@@ -811,7 +754,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
         endDate={filters.endSearchDate}
       />
 
-      {/* Main Table using Virtual Scroller */}
+      {/* Main Table */}
       <div
         className="report_card"
         style={{ height: "75vh", display: "flex", flexDirection: "column" }}
@@ -819,28 +762,20 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="65vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-            lazy: true,
-            onLazyLoad: (e: any) => {
-              if (
-                e.last >= customers.length - 1 &&
-                hasMoreRef.current &&
-                !loading
-              ) {
-                loadData(false);
-              }
-            },
-            appendOnly: true,
-            showLoader: true,
-            delay: 0,
-          }}
+          paginator
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           filterDisplay="row"
           onFilter={onFilter}
           filters={lazyState.filters}

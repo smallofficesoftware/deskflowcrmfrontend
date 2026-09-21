@@ -8,7 +8,7 @@ import ConfirmationModal from "../../../components/model/ConfirmationModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
-import { ICompanyTeam } from "../LeftSideController";
+import { ICompanyTeam } from "./ListCompanyController";
 import AttendanceRecordsTable from "./AttendanceRecordsTable";
 import {
   createAttendance,

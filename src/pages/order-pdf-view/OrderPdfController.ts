@@ -112,6 +112,7 @@ interface IOrderCartPdf {
   state_id: number;
   state_name: string;
   city_name: string;
+  area_name: string;
   PinCode: string;
   cart_remark: string;
   referance_cart_name: string;
@@ -194,6 +195,7 @@ export interface IOrderItemPdf {
   item_qty: number;
   item_total: number;
   item_discount_pct: number;
+  item_discount_pr: number;
   item_hsn_code: string;
   currency_id: number;
   sales_qty: number;
@@ -293,6 +295,7 @@ export interface IprintSetting {
     signSignatory: boolean;
     footerImage: boolean;
     supplyTo: boolean;
+    supplyToArea: boolean;
     closingBalance: boolean;
     productImage: boolean;
     productBottomBorder: boolean;

@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -20,6 +19,8 @@ import { toast } from "react-toastify";
 import { truncateText, useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
+import { ExportColumn } from "../../../../services/reportExportService";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxModal from "../../../../components/model/CheckBoxModal";
 import RadioButtonModal from "../../../../components/model/RadioButtonModal";
@@ -64,7 +65,7 @@ import {
   fetchAllCompanyApi,
   fetchStageStatusApiCustomer,
   updateLabel,
-  updateUserCheckBox,
+  assignTaskTeamMembers,
 } from "../../../right-side/task-chat/TaskChatRightController";
 import { fetchLabelApi } from "../../../left-side/header/Setting/label/LabelController";
 import { taskPriorityList, taskTypesList } from "../../../right-side/create-task/CreateTaskController";
@@ -147,13 +148,12 @@ const AllTaskReportsView = ({
   const [singleTaskData, setSingleTaskData] = useState<ITaskView | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [imageViewData, setImageViewData] = useState<any | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(ITEMS_PER_PAGE);
   const [isOpenCreateModel, setIsCreateModel] = useState(false);
   const [isOpenEditModel, setIsOpenEditModel] = useState(false);
   const [editTaskItem, setEditTaskItem] = useState<ITaskView | null>(null);
   const title = is_support_ticket_flag == 0 ? "All Task" : "All Support Ticket";
-  const isInitialLoad = useRef(true);
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   // Filters State (Pills & Dropdowns)
@@ -390,6 +390,7 @@ const AllTaskReportsView = ({
         ...filters,
         startSearchDate: startDate,
         endSearchDate: endDate,
+        selectedDateArray: [startDate, endDate],
       });
     }
   }, []);
@@ -464,9 +465,11 @@ const AllTaskReportsView = ({
   const [sortOrder, setSortOrder] = useState<SortOrder | null>(null);
 
   const loadTasks = useCallback(
-    async (page: number = 0, limit: number = ITEMS_PER_PAGE, reset: boolean = false) => {
-      if (isLoadingMore.current && !reset) return;
-      if (!hasMore && !reset) return;
+    // 3rd param kept only so the many existing call sites passing a trailing
+    // true/false (leftover from the old infinite-scroll append-vs-replace
+    // flag) don't all need updating — every call is a full-page replace now.
+    async (page: number = 0, limit: number = ITEMS_PER_PAGE, _reset: boolean = true) => {
+      if (isLoadingMore.current) return;
 
       setLoading(true);
       isLoadingMore.current = true;
@@ -474,15 +477,7 @@ const AllTaskReportsView = ({
       try {
         await fetchApiTask(
           (newData: ITaskView[]) => {
-            if (newData.length < limit) {
-              setHasMore(false);
-            }
-            if (reset || page === 0) {
-              setAllTasks(newData);
-            } else {
-              setAllTasks((prev) => [...prev, ...newData]);
-            }
-            currentOffset.current = page * limit + newData.length;
+            setAllTasks(newData);
           },
           setLoading,
           debouncedSearchText || globalSearch || "",
@@ -523,11 +518,10 @@ const AllTaskReportsView = ({
           filters.filterData?.area,
         );
       } catch (err) {
-        setHasMore(false);
+        console.error(err);
       } finally {
         setLoading(false);
         isLoadingMore.current = false;
-        isInitialLoad.current = false;
       }
     },
     [
@@ -547,37 +541,30 @@ const AllTaskReportsView = ({
     ]
   );
 
-  // Reload data on filter/search change
+  // Reload data (from page 1) on filter/search change
   useEffect(() => {
-    setAllTasks([]);
-    setDisplayTasks([]);
-    currentOffset.current = 0;
-    isInitialLoad.current = true;
-    setHasMore(true);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadTasks]);
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    isInitialLoad.current = true;
-    setAllTasks([]);
-    setDisplayTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
   };
 
   const onhideTaskModal = () => {
     setIsCreateModel(false);
     setIsOpenEditModel(false);
     setEditTaskItem(null);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows);
   };
 
-  const onVirtualScroller = (event: any) => {
-    if (event.last >= allTasks.length - 1 && hasMore && !isLoadingMore.current) {
-      const nextPage = Math.floor(allTasks.length / ITEMS_PER_PAGE);
-      loadTasks(nextPage, ITEMS_PER_PAGE, false);
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadTasks(event.page ?? 0, event.rows);
   };
 
   const filteredAndSortedData = useMemo(() => {
@@ -719,7 +706,8 @@ const AllTaskReportsView = ({
   const handleDeleteTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await deleteTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsDeleteConfirmation(false);
     setSelectedTasks([]);
@@ -728,7 +716,8 @@ const AllTaskReportsView = ({
   const handleCompleteTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await complateTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsTaskCompletedConfirmation(false);
     setSelectedTasks([]);
@@ -737,7 +726,8 @@ const AllTaskReportsView = ({
   const handleArchiveTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await archiveTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsArchiveTaskConfirmation(false);
     setSelectedTasks([]);
@@ -746,7 +736,8 @@ const AllTaskReportsView = ({
   const handleUnArchiveTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await unarchiveTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsUnArchiveTaskConfirmation(false);
     setSelectedTasks([]);
@@ -755,7 +746,8 @@ const AllTaskReportsView = ({
   const handleConvertSupportTicketToTask = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : activeTaskId;
     if (await CovertSupportTikcetToTaskApi(ids)) {
-      loadTasks(0, ITEMS_PER_PAGE, true);
+      setPage(0);
+      loadTasks(0, rows, true);
     }
     setIsConvertSupportTicketToTask(false);
     setSelectedTasks([]);
@@ -806,7 +798,8 @@ const AllTaskReportsView = ({
             ? "Marked as read successfully"
             : "Marked as unread successfully"
         );
-        loadTasks(0, ITEMS_PER_PAGE, true);
+        setPage(0);
+        loadTasks(0, rows, true);
       }
     } catch (error) {
       console.error(error);
@@ -872,7 +865,8 @@ const AllTaskReportsView = ({
     await updateStageStatusRadioButton(idsToUpdate, selectedOption, setLoading);
     setIsModalAssignStatusVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmRadioButtonStatusCustomer = async (selectedOption: any) => {
@@ -882,7 +876,8 @@ const AllTaskReportsView = ({
     await updateStageStatusRadioButtonCustomer(idsToUpdate, selectedOption, setLoading);
     setIsModalAssignStatusVisibleCustomer(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmAssignLabel = async (
@@ -895,20 +890,28 @@ const AllTaskReportsView = ({
     await updateLabel(idsToUpdate, checkedOptions, setLoading);
     setIsModalAssignLabelVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const handleConfirmAssignUser = async (
     contactId: number | undefined,
-    checkedOptions: any[]
+    checkedOptions: any[],
+    isNotOverrideExisting?: boolean,
   ) => {
     const idsToUpdate = selectedIds.length > 0 ? selectedIds : (contactId || userAssignTaskId || activeTaskId);
     if (!idsToUpdate) return;
 
-    await updateUserCheckBox(idsToUpdate, checkedOptions, setLoading);
+    await assignTaskTeamMembers(
+      idsToUpdate,
+      checkedOptions,
+      setLoading,
+      !!isNotOverrideExisting,
+    );
     setIsModalAssignUserVisible(false);
     setSelectedTasks([]);
-    loadTasks(0, ITEMS_PER_PAGE, true);
+    setPage(0);
+    loadTasks(0, rows, true);
   };
 
   const showExternalStatusColumn =
@@ -1301,29 +1304,21 @@ const AllTaskReportsView = ({
     (col) => !col.isAttachment && col.key !== "action"
   );
 
-  const EXPORT_WIDTH_MAP: Record<string, number> = {
-    id: 10,
-    task_title: 38,
-    status_name: 40,
-    external_status_name: 70,
-    category_name: 30,
-    priority_name: 15,
-    type_name: 15,
-    task_remark: 40,
-    selected_days_names: 20,
-    task_fromdate: 28,
-    task_enddate: 28,
-    created_by_name: 28,
-    assigned_team_member_names: 32,
+  // Excel/PDF export columns, distinct from exportableColumns (the grid's
+  // own TaskColumnDef[], which carries JSX `body` renderers PDF/Excel export
+  // can't use). format: "badge" is PDF-only (xlsx ignores it) - colorKeys
+  // mirrors the grid's own badge color fallback chains exactly (see
+  // status_name/external_status_name's `body` above).
+  const BADGE_COLOR_KEYS: Record<string, string[]> = {
+    status_name: ["stage_status_color", "status_colour"],
+    external_status_name: ["external_status_color", "external_status_colour"],
   };
-
-  const EXPORT_CENTER_KEYS = new Set([
-    "id",
-    "priority_name",
-    "type_name",
-    "task_fromdate",
-    "task_enddate",
-  ]);
+  const exportColumnsWithFormat: ExportColumn[] = exportableColumns.map((col) => {
+    const colorKeys = BADGE_COLOR_KEYS[col.key];
+    return colorKeys
+      ? { key: col.key, label: col.label, format: "badge", colorKeys }
+      : { key: col.key, label: col.label };
+  });
 
   const getExportCellValue = (
     col: TaskColumnDef,
@@ -1380,148 +1375,6 @@ const AllTaskReportsView = ({
       }
     }
   };
-
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTasks.length > 0 ? selectedTasks : filteredAndSortedData;
-    const tableData = dataToExport.map((item: any) => {
-      const rowData: any = {
-        status_colour: item.stage_status_color || item.status_colour || "#eeeeee",
-        external_status_colour:
-          item.external_status_color || item.external_status_colour || "#eeeeee",
-      };
-
-      exportableColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item, "pdf");
-      });
-
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const BADGE_COLUMNS = exportableColumns
-      .filter(
-        (col) => col.key === "status_name" || col.key === "external_status_name",
-      )
-      .map((col) => col.key);
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margins = 30;
-    const usableWidth = pageWidth - margins;
-
-    const totalFixedWidth = exportableColumns.reduce(
-      (sum, col) => sum + (EXPORT_WIDTH_MAP[col.key] ?? 30),
-      0,
-    );
-
-    const scale = usableWidth / totalFixedWidth;
-
-    const COLUMN_CONFIG: Record<string, any> = Object.fromEntries(
-      exportableColumns.map((col) => [
-        col.key,
-        {
-          cellWidth: (EXPORT_WIDTH_MAP[col.key] ?? 30) * scale,
-          overflow: "linebreak",
-          ...(EXPORT_CENTER_KEYS.has(col.key) ? { halign: "center" } : {}),
-        },
-      ]),
-    );
-
-    const exportColumns = exportableColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: "linebreak",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        fontSize: 8,
-        fontStyle: "bold",
-        halign: "center",
-      },
-      columnStyles: COLUMN_CONFIG,
-      margin: { top: 20, left: 15, right: 15 },
-
-      didParseCell: (data: any) => {
-        if (
-          data.section === "body" &&
-          BADGE_COLUMNS.includes(data.column.dataKey)
-        ) {
-          data.cell.text = [];
-        }
-      },
-
-      didDrawCell: (data: any) => {
-        if (
-          data.section === "body" &&
-          BADGE_COLUMNS.includes(data.column.dataKey)
-        ) {
-          const row = tableData[data.row.index];
-          if (!row) return;
-
-          const isExternal = data.column.dataKey === "external_status_name";
-
-          const statusText =
-            (isExternal ? row.external_status_name : row.status_name) || "-";
-          const bgColor =
-            (isExternal ? row.external_status_colour : row.status_colour) ||
-            "#aaaaaa";
-
-          const hex = bgColor.replace("#", "");
-          const r = parseInt(hex.substring(0, 2), 16) || 170;
-          const g = parseInt(hex.substring(2, 4), 16) || 170;
-          const b = parseInt(hex.substring(4, 6), 16) || 170;
-
-          doc.setFontSize(10);
-          const padding = 2;
-          const textW = doc.getTextWidth(statusText);
-          const badgeW = Math.min(textW + padding * 3, data.cell.width - 4);
-          const badgeH = 5;
-          const x = data.cell.x + (data.cell.width - badgeW) / 2;
-          const y = data.cell.y + (data.cell.height - badgeH) / 2;
-
-          doc.setFillColor(r, g, b);
-          doc.roundedRect(x, y, badgeW, badgeH, 2, 2, "F");
-
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-          const textColor = brightness > 128 ? 30 : 255;
-          doc.setTextColor(textColor, textColor, textColor);
-          doc.text(statusText, x + badgeW / 2, y + badgeH / 2 + 0.5, {
-            align: "center",
-            baseline: "middle",
-            maxWidth: badgeW - 2,
-          });
-
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(8);
-        }
-      },
-
-      didDrawPage: (data: any) => {
-        doc.setFontSize(11);
-        doc.text(`${title} Report`, data.settings.margin.left, 12);
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
-
 
   const printTable = () => {
     const dataToExport =
@@ -1788,15 +1641,16 @@ const AllTaskReportsView = ({
                   <ExportExcelMenuItem
                     reportType="all_task_report"
                     filters={{
-                      selectedDates,
-                      selectedTeamMembers,
-                      selectedStageStatus,
-                      globalSearch,
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers:
+                        filters.assignedByMultiTeamMember || filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      globalSearch: debouncedSearchText || globalSearchText,
                       is_support_ticket_flag,
                       selectedContactId,
                       referenceWiseContact,
                     }}
-                    columns={exportableColumns}
+                    columns={exportColumnsWithFormat}
                     fileName={`${title}_Report`}
                     canShare={canShare}
                     disabled={allTasks.length === 0}
@@ -1806,23 +1660,27 @@ const AllTaskReportsView = ({
                     }
                   />
 
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-                      if (allTasks.length === 0) return;
-                      canShare
-                        ? exportPdf()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportPdfMenuItem
+                    reportType="all_task_report"
+                    filters={{
+                      selectedDates: filters.selectedDateArray,
+                      selectedTeamMembers:
+                        filters.assignedByMultiTeamMember || filters.checkedOptionsUser,
+                      selectedStageStatus: filters.checkedOptionsStageStatus,
+                      globalSearch: debouncedSearchText || globalSearchText,
+                      is_support_ticket_flag,
+                      selectedContactId,
+                      referenceWiseContact,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-pdf"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export PDF
-                  </li>
+                    columns={exportColumnsWithFormat}
+                    fileName={`${title}_Report`}
+                    canShare={canShare}
+                    disabled={allTasks.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={
+                      selectedTasks.length > 0 ? selectedTasks : undefined
+                    }
+                  />
 
                   <li
                     className="listItem text-start"
@@ -2538,12 +2396,13 @@ const AllTaskReportsView = ({
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="82vh"
-            virtualScrollerOptions={{
-              itemSize: 52,
-              lazy: true,
-              onLazyLoad: onVirtualScroller,
-              loading: loading && isInitialLoad.current,
-            }}
+            paginator
+            lazy
+            first={page * rows}
+            rows={rows}
+            totalRecords={taskCountGetAll}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             filterDisplay="row"
             dataKey="id"
             loading={loading}
@@ -2565,8 +2424,7 @@ const AllTaskReportsView = ({
                   textAlign: "right",
                 }}
               >
-                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}{" "}
-                {hasMore && "(loading more...)"}
+                {is_support_ticket_flag ? "Total Support Tickets" : "Total Tasks"}: {taskCountGetAll}
               </div>
             }
           >
@@ -2976,6 +2834,8 @@ const AllTaskReportsView = ({
             handleSubmit={handleConfirmAssignUser}
             title="Assign your User"
             message="Please select the Users for this Task"
+            isContactAssigedTeamMemberBirfercationShow={true}
+            notOverrideDefaultChecked={false}
             btn1="Cancel"
             btn2="Submit"
             options={optionJoinCompany}
@@ -3153,7 +3013,7 @@ const AllTaskReportsView = ({
               }}
               TaskData={allTasks as any}
               signleDataTask={singleTaskData}
-              setRefreshTask={() => loadTasks(0, ITEMS_PER_PAGE, true)}
+              setRefreshTask={() => { setPage(0); loadTasks(0, rows, true); }}
               closeDashboard={() => { }}
               openTaskRight={OpenTaskchatRightSide}
               supportTicketFlag={is_support_ticket_flag}

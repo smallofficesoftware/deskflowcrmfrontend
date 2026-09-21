@@ -35,7 +35,9 @@ import {
   fetchPdfmeTemplatesForPicker,
   handleDownload,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "./orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 
 // Define interface for custom form fields based on console output
 interface CustomFormField {
@@ -304,7 +306,7 @@ const OrderPrintViewV4 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(orderPrintById?.cart?.type)!),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
@@ -1753,7 +1755,7 @@ const OrderPrintViewV4 = () => {
                           {printSetting?.setting_details.discountColumn ==
                             true && (
                               <>
-                                <th className="text-center">Dis(%)</th>
+                                <th className="text-center">Dis({Number(orderPrintById?.cart?.item_discount_type) === 2 ? "₹" : "%"})</th>
                               </>
                             )}
 
@@ -1984,9 +1986,9 @@ const OrderPrintViewV4 = () => {
                                             className={`text-right without_price_check ${showBorder ? "no-print-border" : ""
                                               }`}
                                           >
-                                            {item.item_discount_pct
+                                            {(Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct)
                                               ? formatNumber(
-                                                item.item_discount_pct,
+                                                (Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct),
                                                 2,
                                               )
                                               : "0"}
@@ -2558,7 +2560,7 @@ const OrderPrintViewV4 = () => {
                                           style={{ borderRight: "0px" }}
                                         >
                                           {`${getCurrencySymbol()} ${formatNumber(
-                                            row.value,
+                                            Number(row.value) || 0,
                                             2,
                                           )}`}
                                         </td>

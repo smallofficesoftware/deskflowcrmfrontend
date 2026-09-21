@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ConfirmationModal from "../../../../../../../components/model/ConfirmationModal";
 import { IProductView } from "../../ProductController";
 import ProcessItemTable from "./BomItemView";
-import { getProcess, handleDelete } from "./BomProcessFieldController";
+import { formatSecondsToHms, getProcess, handleDelete } from "./BomProcessFieldController";
 
 export interface IProcess {
     process_name: string;
@@ -65,7 +65,7 @@ const BomProcessList = ({
                         <th>Sr no.</th>
                         <th>Process Name</th>
                         <th>Workstation</th>
-                        <th>Required Time</th>
+                        <th>Required Time (H:M:S)</th>
                         <th>Process Cost</th>
                         <th>Manpower Cost</th>
                         <th className="text-center">Action</th>
@@ -89,7 +89,7 @@ const BomProcessList = ({
                                     <td>{index+1}</td>
                                     <td>{item.process_name}</td>
                                     <td>{item.machine_name}</td>
-                                    <td className="text-center">{item.required_time}</td>
+                                    <td className="text-center">{formatSecondsToHms(item.required_time)}</td>
                                     <td className="text-center">{item.process_cost}</td>
                                     <td className="text-center">{item.manpower_cost}</td>
 

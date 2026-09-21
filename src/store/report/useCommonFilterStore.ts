@@ -39,6 +39,7 @@ export interface ReportsFilter {
   selectedStockTypeId: any;
   selectedProductId: any;
   selectedActiveId?: any;
+  selectedApproveStatus?: string | null;
   selectedDays?: string | number | null;
   isFilterApplied: boolean;
   selectedDateArray: DateObject[] | any | null;
@@ -87,6 +88,7 @@ export const initialState: ReportsFilter = {
   selectedStockTypeId: null,
   selectedProductId: null,
   selectedActiveId: null,
+  selectedApproveStatus: null,
   selectedDays: null,
   isFilterApplied: false,
   selectedDateArray: null,

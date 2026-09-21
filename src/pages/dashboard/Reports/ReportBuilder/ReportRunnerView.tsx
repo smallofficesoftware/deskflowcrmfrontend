@@ -1,7 +1,8 @@
+import BetaFeatureNotice from "../../../../components/BetaFeatureNotice";
 import { format as formatDateFns, formatDistanceToNow } from "date-fns";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, DataTableSortEvent } from "primereact/datatable";
+import { DataTable, DataTablePageEvent, DataTableSortEvent } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +20,9 @@ import { formatDateForBackend, mapColumnTypeToExportFormat, parseFilterDate, tra
 import {
   exportReportPdf,
   getGeneralFilterConfig,
+  getModelRegistry,
   IGeneralFilterConfig,
+  IModelRegistryEntry,
   IRunnableReportDefinition,
   listRunnableReportDefinitions,
   runReportDefinition,
@@ -54,6 +57,25 @@ interface ReportRunnerViewProps {
 
 const PAGE_SIZE = 50; // matches the legacy convention exactly (inquiryView.tsx's loadTasks(offset, 50))
 const humanize = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Same traversal StepOrganize.tsx's own copy uses (base columns, then one
+// hop of relations, then a second hop of nested relations) — resolves a
+// dotted display key (e.g. "contact.referance_contact") back to its real
+// registry label ("Contact → Referred By (Contact)") instead of the raw
+// key humanize() alone would mangle into something like "Contact.referance
+// Contact".
+const buildColumnLabelMap = (entry: IModelRegistryEntry | null): Record<string, string> => {
+  const map: Record<string, string> = {};
+  if (!entry) return map;
+  entry.columns.forEach((c) => (map[c.key] = c.label));
+  (entry.relations || []).forEach((rel) => {
+    rel.columns.forEach((c) => (map[c.key] = `${rel.label} → ${c.label}`));
+    (rel.relations || []).forEach((sub) => {
+      sub.columns.forEach((c) => (map[c.key] = `${rel.label} → ${sub.label} → ${c.label}`));
+    });
+  });
+  return map;
+};
 
 // Step 4's per-column display format, applied here at render time only —
 // queryEngine.js's own row values are untouched, this never affects what
@@ -137,16 +159,12 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
   const [durationMs, setDurationMs] = useState<number | null>(null);
   // Grand totals for whichever columns had "Total" checked in Step 2 —
   // computed server-side (queryEngine.js) over the WHOLE filtered result
-  // set, not just the rows currently loaded into this paginated grid.
-  // Keyed the same as each row's own field keys, so totals[c.key] lines up
-  // with that column directly. Only present in runFromStart's response
-  // (a fresh run/filter/sort/search change) — loadMore's own response
-  // carries the identical value, just not re-applied, since it can't have
-  // changed.
+  // set, not just the current page. Keyed the same as each row's own field
+  // keys, so totals[c.key] lines up with that column directly.
   const [totals, setTotals] = useState<Record<string, number | null> | undefined>(undefined);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const offsetRef = useRef(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const [sortField, setSortField] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<1 | -1 | null>(null);
@@ -302,18 +320,12 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     setLoadingDrillDown(false);
   };
 
-  // Fresh run — resets pagination to page 1. Called on mount and whenever
-  // sort or search changes (a new order/term invalidates the relative
-  // position of whatever pages were already loaded, same reset rule
-  // search/filter changes already follow elsewhere in this app).
-  const runFromStart = async () => {
+  const loadPage = async (offset: number, limit: number) => {
     setLoading(true);
-    setSelectedRows([]); // a re-run invalidates any prior selection's row objects
-    offsetRef.current = 0;
     const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
     const data = await runReportDefinition(definitionId, {
-      limit: PAGE_SIZE,
-      offset: 0,
+      limit,
+      offset,
       sort,
       search: globalSearchText || undefined,
       filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
@@ -322,7 +334,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     if (!data) {
       setAccessError("This report couldn't be run — you may not have access to it.");
       setRows([]);
-      setHasMore(false);
       setTotals(undefined);
       return;
     }
@@ -330,26 +341,23 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
     setRowCount(data.row_count);
     setDurationMs(data.duration_ms);
     setTotals(data.totals);
-    setHasMore(data.rows.length === PAGE_SIZE);
-    offsetRef.current = data.rows.length;
   };
 
-  const loadMore = async () => {
-    if (loading || !hasMore) return;
-    setLoading(true);
-    const sort = sortField ? { column: sortField, direction: (sortOrder === -1 ? "DESC" : "ASC") as "ASC" | "DESC" } : undefined;
-    const data = await runReportDefinition(definitionId, {
-      limit: PAGE_SIZE,
-      offset: offsetRef.current,
-      sort,
-      search: globalSearchText || undefined,
-      filters: effectiveFilters.length > 0 ? effectiveFilters : undefined,
-    });
-    setLoading(false);
-    if (!data) return;
-    setRows((prev) => [...prev, ...data.rows]);
-    setHasMore(data.rows.length === PAGE_SIZE);
-    offsetRef.current += data.rows.length;
+  // Fresh run — resets pagination to page 1. Called on mount and whenever
+  // sort/search/filters change (a new order/term invalidates the relative
+  // position of whatever page was already loaded, same reset rule
+  // search/filter changes already follow elsewhere in this app).
+  const runFromStart = async () => {
+    setSelectedRows([]); // a re-run invalidates any prior selection's row objects
+    setPage(0);
+    await loadPage(0, pageSize);
+  };
+
+  const onPageChange = (e: DataTablePageEvent) => {
+    setSelectedRows([]); // a page change swaps out `rows` entirely — old selections no longer point at anything on screen
+    setPage(e.page ?? 0);
+    setPageSize(e.rows);
+    loadPage(e.first, e.rows);
   };
 
   useEffect(() => {
@@ -389,6 +397,21 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
       getGeneralFilterConfig(definition.model_key).then(setFilterConfig);
     } else {
       setFilterConfig(null);
+    }
+  }, [definition]);
+
+  // Real column/relation labels for the grid header (see
+  // buildColumnLabelMap above) — same query-type-only scope as the
+  // filterConfig effect right above (plugin/composite columns come from a
+  // different shape, not this table's own registry entry).
+  const [modelRegistryEntry, setModelRegistryEntry] = useState<IModelRegistryEntry | null>(null);
+  useEffect(() => {
+    if (definition?.type === "query" && definition.model_key) {
+      getModelRegistry().then((entries) => {
+        setModelRegistryEntry(entries.find((e) => e.key === definition.model_key) || null);
+      });
+    } else {
+      setModelRegistryEntry(null);
     }
   }, [definition]);
 
@@ -475,7 +498,11 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
   // column), they just never become a Column/ColumnsButton option here.
   const hiddenGridKeys = useMemo(() => new Set(definition?.hidden_grid_columns || []), [definition?.hidden_grid_columns]);
   const columns = rows.length > 0 ? Object.keys(rows[0]).filter((k) => !hiddenGridKeys.has(k)) : [];
-  const defaultColumns = columns.map((key) => ({ key, label: humanize(key) }));
+  const columnLabelMap = useMemo(() => buildColumnLabelMap(modelRegistryEntry), [modelRegistryEntry]);
+  const defaultColumns = columns.map((key) => ({
+    key,
+    label: definition?.column_display_labels?.[key] || columnLabelMap[key] || humanize(key),
+  }));
   // Same reportKey convention useCommonFilterStore's slot would use
   // (report_${id}) — server-persisted show/hide/reorder per report, shared
   // with every legacy report through the same hook/component, not a
@@ -542,6 +569,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
 
   return (
     <div>
+      <BetaFeatureNotice />
       <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
         <h3 style={{ fontSize: "20px" }} className="dash-board-text-count">
           {definition?.name || (loadingMeta ? "Loading..." : "Report")}
@@ -700,7 +728,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
         </div>
       </div>
 
-      {definition?.description && <p className="text-muted" style={{ fontSize: 13 }}>{definition.description}</p>}
       {canDrillDown && <p className="text-muted" style={{ fontSize: 12 }}>Click a row to see its underlying detail rows.</p>}
 
       {filtersToShow.length > 0 && (
@@ -709,34 +736,6 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
           startDate={appliedPayload?.startSearchDate}
           endDate={appliedPayload?.endSearchDate}
         />
-      )}
-
-      {/* Row-level per-column filters — a separate, finer-grained layer
-          from the general filter modal above (Step 5's plan), shipped
-          alongside it rather than instead of it. Deliberately a plain
-          input row here rather than PrimeReact's own filterDisplay="row"
-          (see this file's own header comment) — these go to the server as
-          an extra WHERE clause, not a client-side filter over whatever
-          page happens to be loaded. Only offered for a visible column
-          that's in filterConfig.filterableColumns (real, queryEngine-
-          whitelisted base columns) — an aggregate alias or relation-dotted
-          display column simply gets no input here, since filtering on
-          either would make the run throw. */}
-      {filterConfig && visibleColumns.some((c) => filterConfig.filterableColumns[c.key]) && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          {visibleColumns
-            .filter((c) => filterConfig.filterableColumns[c.key])
-            .map((c) => (
-              <input
-                key={c.key}
-                className="form-control form-control-sm"
-                style={{ width: 140 }}
-                placeholder={c.label}
-                value={columnFilterValues[c.key] || ""}
-                onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
-              />
-            ))}
-        </div>
       )}
 
       {compareMode && (
@@ -786,16 +785,13 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollHeight="90vh"
-            virtualScrollerOptions={{
-              itemSize: 46,
-              lazy: true,
-              onLazyLoad: (e: { last: number }) => {
-                if (e.last >= rows.length - 1 && hasMore && !loading) loadMore();
-              },
-              appendOnly: true,
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={page * pageSize}
+            rows={pageSize}
+            totalRecords={rowCount ?? 0}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             onSort={onSort}
             sortField={sortField}
             sortOrder={sortOrder}
@@ -815,7 +811,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             footer={
               <div style={{ padding: 10, background: "#f8f9fa", position: "sticky", bottom: 0, zIndex: 1 }}>
                 <div style={{ textAlign: "right" }}>
-                  {rowCount !== null ? `${rows.length} of ${rowCount}+ row(s) loaded${durationMs !== null ? ` · ${durationMs}ms` : ""}` : ""}
+                  {rowCount !== null ? `Showing ${rows.length} of ${rowCount} row(s)${durationMs !== null ? ` · ${durationMs}ms` : ""}` : ""}
                 </div>
               </div>
             }
@@ -830,11 +826,38 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
               // Total checkbox) get one; every other column's footer stays
               // blank, same as a spreadsheet's own totals row.
               const totalValue = totals?.[c.key];
+              // Same visual layout as legacy reports' filterDisplay="row"
+              // (a filter input directly under each column's header label)
+              // without actually using that PrimeReact mechanism — see this
+              // file's own header comment: these filters go to the server
+              // as an extra WHERE clause (columnFilterValues, debounced
+              // into runFromStart via the columnFilterKey effect), not a
+              // client-side filter over whatever page happens to be loaded.
+              // Only offered for a column in filterConfig.filterableColumns
+              // (real, queryEngine-whitelisted base columns) — an aggregate
+              // alias or relation-dotted display column gets no input,
+              // since filtering on either would make the run throw.
+              const canFilterColumn = !!filterConfig?.filterableColumns[c.key];
               return (
                 <Column
                   key={c.key}
                   field={c.key}
-                  header={c.label}
+                  header={
+                    <div>
+                      <div>{c.label}</div>
+                      {canFilterColumn && (
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          style={{ marginTop: 4, fontWeight: 400 }}
+                          placeholder="Search"
+                          value={columnFilterValues[c.key] || ""}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setColumnFilterValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  }
                   sortable
                   headerStyle={{
                     width: fmt?.width ? `${fmt.width}px` : "150px",

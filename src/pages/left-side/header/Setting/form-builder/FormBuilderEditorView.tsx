@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
@@ -112,6 +113,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
   return (
     <div className="p-3">
       <FormBuilderBrandStyles />
+      <BetaFeatureNotice />
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>{form.title}</h4>
         <div>

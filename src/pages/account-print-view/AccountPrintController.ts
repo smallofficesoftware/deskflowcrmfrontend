@@ -71,9 +71,17 @@ interface IAccount {
     created_date_time: Date;
     approve_by_a_application_login_id: number;
     approve_date_time: string;
-    customer_name:{
-    person_name:string
-  }
+    payment_type_name: string;
+    customer_name: {
+      person_name: string;
+      company_name: string;
+      mobile_number: string;
+      country_name: string;
+      state_name: string;
+      city_name: string;
+      pincode: string;
+      address: string;
+    }
   }[];
   companyDetails: IOrderCompanyDetail;
   

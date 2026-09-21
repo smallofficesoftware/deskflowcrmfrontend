@@ -1,3 +1,5 @@
+import BetaFeatureNotice from "../../../../components/BetaFeatureNotice";
+import { Button } from "primereact/button";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
@@ -5,7 +7,6 @@ import ConfirmationModal from "../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../components/model/PromptModal";
 import { fetchCompanyTeamApi, ICompanyTeam } from "../../../left-side/list-company/ListCompanyController";
 import { ReportIcon } from "../../../side-view/reportIcons";
-import ManageGroupsModal from "./ManageGroupsModal";
 import {
   copyFromSystemReportDefinition,
   createReportSchedule,
@@ -19,12 +20,10 @@ import {
   IDataScope,
   IModelRegistryEntry,
   IReportDefinition,
-  IReportGroup,
   IReportSchedule,
   ISystemReportDefinition,
   importReportDefinitionFile,
   listReportDefinitions,
-  listReportGroups,
   listReportSchedules,
   listSystemReportDefinitions,
   saveReportTeamRights,
@@ -42,7 +41,13 @@ import ReportPdfTemplateDesigner from "./ReportPdfTemplateDesigner";
 // pieces 1-5), reached via "New Report" / a card's "Edit" button — this
 // view holds no useReportBuilderStore reference at all, it only reads
 // already-saved IReportDefinition rows.
-const ReportBuilderListView: React.FC = () => {
+interface IProps {
+  onHide: () => void;
+  onNewReport: () => void;
+  onEditReport: (id: number) => void;
+}
+
+const ReportBuilderListView: React.FC<IProps> = ({ onHide, onNewReport, onEditReport }) => {
   const navigate = useNavigate();
 
   // Report Builder's backend routes no longer require the owner PIN
@@ -55,7 +60,6 @@ const ReportBuilderListView: React.FC = () => {
 
   const [registry, setRegistry] = useState<IModelRegistryEntry[]>([]);
   const [definitions, setDefinitions] = useState<IReportDefinition[]>([]);
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
   const [exportingId, setExportingId] = useState<number | null>(null);
@@ -65,8 +69,7 @@ const ReportBuilderListView: React.FC = () => {
   const [galleryReports, setGalleryReports] = useState<ISystemReportDefinition[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [copyingId, setCopyingId] = useState<number | null>(null);
-
-  const [showManageGroups, setShowManageGroups] = useState(false);
+  const [gallerySearch, setGallerySearch] = useState("");
 
   // Manage Access (Step 7) — "none" means no grant at all (removed or
   // never granted); the map only ever holds one entry per login, no
@@ -99,7 +102,7 @@ const ReportBuilderListView: React.FC = () => {
   // toolbar already uses) — a card with 7 visible action buttons would be
   // more cluttered than the table it's replacing.
   const [openMoreMenuId, setOpenMoreMenuId] = useState<number | null>(null);
-  const moreMenuCardRef = useRef<HTMLDivElement>(null);
+  const moreMenuCardRef = useRef<HTMLUListElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   // Saved Reports search — client-side, same "the list is already scoped
   // and small (a company's own report count)" reasoning ReportsTileView.tsx's
@@ -115,15 +118,12 @@ const ReportBuilderListView: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadReportGroups = async () => setReportGroups(await listReportGroups());
-
   const loadListData = async () => {
     setLoadingList(true);
     const [reg, defs] = await Promise.all([getModelRegistry(), listReportDefinitions()]);
     setRegistry(reg);
     setDefinitions(defs);
     setLoadingList(false);
-    loadReportGroups();
   };
 
   useEffect(() => {
@@ -132,6 +132,7 @@ const ReportBuilderListView: React.FC = () => {
 
   const openGallery = async () => {
     setShowGallery(true);
+    setGallerySearch("");
     setLoadingGallery(true);
     const rows = await listSystemReportDefinitions();
     setGalleryReports(rows);
@@ -160,7 +161,12 @@ const ReportBuilderListView: React.FC = () => {
   // {category -> reports[]} — a company builds their own reports across
   // many categories, so grouping the gallery the same way the PDF's own
   // 15 sections are organized makes the picker scannable, not one flat list.
-  const galleryByCategory = galleryReports.reduce<Record<string, ISystemReportDefinition[]>>((acc, g) => {
+  const filteredGalleryReports = galleryReports.filter((g) =>
+    !gallerySearch.trim() ||
+    g.name.toLowerCase().includes(gallerySearch.trim().toLowerCase()) ||
+    (g.description || "").toLowerCase().includes(gallerySearch.trim().toLowerCase()),
+  );
+  const galleryByCategory = filteredGalleryReports.reduce<Record<string, ISystemReportDefinition[]>>((acc, g) => {
     const key = g.category || "Other";
     (acc[key] = acc[key] || []).push(g);
     return acc;
@@ -269,8 +275,7 @@ const ReportBuilderListView: React.FC = () => {
   // DocumentDesignerView.tsx already uses (one shared pending-action slot,
   // driven by the app's own ConfirmationModal instead of a native dialog).
   // Deleting a report or a schedule are the only two destructive actions on
-  // this screen (Manage Groups' own delete lives in ManageGroupsModal.tsx,
-  // gets its own copy of this same pattern).
+  // this screen.
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
 
@@ -381,9 +386,11 @@ const ReportBuilderListView: React.FC = () => {
         .rb-btn-outline-primary { color: #F58634; border-color: #F58634; background-color: transparent; }
         .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
       `}</style>
+
+      <BetaFeatureNotice />
       <PromptModal
         show={showPinModal && !pinVerified}
-        onHide={() => navigate(-1)}
+        onHide={onHide}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
         message="Report Builder is an owner-only area. Enter the shared build PIN to continue (same PIN as Document Designer)."
@@ -393,49 +400,62 @@ const ReportBuilderListView: React.FC = () => {
 
       {pinVerified && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h4 style={{ margin: 0 }}>Report Builder</h4>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate(-1)}>
-              Back
-            </button>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <h4 style={{ margin: 0, whiteSpace: "nowrap" }}>Report Builder</h4>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, alignItems: "center" }}>
+              {definitions.length > 0 && (
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Search saved reports..."
+                  value={savedSearch}
+                  onChange={(e) => setSavedSearch(e.target.value)}
+                  style={{ width: 160, flexShrink: 1, minWidth: 90, marginBottom: 0 }}
+                />
+              )}
+              <div style={{ display: "flex", flexWrap: "nowrap", gap: 6, flexShrink: 0 }}>
+              <Button
+                icon="pi pi-plus"
+                className="report_button"
+                style={{ backgroundColor: "rgb(245, 134, 52)" }}
+                rounded
+                onClick={onNewReport}
+                tooltip="New Report"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              <Button
+                icon="pi pi-book"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={openGallery}
+                tooltip="Browse Report Library"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              <Button
+                icon="pi pi-upload"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={() => importFileInputRef.current?.click()}
+                tooltip="Import"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              </div>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+            </div>
           </div>
 
           {/* --- saved reports --- */}
-          <div className="card p-3">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 className="mb-0">Saved Reports</h6>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn btn-sm rb-btn-primary" onClick={() => navigate("/report-builder/new")}>
-                  + New Report
-                </button>
-                <button className="btn btn-sm rb-btn-outline-primary" onClick={openGallery}>
-                  Browse Report Library
-                </button>
-                <button className="btn btn-sm rb-btn-outline-primary" onClick={() => importFileInputRef.current?.click()}>
-                  Import
-                </button>
-                <input
-                  ref={importFileInputRef}
-                  type="file"
-                  accept="application/json"
-                  style={{ display: "none" }}
-                  onChange={handleImportFile}
-                />
-              </div>
-            </div>
             {loadingList && <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p>}
             {!loadingList && definitions.length === 0 && (
               <p className="text-muted" style={{ fontSize: 13 }}>No reports yet — click "New Report" to build one.</p>
-            )}
-            {definitions.length > 0 && (
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="Search saved reports..."
-                value={savedSearch}
-                onChange={(e) => setSavedSearch(e.target.value)}
-                style={{ maxWidth: 320, marginBottom: 12 }}
-              />
             )}
             {(() => {
               const q = savedSearch.trim().toLowerCase();
@@ -454,7 +474,7 @@ const ReportBuilderListView: React.FC = () => {
                   }}
                 >
                   {filteredDefinitions.map((def) => {
-                    const group = reportGroups.find((g) => g.id === def.report_group_id)?.group_name;
+                    const group = def.category;
                     const source = def.type === "plugin" ? def.plugin_key : def.type === "composite" ? "Team Metrics" : def.model_key;
                     return (
                       <div
@@ -503,175 +523,241 @@ const ReportBuilderListView: React.FC = () => {
                         {def.description && (
                           <p style={{ margin: 0, marginBottom: 8, fontSize: 12, lineHeight: 1.5, color: "#8a8a8a" }}>{def.description}</p>
                         )}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate(`/report-builder/${def.id}/edit`)}>
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => askConfirm(`Delete "${def.name}"? This can't be undone.`, () => handleDelete(def))}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
+                        <div style={{ position: "absolute", top: 8, right: 8 }}>
+                          <Button
+                            icon="pi pi-ellipsis-v"
+                            className="p-button-text p-button-rounded"
+                            style={{ color: "#4C4C4C" }}
                             onClick={() => setOpenMoreMenuId((v) => (v === def.id ? null : def.id))}
-                          >
-                            &#8942; More
-                          </button>
-                        </div>
+                            tooltip="More"
+                            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+                          />
                         {openMoreMenuId === def.id && (
-                          <div
+                          <ul
                             ref={moreMenuCardRef}
+                            className="labelDropLeft isVisible"
                             style={{
                               position: "absolute",
-                              right: 16,
+                              right: 0,
                               top: "100%",
+                              margin: 0,
+                              marginTop: 4,
                               zIndex: 1000,
                               width: 200,
-                              background: "#fff",
-                              borderRadius: 8,
-                              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-                              padding: 8,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
+                              maxHeight: "calc(100vh - 120px)",
+                              overflowY: "auto",
+                              scrollbarWidth: "none",
                             }}
                           >
-                            {/* display:contents keeps this <li> from breaking the flex
-                                column's layout while staying valid HTML (a plain <li>
-                                outside a <ul>/<ol> renders fine in every browser but
-                                isn't valid markup) — same component every legacy
-                                report's own export dropdown already uses. */}
-                            <ul style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
-                              <ExportExcelMenuItem
-                                reportType="report_builder"
-                                filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
-                                columns={buildExportColumns(def)}
-                                footer={buildExportFooter(def)}
-                                fileName={def.name}
-                                disabled={buildExportColumns(def).length === 0}
-                                onSelect={() => setOpenMoreMenuId(null)}
-                              />
-                            </ul>
-                            <button
-                              className="btn btn-sm btn-outline-dark"
-                              disabled={exportingId === def.id}
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
+                                setOpenMoreMenuId(null);
+                                onEditReport(def.id);
+                              }}
+                            >
+                              <i className="pi pi-pencil" style={{ marginRight: "4px" }} />
+                              Edit
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
+                              onClick={() => {
+                                setOpenMoreMenuId(null);
+                                askConfirm(`Delete "${def.name}"? This can't be undone.`, () => handleDelete(def));
+                              }}
+                            >
+                              <i className="pi pi-trash" style={{ marginRight: "4px" }} />
+                              Delete
+                            </li>
+                            <ExportExcelMenuItem
+                              reportType="report_builder"
+                              filters={{ a_application_login_id: localStorage.getItem("UUID"), report_definition_id: def.id }}
+                              columns={buildExportColumns(def)}
+                              footer={buildExportFooter(def)}
+                              fileName={def.name}
+                              disabled={buildExportColumns(def).length === 0}
+                              onSelect={() => setOpenMoreMenuId(null)}
+                            />
+                            <li
+                              className="listItem text-start"
+                              role="button"
+                              aria-disabled={exportingId === def.id}
+                              onClick={() => {
+                                if (exportingId === def.id) return;
                                 setOpenMoreMenuId(null);
                                 handleExportPdf(def);
                               }}
                             >
+                              <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
                               {exportingId === def.id ? "Exporting..." : "PDF / Print"}
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 handleDuplicate(def);
                               }}
                             >
+                              <i className="pi pi-copy" style={{ marginRight: "4px" }} />
                               Duplicate
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 exportReportDefinitionJson(def.id, def.name);
                               }}
                             >
+                              <i className="pi pi-file-export" style={{ marginRight: "4px" }} />
                               Export JSON
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 setTemplatesForDef(def);
                               }}
                             >
+                              <i className="pi pi-images" style={{ marginRight: "4px" }} />
                               Manage Templates
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 openManageAccess(def);
                               }}
                             >
+                              <i className="pi pi-users" style={{ marginRight: "4px" }} />
                               Manage Access
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
+                            </li>
+                            <li
+                              className="listItem text-start"
+                              role="button"
                               onClick={() => {
                                 setOpenMoreMenuId(null);
                                 openSchedule(def);
                               }}
                             >
+                              <i className="pi pi-calendar" style={{ marginRight: "4px" }} />
                               Schedule
-                            </button>
-                          </div>
+                            </li>
+                          </ul>
                         )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               );
             })()}
-            <div style={{ marginTop: 12 }}>
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowManageGroups(true)}>
-                Manage Groups
-              </button>
-            </div>
-          </div>
         </>
       )}
 
       {showGallery && (
         <div className="modal1" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <div className="modal-content1" style={{ width: 480, marginTop: "5%", maxHeight: "80vh", overflowY: "auto" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5>System Report Library</h5>
+          <div className="modal-content1" style={{ width: "min(900px, 92vw)", marginTop: "4%", maxHeight: "86vh", overflowY: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="mb-0">System Report Library</h5>
               <span className="close" onClick={() => setShowGallery(false)}>&times;</span>
             </div>
-            {loadingGallery && <p>Loading...</p>}
-            {!loadingGallery && galleryReports.length === 0 ? <p>No reports in the library yet.</p> : null}
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Search the library..."
+              value={gallerySearch}
+              onChange={(e) => setGallerySearch(e.target.value)}
+              style={{ maxWidth: 320, marginBottom: 16 }}
+            />
+            {loadingGallery && <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p>}
+            {!loadingGallery && galleryReports.length === 0 && (
+              <p className="text-muted" style={{ fontSize: 13 }}>No reports in the library yet.</p>
+            )}
+            {!loadingGallery && galleryReports.length > 0 && filteredGalleryReports.length === 0 && (
+              <p className="text-muted" style={{ fontSize: 13 }}>No reports match "{gallerySearch}".</p>
+            )}
             {Object.entries(galleryByCategory).map(([category, reports]) => (
-              <div key={category} className="mb-3">
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{category}</div>
-                <hr style={{ margin: "4px 0 8px" }} />
-                {reports.map((g) => {
-                  const alreadyAdded = alreadyAddedIds.has(g.id);
-                  return (
-                    <div key={g.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                      <div>
-                        <div style={{ fontWeight: 600 }}>
-                          {g.name}
+              <div key={category} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#8a8a8a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                  {category}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+                  {reports.map((g) => {
+                    const alreadyAdded = alreadyAddedIds.has(g.id);
+                    return (
+                      <div
+                        key={g.id}
+                        className="report-tile"
+                        style={{
+                          padding: 14,
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: "50%",
+                              background: "#fff3eb",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <ReportIcon name={g.icon || "report"} size={15} color="#F58634" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              {g.name}
+                              {g.priority && (
+                                <span
+                                  className={`badge ${g.priority === "critical" ? "bg-danger" : g.priority === "high" ? "bg-warning text-dark" : "bg-secondary"}`}
+                                  style={{ fontSize: 9 }}
+                                >
+                                  {g.priority}
+                                </span>
+                              )}
+                            </div>
+                            {g.description && (
+                              <div style={{ fontSize: 11, color: "#8a8a8a", marginTop: 2, lineHeight: 1.4 }}>{g.description}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          {/* Badge-only, re-copying is still allowed (Step 1's
+                              decision) — button stays enabled so the owner can
+                              add a fresh copy even after one's already here. */}
                           {alreadyAdded && (
-                            <span className="badge bg-light text-dark ms-2" style={{ fontSize: 10 }}>
+                            <span className="badge bg-light text-dark" style={{ fontSize: 10, fontWeight: 400 }}>
                               Already Added
                             </span>
                           )}
-                          {g.priority && (
-                            <span
-                              className={`badge ms-2 ${g.priority === "critical" ? "bg-danger" : g.priority === "high" ? "bg-warning text-dark" : "bg-secondary"}`}
-                              style={{ fontSize: 10 }}
-                            >
-                              {g.priority}
-                            </span>
-                          )}
+                          <button
+                            className="btn btn-sm rb-btn-outline-primary"
+                            disabled={copyingId === g.id}
+                            onClick={() => handleCopyFromGallery(g.id)}
+                          >
+                            {copyingId === g.id ? "Adding..." : "Use This"}
+                          </button>
                         </div>
-                        {g.description && <div style={{ fontSize: 11, color: "#888" }}>{g.description}</div>}
                       </div>
-                      <button
-                        className="btn btn-sm rb-btn-outline-primary"
-                        disabled={copyingId === g.id}
-                        onClick={() => handleCopyFromGallery(g.id)}
-                      >
-                        {copyingId === g.id ? "Adding..." : "Use This"}
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
@@ -870,8 +956,6 @@ const ReportBuilderListView: React.FC = () => {
           </div>
         </div>
       )}
-
-      <ManageGroupsModal show={showManageGroups} onClose={() => setShowManageGroups(false)} onChanged={loadReportGroups} />
 
       <ConfirmationModal
         show={!!confirmDialog}

@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -9,6 +7,7 @@ import {
   type DataTableFilterMeta,
   type DataTableFilterMetaData,
   type DataTableOperatorFilterMetaData,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -19,6 +18,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -90,10 +90,7 @@ const EmployeeTransactionReports = ({
   const [filteredTransactions, setFilteredTransactions] = useState<
     IEmployeeAccountTransaction[]
   >([]);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
+  const fetchingRef = useRef(false);
 
   const [lazyState, setLazyState] = useState<LazyState>({
     first: 0,
@@ -197,7 +194,6 @@ const EmployeeTransactionReports = ({
     if (!Array.isArray(transactions)) {
       console.warn("Transactions is not an array:", transactions);
       setFilteredTransactions([]);
-      setTotalRecords(0);
       return;
     }
 
@@ -234,30 +230,21 @@ const EmployeeTransactionReports = ({
     }
 
     setFilteredTransactions(result);
-    setTotalRecords(result.length);
   }, [transactions, lazyState]);
 
   useEffect(() => {
-    setTransactions([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedTransactions([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAccountData(0, 50, true);
+    loadAccountData(0, lazyState.rows);
   }, [filters.selectedDateArray, filters.checkedOptionsUser]);
 
-  const loadAccountData = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadAccountData = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchEmployeeAccountTransactions(
+      const { data, total } = await fetchEmployeeAccountTransactions(
         filters.selectedDateArray,
         MobileToken,
         getID,
@@ -268,35 +255,29 @@ const EmployeeTransactionReports = ({
         setCurrencyName,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setTransactions(newData);
-      } else {
-        setTransactions((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData);
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setTransactions(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setTransactions([]);
     setSelectedTransactions([]);
-    loadAccountData(0, 50, true);
+    loadAccountData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -320,7 +301,7 @@ const EmployeeTransactionReports = ({
   }) => {
     const value = event.value;
     setSelectedTransactions(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredTransactions.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -415,9 +396,7 @@ const EmployeeTransactionReports = ({
   const { total: finalBalance, symbol: balanceSymbol } = finalBalanceInfo;
 
   const getExportData = () => {
-    const start = lazyState.first;
-    const end = start + lazyState.rows;
-    return filteredTransactions.slice(start, end);
+    return filteredTransactions;
   };
 
   const formatDateTime = (dateStr: string | undefined | null): string => {
@@ -650,55 +629,6 @@ const EmployeeTransactionReports = ({
       default:
         return "-";
     }
-  };
-
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTransactions.length > 0 ? selectedTransactions : getExportData();
-
-    const tableData = dataToExport.map((txn) =>
-      visibleColumns.map((col) => getExportCellValue(col, txn)),
-    );
-
-    tableData.push(
-      visibleColumns.map((col) => {
-        if (col.key === "acc_series") return "Closing Balance";
-        if (col.key === "amount") {
-          return finalBalance.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-        }
-        return "";
-      }),
-    );
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No data available", 10, 10);
-      doc.save(`employee_account_transactions_${Date.now()}.pdf`);
-      return;
-    }
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    autoTable(doc, {
-      head: [visibleColumns.map((col) => col.label)],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.setFontSize(16);
-        doc.text("Employee Account Transactions Report", 14, 15);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-    doc.save(`employee_account_transactions_${Date.now()}.pdf`);
   };
 
   const formatDate = (value: any) => {
@@ -948,22 +878,28 @@ const EmployeeTransactionReports = ({
                 }}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (transactions.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="employee_account_transaction_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName="employee_account_transactions_full"
+                canShare={canShare}
+                disabled={transactions.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedTransactions}
+                footer={{
+                  sums: [],
+                  rows: [
+                    {
+                      acc_series: "Closing Balance",
+                      contact_masters_id: `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    },
+                  ],
+                }}
+              />
 
               <li
                 className="listItem text-start"
@@ -1022,32 +958,19 @@ const EmployeeTransactionReports = ({
         <DataTable
           ref={dt}
           value={transactions}
+          dataKey="id"
           totalRecords={totalRecords}
           lazy
+          paginator
+          rowsPerPageOptions={[25, 50, 100, 200]}
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= transactions.length - 1 &&
-                hasMore &&
-                !loading
-              ) {
-                loadAccountData(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           rows={lazyState.rows}
           first={lazyState.first}
-          // onPage={onPage}
+          onPage={onPageChange}
           onSort={onSort}
           selection={selectedTransactions}
           onSelectionChange={onSelectionChange}

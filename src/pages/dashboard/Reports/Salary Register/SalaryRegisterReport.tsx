@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -16,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
@@ -135,8 +135,6 @@ const SalaryRegisterReport = ({
   );
   const [selectedSalariesIds, setSelectedSalariesIds] = useState<number[]>([]);
   const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
 
   const [hasData, setHasData] = useState<boolean>(false);
   const { getFilter, setFilter, setFilters, clearFilters } =
@@ -254,8 +252,8 @@ const SalaryRegisterReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
-    page: 1,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -277,27 +275,24 @@ const SalaryRegisterReport = ({
 
   useEffect(() => {
     if (canView) {
-      setSalaries([]);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
       setSelectedSalaries([]);
-      currentOffset.current = 0;
-      setHasMore(true);
-      loadAttendance(0, 50, true);
+      loadAttendance(0, lazyState.rows);
+    } else {
+      // No view right (or permissions not loaded yet): nothing will fetch, so
+      // don't leave the grid on its initial loading spinner.
+      setLoading(false);
     }
   }, [activeDayMonthYear, filters.checkedOptionsUser, canView]);
 
-  const loadAttendance = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadAttendance = async (offset: number, limit: number) => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
 
     try {
-      const newData = await fetchSalaryRegister(
+      const { data, total } = await fetchSalaryRegister(
         filters.checkedOptionsUser,
         MobileToken,
         getID,
@@ -307,17 +302,10 @@ const SalaryRegisterReport = ({
         activeDayMonthYear,
       );
 
-      if (newData.length < limit) setHasMore(false);
-
-      if (reset) {
-        setSalaries(newData);
-      } else {
-        setSalaries((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setSalaries(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -325,10 +313,18 @@ const SalaryRegisterReport = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setSalaries([]);
-    loadAttendance(0, 50, true);
+    if (!canView) return;
+    loadAttendance(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAttendance(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -350,7 +346,7 @@ const SalaryRegisterReport = ({
   const onSelectionChange = (event: { value: ISalaryRegister[] }) => {
     setSelectedSalaries(event.value);
     setSelectedSalariesIds(event.value.map((salary) => salary.employee_id));
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === salaries.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -821,81 +817,6 @@ const SalaryRegisterReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-
-    // Use customers (all loaded data) or selectedCustomers
-    const dataToExport =
-      selectedSalaries.length > 0 ? selectedSalaries : salaries;
-
-    if (!dataToExport || dataToExport.length === 0) {
-      toast.info("No data available to export");
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const tableData = dataToExport.map((salary) => {
-      const row: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, salary);
-      });
-      return row;
-    });
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      startY: 40,
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 5, bottom: 10 },
-      willDrawPage: (data) => {
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(16);
-        doc.text("Salary Register", pageWidth / 2, 12, {
-          align: "center",
-        });
-
-        doc.setFont("Poppins", "normal");
-        doc.setFontSize(8);
-        doc.text(
-          "Note: Scroll or pan horizontally in your PDF viewer to see all columns.",
-          10,
-          20,
-        );
-
-        // Printed By
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(9);
-        doc.text(
-          `Printed By: ${String(localStorage.getItem("USERNAME"))}`,
-          10,
-          28,
-        );
-
-        // Printed On
-        doc.text(`Printed On: ${formatCurrentDateTime()}`, pageWidth - 10, 28, {
-          align: "right",
-        });
-      },
-    });
-
-    doc.save(`salary_register_${Date.now()}.pdf`);
-  };
-
-
   const printTable = () => {
     const dataToPrint =
       selectedSalaries.length > 0 ? selectedSalaries : salaries;
@@ -1163,22 +1084,19 @@ const SalaryRegisterReport = ({
                 selectedRows={selectedSalaries}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (salaries.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="salary_register_report"
+                filters={{
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDayMonthYear: activeDayMonthYear,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                fileName={`Salary_Register_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`}
+                canShare={canShare}
+                disabled={salaries.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedSalaries}
+              />
 
               <li
                 className="listItem text-start"
@@ -1274,22 +1192,13 @@ const SalaryRegisterReport = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= salaries.length - 1 && hasMore && !loading) {
-                loadAttendance(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true,
-            showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
           dataKey="id"
+          paginator
           first={lazyState.first}
           rows={lazyState.rows}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}

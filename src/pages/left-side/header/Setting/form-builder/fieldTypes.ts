@@ -225,7 +225,7 @@ const SignatureFill: React.FC<FieldFillProps> = ({ field, error, disabled, onFil
 const SectionHeaderFill: React.FC<FieldFillProps> = ({ field }) =>
   React.createElement("h5", { className: "mt-3 mb-2" }, field.label);
 
-export const FIELD_TYPE_REGISTRY: Record<string, React.FC<FieldFillProps>> = {
+export const FIELD_TYPE_REGISTRY: Partial<Record<string, React.FC<FieldFillProps>>> = {
   text: TextFill,
   phone: TextFill,
   email: TextFill,

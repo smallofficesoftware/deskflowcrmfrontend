@@ -24,6 +24,11 @@ export interface IExpenseDetailedReport {
     expenseId: number;
 }
 
+export interface IExpenseDetailedResult {
+    data: IExpenseDetailedReport[];
+    total: number;
+}
+
 export const fetchDetailedExpense = async (
     selectedDates: Date[] | undefined,
     selectedTeamMembers?: string[] | null,
@@ -35,7 +40,7 @@ export const fetchDetailedExpense = async (
     MobileToken?: string,
     getID?: string,
     MobileFlag?: string,
-) => {
+): Promise<IExpenseDetailedResult> => {
     const token = MobileToken || localStorage.getItem("token");
     const getUUID = getID || localStorage.getItem("UUID");
 
@@ -52,7 +57,7 @@ export const fetchDetailedExpense = async (
 
     if (!token || !getUUID) {
         toast.error("Authentication details are missing");
-        return;
+        return { data: [], total: 0 };
     }
 
     try {
@@ -67,12 +72,16 @@ export const fetchDetailedExpense = async (
         }
 
         if (response.data.ack === 1) {
-            return response.data.data.item || [];
+            return {
+                data: response.data.data.item || [],
+                total: typeof response.data.data.total === "number" ? response.data.data.total : 0,
+            };
         } else {
             throw new Error(response.data.ack_msg || "Error");
         }
     } catch (error: any) {
         toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return { data: [], total: 0 };
     }
 };
 

@@ -177,7 +177,10 @@ const Setting = ({
   const showReportBuilderMenu = isCompanyOwnerForReportBuilder || canViewReportBuilder;
   function openReportBuilder() {
     if (showReportBuilderMenu) {
-      navigate("/report-builder");
+      // Report Builder lives in /SideView's Settings panel now (no
+      // standalone route) — same deep-link mechanism as any other
+      // reportsMenuData.tsx entry (handleSingleReportShow("report_builder")).
+      navigate("/SideView/report/report_builder");
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }

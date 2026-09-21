@@ -98,7 +98,8 @@ export const fetchAllcontact = async (
   createdByMultiTeamMember?: any,
   isArchivState: boolean = false,
   leadAgingBucket?: string | null,
-  leadAgingActivityTypes?: string[] | null
+  leadAgingActivityTypes?: string[] | null,
+  setTotalCount?: (total: number) => void,
 ): Promise<IAllcontact[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -135,6 +136,8 @@ export const fetchAllcontact = async (
 
     // Make sure this path is correct based on your API response
     const items = response.data.data?.item || [];
+
+    setTotalCount?.(Number(response.data.data?.total) || 0);
 
     if (!Array.isArray(items)) {
       console.error("Expected array but got:", items);

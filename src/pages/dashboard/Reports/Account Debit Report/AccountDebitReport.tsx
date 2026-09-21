@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -9,6 +7,7 @@ import {
   type DataTableFilterMeta,
   type DataTableFilterMetaData,
   type DataTableOperatorFilterMetaData,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -19,6 +18,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -92,16 +92,12 @@ const AccountDebitReport = ({
   const [filteredTransactions, setFilteredTransactions] = useState<
     IAccountTransaction[]
   >([]);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
   const [currencyName, setCurrencyName] = useState<any>();
 
-  const isPaginationCall = useRef(false);
   const dt = useRef<DataTable<IAccountTransaction[]>>(null);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -272,7 +268,6 @@ const AccountDebitReport = ({
   useEffect(() => {
     if (!Array.isArray(transactions)) {
       setFilteredTransactions([]);
-      setTotalRecords(0);
       return;
     }
 
@@ -312,15 +307,12 @@ const AccountDebitReport = ({
     }
 
     setFilteredTransactions(result);
-    setTotalRecords(result.length);
   }, [transactions, lazyState]);
 
   useEffect(() => {
-    setTransactions([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedTransactions([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAccountData(0, 50, true);
+    loadAccountData(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -331,19 +323,13 @@ const AccountDebitReport = ({
     filters.checkedOptionsPaymentBy,
   ]);
 
-  const loadAccountData = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadAccountData = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchAccountTransactions(
+      const { data, total } = await fetchAccountTransactions(
         filters.selectedDateArray,
         MobileToken,
         getID,
@@ -358,35 +344,30 @@ const AccountDebitReport = ({
         filters.referenceWiseContact,
         filters.checkedOptionsPaymentBy,
       );
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
 
-      if (reset) {
-        setTransactions(newData);
-      } else {
-        setTransactions((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData);
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setTransactions(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setTransactions([]);
     setSelectedTransactions([]);
-    loadAccountData(0, 50, true);
+    loadAccountData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -408,7 +389,7 @@ const AccountDebitReport = ({
   const onSelectionChange = (event: { value: IAccountTransaction[] }) => {
     const value = event.value;
     setSelectedTransactions(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredTransactions.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -469,9 +450,7 @@ const AccountDebitReport = ({
   const { total: finalBalance, symbol: balanceSymbol } = totalDebitAmount;
 
   const getExportData = () => {
-    const start = lazyState.first;
-    const end = start + lazyState.rows;
-    return filteredTransactions.slice(start, end);
+    return filteredTransactions;
   };
 
   const formatDateTime = (dateStr: string | undefined | null): string => {
@@ -677,63 +656,6 @@ const AccountDebitReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const dataToExport =
-      selectedTransactions.length > 0 ? selectedTransactions : getExportData();
-
-    const tableData = dataToExport.map((txn) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, txn);
-      });
-      return row;
-    });
-
-        tableData.push({
-      ID: "Total Debit Balance",
-      "Contact Name": `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
-      "Contact Phone": "",
-      "Payment Type": "",
-      "Payment Mode": "",
-      [`Amount (${currencyName})`]: "",
-      "Payment Date & Time": "",
-      "Approved By": "",
-      "Created By": "",
-      Remark: "",
-    });
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No debit transactions available", 10, 10);
-      doc.save(`debit_report_${Date.now()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.setFontSize(16);
-        doc.text("Account Debit Report", 14, 15);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-    doc.save(`debit_report_${Date.now()}.pdf`);
-  };
 
   const formatDate = (value: any) => {
     if (!value) return "";
@@ -943,25 +865,31 @@ const AccountDebitReport = ({
                     selectedRows={selectedTransactions}
                   />
 
-                  <li
-                    className="listItem text-start"
-                    role="button"
-                    onClick={() => {
-                      setIsExportDropdownOpen(false);
-
-                      if (transactions.length === 0) return;
-
-                      canShare
-                        ? exportPdf()
-                        : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                  <ExportPdfMenuItem
+                    reportType="account_debit_report"
+                    filters={{
+                      selected_dates: filters.selectedDateArray,
+                      selectedTeamMembers: filters.checkedOptionsUser,
+                      selectedContactId: filters.selectedContactId,
+                      globalSearch: debouncedSearchText,
+                      credit_debit_flag,
                     }}
-                  >
-                    <i
-                      className="pi pi-file-pdf"
-                      style={{ marginRight: "4px" }}
-                    />
-                    Export PDF
-                  </li>
+                    columns={visibleColumns}
+                    fileName="account_transactions_full"
+                    canShare={canShare}
+                    disabled={transactions.length === 0}
+                    onSelect={() => setIsExportDropdownOpen(false)}
+                    selectedRows={selectedTransactions}
+                    footer={{
+                      sums: [],
+                      rows: [
+                        {
+                          acc_series: "Total Debit Balance",
+                          contact_masters_id: `${finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Dr)`,
+                        },
+                      ],
+                    }}
+                  />
 
                   <li
                     className="listItem text-start"
@@ -1021,31 +949,19 @@ const AccountDebitReport = ({
         <DataTable
           ref={dt}
           value={transactions}
+          dataKey="id"
           totalRecords={totalRecords}
           lazy
+          paginator
+          rowsPerPageOptions={[25, 50, 100, 200]}
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= transactions.length - 1 &&
-                hasMore &&
-                !loading
-              ) {
-                loadAccountData(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 0,
-          }}
           rows={lazyState.rows}
           first={lazyState.first}
+          onPage={onPageChange}
           onSort={onSort}
           selection={selectedTransactions}
           onSelectionChange={onSelectionChange}

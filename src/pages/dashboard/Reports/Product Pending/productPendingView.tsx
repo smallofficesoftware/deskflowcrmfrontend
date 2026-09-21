@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,18 +5,19 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -183,9 +182,7 @@ const ProductPendingView = ({
   >([]);
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -296,8 +293,8 @@ const ProductPendingView = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 500,
-    page: 1,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -333,12 +330,9 @@ const ProductPendingView = ({
   }));
 
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    isLoadingMore.current = false;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     debouncedSearchText,
@@ -346,77 +340,13 @@ const ProductPendingView = ({
     filters.referenceWiseContact,
   ]);
 
-  const mergeData = (
-    existing: IProductSalesData[],
-    newEntries: IProductSalesData[],
-  ) => {
-    const productMap = new Map<number, IProductSalesData>(
-      existing.map((item) => [item.item_product_id, { ...item }]),
-    );
-
-    type MutableFields = Pick<
-      IProductSalesData,
-      | "salesorder"
-      | "salesinvoice"
-      | "purchaseinvoice"
-      | "purchaseorder"
-      | "pending_sales"
-      | "pending_purchase"
-    >;
-
-    const fields: (keyof MutableFields)[] = [
-      "salesorder",
-      "salesinvoice",
-      "purchaseinvoice",
-      "purchaseorder",
-      "pending_sales",
-      "pending_purchase",
-    ];
-
-    newEntries.forEach((newItem) => {
-      const id = newItem.item_product_id;
-      if (productMap.has(id)) {
-        const existingItem = productMap.get(id)!;
-
-        fields.forEach((field) => {
-          const existingValue = existingItem[field] as string | undefined;
-          const newValue = newItem[field] as string | undefined;
-
-          if (newValue && newValue !== "-") {
-            if (existingValue && existingValue !== "-") {
-              const { quantity: q1, amount: a1 } =
-                parseQuantityAmount(existingValue);
-              const { quantity: q2, amount: a2 } =
-                parseQuantityAmount(newValue);
-              const totalQ = q1 + q2;
-              const totalA = a1 + a2;
-              existingItem[field] = `${totalQ}(₹${totalA.toFixed(2)})`;
-            } else {
-              existingItem[field] = newValue;
-            }
-          }
-        });
-      } else {
-        productMap.set(id, { ...newItem });
-      }
-    });
-
-    return Array.from(productMap.values());
-  };
-
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current) return;
-    if (!hasMore && !reset) return;
-
-    isLoadingMore.current = true;
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
     try {
-      const newData = await fetchProductReport(
+      const { data, total } = await fetchProductReport(
         filters.selectedDateArray,
         setError,
         MobileToken,
@@ -431,26 +361,28 @@ const ProductPendingView = ({
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      } else {
-        setHasMore(true); // ← add karo (safety ke liye)
-      }
-
-      setCustomers((prev) => (reset ? newData : mergeData(prev, newData)));
-
-      currentOffset.current += newData.length;
-    } catch {
-      isLoadingMore.current = false;
+      setCustomers(data);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const isFilterApplied = () => {
@@ -589,7 +521,7 @@ const ProductPendingView = ({
   const onSelectionChange = (event: { value: IProductSalesData[] }) => {
     const value = event.value;
     setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === dataArray.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -879,8 +811,12 @@ const ProductPendingView = ({
     return format === "pdf" ? total.replace(/₹/g, "INR") : total;
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+  // The old jsPDF export computed a per-column totals row over whatever's
+  // currently loaded (never the full server-side dataset - same limitation
+  // here) that Excel's export never had. Server-side PDF generation renders
+  // the real ₹ symbol fine, so unlike the old jsPDF this uses the "excel"
+  // formatting branch (no ₹->INR substitution) for that row.
+  const buildPdfExportRows = () => {
     const dataToExport =
       selectedCustomers.length > 0
         ? selectedCustomers
@@ -888,56 +824,12 @@ const ProductPendingView = ({
           ? customers
           : dataArray;
 
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const tableData = dataToExport.map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, customer, "pdf");
-      });
-      return row;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`product_sales_purchase_pending_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const totals: any = {};
+    const totals: any = { __isFooter: true };
     visibleColumns.forEach((col) => {
-      totals[col.key] = getExportTotalValue(col, dataToExport, "pdf");
-    });
-    tableData.push(totals);
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(
-          "Product Sales & Purchase Pending Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-      didParseCell: (data: any) => {
-        if (
-          data.row.index === tableData.length - 1 &&
-          data.row.section === "body"
-        ) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
+      totals[col.key] = getExportTotalValue(col, dataToExport, "excel");
     });
 
-    doc.save(`product_sales_purchase_pending_${new Date().getTime()}.pdf`);
+    return [...dataToExport, totals];
   };
 
   // const exportExcel = () => {
@@ -1238,25 +1130,22 @@ const ProductPendingView = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="product_pending_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedContactId: filters.selectedContactId,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Product_Pending_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={buildPdfExportRows()}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1323,45 +1212,27 @@ const ProductPendingView = ({
         <DataTable
           ref={dt}
           value={customers}
+          dataKey="item_product_id"
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 50,
-            lazy: false,
-            appendOnly: true,
-            showLoader: true,
-            numToleratedItems: 50,
-            delay: 150,
-            onLazyLoad: (event: {
-              first: number;
-              last: number | VirtualScrollerState;
-            }) => {
-              const last =
-                typeof event.last === "number"
-                  ? event.last
-                  : ((event.last as VirtualScrollerState)?.last ?? 0);
-
-              if (
-                last >= customers.length - 10 &&
-                hasMore &&
-                !isLoadingMore.current
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-          }}
           filterDisplay="row"
+          paginator
+          lazy
+          first={lazyState.first}
           rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
           onFilter={onFilter}
           filters={lazyState.filters}
-          // loading={loading}
+          loading={loading}
           selection={selectedCustomers}
           onSelectionChange={onSelectionChange}
           selectAll={selectAll}

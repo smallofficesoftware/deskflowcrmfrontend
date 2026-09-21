@@ -28,6 +28,11 @@ export interface ICallData {
   calls: ICallHistoryView[];
 }
 
+export interface ICallHistoryResult {
+  data: ICallData[];
+  total: number;
+}
+
 export const fetchCallHistoryApi = async (
   setCallHistoryList: (items: ICallData[]) => void,
   selectedDates: Date[] | undefined,
@@ -42,7 +47,7 @@ export const fetchCallHistoryApi = async (
   selectedLabels?: string[] | null,
   selectedSourceTypes?: string[] | null,
   selectedStageStatus?: string[] | null,
-): Promise<ICallData[]> => {   // ← Now returns ICallData[]
+): Promise<ICallHistoryResult> => {
 
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -50,7 +55,7 @@ export const fetchCallHistoryApi = async (
   if (!token || !getUUID) {
     setCallHistoryList([]);
     toast.error("Authentication error: Missing token or UUID");
-    return [];   // Return empty array instead of true
+    return { data: [], total: 0 };
   }
 
   const requestData = {
@@ -78,11 +83,11 @@ export const fetchCallHistoryApi = async (
     if (!data || typeof data !== "object") {
       setCallHistoryList([]);
       toast.error("Invalid API response format");
-      return [];
+      return { data: [], total: 0 };
     }
 
     if (response.status === 200 && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-      const items = data.data || [];
+      const items = data.data?.data || [];
       const processedData: ICallData[] = items.map((userItem: any) => {
         const user = userItem.user;
 
@@ -134,12 +139,15 @@ export const fetchCallHistoryApi = async (
         toast.error(data.ack_msg);
       }
 
-      return processedData;   // ← Return actual data (ICallData[])
+      return {
+        data: processedData,
+        total: typeof data.data?.total === "number" ? data.data.total : 0,
+      };
     }
     else {
       setCallHistoryList([]);
       toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-      return [];
+      return { data: [], total: 0 };
     }
   } catch (error: any) {
     console.error("API Error:", error.response || error.message || error);
@@ -149,6 +157,6 @@ export const fetchCallHistoryApi = async (
       error.message ||
       MESSAGE_UNKNOWN_ERROR_OCCURRED
     );
-    return [];
+    return { data: [], total: 0 };
   }
 };

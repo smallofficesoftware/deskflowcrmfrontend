@@ -331,6 +331,8 @@ const SideView = ({ profileDetail }: IProp) => {
               state_id: company.state_id || 0,
               state_name: company.state_name || "",
               company_email: company.company_email || "",
+              is_strict_check_product_stock:
+                company.is_strict_check_product_stock,
             });
           }
 
@@ -459,6 +461,10 @@ const SideView = ({ profileDetail }: IProp) => {
   );
   const canViewAttendanceSalary = useCheckUserPermission(
     PAGE_ID.ATTEDANCESALARY_REPORT,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canViewTeamSalary = useCheckUserPermission(
+    PAGE_ID.TEAM_SALARY,
     PERMISSION_TYPE.VIEW,
   );
   const canViewEmployeeReport = useCheckUserPermission(
@@ -1041,7 +1047,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;
-    } else if (name === "Salary_register_Report") {
+    } else if (canViewTeamSalary && name === "Salary_register_Report") {
       setActiveView("HRMS");
       setAppliedReportType(name);
       return;
@@ -1089,6 +1095,10 @@ const SideView = ({ profileDetail }: IProp) => {
       openInNewTab("/shortcutkey", 1);
       return;
     } else if (name === "whatsapp_template") {
+      setActiveView("Settings");
+      setAppliedReportType(name);
+      return;
+    } else if (name === "report_builder" || name === "report_builder_new") {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;

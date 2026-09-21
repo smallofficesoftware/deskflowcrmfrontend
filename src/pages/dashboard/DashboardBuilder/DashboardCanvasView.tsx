@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../components/BetaFeatureNotice";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import GridLayout, { Layout, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -86,7 +87,7 @@ const DashboardCanvasView: React.FC<IDashboardCanvasViewProps> = ({ dashboardIdO
     if (runData) {
       const byId: Record<number, IDashboardWidgetResult> = {};
       runData.widgets.forEach((w) => {
-        byId[w.widget_id as unknown as number] = w;
+        byId[w.widget_id] = w;
       });
       setResults(byId);
     }
@@ -130,6 +131,11 @@ const DashboardCanvasView: React.FC<IDashboardCanvasViewProps> = ({ dashboardIdO
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh" }}>
+      {!embedded && (
+        <div style={{ padding: "8px 16px 0" }}>
+          <BetaFeatureNotice />
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #eee" }}>
         {!embedded && (
           <button className="btn btn-sm btn-outline-secondary" onClick={() => navigate("/dashboard-builder")}>

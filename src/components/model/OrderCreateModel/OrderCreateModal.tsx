@@ -60,7 +60,8 @@ import {
   handleModalConvertIntoReturnSalesInvoices,
   syncMiracleInvoice,
 } from "../../../pages/right-side/list-order/ListOrderController";
-import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType } from "../../../pages/order-print-view/orderPrintController";
+import { fetchPdfmeTemplatesForPicker, isPdfmeSupportedCartType, pdfmeDocTypeForCartType } from "../../../pages/order-print-view/orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import {
@@ -262,6 +263,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [new_customer_mobile, setNew_customer_mobile] = useState<
     number | string
   >();
+  // Set true only when the customer field was filled by picking an existing
+  // contact from the suggestion dropdown (handleSelectSuggestion) — never by
+  // typing. Submit uses this to skip the mobile-number re-lookup entirely
+  // for that case: re-verifying by mobile_number was creating a duplicate
+  // contact whenever that lookup didn't match the just-picked one, even
+  // though contactData already held the correct, already-selected contact.
+  const [contactPickedFromSuggestion, setContactPickedFromSuggestion] =
+    useState(false);
   const [isTcsActive, setIsTcsActive] = useState(false);
   const [isGstActive, setIsGstActive] = useState(true);
   const [isOpenCreateModel, setIsCreateModel] = useState(false);
@@ -1181,6 +1190,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       // customer reset
       setNew_customer_name("");
       setNew_customer_mobile("");
+      setContactPickedFromSuggestion(false);
 
       // IMPORTANT RESET
       setSRNumber(0);
@@ -1867,6 +1877,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setCartIdPrint(0);
     setNew_customer_name("");
     setNew_customer_mobile("");
+    setContactPickedFromSuggestion(false);
     setAdvancePayment("");
     setConverCartId(undefined);
     setnewOrderShowNumAfterConversion(undefined);
@@ -2120,6 +2131,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const handleMobileNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/[^0-9]/g, "");
     setNew_customer_mobile(value);
+    setContactPickedFromSuggestion(false);
 
     fetchSuggestions(value); // 👈 search
   };
@@ -2127,6 +2139,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
     setNew_customer_name(value);
+    setContactPickedFromSuggestion(false);
 
     fetchSuggestions(value); // 👈 search
   };
@@ -2134,6 +2147,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setNew_customer_mobile(item.mobile_number);
     setNew_customer_name(item.person_name);
     setContactData(item);
+    setContactPickedFromSuggestion(true);
 
     setSuggestions([]);
     setShowSuggestions(false);
@@ -4394,7 +4408,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     let nameString = String(new_customer_name);
     let contactDataForPayload = contactData;
 
-    if (
+    if (contactPickedFromSuggestion && contactData) {
+      // Contact was explicitly picked from the suggestion dropdown —
+      // contactData already IS the correct, already-saved contact. Re-
+      // verifying by mobile_number here (like the manual-entry path below
+      // does) could fail to match it and wrongly create a duplicate
+      // contact, even though the right one was already selected.
+      contactDataFlag = "new/exists";
+    } else if (
       mobileString &&
       mobileString !== "undefined" &&
       mobileString !== null &&
@@ -4975,7 +4996,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     try {
       const { data } = await axiosInstance.post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(cartTypeId)!),
       });
       return data?.ack === 1 && !!data.data.item.is_enabled;
     } catch {
@@ -11901,7 +11922,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                   cartCustomFieldValues[field.reference_column_name] || adminDefault,
                 __dropdownSources,
               };
-            })}
+            }) as (ICustomInquiryFromList & { __dropdownSources: string[] })[]}
           onLocalDataSourceChange={(fieldName, templateId) => {
             setCartCustomFieldValues((prev) => ({
               ...prev,

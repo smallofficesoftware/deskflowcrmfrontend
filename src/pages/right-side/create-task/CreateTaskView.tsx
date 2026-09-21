@@ -977,7 +977,7 @@ const CreateTaskView = ({
           </div>
         );
       case 13:
-        const currentValue = values?.[fieldName];
+        const currentValue = (values as any)?.[fieldName];
 
         return (
           <div style={{ width: "calc(50% - 15px)" }} key={item.id}>
@@ -1491,10 +1491,13 @@ const CreateTaskView = ({
                                     )}
                                     <MultiSelect
                                       key={multiSelectKey}
-                                      allowSingle={isTeamListAllowSingle}
+                                      allowSingle={
+                                        isTeamListAllowSingle ||
+                                        (!!taskData?.id &&
+                                          selectedAssignmentTypeOption === "2")
+                                      }
                                       options={categoryOptions}
                                       value={selectedUsers}
-                                      isDisabled={taskData?.id ? true : false}
                                       onChange={(selected: any) => {
                                         setSelectedUsers(selected);
                                         setFieldValue(

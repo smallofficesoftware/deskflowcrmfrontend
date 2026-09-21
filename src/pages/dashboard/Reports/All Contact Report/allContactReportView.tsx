@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -25,6 +23,7 @@ import { AppContext } from "../../../../common/AppContext";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
@@ -123,12 +122,11 @@ const AllcontactReport = ({
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<IAllcontact[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<IAllcontact[]>([]);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
   // console.log("selectedProductSearchId",selectedProductSearchId);
   // console.log("setSelectOrderType",setSelectOrderType);
   // console.log("setActive",setActive);
 
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   const [isCreateContact, setIsCreateContact] = useState(false);
@@ -557,19 +555,17 @@ const AllcontactReport = ({
   });
 
   useEffect(() => {
-    setCustomers([]);
-    setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-
-    loadTasks(0, 50, true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDependencies, isArchivState, refreshContacts]);
 
   const loadTasks = useCallback(
-    async (offset: number, limit: number, reset: boolean = false) => {
+    // 3rd param kept only so existing call sites passing a trailing true/false
+    // (leftover from the old infinite-scroll append-vs-replace flag) don't all
+    // need updating — every call is a full-page replace now.
+    async (offset: number, limit: number, _reset: boolean = true) => {
       if (isLoadingMore.current) return;
-
-      if (!hasMore && !reset) return;
 
       isLoadingMore.current = true;
 
@@ -600,31 +596,12 @@ const AllcontactReport = ({
           isArchivState,
           filters.leadAgingBucket,
           filters.leadAgingActivityTypes,
+          setTotalRecords,
         );
 
-        if (newData.length < limit) {
-          setHasMore(false);
-        }
-
-        if (reset) {
-          setCustomers(newData);
-        } else {
-          setCustomers((prev) => {
-            const merged = [...prev, ...newData];
-
-            // duplicate protection
-            return merged.filter(
-              (item, index, self) =>
-                index === self.findIndex((x) => x.id === item.id),
-            );
-          });
-        }
-
-        currentOffset.current = offset + newData.length;
+        setCustomers(newData);
       } catch (err) {
         console.error(err);
-
-        setHasMore(false);
       } finally {
         setLoading(false);
 
@@ -650,15 +627,22 @@ const AllcontactReport = ({
       debouncedSearchText,
       filters.leadAgingBucket,
       filters.leadAgingActivityTypes,
-      hasMore,
     ],
   );
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
+  };
+
+  const onPage = (event: { first: number; rows: number; page?: number }) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const dataArray: IAllcontact[] = useMemo(() => {
@@ -1108,62 +1092,6 @@ const AllcontactReport = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer, "inr");
-      });
-      return rowData;
-    });
-
-        if (showCartColumns.grand_total) {
-      const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
-      tableData.push({
-        Person_Name: "Total",
-        Grand_Total: grandTotalSum.toFixed(2),
-      } as any);
-    }
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("All Contact Report", data.settings.margin.left, 10);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body" && showCartColumns.grand_total) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-
-    doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1525,22 +1453,47 @@ const AllcontactReport = ({
                 }
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="all_contact_report"
+                filters={{
+                  selected_dates: filters.selectedDateArray,
+                  setActive,
+                  setActiveDay,
+                  selectedLabels: filters.checkedOptions,
+                  selectedSourceTypes: filters.checkedSourceTypes,
+                  selectedStageStatus: filters.checkedOptionsStageStatus,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDemography: selectedDemography
+                    ? Object.values(selectedDemography).filter(Boolean)
+                    : null,
+                  selectedProductSearchId: filters.selectedProductSearchId,
+                  setSelectOrderType: filters.selectedOrderListId,
+                  globalSearch: debouncedSearchText,
+                  assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
+                  createdByMultiTeamMember: filters.createdByMultiTeamMember,
+                  leadAgingBucket: filters.leadAgingBucket,
+                  leadAgingActivityTypes: filters.leadAgingActivityTypes,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName="All_Contacts_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedCustomers}
+                footer={
+                  showCartColumns.grand_total
+                    ? {
+                        sums: [{ outputKey: "grand_total", sourceKey: "grand_total" }],
+                        rows: [
+                          {
+                            person_name: "Total",
+                            grand_total: { fromSum: "grand_total" },
+                          },
+                        ],
+                      }
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"
@@ -1649,22 +1602,13 @@ const AllcontactReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (
-                event.last >= customers.length - 10 &&
-                hasMore &&
-                !isLoadingMore.current
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-            showLoader: true,
-            delay: 200,
-          }}
+          paginator
+          lazy
+          first={lazyState.first}
+          rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPage}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           filterDisplay="row"
           // dataKey="id"
           onSort={onSort}
@@ -1762,7 +1706,10 @@ const AllcontactReport = ({
         <CreateContactView
           show={isCreateContact}
           onHide={() => setIsCreateContact(false)}
-          setContact={() => loadTasks(0, 50, true)}
+          setContact={() => {
+            setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+            loadTasks(0, lazyState.rows);
+          }}
           headerName={"Create Contact"}
         />
       )}

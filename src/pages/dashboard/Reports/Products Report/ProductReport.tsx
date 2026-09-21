@@ -6,11 +6,13 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
 } from "primereact/datatable";
 import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
@@ -19,7 +21,6 @@ import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ImportExcelForContactModal from "../../../../components/model/ImportExcelForContactModal";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
-  ITEMS_PER_PAGE,
 } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
@@ -34,7 +35,6 @@ import {
   syncMiracleProduct,
 } from "../../../left-side/header/Setting/product/ProductController";
 import ProductStockMovement from "../../../left-side/header/Setting/product/ProductStockMovement";
-import SerialNumberStockMovement from "../../../left-side/header/Setting/product/SerialNumberStockMovement";
 import {
   fetchProductForReport,
   handleDeleteProduct,
@@ -47,6 +47,7 @@ interface IProductReport {
 
 const PAGE_SIZE = 50;
 const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   const [productList, setProductList] = useState<IProductView[]>([]);
@@ -91,21 +92,16 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     useState<boolean>(false);
   const [isModalExcelProductForImportUpdate, setIsModalExcelProductForUpdate] =
     useState<boolean>(false);
-  const [isOpenStockMovementSNnumberWise, setIsOpenStockMovementSNnumberWise] =
-    useState(false);
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const { getFilter, setFilters } = useCommonFilterStore();
   const filters = getFilter("products_report");
   const [hasData, setHasData] = useState<boolean>(false);
 
-  const listInnerRef = useRef<HTMLElement | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-  const currentPageRef = useRef(0);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(PAGE_SIZE);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   const canView = useCheckUserPermission(PAGE_ID.PRODUCT, PERMISSION_TYPE.VIEW);
   const canAdd = useCheckUserPermission(PAGE_ID.PRODUCT, PERMISSION_TYPE.ADD);
@@ -200,78 +196,31 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     setGlobalSearchText(value);
   };
 
-  useEffect(() => {
-    fetchProductForReport(
-      0,
-      ITEMS_PER_PAGE,
-      setProductList,
-      setLoading,
-      debouncedSearchText,
-      filters.selectedCategoryId,
-      filters.selectedProductId,
-    );
-  }, [
-    debouncedSearchText,
-    filters.selectedCategoryId,
-    filters.selectedProductId,
-  ]);
-
-  useEffect(() => {
-    if (refreshProduct) {
-      fetchProductForReport(
-        0,
-        ITEMS_PER_PAGE,
-        setProductList,
-        setLoading,
-        debouncedSearchText,
-      );
-      setRefreshProduct(false);
-    }
-  }, [refreshProduct]);
-
   const loadPage = async (
-    page: number,
-    reset: boolean = false,
+    pageIndex: number,
+    limit: number = rows,
     searchText?: string,
     categoryId?: any,
     productId?: any,
   ) => {
     if (isFetchingRef.current) return;
-    if (!hasMore && !reset) return;
 
     isFetchingRef.current = true;
-    if (reset) setLoading(true);
+    setLoading(true);
 
     try {
-      let newData: IProductView[] = [];
-
       await fetchProductForReport(
-        page,
-        PAGE_SIZE,
-        (items) => {
-          newData = items ?? [];
-        },
+        pageIndex,
+        limit,
+        setProductList,
         () => {},
         searchText ?? debouncedSearchText,
         categoryId ?? filters.selectedCategoryId,
         productId ?? filters.selectedProductId,
+        setTotalRecords,
       );
-
-      // If returned less than PAGE_SIZE → no more pages
-      if (newData.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setProductList(newData);
-      } else {
-        setProductList((prev) => [...prev, ...newData]);
-      }
-
-      // Advance to next page for subsequent lazy loads
-      currentPageRef.current = page + 1;
-    } catch {
-      setHasMore(false);
+    } catch (err) {
+      console.error(err);
     } finally {
       setTimeout(() => setLoading(false), 200);
       isFetchingRef.current = false;
@@ -280,9 +229,9 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
 
   // ── Reset on filter / search change (same as SalesOrder's useEffect) ──
   useEffect(() => {
-    currentPageRef.current = 0;
-    setHasMore(true);
-    loadPage(0, true);
+    setPage(0);
+    loadPage(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     debouncedSearchText,
     filters.selectedCategoryId,
@@ -292,18 +241,23 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
   // ── Refresh trigger (after create/edit/delete) ────────────────────────
   useEffect(() => {
     if (!refreshProduct) return;
-    currentPageRef.current = 0;
-    setHasMore(true);
-    loadPage(0, true);
+    setPage(0);
+    loadPage(0, rows);
     setRefreshProduct(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProduct]);
 
   // ── Refresh helper used by child modals ───────────────────────────────
   const handelRefreshProduct = async () => {
     if (!canView) return;
-    currentPageRef.current = 0;
-    setHasMore(true);
-    await loadPage(0, true);
+    setPage(0);
+    await loadPage(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadPage(event.page ?? 0, event.rows);
   };
   const setDropdownId = useCallback((id: number | null) => {
     openDropdownIdRef.current = id;
@@ -418,13 +372,8 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
 
   const handleConfirmProductImportExcel = async () => {
     setIsModalExcelProductVisible(false);
-    await fetchProductForReport(
-      0,
-      ITEMS_PER_PAGE,
-      setProductList,
-      setLoading,
-      debouncedSearchText,
-    );
+    setPage(0);
+    await loadPage(0, rows);
   };
 
   const openModelImportExportUpdate = () => {
@@ -439,22 +388,16 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     setProductDropdown(null);
     setHasIdAvail(undefined);
     if (canView) {
-      setIsOpenStockMovementSNnumberWise(true);
+      navigate("/SideView/report/serial_number_stock_check");
     } else {
-      setIsOpenStockMovementSNnumberWise(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
 
   const handleConfirmProductImportExcelForUpdate = async () => {
     setIsModalExcelProductForUpdate(false);
-    await fetchProductForReport(
-      0,
-      ITEMS_PER_PAGE,
-      setProductList,
-      setLoading,
-      debouncedSearchText,
-    );
+    setPage(0);
+    await loadPage(0, rows);
   };
 
   const actionBodyTemplate = (rowData: IProductView): JSX.Element => {
@@ -766,6 +709,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
           >
             <DataTable
               value={productList}
+              dataKey="id"
               loading={loading}
               resizableColumns
               columnResizeMode="fit"
@@ -777,22 +721,13 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
               filterDisplay="row"
               filters={tablefilters}
               onFilter={onFilter}
-              virtualScrollerOptions={{
-                itemSize: 52,
-                onLazyLoad: (event: { first: number; last: number }) => {
-                  // Trigger next page when user scrolls near the bottom
-                  if (
-                    event.last >= productList.length - 1 &&
-                    hasMore &&
-                    !loading
-                  ) {
-                    loadPage(currentPageRef.current);
-                  }
-                },
-                appendOnly: true,
-                showLoader: false,
-                delay: 0,
-              }}
+              paginator
+              lazy
+              first={page * rows}
+              rows={rows}
+              totalRecords={totalRecords}
+              onPage={onPageChange}
+              rowsPerPageOptions={[25, 50, 100, 200]}
             >
               {!MobileFlag && (
                 <Column
@@ -1166,13 +1101,6 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
               btn2="Import"
               sampleLocation="sampleProductForUpdate.xlsx"
               potions={5}
-            />
-          )}
-          {isOpenStockMovementSNnumberWise && (
-            <SerialNumberStockMovement
-              show={isOpenStockMovementSNnumberWise}
-              onHide={() => setIsOpenStockMovementSNnumberWise(false)}
-              // passDataInAddItem={stockMovementData}
             />
           )}
           {isModalFilterVisible && (

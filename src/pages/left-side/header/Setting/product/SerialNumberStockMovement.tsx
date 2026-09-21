@@ -1,3 +1,4 @@
+import { Button } from "primereact/button";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import { MultiValue } from "react-select";
@@ -9,6 +10,11 @@ import MultiSelect from "../../../../../components/MultiSelect";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../../../../helpers/AppConstants";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import {
+  exportReportExcel,
+  exportReportPdf,
+  ExportColumn,
+} from "../../../../../services/reportExportService";
 import { ITitle } from "../../../../dashboard/DashoardController";
 import {
   fetchApiStockMovementSerialNumberwise,
@@ -55,6 +61,8 @@ const SerialNumberStockMovement = ({
 
   const [serialNumber, setSerialNumber] = useState<string>("");
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [isExportDropdownOpen, setIsExportDropdownOpen] =
+    useState<boolean>(false);
 
   // Date Range
   const getCurrentMonthRange = (): Date[] => {
@@ -147,6 +155,91 @@ const SerialNumberStockMovement = ({
       console.error(error);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Export Excel/PDF - same generic backend export other reports use
+  // (reportExportService.ts) with pre-fetched rows, since this report's
+  // dataset is already fully loaded client-side (scoped to one serial
+  // number) rather than a paginated grid needing its own server re-query.
+  const buildExportColumns = (): ExportColumn[] => {
+    const columns: ExportColumn[] = [
+      { key: "date", label: "Date", format: "date" },
+      { key: "contact_name", label: "Contact Name" },
+      { key: "type", label: "Type" },
+      { key: "reference", label: "Reference" },
+    ];
+    if (isOuterActive) columns.push({ key: "outer_qty", label: "Outer Qty" });
+    if (isInnerActive) columns.push({ key: "inner_qty", label: "Inner Qty" });
+    columns.push(
+      { key: "qty", label: "Qty", format: "number" },
+      { key: "status", label: "Status" },
+      { key: "value", label: "Value", format: "number" },
+    );
+    return columns;
+  };
+
+  const buildExportRows = () =>
+    productStockMovement.map((item) => ({
+      date: item.cart_date ? formatDate(item.cart_date) : "",
+      contact_name: item.to_customer_name,
+      type:
+        productProductTypesList.find(
+          (t) => Number(t.id) === Number(item.cart_type),
+        )?.order_type || "",
+      reference: item.cart_number,
+      outer_qty: item.item_outer_quantity
+        ? `${item.item_outer_quantity} / ${item.outer_qty_unit}`
+        : "",
+      inner_qty: item.item_inner_quantity
+        ? `${item.item_inner_quantity} / ${item.inner_qty_unit}`
+        : "",
+      qty: item.item_qty,
+      status:
+        item.cart_type === 4 ||
+        item.cart_type === 6 ||
+        item.cart_type === 8 ||
+        item.cart_type === 10
+          ? "In"
+          : "Out",
+      value: item.item_total,
+    }));
+
+  const handleExportExcel = async () => {
+    if (productStockMovement.length === 0) {
+      toast.warning("No data to export");
+      return;
+    }
+    try {
+      await exportReportExcel({
+        reportType: "serial_number_stock_check",
+        filters: { serialNumber: serialNumber.trim() },
+        columns: buildExportColumns(),
+        fileName: `Serial_Number_Stock_Check_${serialNumber.trim()}`,
+        rows: buildExportRows(),
+      });
+      toast.success("Excel exported successfully!");
+    } catch {
+      toast.error("Failed to export data");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (productStockMovement.length === 0) {
+      toast.warning("No data to export");
+      return;
+    }
+    try {
+      await exportReportPdf({
+        reportType: "serial_number_stock_check",
+        filters: { serialNumber: serialNumber.trim() },
+        columns: buildExportColumns(),
+        fileName: `Serial_Number_Stock_Check_${serialNumber.trim()}`,
+        rows: buildExportRows(),
+      });
+      toast.success("PDF exported successfully!");
+    } catch {
+      toast.error("Failed to export data");
     }
   };
 
@@ -258,102 +351,140 @@ const SerialNumberStockMovement = ({
   return (
     <React.Fragment>
       {show && (
-        <div className="modal1">
+        <div>
           <div
-            className="modal-content1"
-            style={{ maxHeight: "85vh", width: "75%" }}
+            className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2"
+            style={{ paddingLeft: "12px", paddingRight: "12px" }}
           >
-            <span className="close" onClick={onHide}>
-              &times;
-            </span>
-
-            <h2 className="modal-title1 form_header_text">
+            <h3 className="dash-board-text-count" style={{ fontSize: "20px" }}>
               Serial Number Wise Stock Check
-            </h2>
+            </h3>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <div className="d-flex gap-2">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Enter Serial Number"
+                  style={{ width: "220px" }}
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSearch}
+                  disabled={isSearching || !serialNumber.trim()}
+                  style={{
+                    whiteSpace: "nowrap",
+                    height: "40px",
+                    backgroundColor: "#f58634",
+                  }}
+                >
+                  {isSearching ? "Searching..." : "Search"}
+                </button>
+              </div>
+              <div style={{ width: "220px" }}>
+                {warehouseLoading ? (
+                  <Skeleton width="100%" height={42} />
+                ) : (
+                  <MultiSelect
+                    options={warehouseOptions}
+                    value={selectedWarehouses}
+                    onChange={handleChangeWarehouse}
+                    isSelectAll={true}
+                    isMulti
+                    isClearable={selectedWarehouses.length > 0}
+                    placeholder="Select warehouses..."
+                  />
+                )}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "5px",
+                  flexWrap: "wrap",
+                }}
+                ref={datePickerRef}
+              >
+                <DateTimeRangePicker
+                  value={selectDate}
+                  onChange={handelSearchDateChange}
+                  showTime={false}
+                  numberOfMonthsShow={1}
+                />
+                <span
+                  className="p-1"
+                  onClick={handleIconClick}
+                  style={{ cursor: "pointer" }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="22px"
+                    viewBox="0 -960 960 960"
+                    width="22px"
+                    fill="#5f6368"
+                  >
+                    <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />
+                  </svg>
+                </span>
+              </div>
+            <div style={{ position: "relative" }}>
+              <Button
+                icon="pi pi-ellipsis-v"
+                className="report_button"
+                style={{ backgroundColor: "#4C4C4C" }}
+                rounded
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExportDropdownOpen((prev) => !prev);
+                }}
+                tooltip="More Option"
+                tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+              />
+              <ul
+                className={`labelDropLeft ${isExportDropdownOpen ? "isVisible" : "isHidden"}`}
+                style={{
+                  width: "170px",
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  zIndex: 1000,
+                  maxHeight: "calc(100vh - 120px)",
+                  overflowY: "auto",
+                  scrollbarWidth: "none",
+                }}
+              >
+                <li
+                  className="listItem text-start"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    handleExportExcel();
+                  }}
+                >
+                  <i className="pi pi-file-excel" style={{ marginRight: "4px" }} />
+                  Export Excel
+                </li>
+                <li
+                  className="listItem text-start"
+                  role="button"
+                  onClick={() => {
+                    setIsExportDropdownOpen(false);
+                    handleExportPdf();
+                  }}
+                >
+                  <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
+                  Export PDF
+                </li>
+              </ul>
+            </div>
+            </div>
+          </div>
 
             {/* Filters */}
             <div className="m-title-2 col-12">
               <div className="head">
-                <div className="row mb-3">
-                  {/* Serial Number Input */}
-                  <div className="col-md-4 col-sm-12">
-                    <div className="d-flex gap-2">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Enter Serial Number"
-                        value={serialNumber}
-                        onChange={(e) => setSerialNumber(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                      />
-                      <button
-                        className="btn btn-primary"
-                        onClick={handleSearch}
-                        disabled={isSearching || !serialNumber.trim()}
-                        style={{
-                          whiteSpace: "nowrap",
-                          height: "40px",
-                          backgroundColor: "#f58634",
-                        }}
-                      >
-                        {isSearching ? "Searching..." : "Search"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Date Picker */}
-                  <div className="col-md-3 col-sm-12">
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "5px",
-                        flexWrap: "wrap",
-                      }}
-                      ref={datePickerRef}
-                    >
-                      <DateTimeRangePicker
-                        value={selectDate}
-                        onChange={handelSearchDateChange}
-                        showTime={false}
-                        numberOfMonthsShow={1}
-                      />
-                      <span
-                        className="p-1"
-                        onClick={handleIconClick}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          height="22px"
-                          viewBox="0 -960 960 960"
-                          width="22px"
-                          fill="#5f6368"
-                        >
-                          <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Warehouse Multi Select */}
-                  <div className="col-md-3 col-sm-12">
-                    {warehouseLoading ? (
-                      <Skeleton width="100%" height={42} />
-                    ) : (
-                      <MultiSelect
-                        options={warehouseOptions}
-                        value={selectedWarehouses}
-                        onChange={handleChangeWarehouse}
-                        isSelectAll={true}
-                        isMulti
-                        isClearable={selectedWarehouses.length > 0}
-                        placeholder="Select warehouses..."
-                      />
-                    )}
-                  </div>
-                </div>
-
                 {/* Table */}
                 <div className="source-of-type-list-grid-block">
                   <div
@@ -495,8 +626,7 @@ const SerialNumberStockMovement = ({
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Order Modal */}
       {isOrderCreateFromContactShow && (

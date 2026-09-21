@@ -1,3 +1,4 @@
+import BetaFeatureNotice from "../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -81,6 +82,7 @@ const DashboardListView: React.FC = () => {
 
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <BetaFeatureNotice />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h4 className="mb-0">Dashboards</h4>
         <div className="d-flex gap-2">

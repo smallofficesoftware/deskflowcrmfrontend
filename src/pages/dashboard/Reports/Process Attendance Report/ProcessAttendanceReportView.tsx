@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
@@ -7,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal, {
   monthOptions,
 } from "../../../../components/model/CheckBoxFilterModal";
@@ -286,7 +285,7 @@ const ProcessAttendanceReportView = ({
     setSelectedEmployeesIds(
       event.value.map((emp) => emp.presentDates[0]?.employee_id),
     );
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === attendanceData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -348,96 +347,6 @@ const ProcessAttendanceReportView = ({
       }
     }
   };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-
-    // Use customers (all loaded data) or selectedCustomers
-    const dataToExport =
-      selectedEmployees.length > 0 ? selectedEmployees : attendanceData;
-
-    if (!dataToExport || dataToExport.length === 0) {
-      toast.info("No data available to export");
-      return;
-    }
-
-    const tableData = dataToExport.map((emp) => {
-      const row: Record<string, any> = {};
-      visibleColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, emp);
-      });
-      return row;
-    });
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      startY: 40,
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 5, bottom: 10 },
-      columnStyles: visibleColumns.reduce(
-        (acc, col) => {
-          acc[col.key] = {
-            cellWidth:
-              col.key === "employee_name"
-                ? 28
-                : isDateColumnKey(col.key)
-                  ? 14
-                  : 20,
-          };
-          return acc;
-        },
-        {} as Record<string, { cellWidth: number }>,
-      ),
-      willDrawPage: (data) => {
-        const pageWidth = doc.internal.pageSize.getWidth();
-        // Title
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(16);
-        doc.text("Process Attendance Report", pageWidth / 2, 12, {
-          align: "center",
-        });
-
-        // Note
-        doc.setFont("Poppins", "normal");
-        doc.setFontSize(8);
-        doc.text(
-          "Note: Scroll or pan horizontally in your PDF viewer to see all columns.",
-          10,
-          20,
-        );
-
-        // Printed By
-        doc.setFont("Poppins", "bold");
-        doc.setFontSize(9);
-        doc.text(
-          `Printed By: ${String(localStorage.getItem("USERNAME"))}`,
-          10,
-          28,
-        );
-
-        // Printed On
-        doc.text(`Printed On: ${formatCurrentDateTime()}`, pageWidth - 10, 28, {
-          align: "right",
-        });
-      },
-    });
-
-    doc.save(`process_attendance_${Date.now()}.pdf`);
-  };
-
 
   const printTable = () => {
     const dataToPrint =
@@ -899,22 +808,20 @@ const ProcessAttendanceReportView = ({
                 selectedRows={selectedEmployees}
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (attendanceData.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="process_attendance_report"
+                filters={{
+                  request_flag: 2,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  selectedDayMonthYear: activeDayMonthYear,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={visibleColumns}
+                fileName={`Process_Attendance_${monthOptions.find((m) => m.value === effectiveMonthYear.month)?.label}_${effectiveMonthYear.year}`}
+                canShare={canShare}
+                disabled={attendanceData.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={selectedEmployees}
+              />
 
               <li
                 className="listItem text-start"
@@ -1008,6 +915,9 @@ const ProcessAttendanceReportView = ({
             }}
           >
             <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
               ref={dt}
               value={attendanceData}
               // lazy

@@ -775,6 +775,7 @@ const ReminderCalendar: React.FC<ReminderCalendarProps> = ({
         setNoDataFound,
         setCompanyFlag,
         "",
+        null,
         setCounts,
       );
     } else {
@@ -838,6 +839,7 @@ const ReminderCalendar: React.FC<ReminderCalendarProps> = ({
         setNoDataFound,
         setCompanyFlag,
         "",
+        null,
         setCounts,
       );
     }
@@ -858,6 +860,7 @@ const ReminderCalendar: React.FC<ReminderCalendarProps> = ({
         setNoDataFound,
         setCompanyFlag,
         "",
+        null,
         setCounts,
       );
     } else {
@@ -1938,7 +1941,7 @@ const ReminderCalendar: React.FC<ReminderCalendarProps> = ({
               setTargetVsIncentiveList={setTaskList}
               setLoading={setLoading}
               headerName="Create Task"
-              setRefreshProduct={setRefreshProduct}
+              onTaskCreated={() => setRefreshProduct(true)}
               productToEdit={undefined}
             />
           )}

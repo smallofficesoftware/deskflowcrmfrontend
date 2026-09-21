@@ -1,5 +1,5 @@
+import BetaFeatureNotice from "../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import PromptModal from "../../../../components/model/PromptModal";
 import {
   createReportDefinition,
@@ -33,14 +33,16 @@ const STEPS: IWizardStep[] = [
 // (StepSource.tsx) — name/type/source/description, ported field-for-field
 // from ReportBuilderView.tsx's existing form, not rewritten. Steps 2-4 are
 // still placeholders (pieces 3-5).
-// Mounted at /report-builder/new (create) and /report-builder/:id/edit
-// (edit) — see RoutesIndex.tsx. /report-builder itself still points at the
-// old single-page ReportBuilderView.tsx, untouched, until piece 6 splits
-// its list-only half out into ReportBuilderListView.tsx and the entry
-// points (New Report / Edit) switch over to these routes.
-const ReportBuilderWizardView: React.FC = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>();
+// Embedded (id/onDone props) inside ReportBuilderSideView.tsx, which
+// ReportBuilderListView.tsx's New Report/Edit actions switch into — no
+// route of its own anymore, matching every other Settings panel under
+// /SideView (RoutePlannerGridView etc).
+interface IProps {
+  id?: number;
+  onDone: () => void;
+}
+
+const ReportBuilderWizardView: React.FC<IProps> = ({ id, onDone }) => {
   const store = useReportBuilderStore();
   const isEdit = !!id;
 
@@ -65,7 +67,6 @@ const ReportBuilderWizardView: React.FC = () => {
   // definition is already complete, so every step is reachable immediately
   // — no artificial re-click-through just to reach Step 4 and hit Save.
   const [furthest, setFurthest] = useState(isEdit ? 4 : 1);
-  const [advanced, setAdvanced] = useState(false);
 
   const handlePinSubmit = async (pin: string) => {
     const ok = await verifyReportPin(pin);
@@ -97,7 +98,7 @@ const ReportBuilderWizardView: React.FC = () => {
     // clicked from a list already in memory.
     setLoadingDefinition(true);
     listReportDefinitions().then((defs: IReportDefinition[]) => {
-      const found = defs.find((d) => d.id === Number(id));
+      const found = defs.find((d) => d.id === id);
       if (!found) {
         setLoadError("Report not found, or you don't have access to it.");
       } else {
@@ -145,8 +146,8 @@ const ReportBuilderWizardView: React.FC = () => {
   // — same per-type payload shape (query/plugin/composite), same
   // create-vs-update branch on store.editingId. Differs only in what
   // happens after a successful save: the old form resets and stays on the
-  // same page (list + form share one screen); this route navigates back
-  // to the list, since Add/Edit now live on their own screen.
+  // same page (list + form share one screen); this calls onDone() to
+  // switch the parent (ReportBuilderSideView.tsx) back to the list.
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
@@ -157,7 +158,7 @@ const ReportBuilderWizardView: React.FC = () => {
         name: store.name.trim(),
         type: "composite" as const,
         columns_json: store.metricKeys,
-        report_group_id: store.reportGroupId,
+        category: store.category,
         description: store.description.trim() || null,
         icon: store.icon || null,
       };
@@ -178,7 +179,7 @@ const ReportBuilderWizardView: React.FC = () => {
         plugin_key: store.pluginKey,
         columns_json: [],
         filters_json: filtersObject,
-        report_group_id: store.reportGroupId,
+        category: store.category,
         description: store.description.trim() || null,
         icon: store.icon || null,
       };
@@ -192,7 +193,7 @@ const ReportBuilderWizardView: React.FC = () => {
         filters_json: store.filters.filter((f) => f.value !== ""),
         group_by_json: store.groupBy,
         filters_to_show: store.filtersToShow,
-        report_group_id: store.reportGroupId,
+        category: store.category,
         description: store.description.trim() || null,
         icon: store.icon || null,
       };
@@ -202,7 +203,7 @@ const ReportBuilderWizardView: React.FC = () => {
     setSaving(false);
     if (created) {
       store.reset();
-      navigate("/report-builder");
+      onDone();
     }
   };
 
@@ -216,9 +217,11 @@ const ReportBuilderWizardView: React.FC = () => {
         .rb-btn-outline-primary:hover, .rb-btn-outline-primary:focus { background-color: #F58634; border-color: #F58634; color: #fff; }
       `}</style>
 
+      <BetaFeatureNotice />
+
       <PromptModal
         show={showPinModal && !pinVerified}
-        onHide={() => navigate(-1)}
+        onHide={onDone}
         onSubmit={handlePinSubmit}
         title="Owner PIN required"
         message="Report Builder is an owner-only area. Enter the shared build PIN to continue (same PIN as Document Designer)."
@@ -230,7 +233,7 @@ const ReportBuilderWizardView: React.FC = () => {
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h4 style={{ margin: 0 }}>{isEdit ? "Edit Report" : "New Report"}</h4>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate("/report-builder")}>
+            <button className="btn btn-outline-secondary btn-sm" onClick={onDone}>
               Back to Report Builder
             </button>
           </div>
@@ -245,8 +248,6 @@ const ReportBuilderWizardView: React.FC = () => {
                 activeStep={step}
                 furthest={furthest}
                 notApplicableSteps={notApplicableSteps}
-                advanced={advanced}
-                onAdvancedChange={setAdvanced}
                 onGoto={goto}
               />
 
@@ -267,12 +268,25 @@ const ReportBuilderWizardView: React.FC = () => {
                     </div>
                     <h5 style={{ margin: "4px 0 4px", fontWeight: 700 }}>{STEPS[step - 1].label}</h5>
                     <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>{STEPS[step - 1].sub}</p>
+                    {/* Reminder of what report this is — Step 1 is the only
+                        place name/description get typed, so picking columns
+                        here on Step 2 without it showed no context at all. */}
+                    {step === 2 && (
+                      <div style={{ marginTop: 10, padding: "8px 12px", background: "#fff3eb", borderRadius: 8, borderLeft: "3px solid #F58634" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>
+                          {store.name.trim() || <span className="text-muted" style={{ fontWeight: 400 }}>Untitled report</span>}
+                        </div>
+                        {store.description.trim() && (
+                          <div style={{ fontSize: 12, color: "#8a8a8a", marginTop: 2 }}>{store.description.trim()}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {step === 1 && (
-                    <StepSource registry={registry} plugins={plugins} loadingRegistry={loadingRegistry} advanced={advanced} />
+                    <StepSource registry={registry} plugins={plugins} loadingRegistry={loadingRegistry} advanced />
                   )}
-                  {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced={advanced} />}
+                  {step === 2 && <StepColumns selectedModel={selectedModel} metrics={metrics} advanced />}
                   {step === 3 && <StepFilters selectedModel={selectedModel} selectedPlugin={selectedPlugin} />}
                   {step === 4 && <StepOrganize selectedModel={selectedModel} metrics={metrics} />}
 
@@ -282,7 +296,7 @@ const ReportBuilderWizardView: React.FC = () => {
                     </button>
                     {step < STEPS.length ? (
                       <button className="btn btn-sm rb-btn-primary" disabled={!canContinue} onClick={() => goto(nextApplicableStep(step, 1))}>
-                        Continue
+                        Save & Next
                       </button>
                     ) : (
                       <button className="btn btn-sm rb-btn-primary" disabled={!canSave || saving} onClick={handleSave}>

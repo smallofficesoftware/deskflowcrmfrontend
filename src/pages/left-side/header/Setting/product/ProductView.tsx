@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { useTheme } from "../../../../../components/ThemeContext";
@@ -24,7 +25,6 @@ import {
   syncMiracleProduct,
 } from "./ProductController";
 import ProductStockMovement from "./ProductStockMovement";
-import SerialNumberStockMovement from "./SerialNumberStockMovement";
 import BomMasterView from "./bom-master/BomMasterView";
 import CreateProductView from "./create-product/CreateProductView";
 import ProductSyncModal from "./miracle/ProductSyncModal";
@@ -42,6 +42,7 @@ const ProductView = ({
   searchTermFromRightSide,
   setSearchTermFromRightSide,
 }: IPropsProductView) => {
+  const navigate = useNavigate();
   const [productLists, setProductList] = useState<IProductView[]>([]);
   const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
     {},
@@ -92,9 +93,6 @@ const ProductView = ({
   );
   const [isProductMenuOpen, setIsProductMenuOpen] = useState(false);
   const productMenuRef = useRef<HTMLUListElement>(null);
-
-  const [isOpenStockMovementSNnumberWise, setIsOpenStockMovementSNnumberWise] =
-    useState(false);
 
   const canView = useCheckUserPermission(PAGE_ID.PRODUCT, PERMISSION_TYPE.VIEW);
   const canAdd = useCheckUserPermission(PAGE_ID.PRODUCT, PERMISSION_TYPE.ADD);
@@ -346,9 +344,8 @@ const ProductView = ({
     setProductDropdown(null);
     setHasIdAvail(undefined);
     if (canView) {
-      setIsOpenStockMovementSNnumberWise(true);
+      navigate("/SideView/report/serial_number_stock_check");
     } else {
-      setIsOpenStockMovementSNnumberWise(false);
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   };
@@ -1444,13 +1441,6 @@ const ProductView = ({
           show={isOpenStockMovement}
           onHide={() => setIsOpenStockMovement(false)}
           passDataInAddItem={stockMovementData}
-        />
-      )}
-      {isOpenStockMovementSNnumberWise && (
-        <SerialNumberStockMovement
-          show={isOpenStockMovementSNnumberWise}
-          onHide={() => setIsOpenStockMovementSNnumberWise(false)}
-          // passDataInAddItem={stockMovementData}
         />
       )}
       {isOpenCreateModel && (

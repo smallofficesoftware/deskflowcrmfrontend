@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -9,6 +7,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -22,6 +21,7 @@ import {
 } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -111,11 +111,7 @@ const AllDeletedcontactReport = ({
     IAllDeletedcontact[]
   >([]);
 
-  const isPaginationCall = useRef(false);
-  const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-  const isLoadingMore = useRef(false);
+  const fetchingRef = useRef(false);
   const [recovering, setRecovering] = useState(false);
   const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
 
@@ -458,10 +454,7 @@ const AllDeletedcontactReport = ({
       setSelectAll(false);
 
       // Refresh the table (reset to first page)
-      setCustomers([]);
-      currentOffset.current = 0;
-      setHasMore(true);
-      await loadTasks(0, 50, true);
+      await loadTasks(lazyState.first, lazyState.rows);
     } catch (error) {
       console.error(error);
       toast.error("Failed to recover contacts. Please try again.");
@@ -499,25 +492,18 @@ const AllDeletedcontactReport = ({
     debouncedSearchText,
   });
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-
-    loadTasks(0, 50, true);
+    loadTasks(0, lazyState.rows);
   }, [searchDependencies]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (loading) return;
-
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
     try {
-      const newData = await fetchAllDeletedcontact(
+      const { data, total } = await fetchAllDeletedcontact(
         filters.selectedDateArray,
         setActive,
         setActiveDay,
@@ -536,31 +522,28 @@ const AllDeletedcontactReport = ({
         debouncedSearchText,
       );
 
-      if (reset) {
-        setCustomers(newData);
-        setTotalRecords(newData.length);
-        currentOffset.current = newData.length;
-      } else {
-        setCustomers((prev) => [...prev, ...newData]);
-        currentOffset.current += newData.length;
-        setTotalRecords((prev) => prev + newData.length);
-      }
-
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
+      setCustomers(data);
+      setTotalRecords(total);
     } catch (e) {
-      setHasMore(false);
+      console.error(e);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -627,7 +610,7 @@ const AllDeletedcontactReport = ({
 
   const onSelectionChange = (event: { value: IAllDeletedcontact[] }) => {
     setSelectedCustomers(event.value);
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === getFilteredData().length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -882,62 +865,6 @@ const AllDeletedcontactReport = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer, "inr");
-      });
-      return rowData;
-    });
-
-        if (showCartColumns.grand_total) {
-      const grandTotalSum = (selectedCustomers.length > 0 ? selectedCustomers : filteredData).reduce((sum, row) => sum + (Number(row.grand_total) || 0), 0);
-      tableData.push({
-        Person_Name: "Total",
-        Grand_Total: grandTotalSum.toFixed(2),
-      } as any);
-    }
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("All Contact Report", data.settings.margin.left, 10);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body" && showCartColumns.grand_total) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-
-    doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-  };
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1178,25 +1105,41 @@ const AllDeletedcontactReport = ({
                   }
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_deleted_contact_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    setActive,
+                    setActiveDay,
+                    selectedLabels: filters.checkedOptions,
+                    selectedSourceTypes: filters.checkedSourceTypes,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography
+                      ? Object.values(selectedDemography).filter(Boolean)
+                      : null,
+                    globalSearch: debouncedSearchText,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="All_Deleted_Contacts_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                  footer={
+                    showCartColumns.grand_total
+                      ? {
+                          sums: [{ outputKey: "grand_total", sourceKey: "grand_total" }],
+                          rows: [
+                            {
+                              person_name: "Total",
+                              grand_total: { fromSum: "grand_total" },
+                            },
+                          ],
+                        }
+                      : undefined
+                  }
+                />
 
                 <li
                   className="listItem text-start"
@@ -1298,6 +1241,7 @@ const AllDeletedcontactReport = ({
       >
         <DataTable
           value={customers}
+          dataKey="id"
           scrollable
           scrollHeight="90vh"
           lazy
@@ -1307,28 +1251,12 @@ const AllDeletedcontactReport = ({
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           totalRecords={totalRecords}
           loading={loading}
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            showLoader: true,
-            loading,
-            onLazyLoad: (e) => {
-              if (
-                typeof e.last === "number" &&
-                !loading &&
-                hasMore &&
-                e.last >= customers.length - 1
-              ) {
-                loadTasks(currentOffset.current, 50);
-              }
-            },
-          }}
           filterDisplay="row"
-          // dataKey="id"
-          // paginator
+          paginator
           first={lazyState.first}
           rows={lazyState.rows}
-          // onPage={onPage}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}

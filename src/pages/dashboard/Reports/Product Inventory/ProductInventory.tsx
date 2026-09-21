@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,18 +5,19 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { Tooltip } from "primereact/tooltip";
-import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -32,6 +31,9 @@ import {
 } from "./ProductInventoryController";
 
 interface LazyTableState {
+  first: number;
+  rows: number;
+  page: number;
   sortField?: string | null;
   sortOrder?: SortOrder | null;
   filters: DataTableFilterMeta;
@@ -99,13 +101,8 @@ const ProductInventoryReport = ({
     IProductInventory[]
   >([]);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const hasMoreRef = useRef(true);
-  const loadingRef = useRef(false);
+  const fetchingRef = useRef(false);
   const dt = useRef<DataTable<IProductInventory[]>>(null);
-
-  const LIMIT = 50;
-  const ROW_HEIGHT = 50; // Adjust based on your actual row height
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -214,6 +211,9 @@ const ProductInventoryReport = ({
   );
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
+    first: 0,
+    rows: 50,
+    page: 0,
     sortField: null,
     sortOrder: null,
     filters: {
@@ -230,17 +230,9 @@ const ProductInventoryReport = ({
       closingStock: { value: null, matchMode: "contains" },
     },
   });
-  // Reset and initial load when key params change
-  // Optional: Preload first 2 pages on mount (better first impression)
   useEffect(() => {
-    setCustomers([]);
-    setOffset(0);
-    hasMoreRef.current = true;
-    loadMoreData(0); // first 50
-    // Optional: immediately queue second chunk
-    setTimeout(() => {
-      if (hasMoreRef.current) loadMoreData(LIMIT);
-    }, 800);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadMoreData(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.selectedProductId,
@@ -250,10 +242,9 @@ const ProductInventoryReport = ({
     debouncedSearchText,
   ]);
 
-  const loadMoreData = async (currentOffset: number) => {
-    if (loadingRef.current || !hasMoreRef.current) return;
-
-    loadingRef.current = true;
+  const loadMoreData = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
 
     try {
@@ -265,54 +256,48 @@ const ProductInventoryReport = ({
         filters.selectedProductId,
         filters.selectedCategoryId,
         filters.selectedWarehouseIds,
-        currentOffset,
-        LIMIT,
+        offset,
+        limit,
         debouncedSearchText,
         filters.selectedStockTypeId,
       );
 
       if (!result) {
-        hasMoreRef.current = false;
+        setCustomers([]);
+        setTotalRecords(0);
         return;
       }
 
       const { items, total_count } = result;
 
-      if (items.length === 0) {
-        hasMoreRef.current = false;
-        return;
-      }
-
-      setCustomers((prev) => {
-        const existing = new Set(
-          prev.map((item) => `${item.name}-${item.code}`),
-        );
-        const uniqueNewItems = items.filter(
-          (item) => !existing.has(`${item.name}-${item.code}`),
-        );
-        return [...prev, ...uniqueNewItems];
-      });
-
+      setCustomers(
+        items.map((item) => ({
+          ...item,
+          _rowKey: `${item.name}-${item.code}`,
+        })),
+      );
       setTotalRecords(total_count);
-      setOffset(currentOffset + items.length);
-
-      if (items.length < LIMIT) {
-        hasMoreRef.current = false;
-      }
     } catch (err: any) {
       setError(err?.message || "Failed to fetch inventory data");
       console.error("API error:", err);
     } finally {
-      loadingRef.current = false;
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    hasMoreRef.current = true;
-    setCustomers([]);
-    setOffset(0);
-    loadMoreData(0);
+    loadMoreData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadMoreData(event.first, event.rows);
   };
 
   // Compute filtered & sorted data from customers
@@ -363,18 +348,6 @@ const ProductInventoryReport = ({
     return data;
   }, [customers, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  // Auto-load more if filtered data is small and more available
-  useEffect(() => {
-    if (
-      filteredData.length < LIMIT &&
-      hasMoreRef.current &&
-      !loadingRef.current &&
-      offset < totalRecords
-    ) {
-      loadMoreData(offset);
-    }
-  }, [filteredData.length, lazyState.filters]);
-
   const onSort = (event: DataTableSortEvent) => {
     setLazyState((prev) => ({
       ...prev,
@@ -406,71 +379,7 @@ const ProductInventoryReport = ({
     }
   };
 
-  const onVirtualLoad = (event: VirtualScrollerLazyEvent) => {
-    // Safely get the last visible index
-    const lastVisible =
-      typeof event.last === "number"
-        ? event.last
-        : ((event.last as any)?.last ?? 0);
-
-    // Important: compare against ACTUAL LOADED rows (customers), NOT filteredData
-    const loadedCount = customers.length;
-
-    // Buffer: start loading more when user is ~20 rows from the end of loaded data
-    const buffer = 20;
-
-    if (
-      lastVisible + buffer >= loadedCount && // approaching end of loaded data
-      offset < totalRecords && // still more to load from server
-      !loadingRef.current // prevent duplicate calls
-    ) {
-      loadMoreData(offset);
-    }
-  };
-
   // Export & Print logic using filteredData
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData;
-
-    if (dataToExport.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`product_inventory_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const tableData = dataToExport.map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer);
-      });
-      return rowData;
-    });
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(
-          "Product Inventory and Stock Alerts Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-    });
-    doc.save(`product_inventory_${new Date().getTime()}.pdf`);
-  };
-
   // const exportExcel = () => {
   //   const dataToExport =
   //     selectedCustomers.length > 0 ? selectedCustomers : filteredData;
@@ -898,25 +807,23 @@ const ProductInventoryReport = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="product_inventory_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedProduct: filters.selectedProductId,
+                    selectedCategory: filters.selectedCategoryId,
+                    selectedWarehouseIds: filters.selectedWarehouseIds,
+                    globalSearch: debouncedSearchText,
+                    selectedStockTypeId: filters.selectedStockTypeId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="product_inventory_full"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
@@ -993,26 +900,25 @@ const ProductInventoryReport = ({
         <DataTable
           ref={dt}
           value={filteredData}
+          dataKey="_rowKey"
           resizableColumns
           columnResizeMode="expand"
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: ROW_HEIGHT,
-            lazy: true,
-            onLazyLoad: onVirtualLoad, // ← use the fixed version above
-            showLoader: true,
-            loading: loading,
-            // numToleratedItems: 10,               // optional: render a few more rows for smoothness
-            // delay: 100,                          // optional: small debounce
-          }}
+          loading={loading}
+          paginator
+          lazy
+          first={lazyState.first}
+          rows={lazyState.rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           onFilter={onFilter}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}
           filters={lazyState.filters}
-          //  dataKey={(rowData: IProductInventory) => `${rowData.name ?? 'no-name'}-${rowData.code ?? 'no-code'}`}
           emptyMessage="No data found"
           selectAll={selectAll}
           onSelectAllChange={onSelectAllChange}
@@ -1103,10 +1009,6 @@ const ProductInventoryReport = ({
           ))}
         </DataTable>
       </div>
-      <small style={{ color: "#888", display: "block", marginTop: "1rem" }}>
-        Loaded {customers.length} of {totalRecords || "?"} rows (Filtered:{" "}
-        {filteredData.length})
-      </small>
       {isModalFilterVisible && (
         <CheckBoxFilterModal
           show={isModalFilterVisible}

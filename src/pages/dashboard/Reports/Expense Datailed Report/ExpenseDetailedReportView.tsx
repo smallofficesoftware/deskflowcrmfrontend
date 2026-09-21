@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
@@ -8,6 +6,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -19,6 +18,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -95,12 +95,7 @@ const ExpenseDetailedReport = ({
 
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-
-  const PAGE_SIZE = 50;
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -241,7 +236,7 @@ const ExpenseDetailedReport = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 0,
     sortField: null,
     sortOrder: null,
@@ -261,13 +256,9 @@ const ExpenseDetailedReport = ({
 
   useEffect(() => {
     if (canView) {
-      offsetRef.current = 0;
-      setHasMore(true);
-      currentOffset.current = 0; // Fixed ref name if it was offsetRef
-      setTotalRecords(0); // Reset total
-      setSourceReport([]);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
       setSelectedExpenses([]);
-      loadMoreData(true);
+      loadMoreData(0, lazyState.rows);
     }
   }, [
     filters.selectedDateArray,
@@ -338,10 +329,9 @@ const ExpenseDetailedReport = ({
     return filteredData;
   };
 
-  const loadMoreData = async (reset = false) => {
+  const loadMoreData = async (offset: number, limit: number) => {
     if (!canView) return;
     if (isFetchingRef.current) return;
-    if (!hasMore && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -352,33 +342,23 @@ const ExpenseDetailedReport = ({
           ? filters.selectedDateArray
           : getCurrentMonthDateRange();
 
-      const newData =
-        (await fetchDetailedExpense(
-          dateArrayToUse,
-          filters.checkedOptionsUser,
-          filters.checkedExpenseTypes,
-          filters.checkedOptionsExpenseStatus,
-          offsetRef.current,
-          PAGE_SIZE,
-          debouncedSearchText,
-          MobileToken,
-          getID,
-          MobileFlag,
-        )) || [];
+      const { data, total } = await fetchDetailedExpense(
+        dateArrayToUse,
+        filters.checkedOptionsUser,
+        filters.checkedExpenseTypes,
+        filters.checkedOptionsExpenseStatus,
+        offset,
+        limit,
+        debouncedSearchText,
+        MobileToken,
+        getID,
+        MobileFlag,
+      );
 
-      if (newData.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setSourceReport(newData);
-      } else {
-        setSourceReport((prev) => [...prev, ...newData]);
-      }
-
-      offsetRef.current += PAGE_SIZE;
+      setSourceReport(data);
+      setTotalRecords(total);
     } catch (e) {
-      setHasMore(false);
+      console.error(e);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -386,21 +366,23 @@ const ExpenseDetailedReport = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    setHasMore(true);
-    setSourceReport([]);
-    loadMoreData(true);
+    loadMoreData(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadMoreData(event.first, event.rows);
   };
 
   const handelRefreshExpense = async () => {
     if (canView) {
-      offsetRef.current = 0;
-      setHasMore(true);
-      currentOffset.current = 0; // Fixed ref name if it was offsetRef
-      setTotalRecords(0); // Reset total
-      setSourceReport([]);
       setSelectedExpenses([]);
-      await loadMoreData(true);
+      await loadMoreData(lazyState.first, lazyState.rows);
     }
   };
 
@@ -488,7 +470,7 @@ const ExpenseDetailedReport = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value || [];
     setSelectedExpenses(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === getFilteredData().length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -672,64 +654,6 @@ const ExpenseDetailedReport = ({
     title: col.label,
     dataKey: col.key,
   }));
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      (selectedExpenses?.length ?? 0 > 0) ? selectedExpenses : filteredData
-    ).map((exp) => {
-      const row: Record<string, any> = {};
-      exportableColumns.forEach((col) => {
-        row[col.key] = getExportCellValue(col, exp);
-      });
-      return row;
-    });
-
-        const totalAmount = tableData.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.amount).replace(/[^0-9.-]+/g, ""));
-      return sum + (isNaN(val) ? 0 : val);
-    }, 0);
-    const totalPassAmount = tableData.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.pass_amount).replace(/[^0-9.-]+/g, ""));
-      return sum + (isNaN(val) ? 0 : val);
-    }, 0);
-    tableData.push({
-      type: "Total",
-      amount: totalAmount.toFixed(2),
-      pass_amount: totalPassAmount.toFixed(2),
-      remark: "",
-      date: "",
-      employee: "",
-      status: "",
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`team_expense_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("Expense Detailed Report", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`expense_detailed_report_${new Date().getTime()}.pdf`);
-  };
-
 
   const printTable = () => {
     const filteredData = getFilteredData();
@@ -1049,25 +973,35 @@ const ExpenseDetailedReport = ({
                       }}
                     />
 
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (dataArray.length === 0) return;
-
-                        canShare
-                          ? exportPdf()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportPdfMenuItem
+                      reportType="expense_detailed_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedExpenseTypes: filters.checkedExpenseTypes,
+                        selectedExpenseStatus: filters.checkedOptionsExpenseStatus,
+                        globalSearch: debouncedSearchText,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-pdf"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export PDF
-                    </li>
+                      columns={exportableColumns}
+                      fileName="expense_detailed_report"
+                      canShare={canShare}
+                      disabled={dataArray.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedExpenses}
+                      footer={{
+                        sums: [
+                          { outputKey: "amount", sourceKey: "amount" },
+                          { outputKey: "pass_amount", sourceKey: "pass_amount" },
+                        ],
+                        rows: [
+                          {
+                            expense_name: "Total",
+                            amount: { fromSum: "amount" },
+                            pass_amount: { fromSum: "pass_amount" },
+                          },
+                        ],
+                      }}
+                    />
 
                     <li
                       className="listItem text-start"
@@ -1145,22 +1079,12 @@ const ExpenseDetailedReport = ({
                 scrollHeight="80vh"
                 filterDisplay="row"
                 dataKey="id"
-                virtualScrollerOptions={{
-                  itemSize: 52,
-                  lazy: true,
-                  onLazyLoad: (event: { first: number; last: number }) => {
-                    if (
-                      event.last >= expenses.length - 1 &&
-                      hasMore &&
-                      !loading
-                    ) {
-                      loadMoreData();
-                    }
-                  },
-                  appendOnly: true,
-                  showLoader: false,
-                  delay: 0,
-                }}
+                paginator
+                first={lazyState.first}
+                rows={lazyState.rows}
+                totalRecords={totalRecords}
+                onPage={onPageChange}
+                rowsPerPageOptions={[25, 50, 100, 200]}
                 onSort={onSort}
                 sortField={lazyState.sortField ?? undefined}
                 sortOrder={lazyState.sortOrder}

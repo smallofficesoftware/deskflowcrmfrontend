@@ -126,8 +126,8 @@ const NewDashboardView = ({
         {activeModule === "CRM" && <CRMDashboardView />}
         {activeModule === "HRM" && (
           <HRMDashboardView
-            setActiveView={setActiveView}
-            setAppliedReportType={setAppliedReportType}
+            setActiveView={setActiveView ?? (() => {})}
+            setAppliedReportType={setAppliedReportType ?? (() => {})}
           />
         )}
         {activeModule === "PRODUCTION" && <ProductionDashboardView />}

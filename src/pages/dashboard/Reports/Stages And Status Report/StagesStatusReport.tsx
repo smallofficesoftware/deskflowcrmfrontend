@@ -341,6 +341,9 @@ const StagesStatusReport = ({ onHide }: IStagesStatusReport) => {
                 }}
             >
                 <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     value={stageStatusList}
                     loading={loading}
                     resizableColumns
@@ -495,7 +498,6 @@ const StagesStatusReport = ({ onHide }: IStagesStatusReport) => {
                     }}
                     setLoading={setLoading}
                     headerName="Create Stage & Status"
-                    handleRefreshStageStatus={handleRefreshStageStatus}
                     productToEdit={undefined}
                     handleOutsideOrderDisplayChange={handleOrderDisplayChange}
                 />
@@ -509,7 +511,6 @@ const StagesStatusReport = ({ onHide }: IStagesStatusReport) => {
                     }}
                     setLoading={setLoading}
                     headerName="Update Stage & Status"
-                    handleRefreshStageStatus={handleRefreshStageStatus}
                     productToEdit={editableProduct}
                     handleOutsideOrderDisplayChange={handleOrderDisplayChange}
                 />

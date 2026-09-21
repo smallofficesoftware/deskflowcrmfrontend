@@ -1,10 +1,8 @@
 import { useContext, useEffect, useState } from "react";
 import { AppContext } from "../../common/AppContext";
-import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import { PAGE_ID, PERMISSION_TYPE } from "../../helpers/AppEnum";
 import {
-  IReportGroup,
   IRunnableReportDefinition,
-  listReportGroups,
   listRunnableReportDefinitions,
 } from "../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import { ReportIcon } from "./reportIcons";
@@ -52,26 +50,16 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
   const [searchValue, setSearchValue] = useState("");
   const { permissions } = useContext(AppContext)!;
 
-  // "Custom Reports" — the dynamic, per-tenant section (Report Builder's
-  // report_definitions, both the owner's own and any copied from the
-  // system gallery). Visibility is per-report_definition_team_rights grant
-  // only (Step 7 of the plan) — the backend already returns exactly what
-  // this login is allowed to see, nothing further to filter client-side.
-  // A separate fetch from the static reportsMenuData tiles above, not
-  // merged into that data shape — reportsMenuData stays untouched.
+  // Report Builder's own report_definitions (owner's own + any copied from
+  // the system gallery), merged straight into the fixed-category sections
+  // below by category — not a separate section, not merged into
+  // reportsMenuData's own data shape (that stays untouched). Visibility is
+  // per-report_definition_team_rights grant only (Step 7 of the plan) —
+  // the backend already returns exactly what this login is allowed to see.
   const [customReports, setCustomReports] = useState<IRunnableReportDefinition[]>([]);
-  const [loadingCustomReports, setLoadingCustomReports] = useState(true);
-  // Step 10 — report groups. Flag-only/no-PIN read (same tier
-  // list-runnable's own category/description already sit at), so any
-  // run-tier viewer can render group headers, not just the owner.
-  const [reportGroups, setReportGroups] = useState<IReportGroup[]>([]);
 
   useEffect(() => {
-    listRunnableReportDefinitions().then((rows) => {
-      setCustomReports(rows);
-      setLoadingCustomReports(false);
-    });
-    listReportGroups().then(setReportGroups);
+    listRunnableReportDefinitions().then(setCustomReports);
   }, []);
 
   const filteredCustomReports = customReports.filter((r) =>
@@ -80,23 +68,70 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     r.description?.toLowerCase().includes(searchValue.toLowerCase()),
   );
 
-  // Bucketed by report_group_id, in the tenant's own display_order, with
-  // an "Ungrouped" bucket last for anything with no group_id (or one that
-  // no longer resolves to a live group). When no groups exist at all,
-  // this collapses to a single "Ungrouped" bucket — rendered as one flat
-  // section below (no sub-heading), so a tenant who never created groups
-  // sees no visual change from before this feature existed.
-  const sortedGroups = [...reportGroups].sort((a, b) => a.display_order - b.display_order);
-  const reportsByGroup: { group: IReportGroup | null; reports: IRunnableReportDefinition[] }[] = [
-    ...sortedGroups.map((group) => ({
-      group,
-      reports: filteredCustomReports.filter((r) => r.report_group_id === group.id),
-    })),
-    {
-      group: null,
-      reports: filteredCustomReports.filter((r) => !sortedGroups.some((g) => g.id === r.report_group_id)),
-    },
-  ].filter((bucket) => bucket.reports.length > 0);
+  // Custom reports map straight into the SAME fixed-category sections the
+  // built-in reports below already render (menu.key === category — both
+  // drawn from reportsMenuData.tsx's own category taxonomy) — no separate
+  // "Custom Reports" section of its own anymore. A category with no
+  // matching rendered menu section
+  // (filtered out by permissions/search) just doesn't show its custom
+  // reports either, same as any other tile in that section.
+  const customReportsByCategory: Record<string, IRunnableReportDefinition[]> = {};
+  filteredCustomReports.forEach((r) => {
+    const category = r.category || "Others";
+    (customReportsByCategory[category] ||= []).push(r);
+  });
+
+  const renderTile = (
+    key: string,
+    icon: string | null | undefined,
+    label: string,
+    description: string | null | undefined,
+    onClick: () => void,
+  ) => (
+    <button
+      key={key}
+      type="button"
+      className="report-tile"
+      onClick={onClick}
+      style={{
+        textAlign: "left",
+        padding: "16px",
+        borderRadius: "10px",
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        cursor: "pointer",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          marginBottom: description ? "8px" : 0,
+        }}
+      >
+        <div
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            background: THEME_TINT,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <ReportIcon name={icon || "report"} size={16} color={THEME_COLOR} />
+        </div>
+        <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>{label}</span>
+      </div>
+      {description && (
+        <p style={{ margin: 0, fontSize: "12px", lineHeight: 1.5, color: "#8a8a8a" }}>{description}</p>
+      )}
+    </button>
+  );
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -140,6 +175,13 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     }))
     .filter((menu) => menu.subMenus.length > 0);
 
+  // Same gate Setting.tsx's old "Report Builder" menu item used
+  // (isCompanyOwnerForReportBuilder || REPORT_BUILDER view rights) — the
+  // owner side of that check isn't available here, so this is the
+  // rights-only half; a non-owner still needs an explicit grant to see
+  // the "Report Builder" button.
+  const canAddReport = hasPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
+
   const filteredMenus = permissionFilteredMenus
     .map((menu) => {
       if (!searchValue) return menu;
@@ -165,40 +207,61 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
         }
       `}</style>
 
-      <div style={{ position: "relative", maxWidth: "400px", marginBottom: "24px" }}>
-        <input
-          type="text"
-          placeholder="Search Reports..."
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          className="form-control"
-          style={{
-            padding: "10px 14px",
-            borderRadius: "10px",
-            border: "1px solid #d1d5db",
-            background: "#fff",
-          }}
-        />
-        {searchValue && (
-          <span
-            onClick={() => setSearchValue("")}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+        <div style={{ position: "relative", maxWidth: "400px", flex: 1 }}>
+          <input
+            type="text"
+            placeholder="Search Reports..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="form-control"
             style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              cursor: "pointer",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              border: "1px solid #d1d5db",
+              background: "#fff",
+            }}
+          />
+          {searchValue && (
+            <span
+              onClick={() => setSearchValue("")}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                cursor: "pointer",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                height="20px"
+                viewBox="0 -960 960 960"
+                width="20px"
+                fill="#5f6368"
+              >
+                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+              </svg>
+            </span>
+          )}
+        </div>
+        {canAddReport && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => onReportClick("report_builder")}
+            style={{
+              flexShrink: 0,
+              padding: "10px 16px",
+              borderRadius: "10px",
+              border: "none",
+              background: THEME_COLOR,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: "13px",
             }}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="20px"
-              viewBox="0 -960 960 960"
-              width="20px"
-              fill="#5f6368"
-            >
-              <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-            </svg>
-          </span>
+            Report Builder
+          </button>
         )}
       </div>
 
@@ -227,163 +290,19 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
               gap: "16px",
             }}
           >
-            {menu.subMenus.map((sub) => (
-              <button
-                key={sub.value}
-                type="button"
-                className="report-tile"
-                onClick={() => onReportClick(sub.value)}
-                style={{
-                  textAlign: "left",
-                  padding: "16px",
-                  borderRadius: "10px",
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                  cursor: "pointer",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: sub.description ? "8px" : 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      background: THEME_TINT,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ReportIcon name={sub.icon || "report"} size={16} color={THEME_COLOR} />
-                  </div>
-                  <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
-                    {sub.label}
-                  </span>
-                </div>
-                {sub.description && (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "12px",
-                      lineHeight: 1.5,
-                      color: "#8a8a8a",
-                    }}
-                  >
-                    {sub.description}
-                  </p>
-                )}
-              </button>
-            ))}
+            {menu.subMenus.map((sub) =>
+              renderTile(sub.value, sub.icon, sub.label, sub.description, () => onReportClick(sub.value)),
+            )}
+            {/* No description under a custom report's title — unlike the
+                built-in tiles above, these run straight into a results
+                grid the moment you click, so a second line here was just
+                extra text before the click, not useful context. */}
+            {(customReportsByCategory[menu.key] || []).map((def) =>
+              renderTile(`custom-${def.id}`, def.icon, def.name, null, () => onCustomReportClick(def.id)),
+            )}
           </div>
         </div>
       ))}
-
-      {!loadingCustomReports && (filteredCustomReports.length > 0 || (!searchValue && customReports.length === 0)) && (
-        <div style={{ marginBottom: "32px" }}>
-          <div
-            style={{
-              fontSize: "12px",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              color: "#8a8a8a",
-              textTransform: "uppercase",
-              marginBottom: "12px",
-            }}
-          >
-            Custom Reports
-          </div>
-          {customReports.length === 0 ? (
-            <div className="text-muted" style={{ fontSize: "13px" }}>No reports available yet.</div>
-          ) : (
-            reportsByGroup.map(({ group, reports }) => (
-              <div key={group?.id ?? "ungrouped"} style={{ marginBottom: "20px" }}>
-                {/* A sub-heading appears only once this tenant actually has
-                    groups — a tenant who never created any sees the exact
-                    same flat grid as before this feature existed (single
-                    bucket, group: null, no heading rendered). */}
-                {sortedGroups.length > 0 && (
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#4a4a4a", marginBottom: "8px" }}>
-                    {group?.group_name ?? "Ungrouped"}
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                    gap: "16px",
-                  }}
-                >
-                  {reports.map((def) => (
-                    <button
-                      key={def.id}
-                      type="button"
-                      className="report-tile"
-                      onClick={() => onCustomReportClick(def.id)}
-                      style={{
-                        textAlign: "left",
-                        padding: "16px",
-                        borderRadius: "10px",
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          marginBottom: def.description ? "8px" : 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "50%",
-                            background: THEME_TINT,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <ReportIcon name={def.icon || "report"} size={16} color={THEME_COLOR} />
-                        </div>
-                        <span style={{ fontWeight: 600, fontSize: "14px", color: "#1a1a1a" }}>
-                          {def.name}
-                        </span>
-                      </div>
-                      {def.description && (
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "12px",
-                            lineHeight: 1.5,
-                            color: "#8a8a8a",
-                          }}
-                        >
-                          {def.description}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 };

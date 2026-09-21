@@ -1,8 +1,6 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable } from "primereact/datatable";
+import { DataTable, type DataTablePageEvent } from "primereact/datatable";
 import { PrimeReactProvider } from "primereact/api";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +8,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ReminderModal from "../../../../components/model/ReminderModal";
@@ -104,15 +103,15 @@ const AllReminderReport = ({
   const [isReminderConfirmation, setIsReminderConfirmation] = useState(false);
   const [reminderRescheduleData, setReminderRescheduleData] = useState<IReminderItem | null>(null);
   const op = useRef<OverlayPanel>(null);
-  const [hasMore, setHasMore] = useState(true);
 
   const [isSetReminderConfirmation, setIsSetReminderConfirmation] =
     useState(false);
   const title = "All Reminders";
 
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
-  const isInitialLoad = useRef(true);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(50);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [
     isReminderConfirmationStatusData,
     setIsReminderConfirmationStatusData,
@@ -242,12 +241,9 @@ const AllReminderReport = ({
 
   // Reset & reload when filters change
   useEffect(() => {
-    setReminders([]);
-    setDisplayReminders([]);
-    currentOffset.current = 0;
-    isInitialLoad.current = true;
-    setHasMore(true);
-    loadReminders(0, 50, true);
+    setPage(0);
+    loadReminders(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -260,20 +256,14 @@ const AllReminderReport = ({
     filterType,
   ]);
 
-  const loadReminders = async (
-    offset: number,
-    limit: number,
-    reset = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadReminders = async (offset: number, limit: number) => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
 
     try {
       const newData = await fetchTaskReport(
-        // ← this still works — just returns IReminderItem[]
         undefined,
         filters.selectedDateArray,
         filters.checkedOptionsUser,
@@ -289,42 +279,27 @@ const AllReminderReport = ({
         filters.referenceWiseContact,
         filterType,
         setCounts,
+        setTotalRecords,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setReminders(newData);
-      } else {
-        setReminders((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setReminders(newData);
     } catch (err) {
-      setHasMore(false);
       console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
-      isInitialLoad.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    setReminders([]);
-    setDisplayReminders([]);
-    currentOffset.current = 0;
-    isInitialLoad.current = true;
-    setHasMore(true);
-    loadReminders(0, 50, true);
+    setPage(0);
+    loadReminders(0, rows);
   };
 
-  const onVirtualScroller = (event: any) => {
-    if (event.last >= reminders.length - 1 && hasMore && !isLoadingMore.current) {
-      loadReminders(currentOffset.current, 50);
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadReminders(event.first, event.rows);
   };
 
   const filteredAndSortedData = useMemo(() => reminders, [reminders]); // simple — no heavy client-side filter/sort for now
@@ -393,9 +368,8 @@ const AllReminderReport = ({
         }
         setIsReminderConfirmationStatus(false);
         toast.success("Reminder completed successfully");
-        currentOffset.current = 0;
-        setHasMore(true);
-        loadReminders(0, 50, true);
+        setPage(0);
+        loadReminders(0, rows);
       } else {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
       }
@@ -648,61 +622,6 @@ const AllReminderReport = ({
     }
   };
 
-  const exportPdf = () => {
-    const dataToExport =
-      selectedReminders.length > 0 ? selectedReminders : displayReminders;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item, "plain");
-      });
-      return rowData;
-    });
-
-        tableData.push({
-      id: `Total Reminders: ${dataToExport.length}`,
-      contact_name: "",
-      reminder_data_time: "",
-      status_display: "",
-      completed_date_time: "",
-      assigned_to_name: "",
-      created_by_username: "",
-      remark: "",
-    } as any);
-
-    if (tableData.length === 0) {
-      const doc = new jsPDF();
-      doc.text("No reminders to export", 10, 10);
-      doc.save(`${title}_report_${Date.now()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.key,
-    }));
-
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: () => {
-        doc.text(`${title} Report`, 14, 15);
-      },
-    });
-
-    doc.save(`${title}_report_${Date.now()}.pdf`);
-  };
 
   const printTable = () => {
     const dataToExport =
@@ -1044,25 +963,40 @@ const AllReminderReport = ({
                   }
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (reminders.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_reminder_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    is_support_ticket_flag: is_support_ticket_flag,
+                    selectedContactId: filters.selectedContactId,
+                    referenceWiseContact: filters.referenceWiseContact,
+                    typeFilter: filterType,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName={`${title}_Report`}
+                  canShare={canShare}
+                  disabled={reminders.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={
+                    selectedReminders.length > 0
+                      ? [
+                          ...selectedReminders,
+                          {
+                            id: `Total Reminders: ${selectedReminders.length}`,
+                            contact_name: "",
+                            reminder_data_time: "",
+                            status_display: "",
+                            completed_date_time: "",
+                            assigned_to_name: "",
+                            created_by_username: "",
+                            remark: "",
+                          },
+                        ]
+                      : selectedReminders
+                  }
+                />
 
                 <li
                   className="listItem text-start"
@@ -1126,12 +1060,13 @@ const AllReminderReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: onVirtualScroller,
-            loading: loading && isInitialLoad.current,
-          }}
+          paginator
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           dataKey="id"
           loading={loading}
           selection={selectedReminders}
@@ -1147,8 +1082,7 @@ const AllReminderReport = ({
                 textAlign: "right",
               }}
             >
-              Total Reminders: {displayReminders.length}{" "}
-              {hasMore && "(loading more...)"}
+              Total Reminders: {totalRecords}
             </div>
           }
         >
@@ -1287,7 +1221,7 @@ const AllReminderReport = ({
           message={"Are you sure you want to reschedule this reminder?"}
           btn1="CANCEL"
           btn2="Set Reminder"
-          remarkMsg={reminderRescheduleData?.remark}
+          remarkMsg={reminderRescheduleData?.remark ?? undefined}
           selectedMember={reminderRescheduleData?.assigned_to_name || undefined}
           selectedMemberId={reminderRescheduleData?.assigned_to}
           request_flag="1"
@@ -1343,12 +1277,8 @@ const AllReminderReport = ({
               () => {},
             );
             // Refresh THIS report's list after the call
-            setReminders([]);
-            setDisplayReminders([]);
-            currentOffset.current = 0;
-            isInitialLoad.current = true;
-            setHasMore(true);
-            loadReminders(0, 50, true);
+            setPage(0);
+            loadReminders(0, rows);
           }}
           title={"Set Reminder"}
           message={"Set a new reminder"}

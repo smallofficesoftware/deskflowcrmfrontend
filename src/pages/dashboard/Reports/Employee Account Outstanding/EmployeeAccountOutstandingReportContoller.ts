@@ -8,6 +8,11 @@ export interface IEmployeeAccountOutstanding {
     total_debit: string;
 }
 
+export interface IEmployeeAccountOutstandingResult {
+    data: IEmployeeAccountOutstanding[];
+    total: number;
+}
+
 export const fetchEmployeeAccountOutstanding = async (
     selectedDates: Date[] | undefined,
     ul: number,
@@ -15,7 +20,7 @@ export const fetchEmployeeAccountOutstanding = async (
     globalSearch?: string,
     selectedTeamMembers?: string[] | null,
     Flag?: string
-): Promise<IEmployeeAccountOutstanding[]> => {
+): Promise<IEmployeeAccountOutstandingResult> => {
     try {
         const getUUID = localStorage.getItem("UUID");
 
@@ -32,11 +37,12 @@ export const fetchEmployeeAccountOutstanding = async (
             }
         );
 
-        return Array.isArray(response.data?.data)
-            ? response.data.data
-            : [];
+        return {
+            data: Array.isArray(response.data?.data?.data) ? response.data.data.data : [],
+            total: typeof response.data?.data?.total === "number" ? response.data.data.total : 0,
+        };
     } catch {
-        return [];
+        return { data: [], total: 0 };
     }
 };
 

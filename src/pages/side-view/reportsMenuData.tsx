@@ -143,12 +143,14 @@ export const reportsMenuData: IReportMenuGroup[] = [
       {
         label: "Attendance Register",
         value: "Attendance_register_Report",
+        pageId: PAGE_ID.PROCESS_ATTENDANCE,
         icon: "today",
         description: "Daily in/out register for every employee.",
       },
       {
         label: "Salary Register",
         value: "Salary_register_Report",
+        pageId: PAGE_ID.TEAM_SALARY,
         icon: "payments",
         description: "Monthly salary register with earnings and deductions.",
       },
@@ -310,17 +312,7 @@ export const reportsMenuData: IReportMenuGroup[] = [
       {
         label: "Custom Forms",
         value: "custom_forms",
-        // No pageId, deliberately — this is meant to behave like a static
-        // nav item (per explicit ask: "static like CRM, HRMS, Production"),
-        // not a dynamic permission-gated report tile. This same menu
-        // system filters a subMenu out of the grid entirely when its
-        // pageId has no application_login_type_rights row, and page 178 is
-        // brand new (zero rows anywhere, no owner-bypass in this check) —
-        // an earlier draft set pageId here and the tile silently vanished
-        // for everyone as a result. Real access control (create/edit/
-        // publish/etc.) is already enforced server-side by
-        // formBuilderRights.js regardless of whether this tile itself is
-        // gated, so omitting pageId here doesn't open anything up.
+        pageId: PAGE_ID.FORM_BUILDER,
         icon: "description",
         description: "Build custom forms and manage their submissions.",
       },
@@ -524,6 +516,10 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "bolt",
         description: "Keyboard shortcuts configured for faster navigation.",
       },
+      // Report Builder moved out of this menu tree — reachable via
+      // ReportsTileView.tsx's own "+ Add Report" button instead
+      // (handleSingleReportShow("report_builder"/"report_builder_new")
+      // still wires it, just not listed here anymore).
     ],
   },
 

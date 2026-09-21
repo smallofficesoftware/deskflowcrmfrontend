@@ -72,7 +72,7 @@ const PdfView: React.FC = () => {
       "Product Description",
       "HSN Code",
       "Rate",
-      "Dis(%)",
+      Number(orderPdfViewById?.cart?.item_discount_type) === 2 ? "Dis(₹)" : "Dis(%)",
       "GST(%)",
       "Net Price",
       "Qty/Unit",
@@ -85,7 +85,16 @@ const PdfView: React.FC = () => {
         item.item_product_name + `\n${item.item_product_description}`,
         "39174000",
         item.item_rate ? formatNumber(item.item_rate, 2) : "",
-        item.item_discount_pct ? formatNumber(item.item_discount_pct, 2) : "",
+        (Number(orderPdfViewById?.cart?.item_discount_type) === 2
+          ? item.item_discount_pr
+          : item.item_discount_pct)
+          ? formatNumber(
+              Number(orderPdfViewById?.cart?.item_discount_type) === 2
+                ? item.item_discount_pr
+                : item.item_discount_pct,
+              2,
+            )
+          : "",
         item.item_gst ? formatNumber(item.item_gst, 2) : "",
         item.item_net_rate ? formatNumber(item.item_net_rate, 2) : "",
         item.item_qty + ` \n${item.item_unit_name}`,

@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -16,7 +15,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { exportReportExcel } from "../../../../services/reportExportService";
+import { exportReportExcel, exportReportPdf } from "../../../../services/reportExportService";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -96,10 +95,7 @@ const CustomerSalesPurchaseReport: React.FC<
     const dropdownRef = useRef<HTMLDivElement>(null);
     const dt = useRef<DataTable<ICustomerSalesPurchaseItem[]>>(null);
 
-    const offsetRef = useRef(0);
     const isFetchingRef = useRef(false);
-    const hasMoreRef = useRef(true);
-    const PAGE_SIZE = 50;
 
     const currSym =
       summaryData.currency_symbol || customers[0]?.currency_symbol || "₹";
@@ -120,8 +116,8 @@ const CustomerSalesPurchaseReport: React.FC<
 
     const [lazyState, setLazyState] = useState<LazyTableState>({
       first: 0,
-      rows: 49,
-      page: 1,
+      rows: 50,
+      page: 0,
       sortField: null,
       sortOrder: null,
       filters: {
@@ -195,21 +191,14 @@ const CustomerSalesPurchaseReport: React.FC<
         .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
     }, [selectedDates, filters.startSearchDate, filters.endSearchDate]);
 
-    const loadData = async (reset = false) => {
+    const loadData = async (offset: number, limit: number) => {
       if (!canViewReport) return;
       if (isFetchingRef.current) return;
-      if (!hasMoreRef.current && !reset) return;
 
       isFetchingRef.current = true;
       setLoading(true);
 
       try {
-        if (reset) {
-          offsetRef.current = 0;
-          setCustomers([]);
-          hasMoreRef.current = true;
-        }
-
         await fetchCustomerSalesPurchaseReport(
           (dataSetter) => {
             const newData =
@@ -217,10 +206,7 @@ const CustomerSalesPurchaseReport: React.FC<
                 ? dataSetter(allRawData)
                 : dataSetter;
             setAllRawData(newData);
-            if (newData.length < PAGE_SIZE) {
-              hasMoreRef.current = false;
-            }
-            setCustomers((prev) => (reset ? newData : [...prev, ...newData]));
+            setCustomers(newData);
           },
           setTotalRecords,
           setSummaryData,
@@ -228,13 +214,11 @@ const CustomerSalesPurchaseReport: React.FC<
           selectedTeamMembers || filters.checkedOptionsUser,
           MobileToken,
           getID,
-          offsetRef.current,
-          PAGE_SIZE,
+          offset,
+          limit,
           globalSearch || debouncedSearchText,
           selectedContactId || filters.selectedContactId,
         );
-
-        offsetRef.current += PAGE_SIZE;
       } catch (err) {
         console.error(err);
       } finally {
@@ -244,15 +228,23 @@ const CustomerSalesPurchaseReport: React.FC<
     };
 
     const handleRefresh = async () => {
-      offsetRef.current = 0;
-      hasMoreRef.current = true;
-      loadData(true);
+      loadData(lazyState.first, lazyState.rows);
+    };
+
+    const onPageChange = (event: DataTablePageEvent) => {
+      setLazyState((prev) => ({
+        ...prev,
+        first: event.first,
+        rows: event.rows,
+        page: event.page ?? 0,
+      }));
+      loadData(event.first, event.rows);
     };
 
     useEffect(() => {
-      offsetRef.current = 0;
-      hasMoreRef.current = true;
-      loadData(true);
+      setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+      setSelectedCustomers([]);
+      loadData(0, lazyState.rows);
     }, [
       reportSelectedDates,
       selectedTeamMembers,
@@ -363,34 +355,41 @@ const CustomerSalesPurchaseReport: React.FC<
       }
     };
 
-    const exportPdf = () => {
+    const exportPdf = async () => {
       if (!canShare) {
         toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
         return;
       }
-      const dataToExport =
-        selectedCustomers.length > 0 ? selectedCustomers : customers;
-      if (dataToExport.length === 0) return;
+      if (selectedCustomers.length === 0 && customers.length === 0) return;
 
-      const doc = new jsPDF("l", "pt", "a4");
-      doc.text("Customer-Wise Sales & Purchase Report", 40, 40);
+      const rows =
+        selectedCustomers.length > 0
+          ? selectedCustomers.map((item, idx) => {
+              const row: Record<string, string | number> = {};
+              visibleColumns.forEach((col) => {
+                row[col.key] = getExportCellValue(col, item, idx);
+              });
+              return row;
+            })
+          : undefined;
 
-      const head = [visibleColumns.map((col) => col.label)];
-
-      const body = dataToExport.map((item, idx) =>
-        visibleColumns.map((col) => getExportCellValue(col, item, idx)),
-      );
-
-      autoTable(doc, {
-        head: head,
-        body: body,
-        startY: 60,
-        theme: "striped",
-        styles: { fontSize: 9 },
-      });
-
-      doc.save(`Customer_Wise_Sales_Purchase_Report_${new Date().getTime()}.pdf`);
-      toast.success("PDF exported successfully!");
+      try {
+        await exportReportPdf({
+          reportType: "customer_sales_purchase_report",
+          filters: {
+            selectedDates: reportSelectedDates,
+            selectedTeamMembers: selectedTeamMembers || filters.checkedOptionsUser,
+            selectedContactId: selectedContactId || filters.selectedContactId,
+            globalSearch: globalSearch || debouncedSearchText,
+          },
+          columns: visibleColumns,
+          fileName: "Customer_Wise_Sales_Purchase_Report",
+          rows,
+        });
+        toast.success("PDF exported successfully!");
+      } catch {
+        toast.error("Failed to export data");
+      }
     };
 
     const printTable = () => {
@@ -493,7 +492,7 @@ const CustomerSalesPurchaseReport: React.FC<
           label: "S.No",
           header: "S.No",
           width: "4rem",
-          body: (_rowData, options) => options.rowIndex + 1,
+          body: (_rowData, options) => lazyState.first + options.rowIndex + 1,
         },
         {
           key: "customer_code",
@@ -546,7 +545,7 @@ const CustomerSalesPurchaseReport: React.FC<
           body: relationshipBodyTemplate,
         },
       ];
-    }, [currSym]);
+    }, [currSym, lazyState.first]);
 
     const {
       visibleColumns,
@@ -859,28 +858,20 @@ const CustomerSalesPurchaseReport: React.FC<
           <DataTable
             ref={dt}
             value={customers}
+            dataKey="id"
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             tableStyle={{ tableLayout: "fixed", width: "100%" }}
             scrollable
             scrollHeight="65vh"
-            virtualScrollerOptions={{
-              itemSize: 50,
-              lazy: true,
-              onLazyLoad: (e: any) => {
-                if (
-                  e.last >= customers.length - 1 &&
-                  hasMoreRef.current &&
-                  !loading
-                ) {
-                  loadData(false);
-                }
-              },
-              appendOnly: true,
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             filterDisplay="row"
             onFilter={onFilter}
             filters={lazyState.filters}

@@ -21,7 +21,7 @@ export const isPdfmeEnabledForDailyInvoice = async (): Promise<boolean> => {
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: "salesInvoice_document_designer",
     });
     return data?.ack === 1 && !!data.data.item.is_enabled;
   } catch {
@@ -305,11 +305,12 @@ export const fetchCartReport = async (
 
         const items: IFlatCartItem[] = response?.data?.data?.item || [];
         const getcurrncy = response?.data?.data.currency_name || " ";
+        const total = Number(response?.data?.data?.total) || 0;
 
         if (response.data.ack == 3) {
             toast.error(response.data.ack_msg);
         }
-        return { items, getcurrncy };
+        return { items, getcurrncy, total };
     } catch (error: any) {
         toast.error(
             error?.response?.data?.message ||
@@ -323,7 +324,7 @@ export const fetchCartReport = async (
 };
 
 export const flattenCartDataForExport = (apiItems: any[]): IFlatCartItem[] => {
-    return apiItems.map((item: any) => {
+    return apiItems.map((item: any, index: number) => {
         const cart = item.cart_details || {};
         const contact = item.contact_details || {};
         const custom = item.custom_fields || {};
@@ -337,6 +338,7 @@ export const flattenCartDataForExport = (apiItems: any[]): IFlatCartItem[] => {
 
         return {
             id: item.id,
+            srno: index + 1,
 
             // ✅ CART DETAILS
             username: cart.username,

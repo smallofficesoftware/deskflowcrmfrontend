@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -20,6 +18,7 @@ import {
 } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -115,9 +114,6 @@ const ChainWiseContactReportView = ({
   const [selectedCustomers, setSelectedCustomers] = useState<IChainContact[]>(
     [],
   );
-  const [hasMore, setHasMore] = useState(true);
-
-  const currentOffset = useRef(0);
   const isLoadingMore = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
@@ -335,18 +331,13 @@ const ChainWiseContactReportView = ({
   useEffect(() => {
     setCustomers([]);
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadTasks(0, 50, true);
+    loadTasks();
   }, [searchDependencies, filters.referenceWiseContact]);
 
-  const loadTasks = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  // The chain-contact endpoint ignores ul/ll and returns every parent with
+  // its children, so this is a single fetch; the table paginates client-side.
+  const loadTasks = async () => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
@@ -366,30 +357,16 @@ const ChainWiseContactReportView = ({
         selectedDemography
           ? Object.values(selectedDemography).filter(Boolean)
           : null,
-        offset,
-        limit,
+        0,
+        50,
         debouncedSearchText,
         filters.selectedContactId,
         filters.referenceWiseContact,
       );
 
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = [...prev];
-          updated.splice(prev.length, 0, ...newData); // Append via splice on copy
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(newData);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -397,11 +374,8 @@ const ChainWiseContactReportView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
     setSelectedCustomers([]);
-    loadTasks(0, 50, true);
+    loadTasks();
   };
 
   const dataArray: IChainContact[] = useMemo(() => {
@@ -727,50 +701,6 @@ const ChainWiseContactReportView = ({
     return customer[col.key] ?? "-";
   };
 
-  const exportColumns = visibleColumns.map((col) => ({
-    title: col.label,
-    dataKey: col.key,
-  }));
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedCustomers.length > 0 ? selectedCustomers : filteredData
-    ).map((customer) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, customer);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("All Contact Report", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`all_contacts_report_${new Date().getTime()}.pdf`);
-  };
-
   const printTable = () => {
     const filteredData = getFilteredData();
     const tableData =
@@ -998,25 +928,29 @@ const ChainWiseContactReportView = ({
                   selectedRows={selectedCustomers}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="chain_wise_contact_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    setActive,
+                    setActiveDay,
+                    selectedLabels: filters.checkedOptions,
+                    selectedSourceTypes: filters.checkedSourceTypes,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    selectedDemography: selectedDemography
+                      ? Object.values(selectedDemography).filter(Boolean)
+                      : null,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Chain_Wise_Contact_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1081,6 +1015,9 @@ const ChainWiseContactReportView = ({
             (c) => c.chainContact && c.chainContact.length > 0,
           )}
           loading={loading}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           scrollable
           resizableColumns
           columnResizeMode="fit"

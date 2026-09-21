@@ -35,7 +35,7 @@ const Header = ({ qrCode }: HeaderProps) => {
         try {
             const { data: flagData } = await axiosInstance.post("get-feature-flag", {
                 company_masters_id: companyData?.id,
-                feature_key: "document_designer",
+                feature_key: "accountStatement_document_designer",
             });
             const pdfmeOn = flagData?.ack === 1 && !!flagData.data.item.is_enabled;
             if (!pdfmeOn) {

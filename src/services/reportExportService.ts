@@ -5,9 +5,21 @@ export interface ExportColumn {
   key: string;
   label: string;
   // Drives a real typed Excel cell + numFmt in exporter.js (date/number/
-  // currency) instead of a stringified value. Omit for string/lookup
-  // columns - unchanged, today's exact behavior.
-  format?: "date" | "number" | "currency";
+  // currency) instead of a stringified value. "badge"/"multiline"/
+  // "nested-table" are PDF-only - the xlsx branch ignores them and falls
+  // back to a plain string, same as omitting format entirely. Omit for
+  // string/lookup columns - unchanged, today's exact behavior.
+  format?: "date" | "number" | "currency" | "badge" | "multiline" | "nested-table";
+  // format: "badge" only - row field(s) holding the badge's background
+  // color (hex/CSS color). Checked in order; first truthy value wins,
+  // "#eeeeee" if none are set. Mirrors the grid's own
+  // `rowData.stage_status_color || rowData.status_colour || "#eeeeee"`
+  // fallback chains.
+  colorKeys?: string[];
+  // format: "nested-table" only - the inner table's own columns; the
+  // row's value at this column's key must be an array of objects, each
+  // rendered as one inner-table row via these {key,label} pairs.
+  subColumns?: { key: string; label: string }[];
 }
 
 // One named aggregate over the exported row set - optionally restricted to
@@ -54,6 +66,42 @@ export const exportReportExcel = async ({
   const getUUID = localStorage.getItem("UUID");
 
   const response = await axiosInstance.post("/reports/export-excel", {
+    reportType,
+    filters: { ...filters, a_application_login_id: getUUID },
+    columns,
+    rows,
+    footer,
+  });
+
+  if (response.data.ack !== 1) {
+    throw new Error(response.data.ack_msg || "Export failed");
+  }
+
+  const { fileUrl, fileName: savedName } = response.data.data;
+
+  const fileResponse = await axiosInstance.get(fileUrl, {
+    responseType: "blob",
+  });
+
+  saveAs(new Blob([fileResponse.data]), savedName || fileName);
+};
+
+// Same request shape as exportReportExcel - only the endpoint and the
+// server-side renderer (genericReportExport.ejs -> pdf-creator-node)
+// differ. Replaces each report's own client-side jsPDF/jspdf-autotable
+// build with one generic backend export, same as the Excel migration did
+// for client-side xlsx builds.
+export const exportReportPdf = async ({
+  reportType,
+  filters,
+  columns,
+  fileName,
+  rows,
+  footer,
+}: ExportReportExcelParams): Promise<void> => {
+  const getUUID = localStorage.getItem("UUID");
+
+  const response = await axiosInstance.post("/reports/export-pdf", {
     reportType,
     filters: { ...filters, a_application_login_id: getUUID },
     columns,

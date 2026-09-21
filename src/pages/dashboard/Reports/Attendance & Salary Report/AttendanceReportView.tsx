@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -17,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -156,8 +156,6 @@ const TeamAttendanceReportsView = ({
     IAttendanceHistory[]
   >([]);
   const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -279,7 +277,7 @@ const TeamAttendanceReportsView = ({
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
-    rows: 49,
+    rows: 50,
     page: 1,
     sortField: null,
     sortOrder: null,
@@ -535,30 +533,23 @@ const TeamAttendanceReportsView = ({
   ]);
 
   useEffect(() => {
-    setCustomers([]);
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
     setSelectedCustomers([]);
-    currentOffset.current = 0;
-    setHasMore(true);
-    loadAttendance(0, 50, true);
+    loadAttendance(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
     debouncedSearchText,
   ]);
 
-  const loadAttendance = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadAttendance = async (offset: number, limit: number) => {
+    if (isLoadingMore.current) return;
 
     setLoading(true);
     isLoadingMore.current = true;
 
     try {
-      const newData = await fetchAttendanceReport(
+      const { data, total } = await fetchAttendanceReport(
         filters.selectedDateArray,
         filters.checkedOptionsUser,
         MobileToken,
@@ -569,17 +560,10 @@ const TeamAttendanceReportsView = ({
         debouncedSearchText,
       );
 
-      if (newData.length < limit) setHasMore(false);
-
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => [...prev, ...newData]);
-      }
-
-      currentOffset.current = offset + newData.length;
+      setCustomers(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
       isLoadingMore.current = false;
@@ -587,10 +571,17 @@ const TeamAttendanceReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    loadAttendance(0, 50, true);
+    loadAttendance(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadAttendance(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -611,7 +602,7 @@ const TeamAttendanceReportsView = ({
 
   const onSelectionChange = (event: { value: IAttendanceHistory[] }) => {
     setSelectedCustomers(event.value);
-    setSelectAll(event.value.length === totalRecords);
+    setSelectAll(event.value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -622,115 +613,6 @@ const TeamAttendanceReportsView = ({
       setSelectAll(false);
       setSelectedCustomers([]);
     }
-  };
-
-  // ──────────────────────────────────────────────────────────────
-  //  EXPORT COLUMNS (derived from visibleColumns; date columns are
-  //  not part of the toggle system so they're always included at
-  //  their original position, right after the Team Member column)
-  // ──────────────────────────────────────────────────────────────
-  const buildExportColumns = () => [
-    ...visibleColumns
-      .filter((c) => c.key === "username")
-      .map((col) => ({ title: col.label, dataKey: col.key })),
-    ...allDates.map((date) => ({
-      title: formatDateDisplay(date),
-      dataKey: formatDate(date),
-    })),
-    ...visibleColumns
-      .filter((c) => c.key !== "username")
-      .map((col) => ({ title: col.label, dataKey: col.key })),
-  ];
-
-  const buildExportRow = (customer: IAttendanceHistory) => {
-    const row: Record<string, any> = {};
-
-    visibleColumns.forEach((col) => {
-      row[col.key] = getExportCellValue(col, customer);
-    });
-
-    // All date columns
-    allDates.forEach((date) => {
-      const formattedDate = formatDate(date);
-      const attendance = customer.attendanceData?.find(
-        (a) => a.date === formattedDate,
-      );
-      let cellValue = "-";
-      if (attendance) {
-        const status =
-          attendance.status === "L" && attendance.leave_type
-            ? `${attendance.status} (${attendance.leave_type})`
-            : attendance.status;
-        const times =
-          attendance.messages
-            ?.filter((m) => m.attendanceDate === formattedDate)
-            .map((m) => m.attendanceTime) || [];
-
-        cellValue = status; // show status first
-        if (times.length > 0) {
-          cellValue += ` (${times.join(", ")})`; // optional: include times
-        }
-      }
-      row[formattedDate] = cellValue;
-    });
-
-    return row;
-  };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a2" });
-
-    // Use customers (all loaded data) or selectedCustomers
-    const dataToExport =
-      selectedCustomers.length > 0 ? selectedCustomers : customers;
-
-    if (!dataToExport || dataToExport.length === 0) {
-      toast.info("No data available to export");
-      return;
-    }
-
-    const tableData = dataToExport.map((customer) => buildExportRow(customer));
-
-    autoTable(doc, {
-      columns: buildExportColumns(),
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 5, bottom: 10 },
-      columnStyles: {
-        username: { cellWidth: 28 },
-        total_working_hours: { cellWidth: 22 },
-        company_paid_leave: { cellWidth: 18 },
-        employee_paid_leave: { cellWidth: 18 },
-        paid_days_paid_hours: { cellWidth: 22 },
-        salary: { cellWidth: 18 },
-        ...allDates.reduce(
-          (acc, date) => {
-            acc[formatDate(date)] = { cellWidth: 14 };
-            return acc;
-          },
-          {} as Record<string, { cellWidth: number }>,
-        ),
-      },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text("Team Attendance Report", data.settings.margin.left, 10);
-        doc.setFontSize(7);
-        doc.text(
-          "Note: Scroll or pan horizontally in your PDF viewer to see all columns.",
-          data.settings.margin.left,
-          15,
-        );
-      },
-    });
-
-    doc.save(`team_attendance_${Date.now()}.pdf`);
   };
 
   // Export interleaves one column PER DATE in the selected range, which
@@ -1064,22 +946,24 @@ const TeamAttendanceReportsView = ({
                 }
               />
 
-              <li
-                className="listItem text-start"
-                role="button"
-                onClick={() => {
-                  setIsExportDropdownOpen(false);
-
-                  if (customers.length === 0) return;
-
-                  canShare
-                    ? exportPdf()
-                    : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+              <ExportPdfMenuItem
+                reportType="attendance_report"
+                filters={{
+                  selectedDates: filters.selectedDateArray,
+                  selectedTeamMembers: filters.checkedOptionsUser,
+                  globalSearch: debouncedSearchText,
                 }}
-              >
-                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
-                Export PDF
-              </li>
+                columns={buildAttendanceExportColumns()}
+                fileName="Team_Attendance_Report"
+                canShare={canShare}
+                disabled={customers.length === 0}
+                onSelect={() => setIsExportDropdownOpen(false)}
+                selectedRows={
+                  selectedCustomers.length > 0
+                    ? selectedCustomers.map(flattenAttendanceForExport)
+                    : undefined
+                }
+              />
 
               <li
                 className="listItem text-start"
@@ -1145,22 +1029,13 @@ const TeamAttendanceReportsView = ({
           className="custom-centered-table"
           scrollable
           scrollHeight="90vh"
-          virtualScrollerOptions={{
-            itemSize: 52,
-            lazy: true,
-            onLazyLoad: (event: { first: number; last: number }) => {
-              if (event.last >= customers.length - 1 && hasMore && !loading) {
-                loadAttendance(currentOffset.current, 50);
-              }
-            },
-            appendOnly: true,
-            // showLoader: true,
-            delay: 0,
-          }}
           filterDisplay="row"
           dataKey="username"
+          paginator
           first={lazyState.first}
           rows={lazyState.rows}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           totalRecords={totalRecords}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}

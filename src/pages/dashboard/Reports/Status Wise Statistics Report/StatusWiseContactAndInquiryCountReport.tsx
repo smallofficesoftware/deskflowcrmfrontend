@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -18,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -68,14 +67,11 @@ const StatusWiseContactAndInquiryCountReport = ({
 }: IPropsStatusWiseContactCountReport) => {
     const [loading, setLoading] = useState(false);
     const [totalRecords, setTotalRecords] = useState(0);
-    const [customers, setCustomers] = useState<IStatusWiseContactCountReport[]>([]);
     const [selectAll, setSelectAll] = useState(false);
     const [selectedCustomers, setSelectedCustomers] = useState<IStatusWiseContactCountReport[]>(
         [],
     );
 
-    const isPaginationCall = useRef(false);
-    const [apiParams, setApiParams] = useState({ ul: 0, ll: 50 });
 
     const [selectReportType, setSelectReportType] = useState("");
     const [hasData, setHasData] = useState<boolean>(false);
@@ -168,7 +164,7 @@ const StatusWiseContactAndInquiryCountReport = ({
 
     const [lazyState, setLazyState] = useState<LazyTableState>({
         first: 0,
-        rows: 49,
+        rows: 50,
         page: 0,
         sortField: null,
         sortOrder: null,
@@ -182,15 +178,8 @@ const StatusWiseContactAndInquiryCountReport = ({
     const [error, setError] = useState<string | null>(null);
 
     const dt = useRef<DataTable<IStatusWiseContactCountReport[]>>(null);
-    const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
-        // Skip if pagination call is in progress
-        if (isPaginationCall.current) {
-            isPaginationCall.current = false;
-            return;
-        }
-
         let isMounted = true;
 
         const fetchData = async () => {
@@ -206,7 +195,8 @@ const StatusWiseContactAndInquiryCountReport = ({
                     MobileFlag,
                     filters.checkedOptionsStageStatus,
                     0,
-                    50,
+                    lazyState.rows,
+                    setTotalRecords,
                 );
             } catch (err: any) {
                 if (isMounted) {
@@ -224,7 +214,6 @@ const StatusWiseContactAndInquiryCountReport = ({
 
         return () => {
             isMounted = false;
-            if (networkTimeout.current) clearTimeout(networkTimeout.current);
         };
     }, [
         filters.selectedDateArray,
@@ -242,7 +231,8 @@ const StatusWiseContactAndInquiryCountReport = ({
             MobileFlag,
             filters.checkedOptionsStageStatus,
             0,
-            50,
+            lazyState.rows,
+            setTotalRecords,
         );
         setLoading(false);
     };
@@ -254,13 +244,6 @@ const StatusWiseContactAndInquiryCountReport = ({
             inquiryCount: item.inquiryCount ?? "-",
         }))
         : [];
-
-    useEffect(() => {
-        loadLazyData();
-        return () => {
-            if (networkTimeout.current) clearTimeout(networkTimeout.current);
-        };
-    }, [lazyState, statusWiseReport]);
 
     const getFilteredData = () => {
         let filteredData = [...dataArray];
@@ -313,32 +296,12 @@ const StatusWiseContactAndInquiryCountReport = ({
         return filteredData;
     };
 
-    const loadLazyData = () => {
-        setLoading(true);
-        if (networkTimeout.current) clearTimeout(networkTimeout.current);
-
-        networkTimeout.current = setTimeout(() => {
-            const filteredData = getFilteredData();
-            const start = lazyState.first;
-            const end = start + lazyState.rows;
-            setCustomers(filteredData.slice(start, end));
-            setTotalRecords(filteredData.length);
-            setLoading(false);
-        }, 250);
-    };
-
     const onPage = async (event: DataTablePageEvent) => {
-        const currentPage = event.page ?? 0;
-        const ul = currentPage * 50; // upper limit (starting point)
-        const ll = 50; // lower limit (ending point)
-
-        isPaginationCall.current = true;
-
         setLazyState((prev) => ({
             ...prev,
             first: event.first,
             rows: event.rows,
-            page: currentPage,
+            page: event.page ?? 0,
         }));
 
         setLoading(true);
@@ -351,16 +314,14 @@ const StatusWiseContactAndInquiryCountReport = ({
                 getID,
                 MobileFlag,
                 filters.checkedOptionsStageStatus,
-                ul,
-                ll,
+                event.first,
+                event.rows,
+                setTotalRecords,
             );
         } catch (err) {
             console.error("Error fetching paginated status wise data:", err);
         } finally {
             setLoading(false);
-            setTimeout(() => {
-                isPaginationCall.current = false;
-            }, 100);
         }
     };
     const onSort = (event: DataTableSortEvent) => {
@@ -382,7 +343,7 @@ const StatusWiseContactAndInquiryCountReport = ({
     const onSelectionChange = (event: { value: IStatusWiseContactCountReport[] }) => {
         const value = event.value;
         setSelectedCustomers(value);
-        setSelectAll(value.length === totalRecords);
+        setSelectAll(value.length === dataArray.length);
     };
 
     const onSelectAllChange = (event: { checked: boolean }) => {
@@ -448,51 +409,6 @@ const StatusWiseContactAndInquiryCountReport = ({
         if (col.key === "inquiryCount") return customer.inquiryCount ?? 0;
         return customer[col.key] ?? "-";
     };
-
-    const exportPdf = () => {
-        const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-        const filteredData = getFilteredData();
-        const tableData = (
-            selectedCustomers.length > 0 ? selectedCustomers : filteredData
-        ).map((customer) => {
-            const rowData: any = {};
-            visibleColumns.forEach((col) => {
-                rowData[col.key] = getExportCellValue(col, customer);
-            });
-            return rowData;
-        });
-
-        if (tableData.length === 0) {
-            doc.text("No data available to export", 10, 10);
-            doc.save(`status_wise_contact_count_report_${new Date().getTime()}.pdf`);
-            return;
-        }
-
-        const exportColumns = visibleColumns.map((col) => ({
-            title: col.label,
-            dataKey: col.key,
-        }));
-
-        autoTable(doc, {
-            columns: exportColumns,
-            body: tableData,
-            theme: "grid",
-            styles: { fontSize: 10, cellPadding: 2 },
-            headStyles: {
-                fillColor: [41, 128, 185],
-                textColor: [255, 255, 255],
-                fontStyle: "bold",
-            },
-            margin: { top: 20, left: 10, right: 10, bottom: 10 },
-            didDrawPage: (data) => {
-                doc.setFontSize(14);
-                doc.text("Status Wise Contact And Inquiry Count Report", data.settings.margin.left, 10);
-            },
-        });
-
-        doc.save(`status_wise_contact_count_report_${new Date().getTime()}.pdf`);
-    };
-
 
     const printTable = () => {
         const filteredData = getFilteredData();
@@ -641,7 +557,21 @@ const StatusWiseContactAndInquiryCountReport = ({
                                     columns={visibleColumns}
                                     fileName="status_wise_contact_count_report"
                                     canShare={canShare}
-                                    disabled={customers.length === 0}
+                                    disabled={dataArray.length === 0}
+                                    onSelect={() => setIsExportDropdownOpen(false)}
+                                    selectedRows={selectedCustomers}
+                                />
+
+                                <ExportPdfMenuItem
+                                    reportType="status_wise_statistics_report"
+                                    filters={{
+                                        selected_dates: filters.selectedDateArray,
+                                        selectedStatus: filters.checkedOptionsStageStatus,
+                                    }}
+                                    columns={visibleColumns}
+                                    fileName="status_wise_contact_count_report"
+                                    canShare={canShare}
+                                    disabled={dataArray.length === 0}
                                     onSelect={() => setIsExportDropdownOpen(false)}
                                     selectedRows={selectedCustomers}
                                 />
@@ -652,27 +582,7 @@ const StatusWiseContactAndInquiryCountReport = ({
                                     onClick={() => {
                                         setIsExportDropdownOpen(false);
 
-                                        if (customers.length === 0) return;
-
-                                        canShare
-                                            ? exportPdf()
-                                            : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
-                                    }}
-                                >
-                                    <i
-                                        className="pi pi-file-pdf"
-                                        style={{ marginRight: "4px" }}
-                                    />
-                                    Export PDF
-                                </li>
-
-                                <li
-                                    className="listItem text-start"
-                                    role="button"
-                                    onClick={() => {
-                                        setIsExportDropdownOpen(false);
-
-                                        if (customers.length === 0) return;
+                                        if (dataArray.length === 0) return;
 
                                         canPrint
                                             ? printTable()
@@ -730,11 +640,14 @@ const StatusWiseContactAndInquiryCountReport = ({
                     className="custom-centered-table"
                     scrollable
                     scrollHeight="65vh"
-                    virtualScrollerOptions={{
-                        itemSize: 50,
-                    }}
                     filterDisplay="row"
                     dataKey="status_name"
+                    paginator
+                    lazy
+                    first={lazyState.first}
+                    rows={lazyState.rows}
+                    onPage={onPage}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     totalRecords={totalRecords}
                     onSort={onSort}
                     sortField={lazyState.sortField ?? undefined}

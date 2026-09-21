@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
@@ -10,6 +8,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -22,6 +21,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -143,13 +143,10 @@ const TeamSalesInvoiceDataReportsView = ({
   const dt = useRef<DataTable<any[]>>(null);
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(100);
   const [showProductDetails, setShowProductDetails] = useState(false);
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const isLoadingMore = useRef(false);
-  const currentOffset = useRef(0);
-  const PAGE_SIZE = 100;
   const [isOrderShow, setIsOrderShow] = useState(false);
   const [contactData, setContactData] = useState<IUserList | undefined>();
 
@@ -329,10 +326,9 @@ const TeamSalesInvoiceDataReportsView = ({
   );
 
   useEffect(() => {
-    offsetRef.current = 0;
-    currentOffset.current = 0;
-    setHasMore(true);
-    onVirtualScroll(0, 50, true);
+    setPage(0);
+    loadInvoices(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -470,13 +466,7 @@ const TeamSalesInvoiceDataReportsView = ({
     return data;
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  const onVirtualScroll = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadInvoices = async (offset: number, limit: number) => {
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
@@ -489,8 +479,8 @@ const TeamSalesInvoiceDataReportsView = ({
         filters.checkedOptionsStageStatus,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         debouncedSearchText,
         filters.checkedOptionsSeries,
         setCurrencyName,
@@ -503,24 +493,11 @@ const TeamSalesInvoiceDataReportsView = ({
         filters.selectedApproveStatus,
       );
 
-      const newData = data?.items || [];
-      const getcurrncy = data?.getcurrncy;
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-      setCurrencyName(getcurrncy);
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = prev.concat(newData);
-          return updated;
-        });
-      }
-      currentOffset.current = offset + newData.length;
-      offsetRef.current += PAGE_SIZE;
+      setCustomers(data?.items || []);
+      setCurrencyName(data?.getcurrncy);
+      setTotalRecords(data?.total || 0);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -530,11 +507,14 @@ const TeamSalesInvoiceDataReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    onVirtualScroll(0, PAGE_SIZE, true);
+    setPage(0);
+    loadInvoices(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadInvoices(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -1079,81 +1059,6 @@ const TeamSalesInvoiceDataReportsView = ({
     }
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a1" });
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied
-          ? customers
-          : filteredData;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.label] = getExportCellValue(col, item);
-      });
-      return rowData;
-    });
-
-        const totalsRow = {
-      ...(showProductDetails && { product_details: "" }),
-      cart_number: "Total",
-      to_customer_name: "",
-      to_customer_phone: "",
-      to_customer_gst_number: "",
-      username: "",
-      cart_status: "",
-      created_date_time: "",
-      update_Date_time: "",
-      taxable_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.taxable_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      gst_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.gst_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      tcs_amt: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.tcs_amt_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      round_off: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.round_off_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-      grand_total: dataToExport.reduce((sum: number, item: any) => sum + (parseFloat(String(item.grand_total_wo_c).replace(/[^0-9.-]+/g, "")) || 0), 0).toFixed(2),
-    };
-    tableData.push(totalsRow as any);
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.label,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 10,
-        overflow: "linebreak",
-        cellPadding: 2,
-      },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === tableData.length - 1 && data.row.section === "body") {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
-
   const printTable = () => {
     const isFilterApplied = Object.values(lazyState.filters).some(
       (filter) =>
@@ -1551,25 +1456,50 @@ const TeamSalesInvoiceDataReportsView = ({
                       }}
                     />
 
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportPdf()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportPdfMenuItem
+                      reportType="sales_invoice_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedTrasactionModeOptions: filters.checkedTrasactionMode,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-pdf"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export PDF
-                    </li>
+                      columns={visibleColumns}
+                      fileName="Sales_Invoice_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers.map((item) => ({
+                        ...item,
+                        cart_number: `${item.cart_number || "XXXXXXX"} (${item.is_approve?.name || "-"})`,
+                        to_customer_name: `${item.to_customer_company_name || "-"} (${item.to_customer_name || "-"}) - ${item.to_customer_phone || "-"}`,
+                      }))}
+                      footer={{
+                        sums: [
+                          { outputKey: "taxable_amt", sourceKey: "taxable_amt_wo_c" },
+                          { outputKey: "gst_amt", sourceKey: "gst_amt_wo_c" },
+                          { outputKey: "tcs_amt", sourceKey: "tcs_amt_wo_c" },
+                          { outputKey: "round_off", sourceKey: "round_off_wo_c" },
+                          { outputKey: "grand_total", sourceKey: "grand_total_wo_c" },
+                        ],
+                        rows: [
+                          {
+                            cart_number: "Total",
+                            taxable_amt: { fromSum: "taxable_amt" },
+                            gst_amt: { fromSum: "gst_amt" },
+                            tcs_amt: { fromSum: "tcs_amt" },
+                            round_off: { fromSum: "round_off" },
+                            grand_total: { fromSum: "grand_total" },
+                          },
+                        ],
+                      }}
+                    />
 
                     <li
                       className="listItem text-start"
@@ -1728,23 +1658,13 @@ const TeamSalesInvoiceDataReportsView = ({
               tableStyle={{ tableLayout: "fixed", width: "100%" }}
               scrollable
               scrollHeight="80vh"
-              virtualScrollerOptions={{
-                itemSize: 52, // Adjust based on your row height
-                lazy: true,
-                // onLazyLoad: onVirtualScroll,
-                onLazyLoad: (event: { first: number; last: number }) => {
-                  if (
-                    event.last >= customers.length - 1 &&
-                    hasMore &&
-                    !loading
-                  ) {
-                    onVirtualScroll(currentOffset.current, 50);
-                  }
-                },
-                appendOnly: true,
-                showLoader: true,
-                delay: 0,
-              }}
+              paginator
+              lazy
+              first={page * rows}
+              rows={rows}
+              totalRecords={totalRecords}
+              onPage={onPageChange}
+              rowsPerPageOptions={[25, 50, 100, 200]}
               // dataKey="id"
               filterDisplay="row"
               onFilter={onFilter}

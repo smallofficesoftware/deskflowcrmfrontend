@@ -12,6 +12,7 @@ import PrintSettingModal from "../../components/model/PrintSettingModal";
 import SafeHtml from "../../components/SafeHtml";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../helpers/AppConstants";
 import { PAGE_ID, PRINT_SETTING_TYPE_OBJ } from "../../helpers/AppEnum";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance, setUrlParams } from "../../services/axiosInstance";
 import { numberToWordsCurrency } from "../../utils/numberToWordsCurrency";
 import {
@@ -142,7 +143,7 @@ const PendingPrintViewV1 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pendingDocType),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);

@@ -40,7 +40,9 @@ import {
   fetchPdfmeTemplatesForPicker,
   handleDownload,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "./orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 
 interface CustomFormField {
   id: number;
@@ -302,7 +304,7 @@ const OrderPrintViewV2 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(orderPrintById?.cart?.type)!),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
@@ -1619,6 +1621,10 @@ const OrderPrintViewV2 = () => {
                                               {orderPrintById?.cart.city_name
                                                 ? ` - ${orderPrintById?.cart.city_name}`
                                                 : ""}
+                                              {printSetting?.setting_details.supplyToArea &&
+                                              orderPrintById?.cart.area_name
+                                                ? ` - ${orderPrintById?.cart.area_name}`
+                                                : ""}
                                             </span>{" "}
                                           </strong>
                                         </span>
@@ -1746,7 +1752,7 @@ const OrderPrintViewV2 = () => {
                             <>
                               <th className="without_price_check">Rate</th>
                               {printSetting?.setting_details.discountColumn ==
-                                true && <th className="text-center">Dis(%)</th>}
+                                true && <th className="text-center">Dis({Number(orderPrintById?.cart?.item_discount_type) === 2 ? "₹" : "%"})</th>}
                               {gstAmount != 0 ? (
                                 <th className="text-center"> GST(%)</th>
                               ) : (
@@ -1981,9 +1987,9 @@ const OrderPrintViewV2 = () => {
                                                 : ""
                                                 }`}
                                             >
-                                              {item.item_discount_pct
+                                              {(Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct)
                                                 ? formatNumber(
-                                                  item.item_discount_pct,
+                                                  (Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct),
                                                   2,
                                                 )
                                                 : "0"}
@@ -2645,7 +2651,7 @@ const OrderPrintViewV2 = () => {
                                                     orderPrintById?.cart
                                                       .currency_id,
                                                 )?.symbol || "₹"
-                                                  } ${formatNumber(row.value, 2)}`}
+                                                  } ${formatNumber(Number(row.value) || 0, 2)}`}
                                               </td>
                                             </tr>
                                           ))}

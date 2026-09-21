@@ -12,7 +12,9 @@ import { IUserList } from "../../left-side/LeftSideController";
 import {
   fetchPdfmeTemplatesForPicker,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "../../order-print-view/orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 export interface IStageStatusView {
   order_type: number;
   name: string;
@@ -384,6 +386,42 @@ export const fetchAllCompanyApi = async (
   }
 };
 
+/**
+ * Assign team members to one or more tasks / support tickets (both are
+ * task_managements rows). The backend merges into each task's current
+ * assignees when `isNotOverrideExisting` is set, and notifies newly added
+ * members.
+ */
+export const assignTaskTeamMembers = async (
+  taskIds: number | number[],
+  selectedOptions: any[],
+  setLoading: TReactSetState<boolean>,
+  isNotOverrideExisting: boolean,
+) => {
+  setLoading(false);
+  try {
+    const { data } = await axiosInstance.post("assign-task-team-members", {
+      taskIds: Array.isArray(taskIds) ? taskIds : [taskIds],
+      teamMembers: selectedOptions || [],
+      keepExisting: isNotOverrideExisting,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      setLoading(true);
+      if (data.data?.skippedIndividual > 0) {
+        toast.warn(data.ack_msg);
+      }
+    } else {
+      toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  } catch (error: any) {
+    toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  } finally {
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }
+};
+
 export const updateUserCheckBox = async (
   hasOneData: any | undefined,
   selectedOptions: any,
@@ -592,7 +630,7 @@ const isPdfmeEnabledForCartType = async (cartTypeId: number): Promise<boolean> =
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(cartTypeId)!),
     });
     return data?.ack === 1 && !!data.data.item.is_enabled;
   } catch {

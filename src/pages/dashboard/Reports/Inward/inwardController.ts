@@ -219,7 +219,7 @@ export const isPdfmeEnabledForInward = async (): Promise<boolean> => {
   try {
     const { data } = await axiosInstance.post("get-feature-flag", {
       company_masters_id: companyMastersId,
-      feature_key: "document_designer",
+      feature_key: "inward_document_designer",
     });
     return data?.ack === 1 && !!data.data.item.is_enabled;
   } catch {
@@ -435,11 +435,12 @@ export const fetchCartReport = async (
 
     const items: IFlatCartItem[] = response?.data?.data?.item || [];
     const getcurrncy = response?.data?.data.currency_name || " ";
+    const total = Number(response?.data?.data?.total) || 0;
 
     if (response.data.ack == 3) {
       toast.error(response.data.ack_msg);
     }
-    return { items, getcurrncy };
+    return { items, getcurrncy, total };
   } catch (error: any) {
     toast.error(
       error?.response?.data?.message ||

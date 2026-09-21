@@ -11,3 +11,40 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 } */
+
+/* Bootstrap's Reboot sets a bare `ol, ul { padding-left: 2rem; }` (public/index.html's
+   CDN bootstrap.min.css, loaded globally). PrimeReact's own dropdown/paginator overlay
+   lists (e.g. .p-dropdown-items on the rows-per-page picker) render as <ul> too, so they
+   inherit that 2rem indent instead of PrimeReact's own padding - text lands top-left with
+   a stray left gap. Scoped to PrimeReact's own component classes only, not a blanket
+   ul/ol reset, so it can't affect Bootstrap's own menus/lists elsewhere in the app. */
+ul[class^="p-"],
+ul[class*=" p-"],
+ol[class^="p-"],
+ol[class*=" p-"] {
+  padding-left: 0;
+}
+
+/* Rows-per-page dropdown in PrimeReact paginators: with Bootstrap's global
+   line-height/reboot the label span sits at the top of the fixed-height
+   dropdown instead of the vertical centre. Centre it explicitly, scoped to
+   paginator dropdowns only. */
+.p-paginator .p-dropdown {
+  display: inline-flex;
+  align-items: center;
+}
+
+.p-paginator .p-dropdown .p-dropdown-label {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.p-paginator .p-dropdown .p-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

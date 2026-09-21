@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,6 +5,7 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -17,6 +16,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -245,10 +245,7 @@ const AllCallReportsView = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshReport, setRefreshReport] = useState(false);
 
-  const isPaginationCall = useRef(false);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
+  const fetchingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -382,10 +379,8 @@ const AllCallReportsView = ({
   const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    currentOffset.current = 0;
-    setHasMore(true);
-
-    loadTasks(0, 50, true); // ✅ reset load
+    setLazyState((prev) => ({ ...prev, first: 0, page: 0 }));
+    loadTasks(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -486,15 +481,13 @@ const AllCallReportsView = ({
   //   }, 250);
   // };
 
-  const loadTasks = async (offset: number, limit: number, reset = false) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
-
+  const loadTasks = async (offset: number, limit: number) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
-    isLoadingMore.current = true;
 
     try {
-      const newData = await fetchCallHistoryApi(
+      const { data, total } = await fetchCallHistoryApi(
         () => { },
         filters.selectedDateArray,
         filters.checkedOptionsUser,
@@ -510,35 +503,28 @@ const AllCallReportsView = ({
         filters.checkedOptionsStageStatus,
       );
 
-      console.log("PAGE offset:", offset, "usersReturned:", newData.length,
-        +   "totalCallsThisPage:", newData.reduce((a, u) => a + u.calls.length, 0));
-
-      // const totalCalls = newData.reduce(
-      //   (acc, user) => acc + user.calls.length,
-      //   0,
-      // );
-
-      if (!newData || newData.length === 0) {
-        setHasMore(false);
-      }
-
-      setCallData((prev) => (reset ? newData : [...prev, ...newData]));
-
-      // FIXED OFFSET
-      currentOffset.current = offset + limit;
+      setCallData(data);
+      setTotalRecords(total);
     } catch (err) {
-      setHasMore(false);
+      console.error(err);
     } finally {
       setLoading(false);
-      isLoadingMore.current = false;
+      fetchingRef.current = false;
     }
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    setHasMore(true);
-    setCallData([]);
-    loadTasks(0, 50, true);
+    loadTasks(lazyState.first, lazyState.rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: event.page ?? 0,
+    }));
+    loadTasks(event.first, event.rows);
   };
 
   //   const loadTasks = async (event: DataTablePageEvent) => {
@@ -623,7 +609,7 @@ const AllCallReportsView = ({
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value;
     setSelectedVisits(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === filteredData.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -864,63 +850,6 @@ const AllCallReportsView = ({
     setIsOrderCreateFromContactShow(true);
   };
 
-  const exportPdf = () => {
-    console.log("exportPdf");
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedVisits.length > 0
-        ? selectedVisits
-        : isFilterApplied
-          ? visits
-          : filteredData;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item);
-      });
-      EXTRA_EXPORT_COLUMNS.forEach((col) => {
-        rowData[col.key] = item[col.key] ?? "-";
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = [
-      ...visibleColumns.map((col) => ({
-        title: col.label,
-        dataKey: col.key,
-      })),
-      ...EXTRA_EXPORT_COLUMNS.map((col) => ({
-        title: col.label,
-        dataKey: col.key,
-      })),
-    ];
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-  };
 
   const printTable = () => {
     console.log("printTable");
@@ -1154,25 +1083,24 @@ const AllCallReportsView = ({
                   selectedRows={selectedVisits}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (filteredData.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="all_call_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    globalSearch: debouncedSearchText,
+                    selectedContactId: filters.selectedContactId,
+                    selectedLabels: filters.checkedOptions,
+                    selectedSourceTypes: filters.checkedSourceTypes,
+                    selectedStageStatus: filters.checkedOptionsStageStatus,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={[...visibleColumns, ...EXTRA_EXPORT_COLUMNS]}
+                  fileName="Call_Report"
+                  canShare={canShare}
+                  disabled={filteredData.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedVisits}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1240,28 +1168,20 @@ const AllCallReportsView = ({
           <DataTable
             ref={dt}
             value={filteredData}
+            dataKey="id"
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
             scrollable
             filterDisplay="row"
             scrollHeight="80vh"
-            virtualScrollerOptions={{
-              itemSize: 52, // Adjust to your actual row height (inspect in dev tools)
-              lazy: true,
-              onLazyLoad: (event: { first: number; last: number }) => {
-                if (
-                  event.last >= filteredData.length - 1 &&
-                  hasMore &&
-                  !loading
-                ) {
-                  loadTasks(currentOffset.current, 50);
-                }
-              },
-              appendOnly: true, // Key fix: prevents DOM reset and scroll jump
-              showLoader: true,
-              delay: 0,
-            }}
+            paginator
+            lazy
+            first={lazyState.first}
+            rows={lazyState.rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            rowsPerPageOptions={[25, 50, 100, 200]}
             sortField={lazyState.sortField ?? undefined}
             sortOrder={lazyState.sortOrder ?? undefined}
             sortMode="single"
@@ -1336,7 +1256,7 @@ const AllCallReportsView = ({
             flexShrink: 0,
           }}
         >
-          <b>Total Calls: {filteredData.length}</b>
+          <b>Total Calls: {totalRecords}</b>
         </div>
         {viewerOpen && (
           <ImageViewer

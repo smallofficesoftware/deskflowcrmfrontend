@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { PrimeReactProvider } from "primereact/api";
 import { Button } from "primereact/button";
@@ -10,6 +8,7 @@ import {
   DataTableOperatorFilterMetaData,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
@@ -22,6 +21,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
@@ -143,16 +143,13 @@ const TeamInwardDataReportsView = ({
   const [currencyName, setCurrencyName] = useState<any>();
 
   const dt = useRef<DataTable<any[]>>(null);
-  const isLoadingMore = useRef(false);
-  const currentOffset = useRef(0);
-  const [hasMore, setHasMore] = useState(true);
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
   const [showProductDetails, setShowProductDetails] = useState(false);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const PAGE_SIZE = 100;
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(100);
   const [isOrderShow, setIsOrderShow] = useState(false);
   const [contactData, setContactData] = useState<IUserList | undefined>();
   const [actionType, setActionType] = useState<string>("");
@@ -327,10 +324,9 @@ const TeamInwardDataReportsView = ({
   );
 
   useEffect(() => {
-    offsetRef.current = 0;
-    currentOffset.current = 0;
-    setHasMore(true);
-    onVirtualScroll(0, 50, true);
+    setPage(0);
+    loadInwards(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -470,13 +466,7 @@ const TeamInwardDataReportsView = ({
     return data;
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
-  const onVirtualScroll = async (
-    offset: number,
-    limit: number,
-    reset: boolean = false,
-  ) => {
-    if (isLoadingMore.current && !reset) return;
-    if (!hasMore && !reset) return;
+  const loadInwards = async (offset: number, limit: number) => {
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
@@ -489,8 +479,8 @@ const TeamInwardDataReportsView = ({
         filters.checkedOptionsStageStatus,
         MobileToken,
         getID,
-        offsetRef.current,
-        PAGE_SIZE,
+        offset,
+        limit,
         debouncedSearchText,
         filters.checkedOptionsSeries,
         setCurrencyName,
@@ -502,24 +492,11 @@ const TeamInwardDataReportsView = ({
         filters.selectedApproveStatus,
       );
 
-      const newData = data?.items || [];
-      const getcurrncy = data?.getcurrncy;
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
-      setCurrencyName(getcurrncy);
-      if (reset) {
-        setCustomers(newData);
-      } else {
-        setCustomers((prev) => {
-          const updated = prev.concat(newData);
-          return updated;
-        });
-      }
-
-      currentOffset.current = offset + newData.length;
-
-      offsetRef.current += PAGE_SIZE;
+      setCustomers(data?.items || []);
+      setCurrencyName(data?.getcurrncy);
+      setTotalRecords(data?.total || 0);
+    } catch (err) {
+      console.error(err);
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -529,11 +506,14 @@ const TeamInwardDataReportsView = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setHasMore(true);
-    setCustomers([]);
-    onVirtualScroll(0, PAGE_SIZE, true);
+    setPage(0);
+    loadInwards(0, rows);
+  };
+
+  const onPageChange = (event: DataTablePageEvent) => {
+    setPage(event.page ?? 0);
+    setRows(event.rows);
+    loadInwards(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -643,63 +623,6 @@ const TeamInwardDataReportsView = ({
     } else if (!canEditInward) {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
-  };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied
-          ? customers
-          : filteredData;
-
-    const tableData = dataToExport.map((item) => {
-      const rowData: any = {};
-      visibleColumns.forEach((col) => {
-        rowData[col.key] = getExportCellValue(col, item, "pdf");
-      });
-      EXTRA_EXPORT_COLUMNS_PDF_PRINT.forEach((extra) => {
-        rowData[extra.key] = getExtraExportValue(extra.key, item);
-      });
-      return rowData;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`${title}_report_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = [
-      ...visibleColumns.map((col) => ({
-        title: col.label,
-        dataKey: col.key,
-      })),
-      ...EXTRA_EXPORT_COLUMNS_PDF_PRINT.map((extra) => ({
-        title: extra.label,
-        dataKey: extra.key,
-      })),
-    ];
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text(`${title} Report`, data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`${title}_report_${new Date().getTime()}.pdf`);
   };
 
   // const exportExcel = () => {
@@ -1483,25 +1406,26 @@ const TeamInwardDataReportsView = ({
                       selectedRows={selectedCustomers}
                     />
 
-                    <li
-                      className="listItem text-start"
-                      role="button"
-                      onClick={() => {
-                        setIsExportDropdownOpen(false);
-
-                        if (customers.length === 0) return;
-
-                        canShare
-                          ? exportPdf()
-                          : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                    <ExportPdfMenuItem
+                      reportType="inward_report"
+                      filters={{
+                        selectedDates: filters.selectedDateArray,
+                        selectedTeamMembers: filters.checkedOptionsUser,
+                        selectedStageStatus: filters.checkedOptionsStageStatus,
+                        selectedSeries: filters.checkedOptionsSeries,
+                        globalSearch: debouncedSearchText,
+                        selectedContactId: filters.selectedContactId,
+                        selectedGstOptions: filters.checkedGstOptions,
+                        selectedProduct: filters.selectedProductId,
+                        selectedCategory: filters.selectedCategoryId,
                       }}
-                    >
-                      <i
-                        className="pi pi-file-pdf"
-                        style={{ marginRight: "4px" }}
-                      />
-                      Export PDF
-                    </li>
+                      columns={cartExportColumns}
+                      fileName="Inward_Report"
+                      canShare={canShare}
+                      disabled={customers.length === 0}
+                      onSelect={() => setIsExportDropdownOpen(false)}
+                      selectedRows={selectedCustomers}
+                    />
 
                     <li
                       className="listItem text-start"
@@ -1667,22 +1591,13 @@ const TeamInwardDataReportsView = ({
               tableStyle={{ tableLayout: "fixed", width: "100%" }}
               scrollable
               scrollHeight="90vh"
-              virtualScrollerOptions={{
-                itemSize: 52,
-                lazy: true,
-                onLazyLoad: (event: { first: number; last: number }) => {
-                  if (
-                    event.last >= customers.length - 1 &&
-                    hasMore &&
-                    !loading
-                  ) {
-                    onVirtualScroll(currentOffset.current, 50);
-                  }
-                },
-                appendOnly: true,
-                showLoader: false,
-                delay: 0,
-              }}
+              paginator
+              lazy
+              first={page * rows}
+              rows={rows}
+              totalRecords={totalRecords}
+              onPage={onPageChange}
+              rowsPerPageOptions={[25, 50, 100, 200]}
               // dataKey="cart_number"
               filterDisplay="row"
               onFilter={onFilter}

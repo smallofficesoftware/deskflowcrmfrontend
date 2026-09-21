@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../../services/axiosInstance";
+import { formatSecondsToHms } from "./bom-process/BomProcessFieldController";
 
 const BomPdfView = () => {
     const { id, printFlag, bomId } = useParams();
@@ -342,8 +343,8 @@ td, th {
                                         <td>Workstation</td>
                                         <td>{process.machine_name}</td>
 
-                                        <td>Required Time(In Minute)</td>
-                                        <td>{process.required_time}</td>
+                                        <td>Required Time (H:M:S)</td>
+                                        <td>{formatSecondsToHms(process.required_time)}</td>
                                     </tr>
                                     <tr>
                                         <td>Process Cost(In {currencyData.currency})</td>

@@ -461,7 +461,7 @@ const ReminderModal = ({
                 format="DD-MM-YYYY HH:mm"
                 minDate={new Date().setHours(0, 0, 0, 0)}
                 plugins={[
-                  <CloseButton position="top" />,
+                  <CloseButton />,
                   <TimePicker position="right" hideSeconds />,
                 ]}
                 containerStyle={{ width: "100%" }}

@@ -373,6 +373,9 @@ const WarehouseReport = ({
                 }}
             >
                 <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     value={warehouseLists}
                     loading={loading}
                     resizableColumns

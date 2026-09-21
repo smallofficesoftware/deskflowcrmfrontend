@@ -951,7 +951,10 @@ const ListReminderView = ({
     if (item.task_management_id && Number(item.task_management_id) > 0) {
       setIsTaskChatRightSide(true);
       setIsTaskRightSideOpen(true);
-      const taskData: ITaskView = {
+      // Only the fields the right-side task panel actually displays — not a
+      // full task record (ITaskView has 100+ required fields the reminder
+      // list never fetches).
+      const taskData = {
         id: Number(item.task_management_id),
         assigned_team_member: item.task_assigned_team_member || "",
         task_fromdate: item.task_from_date || "",
@@ -961,7 +964,7 @@ const ListReminderView = ({
         task_title: item.task_management_title || "",
         task_remark: item.task_management_remark || "",
         task_category_id: 0,
-      };
+      } as ITaskView;
       setSelectedTask(taskData);
       openTaskRight?.(taskData);
     }

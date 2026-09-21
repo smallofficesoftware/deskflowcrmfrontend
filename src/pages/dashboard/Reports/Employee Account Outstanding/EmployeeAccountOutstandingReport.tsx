@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -7,17 +5,18 @@ import {
   DataTable,
   type DataTableFilterEvent,
   type DataTableFilterMeta,
+  type DataTablePageEvent,
   type DataTableSortEvent,
   type SortOrder,
 } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { VirtualScrollerState } from "primereact/virtualscroller";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -26,7 +25,6 @@ import { ColumnDef, useColumnPreferences } from "../../../../hooks/useColumnPref
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import { fetchEmployeeAccountOutstanding, IEmployeeAccountOutstanding } from "./EmployeeAccountOutstandingReportContoller";
-// import { VirtualScrollerLazyEvent } from "primereact/virtualscroller";
 
 interface LazyTableState {
   first: number;
@@ -46,11 +44,6 @@ interface IPropEmployeeAccountOutstandingReports {
   selectedTeamMembers?: string[] | null;
   type?: string;
   onHide?: () => void;
-}
-
-interface VirtualScrollerLazyEvent {
-  first?: number | VirtualScrollerState;
-  last?: number | VirtualScrollerState;
 }
 
 const getNestedValue = (obj: any, path: string): any => {
@@ -85,14 +78,7 @@ const EmployeeAccountOutstandingReport = ({
     IEmployeeAccountOutstanding[]
   >([]);
 
-  const isPaginationCall = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
-  const currentOffset = useRef(0);
-  const PAGE_SIZE = 50;
-
-  const offsetRef = useRef(0);
   const fetchingRef = useRef(false);
-  const loadingRef = useRef(false);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -226,32 +212,10 @@ const EmployeeAccountOutstandingReport = ({
       }))
       : [];
 
-  // useEffect(() => {
-
-  //   if (isPaginationCall.current) {
-  //     isPaginationCall.current = false;
-  //     return;
-  //   }
-
-  //   let isMounted = true;
-
-  //   fetchAccountOutstanding(setAccountOutstanding, selectedDates, MobileToken, getID,
-  //     MobileFlag, 0,
-  //     50, debouncedGlobalSearch);
-
-  //   return () => {
-  //     isMounted = false;
-  //     if (networkTimeout.current) clearTimeout(networkTimeout.current);
-  //   };
-  // }, [selectedDates, setAccountOutstanding, debouncedGlobalSearch]);
-
   useEffect(() => {
-    currentOffset.current = 0; // Fixed ref name if it was offsetRef
-    setEmployees([]);
-    setHasMore(true);
-    setTotalRecords(0); // Reset total
+    setLazyState((prev) => ({ ...prev, first: 0, page: 1 }));
     setSelectedEmployees([]);
-    loadAccountData(true);
+    loadAccountData(0, lazyState.rows);
   }, [
     filters.selectedDateArray,
     debouncedSearchText,
@@ -259,60 +223,25 @@ const EmployeeAccountOutstandingReport = ({
     type,
   ]);
 
-  const loadAccountData = async (reset = false) => {
+  const loadAccountData = async (first: number, rows: number) => {
     if (fetchingRef.current) return;
-
-    if (!hasMore && !reset) return;
-
     fetchingRef.current = true;
-
-    if (reset) {
-      setLoading(true);
-    }
-
-    const offset = reset ? 0 : offsetRef.current;
+    setLoading(true);
 
     try {
-      const data = await fetchEmployeeAccountOutstanding(
+      const { data, total } = await fetchEmployeeAccountOutstanding(
         filters.selectedDateArray,
-        offset,
-        PAGE_SIZE,
+        first,
+        rows,
         debouncedSearchText,
         filters.checkedOptionsUser,
         type,
       );
 
-      if (reset) {
-        setEmployees(data);
-        offsetRef.current = data.length;
-      } else {
-        setEmployees((prev) => {
-          // 🔥 duplicate protection
-          const merged = [...prev, ...data];
-
-          const unique = merged.filter(
-            (item, index, self) =>
-              index ===
-              self.findIndex(
-                (x) =>
-                  x.employee_name === item.employee_name &&
-                  x.total_outstanding_amount === item.total_outstanding_amount,
-              ),
-          );
-
-          return unique;
-        });
-
-        offsetRef.current += data.length;
-      }
-
-      // 🔥 stop only when API returns less than page size
-      if (data.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
+      setEmployees(data);
+      setTotalRecords(total);
     } catch (e) {
       console.error(e);
-      setHasMore(false);
     } finally {
       fetchingRef.current = false;
       setLoading(false);
@@ -320,21 +249,18 @@ const EmployeeAccountOutstandingReport = ({
   };
 
   const handleRefresh = async () => {
-    currentOffset.current = 0;
-    offsetRef.current = 0;
-    setEmployees([]);
-    setHasMore(true);
     setSelectedEmployees([]);
-    loadAccountData(true);
+    loadAccountData(lazyState.first, lazyState.rows);
   };
 
-  const onLazyLoad = (event: VirtualScrollerLazyEvent) => {
-    const first =
-      typeof event.first === "number" ? event.first : (event.first?.first ?? 0);
-
-    if (first >= offsetRef.current && hasMore && !loadingRef.current) {
-      // loadAccountData(0, 50, true);
-    }
+  const onPageChange = (event: DataTablePageEvent) => {
+    setLazyState((prev) => ({
+      ...prev,
+      first: event.first,
+      rows: event.rows,
+      page: (event.page ?? 0) + 1,
+    }));
+    loadAccountData(event.first, event.rows);
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -481,76 +407,6 @@ const EmployeeAccountOutstandingReport = ({
   );
 
   const grandTotal = payableTotal + receivableTotal;
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
-    const filteredData = getFilteredData();
-    const tableData = (
-      selectedEmployees.length > 0 ? selectedEmployees : filteredData
-    ).map((emp) => ({
-      employee_name: emp.employee_name || "-",
-      total_outstanding_amount: emp.total_outstanding_amount ?? "-",
-      outstanding_type: emp.outstanding_type || "-",
-    }));
-
-    const exportPayableTotal = tableData.reduce((sum, emp) => {
-      console.log("nan", sum);
-      if (emp.outstanding_type.toLowerCase() === "payable") {
-        return sum + Number(emp.total_outstanding_amount || 0);
-      }
-      return sum;
-    }, 0);
-
-    const exportReceivableTotal = tableData.reduce((sum, emp) => {
-      if (emp.outstanding_type.toLowerCase() === "receivable") {
-        return sum + Number(emp.total_outstanding_amount || 0);
-      }
-      return sum;
-    }, 0);
-
-    const exportGrandTotal = exportPayableTotal + exportReceivableTotal;
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`accounting_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      foot: [
-        [
-          `Payable:   ${exportPayableTotal}`,
-          `Receivable:   ${exportReceivableTotal}`,
-          `Grand Total:   ${exportGrandTotal}`,
-        ],
-      ],
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      footStyles: {
-        fillColor: [200, 200, 200],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(14);
-        doc.text(
-          "Employee Accounting Outstanding Report",
-          data.settings.margin.left,
-          10,
-        );
-      },
-    });
-
-    doc.save(`accounting_${new Date().getTime()}.pdf`);
-  };
 
   const filteredData = useMemo(() => {
     let data = [...employees];
@@ -710,14 +566,6 @@ const EmployeeAccountOutstandingReport = ({
         })}
       </div>
     );
-  };
-
-  const getLastIndex = (
-    last: number | VirtualScrollerState | undefined,
-  ): number => {
-    if (typeof last === "number") return last;
-    if (last && typeof last === "object" && "last" in last) return last.last;
-    return 0;
   };
 
   type OutstandingColumnDef = ColumnDef & {
@@ -962,25 +810,41 @@ const EmployeeAccountOutstandingReport = ({
                   }}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (employees.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="employee_account_outstanding_report"
+                  filters={{
+                    selected_dates: filters.selectedDateArray,
+                    globalSearch: debouncedSearchText,
+                    selectedTeamMembers: filters.checkedOptionsUser,
+                    Flag: type,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="employee_account_outstanding"
+                  canShare={canShare}
+                  disabled={employees.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedEmployees}
+                  footer={{
+                    sums: [
+                      {
+                        outputKey: "payable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Payable" },
+                      },
+                      {
+                        outputKey: "receivable",
+                        sourceKey: "total_outstanding_amount",
+                        groupBy: { field: "outstanding_type", equals: "Receivable" },
+                      },
+                      { outputKey: "grand", sourceKey: "total_outstanding_amount" },
+                    ],
+                    rows: [
+                      { employee_name: "Payable", total_outstanding_amount: { fromSum: "payable" } },
+                      { employee_name: "Receivable", total_outstanding_amount: { fromSum: "receivable" } },
+                      { employee_name: "Grand Total", total_outstanding_amount: { fromSum: "grand" } },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1044,41 +908,19 @@ const EmployeeAccountOutstandingReport = ({
       >
         <DataTable
           value={employees}
+          dataKey="employee_name"
           scrollable
           scrollHeight="90vh"
           resizableColumns
           columnResizeMode="fit"
           loading={loading}
-          totalRecords={1000000}
-          virtualScrollerOptions={{
-            lazy: true,
-            itemSize: 52,
-            appendOnly: true,
-            showLoader: true,
-
-            onLazyLoad: (e) => {
-              const lastIndex = getLastIndex(e.last);
-
-              console.log("LazyLoad", {
-                lastIndex,
-                loaded: employees.length,
-                hasMore,
-                fetching: fetchingRef.current,
-              });
-
-              // 🔥 trigger before reaching end
-              const shouldLoad = lastIndex >= employees.length - 10;
-
-              if (shouldLoad && hasMore && !fetchingRef.current) {
-                loadAccountData(false);
-              }
-            },
-          }}
-          // dataKey="contact_name"
-          // paginator
+          paginator
+          lazy
           first={lazyState.first}
           rows={lazyState.rows}
-          // onPage={onPage}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}

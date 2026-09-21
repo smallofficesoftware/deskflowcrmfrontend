@@ -40,7 +40,9 @@ import {
   fetchPdfmeTemplatesForPicker,
   handleDownload,
   isPdfmeSupportedCartType,
+  pdfmeDocTypeForCartType,
 } from "./orderPrintController";
+import { documentDesignerFeatureKeyForDocType } from "../../helpers/documentDesignerFeatureKeys";
 
 interface CustomFormField {
   id: number;
@@ -301,7 +303,7 @@ const OrderPrintViewV3 = () => {
     axiosInstance
       .post("get-feature-flag", {
         company_masters_id: companyMastersId,
-        feature_key: "document_designer",
+        feature_key: documentDesignerFeatureKeyForDocType(pdfmeDocTypeForCartType(orderPrintById?.cart?.type)!),
       })
       .then(({ data }) => {
         if (data?.ack === 1) setPdfmeEnabled(!!data.data.item.is_enabled);
@@ -1608,6 +1610,10 @@ ${printSetting?.setting_details.productImageinColumn &&
                                           {orderPrintById?.cart.city_name
                                             ? ` - ${orderPrintById?.cart.city_name}`
                                             : ""}
+                                          {printSetting?.setting_details.supplyToArea &&
+                                          orderPrintById?.cart.area_name
+                                            ? ` - ${orderPrintById?.cart.area_name}`
+                                            : ""}
                                         </span>{" "}
                                       </strong>
                                     </span>
@@ -1738,7 +1744,7 @@ ${printSetting?.setting_details.productImageinColumn &&
                           {printSetting?.setting_details.discountColumn ==
                             true && (
                               <>
-                                <th className="text-center">Dis(%)</th>
+                                <th className="text-center">Dis({Number(orderPrintById?.cart?.item_discount_type) === 2 ? "₹" : "%"})</th>
                               </>
                             )}
 
@@ -2000,11 +2006,11 @@ ${printSetting?.setting_details.productImageinColumn &&
                                             className={`text-right without_price_check ${showBorder ? "no-print-border" : ""
                                               }`}
                                           >
-                                            {item.item_discount_pct !==
+                                            {(Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct) !==
                                               undefined &&
-                                              item.item_discount_pct !== null
+                                              (Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct) !== null
                                               ? formatNumber(
-                                                item.item_discount_pct,
+                                                (Number(orderPrintById?.cart?.item_discount_type) === 2 ? item.item_discount_pr : item.item_discount_pct),
                                                 2,
                                               )
                                               : "0"}
@@ -2671,7 +2677,7 @@ ${printSetting?.setting_details.productImageinColumn &&
                                           style={{ borderRight: "0px" }}
                                         >
                                           {`${getCurrencySymbol()}${formatNumber(
-                                            row.value,
+                                            Number(row.value) || 0,
                                             2,
                                           )}`}
                                         </td>

@@ -51,6 +51,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
   const [refersh, setRefresh] = useState(false);
   const [isJoinConfirmation, setIsJoinConfirmation] = useState(false);
   const [showCompany, setShowCompany] = useState(false);
+  const [searchTermFromRightSide, setSearchTermFromRightSide] = useState("");
   const [isCreateCompany, setIsCreateCompany] = useState(false);
   const [isLeaveCloseConfirmation, setIsLeaveCloseConfirmation] =
     useState(false);
@@ -320,6 +321,8 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
               isCompanyOpen={showCompany}
               closeCompany={() => setShowCompany(false)}
               companyInfo={companyInfo}
+              searchTermFromRightSide={searchTermFromRightSide}
+              setSearchTermFromRightSide={setSearchTermFromRightSide}
             />
           ) : (
             <>

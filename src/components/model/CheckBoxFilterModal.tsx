@@ -595,7 +595,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
       setSelectedOrderListId(
         orderlistselect
-          ? { value: orderlistselect.id, label: orderlistselect.type }
+          ? { value: orderlistselect.id, label: orderlistselect.type ?? "" }
           : null,
       );
     }
@@ -622,7 +622,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
 
       setSelectedOrderListId(
-        order ? { value: order.id, label: order.type } : null,
+        order ? { value: order.id, label: order.type ?? "" } : null,
       );
     }
   }, [
@@ -1458,6 +1458,22 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     });
   };
 
+  const handleSelectAllLabels = (options: { id: any }[]) => {
+    setIsFilterModified(true);
+    setCheckedOptions((prev: any[]) => {
+      const ids = options.map((option) => option.id);
+      return Array.from(new Set([...(prev || []), ...ids]));
+    });
+  };
+
+  const handleUnselectAllLabels = (options: { id: any }[]) => {
+    setIsFilterModified(true);
+    setCheckedOptions((prev: any[]) => {
+      const ids = new Set(options.map((option) => option.id));
+      return (prev || []).filter((id) => !ids.has(id));
+    });
+  };
+
   const handleSourceTypeCheckboxChange = (optionId: any) => {
     setCheckedOptionsSourceType((prev: any[]) =>
       prev?.includes(optionId)
@@ -1503,6 +1519,20 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         ? prev.filter((id) => id !== optionId)
         : [...(prev || []), optionId],
     );
+  };
+
+  const handleSelectAllStageStatus = (options: { id: any }[]) => {
+    setCheckedOptionsStageStatus((prev: any[]) => {
+      const ids = options.map((option) => option.id);
+      return Array.from(new Set([...(prev || []), ...ids]));
+    });
+  };
+
+  const handleUnselectAllStageStatus = (options: { id: any }[]) => {
+    setCheckedOptionsStageStatus((prev: any[]) => {
+      const ids = new Set(options.map((option) => option.id));
+      return (prev || []).filter((id) => !ids.has(id));
+    });
   };
 
   const handleExpenseStatusTypeCheckboxChange = (optionId: any) => {
@@ -2239,6 +2269,32 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                           </span>
                         </div>
                       </div>
+                      <div className="d-flex justify-content-end align-items-center ms-2 gap-2">
+                        <span
+                          role="button"
+                          className="fw-bold text-primary"
+                          style={{ fontSize: "12px", cursor: "pointer" }}
+                          onClick={() =>
+                            handleSelectAllLabels(
+                              filterList(labelLists, debouncedLabel, "lable_name"),
+                            )
+                          }
+                        >
+                          Select All
+                        </span>
+                        <span
+                          role="button"
+                          className="fw-bold text-danger"
+                          style={{ fontSize: "12px", cursor: "pointer" }}
+                          onClick={() =>
+                            handleUnselectAllLabels(
+                              filterList(labelLists, debouncedLabel, "lable_name"),
+                            )
+                          }
+                        >
+                          Clear All
+                        </span>
+                      </div>
                       <hr />
                       <div className="search-wrapper">
                         <input
@@ -2494,8 +2550,50 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
                 {filtersToShow.includes(4) && (
                   <div className="col-xxl-2 col-xl-2 col-lg-6 col-md-6 col-sm-12 col-xs-12 card ">
                     <div className="">
-                      <div className="ms-2 mt-1">
-                        <label className="fw-bold">Stage and Status</label>
+                      <div className="d-flex justify-content-between align-items-center ms-2 mt-1">
+                        <label className="fw-bold mb-0">Stage and Status</label>
+                        <div className="d-flex align-items-center gap-2">
+                          <span
+                            role="button"
+                            className="fw-bold text-primary"
+                            style={{ fontSize: "12px", cursor: "pointer" }}
+                            onClick={() =>
+                              handleSelectAllStageStatus(
+                                filterList(
+                                  stageStatusList,
+                                  debouncedStage,
+                                  "name",
+                                ).filter(
+                                  (option) =>
+                                    option.visibility === 0 ||
+                                    option.id === 0,
+                                ),
+                              )
+                            }
+                          >
+                            Select All
+                          </span>
+                          <span
+                            role="button"
+                            className="fw-bold text-danger"
+                            style={{ fontSize: "12px", cursor: "pointer" }}
+                            onClick={() =>
+                              handleUnselectAllStageStatus(
+                                filterList(
+                                  stageStatusList,
+                                  debouncedStage,
+                                  "name",
+                                ).filter(
+                                  (option) =>
+                                    option.visibility === 0 ||
+                                    option.id === 0,
+                                ),
+                              )
+                            }
+                          >
+                            Clear All
+                          </span>
+                        </div>
                       </div>
                       <hr />
                       <div className="search-wrapper">

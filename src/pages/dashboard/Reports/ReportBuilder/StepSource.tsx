@@ -65,6 +65,7 @@ interface StepSourceProps {
 const StepSource: React.FC<StepSourceProps> = ({ registry, plugins, loadingRegistry, advanced }) => {
   const store = useReportBuilderStore();
   const [sourceSearch, setSourceSearch] = useState("");
+  const [pluginSearch, setPluginSearch] = useState("");
 
   const byKey = (key: string) => registry.find((m) => m.key === key);
   const q = sourceSearch.trim().toLowerCase();
@@ -163,7 +164,7 @@ const StepSource: React.FC<StepSourceProps> = ({ registry, plugins, loadingRegis
 
       <div className="mb-3">
         <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>
-          {store.type === "composite" ? "Source" : "What do you want to report on?"}
+          {store.type === "composite" ? "Source" : "Search Module"}
         </label>
         {store.type === "query" && (
           <div>
@@ -196,20 +197,33 @@ const StepSource: React.FC<StepSourceProps> = ({ registry, plugins, loadingRegis
           </div>
         )}
         {store.type === "plugin" && (
-          <select
-            className="form-select form-select-sm"
-            style={{ maxWidth: 420 }}
-            value={store.pluginKey}
-            onChange={(e) => store.setPluginKey(e.target.value)}
-            disabled={loadingRegistry}
-          >
-            <option value="">Select report...</option>
-            {plugins.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Search reports..."
+              value={pluginSearch}
+              onChange={(e) => setPluginSearch(e.target.value)}
+              style={{ maxWidth: 420, marginBottom: 8 }}
+              disabled={loadingRegistry}
+            />
+            <select
+              className="form-select form-select-sm"
+              style={{ maxWidth: 420 }}
+              value={store.pluginKey}
+              onChange={(e) => store.setPluginKey(e.target.value)}
+              disabled={loadingRegistry}
+            >
+              <option value="">Select report...</option>
+              {plugins
+                .filter((p) => !pluginSearch.trim() || p.label.toLowerCase().includes(pluginSearch.trim().toLowerCase()))
+                .map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+            </select>
+          </div>
         )}
         {store.type === "composite" && (
           <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>

@@ -5772,10 +5772,10 @@ const RightView = ({
                               {taskCount !== 0 && (
                                 <span
                                   style={{
-                                    width: "15px",
-                                    height: "15px",
+                                    width: "20px",
+                                    height: "20px",
                                     fontSize: "9px",
-                                    lineHeight: "15px",
+                                    lineHeight: "22px",
                                     position: "absolute",
                                     top: "0px",
                                     right: "-5px",
@@ -6199,10 +6199,10 @@ const RightView = ({
                                 {supportTicketCount !== 0 && (
                                   <span
                                     style={{
-                                      width: "15px",
-                                      height: "15px",
+                                      width: "20px",
+                                      height: "20px",
                                       fontSize: "9px",
-                                      lineHeight: "15px",
+                                      lineHeight: "22px",
                                       position: "absolute",
                                       top: "0px",
                                       right: "-5px",

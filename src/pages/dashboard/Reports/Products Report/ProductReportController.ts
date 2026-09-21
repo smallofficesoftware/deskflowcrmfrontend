@@ -12,6 +12,7 @@ export const fetchProductForReport = async (
     term: string,
     searchCategoryId?: any,
     productId?: any,
+    setTotalCount?: (total: number) => void,
 ) => {
     const token = localStorage.getItem("token");
     const getUUID = localStorage.getItem("UUID");
@@ -42,6 +43,7 @@ export const fetchProductForReport = async (
             }
             setLoading(true);
             setProductList(data.data.data.item);
+            setTotalCount?.(Number(data.data.data.total) || 0);
         }
     } catch (error: any) {
         toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);

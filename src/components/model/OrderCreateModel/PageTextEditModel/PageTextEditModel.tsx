@@ -654,7 +654,7 @@ const PageTextEditModel = ({
                                                                             style={{ cursor: "pointer" }}
                                                                             onClick={() => {
                                                                                 if (selectedField) {
-                                                                                    handleDeleteById(selectedField, item.id, index);
+                                                                                    openDeleteConfirmation(selectedField, item.id, index);
                                                                                 }
                                                                             }}
                                                                         >

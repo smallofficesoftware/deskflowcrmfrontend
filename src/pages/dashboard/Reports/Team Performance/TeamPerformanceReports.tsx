@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -17,6 +15,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
@@ -83,7 +82,6 @@ const TeamPerformanceReports = ({
   onHide,
 }: ITeamPerformanceReports) => {
   const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [customers, setCustomers] = useState<ITaskPerformance[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<
@@ -236,13 +234,7 @@ const TeamPerformanceReports = ({
   const [attendanceData, setAttendanceData] = useState<IAttendanceData[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const offsetRef = useRef(0);
   const isFetchingRef = useRef(false);
-  const currentOffset = useRef(0);
-  const isLoadingMore = useRef(false);
-  const hasMoreRef = useRef(true);
-  const PAGE_SIZE = 50;
-  const prevLengthRef = useRef(0);
 
   const canShare = useCheckUserPermission(
     PAGE_ID.TEAMPERFORMANCE_REPORT,
@@ -303,30 +295,19 @@ const TeamPerformanceReports = ({
     : [];
 
   const dt = useRef<DataTable<ITaskPerformance[]>>(null);
-  const networkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // `customers` mirrors `dataArray` (the mapped, always-complete fetch
+  // result) directly - PrimeReact's own non-lazy DataTable filters/sorts/
+  // paginates it client-side below, no separate manual filter/sort pass
+  // needed on top.
   useEffect(() => {
-    if (!taskPerformance) return;
-
-    const newData = taskPerformance;
-
-    // detect if new data came
-    if (newData.length === 0) return;
-
-    if (newData.length < PAGE_SIZE) {
-      hasMoreRef.current = false;
-    }
-
-    setCustomers((prev) =>
-      offsetRef.current === 0 ? newData : [...prev, ...newData],
-    );
-
-    offsetRef.current += PAGE_SIZE;
+    setCustomers(dataArray);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskPerformance]);
 
   useEffect(() => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    loadMoreData(true);
+    loadTeamPerformance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.selectedDateArray,
     filters.checkedOptionsUser,
@@ -423,149 +404,24 @@ const TeamPerformanceReports = ({
     return totals;
   }, [customers]);
 
-  useEffect(() => {
-    loadLazyData();
-    return () => {
-      if (networkTimeout.current) clearTimeout(networkTimeout.current);
-    };
-  }, [lazyState, taskPerformance]);
-
-  const loadLazyData = () => {
-    setLoading(true);
-    if (networkTimeout.current) clearTimeout(networkTimeout.current);
-
-    networkTimeout.current = setTimeout(() => {
-      let filteredData = [...dataArray];
-
-      Object.entries(lazyState.filters).forEach(([field, meta]) => {
-        if ("value" in meta && meta.value !== null && meta.value !== "") {
-          const filterValue = meta.value.toString().toLowerCase();
-          const matchMode = meta.matchMode;
-
-          filteredData = filteredData.filter((item) => {
-            if (matchMode === "custom") {
-              let countValue: any, amountValue: any;
-              if (field === "quotation") {
-                countValue = getNestedValue(item, "quotation.count");
-                amountValue = getNestedValue(item, "quotation.amount");
-              } else if (field === "order") {
-                countValue = getNestedValue(item, "order.count");
-                amountValue = getNestedValue(item, "order.amount");
-              } else if (field === "sell_invoice") {
-                countValue = getNestedValue(item, "sell_invoice.count");
-                amountValue = getNestedValue(item, "sell_invoice.amount");
-              } else if (field === "purchase_invoice") {
-                countValue = getNestedValue(item, "purchase_invoice.count");
-                amountValue = getNestedValue(item, "purchase_invoice.amount");
-              } else if (field === "purchase_order") {
-                countValue = getNestedValue(item, "purchase_order.count");
-                amountValue = getNestedValue(item, "purchase_order.amount");
-              } else if (field === "expense") {
-                countValue = getNestedValue(item, "expense.RequestedAmount");
-                amountValue = getNestedValue(item, "expense.PassedAmount");
-              } else if (field === "account_credit") {
-                countValue = getNestedValue(item, "account.credit.count");
-                amountValue = getNestedValue(item, "account.credit.amount");
-              } else if (field === "account_debit") {
-                countValue = getNestedValue(item, "account.debit.count");
-                amountValue = getNestedValue(item, "account.debit.amount");
-              }
-
-              const countStr = countValue?.toString().toLowerCase() || "";
-              const amountStr = amountValue?.toString().toLowerCase() || "";
-              return (
-                countStr.includes(filterValue) ||
-                amountStr.includes(filterValue)
-              );
-            } else {
-              const fieldValue = getNestedValue(item, field);
-              if (fieldValue === undefined || fieldValue === null) return false;
-
-              const fieldStr = fieldValue.toString().toLowerCase();
-
-              switch (matchMode) {
-                case "contains":
-                  return fieldStr.includes(filterValue);
-                case "notContains":
-                  return !fieldStr.includes(filterValue);
-                case "startsWith":
-                  return fieldStr.startsWith(filterValue);
-                case "endsWith":
-                  return fieldStr.endsWith(filterValue);
-                case "equals":
-                  return fieldStr === filterValue;
-                case "notEquals":
-                  return fieldStr !== filterValue;
-                default:
-                  return true;
-              }
-            }
-          });
-        }
-      });
-
-      if (lazyState.sortField) {
-        filteredData.sort((a, b) => {
-          const aValue = getNestedValue(a, lazyState.sortField!);
-          const bValue = getNestedValue(b, lazyState.sortField!);
-          if (aValue === undefined || aValue === null) return 1;
-          if (bValue === undefined || bValue === null) return -1;
-          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        });
-        if (lazyState.sortOrder === -1) filteredData.reverse();
-      }
-
-      const start = lazyState.first;
-      const end = start + lazyState.rows;
-      // const paginatedData = filteredData.slice(start, end);
-      setCustomers(filteredData);
-      setTotalRecords(filteredData.length);
-      setLoading(false);
-    }, 250);
-  };
-
-  // const onPage = (event: DataTablePageEvent) => {
-  //   const currentPage = event.page ?? 0;
-  //   const ul = currentPage * 50;
-  //   const ll = 50;
-
-  //   setLazyState((prev) => ({
-  //     ...prev,
-  //     first: event.first,
-  //     rows: event.rows,
-  //     page: currentPage,
-  //   }));
-
-  //   setLoading(true);
-  //   fetchTeamPerformance(
-  //     setTaskPerformance,
-  //     setAttendanceData,
-  //     selectedDates,
-  //     selectedTeamMembers,
-  //     MobileToken,
-  //     getID,
-  //     MobileFlag,
-  //     0, // ul
-  //     50,
-  //   );
-  // };
-
-  const loadMoreData = async (reset = false) => {
+  // Backend's ul/ll don't actually paginate the team-member list (see
+  // teamPerformanceReportServices.js - the outer team query has no limit
+  // at all, and the per-member offset/limit only ever applies to a
+  // single-id lookup where it's a no-op), so every call already returns
+  // every matching team member regardless of what page was asked for. One
+  // fetch per filter/search change is therefore both correct and
+  // sufficient - the grid below paginates/filters/sorts the already-
+  // complete `customers` client-side (PrimeReact's own non-lazy paginator)
+  // instead of a hand-rolled filter/sort pass re-fetching an identical
+  // response per page.
+  const loadTeamPerformance = async () => {
     if (isFetchingRef.current) return;
-    if (!hasMoreRef.current && !reset) return;
 
     isFetchingRef.current = true;
     setLoading(true);
 
     try {
-      if (reset) {
-        offsetRef.current = 0;
-        setCustomers([]);
-        hasMoreRef.current = true;
-      }
-
-      prevLengthRef.current = taskPerformance.length;
-      const newData = await fetchTeamPerformance(
+      await fetchTeamPerformance(
         setTaskPerformance,
         setAttendanceData,
         filters.selectedDateArray,
@@ -573,12 +429,12 @@ const TeamPerformanceReports = ({
         MobileToken,
         getID,
         MobileFlag,
-        offsetRef.current,
-        PAGE_SIZE,
+        0,
+        50,
         debouncedSearchText,
       );
     } catch (err) {
-      hasMoreRef.current = false;
+      console.error(err);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -586,12 +442,7 @@ const TeamPerformanceReports = ({
   };
 
   const handleRefresh = async () => {
-    offsetRef.current = 0;
-    hasMoreRef.current = true;
-    setCustomers([]);
-    setTaskPerformance([]);
-    setAttendanceData([]);
-    loadMoreData(true);
+    loadTeamPerformance();
   };
 
   const onSort = (event: DataTableSortEvent) => {
@@ -613,7 +464,7 @@ const TeamPerformanceReports = ({
   const onSelectionChange = (event: { value: ITaskPerformance[] }) => {
     const value = event.value;
     setSelectedCustomers(value);
-    setSelectAll(value.length === totalRecords);
+    setSelectAll(value.length === customers.length);
   };
 
   const onSelectAllChange = (event: { checked: boolean }) => {
@@ -937,68 +788,6 @@ const TeamPerformanceReports = ({
       default:
         return "-";
     }
-  };
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", format: "a3" });
-
-    const isFilterApplied = Object.values(lazyState.filters).some(
-      (filter) =>
-        "value" in filter && filter.value !== null && filter.value !== "",
-    );
-
-    const dataToExport =
-      selectedCustomers.length > 0
-        ? selectedCustomers
-        : isFilterApplied
-          ? customers
-          : dataArray;
-
-    const tableData = dataToExport.map((customer) => {
-      const row: any = {};
-      visibleColumns.forEach((col) => {
-        row[col.label] = getExportCellValue(col, customer);
-      });
-      return row;
-    });
-
-    if (tableData.length === 0) {
-      doc.text("No data available to export", 10, 10);
-      doc.save(`team_performance_${new Date().getTime()}.pdf`);
-      return;
-    }
-
-    const exportColumns = visibleColumns.map((col) => ({
-      title: col.label,
-      dataKey: col.label,
-    }));
-
-    autoTable(doc, {
-      columns: exportColumns,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        font: "helvetica",
-        halign: "left",
-        overflow: "linebreak",
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "left",
-        fontSize: 8,
-      },
-      margin: { top: 20, left: 10, right: 10, bottom: 10 },
-      didDrawPage: (data) => {
-        doc.setFontSize(12);
-        doc.text("Team Performance Reports", data.settings.margin.left, 10);
-      },
-    });
-
-    doc.save(`team_performance_${new Date().getTime()}.pdf`);
   };
 
   // const exportExcel = () => {
@@ -1331,25 +1120,40 @@ const TeamPerformanceReports = ({
                   }}
                 />
 
-                <li
-                  className="listItem text-start"
-                  role="button"
-                  onClick={() => {
-                    setIsExportDropdownOpen(false);
-
-                    if (customers.length === 0) return;
-
-                    canShare
-                      ? exportPdf()
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                <ExportPdfMenuItem
+                  reportType="team_performance_report"
+                  filters={{
+                    selectedDates: filters.selectedDateArray,
+                    selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                >
-                  <i
-                    className="pi pi-file-pdf"
-                    style={{ marginRight: "4px" }}
-                  />
-                  Export PDF
-                </li>
+                  columns={visibleColumns}
+                  fileName="Team_Performance_Report"
+                  canShare={canShare}
+                  disabled={customers.length === 0}
+                  onSelect={() => setIsExportDropdownOpen(false)}
+                  selectedRows={selectedCustomers}
+                  footer={{
+                    sums: [
+                      { outputKey: "contactCount", sourceKey: "contactCount" },
+                      { outputKey: "inquiryCount", sourceKey: "inquiryCount" },
+                      { outputKey: "visitCount", sourceKey: "visitCount" },
+                      { outputKey: "pendingReminder", sourceKey: "pendingReminder" },
+                      { outputKey: "dueTaskCount", sourceKey: "dueTaskCount" },
+                      { outputKey: "dueSupportTicketCount", sourceKey: "dueSupportTicketCount" },
+                    ],
+                    rows: [
+                      {
+                        username: "Total",
+                        contactCount: { fromSum: "contactCount" },
+                        inquiryCount: { fromSum: "inquiryCount" },
+                        visitCount: { fromSum: "visitCount" },
+                        pendingReminder: { fromSum: "pendingReminder" },
+                        dueTaskCount: { fromSum: "dueTaskCount" },
+                        dueSupportTicketCount: { fromSum: "dueSupportTicketCount" },
+                      },
+                    ],
+                  }}
+                />
 
                 <li
                   className="listItem text-start"
@@ -1412,7 +1216,6 @@ const TeamPerformanceReports = ({
         <DataTable
           ref={dt}
           value={customers}
-          lazy
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
@@ -1420,29 +1223,11 @@ const TeamPerformanceReports = ({
           scrollable
           filterDisplay="row"
           dataKey="username"
-          // paginator
-          first={lazyState.first}
-          rows={lazyState.rows}
-          totalRecords={totalRecords}
-          // onPage={onPage}
+          paginator
+          rows={50}
+          rowsPerPageOptions={[25, 50, 100, 200]}
           scrollHeight="80vh"
           loading={loading}
-          virtualScrollerOptions={{
-            itemSize: 50,
-            lazy: true,
-            onLazyLoad: (event: any) => {
-              if (
-                event.last >= customers.length - 1 &&
-                hasMoreRef.current &&
-                !loading
-              ) {
-                loadMoreData();
-              }
-            },
-            appendOnly: true,
-            showLoader: true,
-            delay: 0,
-          }}
           onSort={onSort}
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder ?? undefined}

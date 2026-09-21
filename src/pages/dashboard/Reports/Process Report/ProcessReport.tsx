@@ -269,6 +269,9 @@ const ProcessReport = ({
                 }}
             >
                 <DataTable
+                    paginator
+                    rows={50}
+                    rowsPerPageOptions={[25, 50, 100, 200]}
                     value={processList}
                     loading={loading}
                     resizableColumns

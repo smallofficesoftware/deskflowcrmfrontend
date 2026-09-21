@@ -305,7 +305,7 @@ const ListAccountTransactionView = ({
     window.open(url, "_blank");
   };
   const printAllTransactionStatement = async () => {
-    const pdfmeOn = await isDocumentDesignerEnabled();
+    const pdfmeOn = await isDocumentDesignerEnabled("accountStatement");
     if (!pdfmeOn) {
       openLegacyStatementPrint();
       return;
@@ -741,7 +741,7 @@ const ListAccountTransactionView = ({
     }, 10000);
   };
   const openPrint = async (id: number) => {
-    const pdfmeOn = await isDocumentDesignerEnabled();
+    const pdfmeOn = await isDocumentDesignerEnabled("accountTransaction");
     if (!pdfmeOn) {
       openLegacyAccountPrint(id);
       return;

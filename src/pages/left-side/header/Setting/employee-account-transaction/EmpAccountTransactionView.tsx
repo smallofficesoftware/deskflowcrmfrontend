@@ -15,7 +15,7 @@ import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission"
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import { fetchprintSetting, IprintSetting } from "../../../../order-pdf-view/OrderPdfController";
 import { fetchTemplatesForDocType } from "../../../../order-print-view/orderPrintController";
-import { ICompanyTeam } from "../../../LeftSideController";
+import { ICompanyTeam } from "../../../list-company/ListCompanyController";
 import { empAllTransactionDownloadPDf, fetchApiAccountTransitions, IEmpAccountTransaction, PDFaccountv1, printAllTransactionOfEmployeePDF, printEmployeeAccountPDFv1 } from "./EmpAccountTransactionController";
 import CreateEmpAccountTransactionView from "./create-employee-account-transaction/CreateEmployeeAccountView";
 

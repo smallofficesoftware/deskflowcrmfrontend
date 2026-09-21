@@ -16,7 +16,7 @@ interface AddCategoryModalProps {
     apiURL?: string;
     payload?: any;
     payloadKey?: string;
-    group_id: number | undefined;
+    group_id?: number | undefined;
     dynamicFields?: { name: string; placeholder: string; label?: string }[];
     extraPayloadFields?: { [key: string]: any };
 }
