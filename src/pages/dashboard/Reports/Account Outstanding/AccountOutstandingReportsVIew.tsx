@@ -976,7 +976,7 @@ const AccountOutstandingReports = ({
           value={customers}
           dataKey="contact_name"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           resizableColumns
           columnResizeMode="fit"
           loading={loading}

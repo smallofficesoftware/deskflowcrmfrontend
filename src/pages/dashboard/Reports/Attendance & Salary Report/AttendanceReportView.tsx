@@ -1019,7 +1019,7 @@ const TeamAttendanceReportsView = ({
         endDate={filters.endSearchDate}
       />
 
-      <div className="report_card" style={{ height: "65vh" }}>
+      <div className="report_card" style={{ height: "65vh", display: "flex", flexDirection: "column" }}>
         <DataTable
           ref={dt}
           value={customers}
@@ -1028,7 +1028,7 @@ const TeamAttendanceReportsView = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           filterDisplay="row"
           dataKey="username"
           paginator

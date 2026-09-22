@@ -377,7 +377,7 @@ const DayAdjustmentGridView = ({
                         resizableColumns
                         columnResizeMode="fit"
                         scrollable
-                        scrollHeight="90vh"
+                        scrollHeight="flex"
                         className="custom-centered-table"
                         tableStyle={{ tableLayout: "fixed", width: "100%" }}
                         emptyMessage="No data found"

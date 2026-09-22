@@ -958,7 +958,7 @@ const AccountDebitReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           rows={lazyState.rows}
           first={lazyState.first}
           onPage={onPageChange}

@@ -1253,7 +1253,7 @@ const AllInqueryReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           filterDisplay="row"
           paginator
           lazy

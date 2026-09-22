@@ -962,7 +962,7 @@ const CategorySalesPurchaseReport = ({
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           filterDisplay="row"
           paginator
           lazy

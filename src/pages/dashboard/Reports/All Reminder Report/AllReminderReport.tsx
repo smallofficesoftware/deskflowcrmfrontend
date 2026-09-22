@@ -1052,14 +1052,14 @@ const AllReminderReport = ({
         endDate={filters.endSearchDate}
       />
 
-      <div className="report_card" style={{ height: "90vh", display: "block" }}>
+      <div className="report_card" style={{ height: "90vh", display: "flex", flexDirection: "column" }}>
         <DataTable
           value={displayReminders}
           scrollable
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
-          scrollHeight="90vh"
+          scrollHeight="flex"
           paginator
           lazy
           first={page * rows}

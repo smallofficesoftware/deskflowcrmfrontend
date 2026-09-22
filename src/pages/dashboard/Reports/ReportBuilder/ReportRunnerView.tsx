@@ -784,7 +784,7 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
-            scrollHeight="90vh"
+            scrollHeight="flex"
             paginator
             lazy
             first={page * pageSize}
