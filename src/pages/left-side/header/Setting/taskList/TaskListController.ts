@@ -316,10 +316,11 @@ export const fetchApiTask = async (
 };
 
 export const deleteTaskApi = async (TaskId: number | number[] | undefined) => {
+  const getUUID = localStorage.getItem("UUID");
   const requestData = {
     TaskId,
+    a_application_login_id: getUUID,
   };
-  const getUUID = localStorage.getItem("UUID");
   const token = localStorage.getItem("token");
   try {
     const data = await axiosInstance.post("deleteTask", requestData);
@@ -532,8 +533,10 @@ export const unarchiveTaskApi = async (
 export const CovertSupportTikcetToTaskApi = async (
   TaskId: number | number[] | undefined,
 ) => {
+  const getUUID = localStorage.getItem("UUID");
   const requestData = {
     TaskId,
+    a_application_login_id: getUUID,
   };
   try {
     const data = await axiosInstance.post(
