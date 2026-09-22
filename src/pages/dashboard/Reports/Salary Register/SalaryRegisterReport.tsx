@@ -1182,7 +1182,7 @@ const SalaryRegisterReport = ({
         </h6>
       </div>
 
-      <div className="report_card" style={{ height: "65vh" }}>
+      <div className="report_card" style={{ height: "65vh", display: "flex", flexDirection: "column" }}>
         <DataTable
           ref={dt}
           value={salaries}
@@ -1191,7 +1191,7 @@ const SalaryRegisterReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           filterDisplay="row"
           dataKey="id"
           paginator

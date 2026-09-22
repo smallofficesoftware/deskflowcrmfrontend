@@ -1601,7 +1601,7 @@ const AllcontactReport = ({
           resizableColumns
           columnResizeMode="fit"
           className="custom-centered-table"
-          scrollHeight="90vh"
+          scrollHeight="flex"
           paginator
           lazy
           first={lazyState.first}

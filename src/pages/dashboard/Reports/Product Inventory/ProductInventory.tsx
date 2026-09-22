@@ -905,7 +905,7 @@ const ProductInventoryReport = ({
           columnResizeMode="expand"
           className="custom-centered-table"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           loading={loading}
           paginator
           lazy

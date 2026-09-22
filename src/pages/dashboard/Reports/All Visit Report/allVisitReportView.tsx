@@ -1502,7 +1502,7 @@ const AllVisitReportsView = ({
             resizableColumns
             columnResizeMode="fit"
             className="custom-centered-table"
-            scrollHeight="90vh"
+            scrollHeight="flex"
             filterDisplay="row"
             paginator
             lazy

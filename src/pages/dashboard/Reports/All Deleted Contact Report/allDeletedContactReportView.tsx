@@ -1243,7 +1243,7 @@ const AllDeletedcontactReport = ({
           value={customers}
           dataKey="id"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           lazy
           resizableColumns
           columnResizeMode="fit"

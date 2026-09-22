@@ -910,7 +910,7 @@ const EmployeeAccountOutstandingReport = ({
           value={employees}
           dataKey="employee_name"
           scrollable
-          scrollHeight="90vh"
+          scrollHeight="flex"
           resizableColumns
           columnResizeMode="fit"
           loading={loading}

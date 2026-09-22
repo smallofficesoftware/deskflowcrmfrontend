@@ -1642,7 +1642,7 @@ const TeamPurchaseOrderDataReportsView = ({
               className="custom-centered-table"
               tableStyle={{ tableLayout: "fixed", width: "100%" }}
               scrollable
-              scrollHeight="90vh"
+              scrollHeight="flex"
               paginator
               lazy
               first={page * rows}

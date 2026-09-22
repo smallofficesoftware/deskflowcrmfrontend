@@ -1040,7 +1040,7 @@ const ProductSalesPurchaseReport = ({
           columnResizeMode="fit"
           className="custom-centered-table"
           tableStyle={{ tableLayout: "fixed", width: "100%" }}
-          scrollHeight="90vh"
+          scrollHeight="flex"
           filterDisplay="row"
           paginator
           lazy
