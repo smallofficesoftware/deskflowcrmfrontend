@@ -1592,7 +1592,7 @@ const AllcontactReport = ({
 
       <div
         className="report_card"
-        style={{ height: "90vh", display: "flex", flexDirection: "column" }}
+        style={{ display: "flex", flexDirection: "column" }}
       >
         <DataTable
           ref={dt}
