@@ -7770,32 +7770,31 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     </div>
                   )}
 
-                {/* TEAM MEMBER */}
-                {cartnumber == "" && (
-                  <div className="col-xl-2 col-lg-3 col-md-6">
-                    <label
-                      className="form_label"
-                      style={{ fontWeight: "bold" }}
-                    >
-                      Select Team Member
-                    </label>
+                {/* TEAM MEMBER (created by) — also editable on an existing
+                    order; the edit flow pre-selects the saved creator and
+                    orderUpdate saves a_application_login_id from it */}
+                <div className="col-xl-2 col-lg-3 col-md-6">
+                  <label
+                    className="form_label"
+                    style={{ fontWeight: "bold" }}
+                  >
+                    Select Team Member
+                  </label>
 
-                    <div
-                      className="mt-1"
-                      style={{
-                        position: "relative",
-                        zIndex: 9999,
-                      }}
-                    >
-                      <CustomSearchDropdown
-                        options={TeamMamberOptions}
-                        value={selectedTeamMamber}
-                        onChange={handleTeamMamberChange}
-                        isDisabled={cartnumber ? "disabled" : false}
-                      />
-                    </div>
+                  <div
+                    className="mt-1"
+                    style={{
+                      position: "relative",
+                      zIndex: 9999,
+                    }}
+                  >
+                    <CustomSearchDropdown
+                      options={TeamMamberOptions}
+                      value={selectedTeamMamber}
+                      onChange={handleTeamMamberChange}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* SEARCH PREVIOUS ORDER */}
                 {flag == "quick" && (
