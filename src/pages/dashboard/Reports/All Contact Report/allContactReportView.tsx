@@ -147,10 +147,6 @@ const AllcontactReport = ({
   const [refreshContact, setRefreshContact] = useState(false);
   const [isArchivState, setIsArchivState] = useState<boolean>(false);
   const [showFindDuplicatesModal, setShowFindDuplicatesModal] = useState(false);
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
-  const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
-    {},
-  );
   const [user, setUser] = useState<IUserList[]>([]);
   const [noDataFound, setNoDataFound] = useState(false);
   const [contactId, setContactId] = useState<number>();
@@ -199,8 +195,7 @@ const AllcontactReport = ({
       !isCreateContact &&
       !isModalFilterVisible &&
       !isExportDropdownOpen &&
-      !showRightSide &&
-      !openDropdownId
+      !showRightSide
     ) {
       onHide?.();
     } else {
@@ -208,11 +203,6 @@ const AllcontactReport = ({
       setIsModalFilterVisible(false);
       setIsExportDropdownOpen(false);
       setShowRightSide(false);
-      // Hide all via DOM
-      Object.values(dropdownContactRef.current).forEach((el) => {
-        if (el) el.style.display = "none";
-      });
-      setOpenDropdownId(null);
     }
   });
 
@@ -306,141 +296,30 @@ const AllcontactReport = ({
     PERMISSION_TYPE.VIEW,
   );
 
-  // const handleClickOutside = (event: MouseEvent) => {
-  //   const target = event.target as HTMLElement;
-  //   setIsExportDropdownOpen(false);
-
-  //   const clickedOnButton = target.closest('.source-of-type-list-grid-options');
-  //   if (clickedOnButton) return;
-
-  //   const clickedInsideDropdown = Object.values(dropdownContactRef.current).some(
-  //     (ref) => ref && ref.contains(target)
-  //   );
-
-  //   if (!clickedInsideDropdown) {
-  //     // Hide all via DOM
-  //     Object.values(dropdownContactRef.current).forEach((el) => {
-  //       if (el) el.style.display = "none";
-  //     });
-  //     setOpenDropdownId(null);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   document.addEventListener("mousedown", handleClickOutside);
-  //   return () => {
-  //     document.removeEventListener("mousedown", handleClickOutside);
-  //   };
-  // }, []);
-
-  // useEffect(() => {
-  //   const handleEscKey = (event: KeyboardEvent) => {
-  //     if (event.key === "Escape") {
-  //       // Hide all via DOM
-  //       Object.values(dropdownContactRef.current).forEach((el) => {
-  //         if (el) el.style.display = "none";
-  //       });
-  //       setOpenDropdownId(null);
-  //     }
-  //   };
-
-  //   document.addEventListener("keydown", handleEscKey);
-
-  //   return () => {
-  //     document.removeEventListener("keydown", handleEscKey);
-  //   };
-  // }, []);
-
-  const actionBodyTemplate = useCallback(
-    (rowData: any) => {
-      return (
-        <div
-          className="gap-2"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+  const actionBodyTemplate = (rowData: any) => {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Button
+          icon="pi pi-comments"
+          className="p-button-text"
+          style={{ color: "green", width: "2rem" }}
+          tooltip="Open Chat"
+          tooltipOptions={{ position: "left" }}
+          aria-label="Open Chat"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenWhatsAppChat(rowData.id);
           }}
-        >
-          <>
-            <Button
-              icon="pi pi-cog"
-              className="p-button-text source-of-type-list-grid-options"
-              style={{ color: "green", width: "2rem" }}
-              onClick={(e) => {
-                e.stopPropagation();
-
-                // 1. Check live DOM to bypass Virtual Scroller stale closures
-                const currentDropdown = dropdownContactRef.current[rowData.id];
-                const isCurrentlyOpen =
-                  currentDropdown?.style.display === "block";
-
-                // 2. Hide ALL dropdowns first
-                Object.values(dropdownContactRef.current).forEach((el) => {
-                  if (el) el.style.display = "none";
-                });
-
-                // 3. If it wasn't open, open it now
-                if (currentDropdown && !isCurrentlyOpen) {
-                  currentDropdown.style.display = "block";
-                  setOpenDropdownId(rowData.id);
-                } else {
-                  setOpenDropdownId(null);
-                }
-              }}
-            />
-
-            <ul
-              ref={(el) => (dropdownContactRef.current[rowData.id] = el)}
-              style={{
-                width: "150px",
-                marginLeft: "180px",
-                height: "auto",
-                display: openDropdownId === rowData.id ? "block" : "none",
-                position: "absolute",
-                zIndex: 9999,
-                background: "#fff",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
-                borderRadius: "6px",
-                padding: "5px 0",
-                listStyle: "none",
-              }}
-            >
-              <li
-                className="listItem"
-                role="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-
-                  // 1. Force close the dropdown menu via DOM immediately
-                  const currentDropdown =
-                    dropdownContactRef.current[rowData.id];
-                  if (currentDropdown) {
-                    currentDropdown.style.display = "none";
-                  }
-
-                  // 2. Clear the state tracking the open dropdown
-                  setOpenDropdownId(null);
-
-                  // 3. Proceed to open the RightView
-                  handleOpenWhatsAppChat(rowData.id);
-                }}
-                style={{
-                  marginLeft: "10px",
-                  height: "25px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                Open WhatsApp Chat
-              </li>
-            </ul>
-          </>
-        </div>
-      );
-    },
-    [openDropdownId],
-  );
+        />
+      </div>
+    );
+  };
 
   const [lazyState, setLazyState] = useState<LazyTableState>({
     first: 0,
