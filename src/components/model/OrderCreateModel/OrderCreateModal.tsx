@@ -3872,6 +3872,46 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       }),
     );
   };
+  const handleGstChange = (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = e.target.value;
+
+    if (!/^\d*\.?\d{0,2}$/.test(value)) return;
+
+    if (Number(value) > 100) {
+      toast.error("GST % cannot be more than 100");
+      return;
+    }
+
+    setCart((prevCart) =>
+      prevCart.map((item, i) => {
+        if (i !== index) return item;
+
+        const result = calculateNetRate(
+          Number(item.rate),
+          discountType === "percentage"
+            ? Number(item.item_discount_pct)
+            : Number(item.item_discount_pr),
+          Number(value) || 0,
+          discountType,
+        );
+
+        // raw string kept while typing so "9." and "2.5" work; handleGstBlur turns it back into a number
+        return { ...item, GST: value as unknown as number, net_rate: result.net };
+      }),
+    );
+  };
+
+  const handleGstBlur = (index: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item, i) =>
+        i === index ? { ...item, GST: Number(item.GST) || 0 } : item,
+      ),
+    );
+  };
+
   const handleProductItemDiscountChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>,
@@ -9006,7 +9046,38 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                 ?.getSize(),
                                             }}
                                           >
-                                            {item.GST}
+                                            <input
+                                              className="form-control"
+                                              type="text"
+                                              title="GST %"
+                                              placeholder="GST %"
+                                              value={item.GST}
+                                              onChange={(e) =>
+                                                handleGstChange(index, e)
+                                              }
+                                              onBlur={() =>
+                                                handleGstBlur(index)
+                                              }
+                                              style={{ textAlign: "right" }}
+                                              onFocus={(e) =>
+                                                e.target.select()
+                                              }
+                                              disabled={
+                                                orderTypesNameFind !==
+                                                  "Quotation" &&
+                                                  orderTypesNameFind !==
+                                                  "Sales Order" &&
+                                                  orderTypesNameFind !==
+                                                  "Sales Invoice" &&
+                                                  orderTypesNameFind !==
+                                                  "Proforma Invoice" &&
+                                                  orderTypesNameFind !==
+                                                  "Purchase Order" &&
+                                                  cartnumber
+                                                  ? true
+                                                  : false
+                                              }
+                                            />
                                           </td>
                                           <td
                                             className="text-end"
