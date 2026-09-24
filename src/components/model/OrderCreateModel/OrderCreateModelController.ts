@@ -192,6 +192,7 @@ export interface ICustomFormList {
   min_limit: number;
   max_limit: number;
   validation_type: number;
+  calc_config?: string | null;
 }
 export interface ICompanyTerms {
   id: number;

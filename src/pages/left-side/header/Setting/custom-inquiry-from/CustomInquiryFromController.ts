@@ -104,6 +104,7 @@ export interface ICustomInquiryFromList {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  calc_config?: string | null;
 }
 interface IAddCustomInquiryFromObj {
   title: string;
@@ -120,6 +121,7 @@ interface IAddCustomInquiryFromObj {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  calc_config?: string | null;
 }
 export interface ICompany {
   quotation_title: string;
@@ -140,7 +142,7 @@ export const fetchCustomInquiryFromApi = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     table: "custom_field_form_masters",
-    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules",
+    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules,calc_config",
     where: [
       "isDelete=0",
       `form_type=${pageType}`,
@@ -163,6 +165,23 @@ export const fetchCustomInquiryFromApi = async (
     setTimeout(() => {
       setLoading(false); // Set loading to false after minimum time
     }, 1000); // 1000 milliseconds (1 seconds)
+  }
+};
+
+// Number/decimal product custom fields a formula can reference (no loading spinner side effects).
+export const fetchProductNumberFields = async (
+  setFields: TReactSetState<ICustomInquiryFromList[]>,
+) => {
+  const getUUID = localStorage.getItem("UUID");
+  try {
+    const { data } = await axiosInstance.post("getCustomFieldFrom", {
+      a_application_login_id: Number(getUUID),
+      form_type: 4,
+    });
+    const items: ICustomInquiryFromList[] = data?.data?.item || [];
+    setFields(items.filter((f) => f.data_type === 1 || f.data_type === 8));
+  } catch {
+    setFields([]);
   }
 };
 
@@ -321,6 +340,7 @@ export const createCustomInquiryFrom = async (
     validation_type: customInquiryFromInput.validation_type,
     third_party_field_name: customInquiryFromInput.third_party_field_name,
     applicable_modules: customInquiryFromInput.applicable_modules,
+    calc_config: customInquiryFromInput.calc_config,
   };
   console.log("requestDatarequestDatarequestDatarequestData", requestData);
 
@@ -369,6 +389,7 @@ export const updateCustomInqFrom = async (
       validation_type: customInquiryFromInput.validation_type,
       third_party_field_name: customInquiryFromInput.third_party_field_name,
       applicable_modules: customInquiryFromInput.applicable_modules,
+      calc_config: customInquiryFromInput.calc_config ?? null,
     }),
   };
   try {

@@ -100,6 +100,7 @@ import {
   ICustomFormFiledValuesLastParty,
   ICustomFormList,
 } from "./OrderCreateModelController";
+import { computeRowFormulas, parseCalcConfig } from "../../../helpers/FormulaEngine";
 import PageTextEditModel from "./PageTextEditModel/PageTextEditModel";
 import DesignerPageEditModel from "./PageTextEditModel/DesignerPageEditModel";
 
@@ -1711,10 +1712,67 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
     setCart(updatedCart);
   };
+
+  const hasQtyFormula = customFormListProduct.some(
+    (f) => parseCalcConfig(f.calc_config)?.drives === "qty",
+  );
+  const lastQtyToastRef = React.useRef("");
+
+  // Keeps calculated custom fields, the formula-driven quantity and the formula-driven
+  // amount in sync with the row inputs. Every pass only writes when a value differs, so it settles.
+  useEffect(() => {
+    if (!customFormListProduct.some((f) => parseCalcConfig(f.calc_config))) return;
+    const round = (n: number) => Number(n.toFixed(4));
+
+    let patched = false;
+    const next = cart.map((item) => {
+      const r = computeRowFormulas(item, customFormListProduct);
+      const patch: Record<string, any> = {};
+      Object.entries(r.values).forEach(([k, v]) => {
+        if (Number((item as any)[k]) !== round(v)) patch[k] = round(v);
+      });
+      const wantAmount = r.amount !== undefined ? round(r.amount) : undefined;
+      if ((item as any).calc_amount !== wantAmount) patch.calc_amount = wantAmount;
+      if (Object.keys(patch).length === 0) return item;
+      patched = true;
+      return { ...item, ...patch };
+    });
+    if (patched) {
+      setCart(next);
+      return;
+    }
+
+    const idx = cart.findIndex((item) => {
+      const r = computeRowFormulas(item, customFormListProduct);
+      return r.qty !== undefined && Number(item.quantity) !== round(r.qty);
+    });
+    if (idx < 0) return;
+    const newQty = round(computeRowFormulas(cart[idx], customFormListProduct).qty as number);
+    if (cart[idx].is_point_value_allow !== 1 && !Number.isInteger(newQty)) {
+      const key = `${idx}:${newQty}`;
+      if (lastQtyToastRef.current !== key) {
+        lastQtyToastRef.current = key;
+        toast.error("Calculated quantity is a decimal, which is not allowed for this item");
+      }
+      return;
+    }
+    handleQuantityChange(idx, newQty);
+  }, [cart, customFormListProduct]);
+
   const handleDescriptionChange = (index: number, value: string) => {
     const updatedCart = [...cart];
     updatedCart[index].product_description = value;
     setCart(updatedCart);
+  };
+
+  // With an "amount" formula, the line's gross amount replaces rate x qty, so the
+  // per-unit rate every discount/GST calculation works from is amount / qty.
+  const effectiveRate = (item: any) => {
+    if (item.calc_amount !== undefined && item.calc_amount !== null) {
+      const q = Number(item.quantity) || 1;
+      return (Number(item.calc_amount) || 0) / q;
+    }
+    return Number(item.rate) || 0;
   };
 
   const calculateAmount = (
@@ -2259,7 +2317,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item.data_type == 9 ||
         item.data_type == 10 ||
         item.data_type == 11 ||
-        item.data_type == 12);
+        item.data_type == 12 ||
+        !!parseCalcConfig(item.calc_config));
 
     return (
       <div className={item.form_type === 4 ? "col-12 px-2" : "col-6 px-2"}>
@@ -3702,7 +3761,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   // }, 0);
   // ✅ Fixed & Improved totalAmount (Subtotal before GST)
   const totalAmount = cart.reduce((total, item) => {
-    const rate = Number(item.rate) || 0;
+    const rate = effectiveRate(item);
     const qty = Number(item.quantity) || 1;
 
     let discountPerUnit = 0;
@@ -3717,7 +3776,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   }, 0);
   // ✅ Fixed totalGst
   const totalGst = cart.reduce((total, item) => {
-    const rate = Number(item.rate) || 0;
+    const rate = effectiveRate(item);
     const qty = Number(item.quantity) || 1;
     const gst = Number(item.GST) || 0;
 
@@ -4694,7 +4753,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item_discount_pct: item.item_discount_pct,
         item_discount_pr: item.item_discount_pr,
         item_total: calculateAmount(
-          item.rate,
+          effectiveRate(item),
           item.quantity,
           item.item_discount_pct, // always %
           discountType,
@@ -4738,7 +4797,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item_discount_pct: item.item_discount_pct,
         item_discount_pr: item.item_discount_pr,
         item_total: calculateAmount(
-          item.rate,
+          effectiveRate(item),
           item.quantity,
           item.item_discount_pct, // always %
           discountType,
@@ -8778,6 +8837,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     }}
                                     onFocus={(e) => e.target.select()}
                                     disabled={
+                                      hasQtyFormula ||
                                       ([3, 4, 8, 9].includes(
                                         Number(isOrderShowNum),
                                       ) &&
@@ -9098,7 +9158,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                             >
                                               {formatNumber(
                                                 calculateAmount(
-                                                  item.rate,
+                                                  effectiveRate(item),
                                                   item.quantity,
                                                   item.item_discount_pct,
                                                   discountType,
@@ -9121,7 +9181,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           >
                                             {formatNumber(
                                               calculateAmount(
-                                                item.rate,
+                                                effectiveRate(item),
                                                 item.quantity,
                                                 item.item_discount_pct,
                                                 discountType,

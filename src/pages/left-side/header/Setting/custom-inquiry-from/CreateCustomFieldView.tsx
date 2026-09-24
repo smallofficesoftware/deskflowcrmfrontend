@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
@@ -7,7 +7,8 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { IOption } from "../../../../../helpers/AppInterface";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
-import { createCustomInquiryFrom, fetchCompanyForTitle, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
+import { FORMULA_BUILTINS, parseCalcConfig, TCalcDrives, translateFormulaRefs, validateFormula } from "../../../../../helpers/FormulaEngine";
+import { createCustomInquiryFrom, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
 
 interface IPropsCreateCustomField {
     show: boolean;
@@ -65,6 +66,12 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [limitError, setLimitError] = useState("");
     const [displayOrderInput, setDisplayOrderInput] = useState(0);
+    const [calcExpr, setCalcExpr] = useState("");
+    const [calcDrives, setCalcDrives] = useState<TCalcDrives>(null);
+    const [calcError, setCalcError] = useState("");
+    const [formulaFields, setFormulaFields] = useState<ICustomInquiryFromList[]>([]);
+    const [formulaFieldsLoaded, setFormulaFieldsLoaded] = useState(false);
+    const calcPrefilled = useRef(false);
 
     const canAddCustomInquiry = useCheckUserPermission(
         PAGE_ID.CUSTOM_FORM_FIELD,
@@ -90,6 +97,33 @@ const CreateCustomFieldView = ({
     const showLimitFields = ["1", "2", "3", "8"].includes(
         selectedOrderList?.value?.toString() || ""
     );
+
+    // Formulas only make sense for number/decimal product fields that appear on order lines.
+    const isFormulaApplicable =
+        selectedPageType?.value?.toString() === "4" &&
+        ["1", "8"].includes(selectedOrderList?.value?.toString() || "") &&
+        selectedApplicableModules.some((m: any) => String(m.value) !== "4");
+
+    const availableFormulaFields = formulaFields.filter((f) => f.id !== productToEdit?.id);
+    const titleToRef: Record<string, string> = { rate: "rate", quantity: "quantity" };
+    const refToTitle: Record<string, string> = { rate: "rate", quantity: "quantity" };
+    availableFormulaFields.forEach((f) => {
+        titleToRef[f.title.trim().toLowerCase()] = f.reference_column_name;
+        refToTitle[f.reference_column_name] = f.title.trim();
+    });
+
+    useEffect(() => {
+        fetchProductNumberFields(setFormulaFields).then(() => setFormulaFieldsLoaded(true));
+    }, []);
+
+    useEffect(() => {
+        if (!productToEdit || !formulaFieldsLoaded || calcPrefilled.current) return;
+        calcPrefilled.current = true;
+        const cfg = parseCalcConfig(productToEdit.calc_config);
+        if (!cfg) return;
+        setCalcExpr(translateFormulaRefs(cfg.expr, refToTitle));
+        setCalcDrives(cfg.drives);
+    }, [formulaFieldsLoaded]);
 
     const customLabels: Record<string, string> = {
         "4": "Product Master",
@@ -244,6 +278,9 @@ const CreateCustomFieldView = ({
         setDisplayOrderInput(0);
         setMinLimit("");
         setMaxLimit("");
+        setCalcExpr("");
+        setCalcDrives(null);
+        setCalcError("");
     };
 
     const handelSubmit = async () => {
@@ -316,6 +353,24 @@ const CreateCustomFieldView = ({
             hasError = true;
         }
 
+        let calcConfigStr: string | null = null;
+        setCalcError("");
+        if (isFormulaApplicable && calcExpr.trim()) {
+            const storedExpr = translateFormulaRefs(calcExpr.trim(), titleToRef);
+            const formulaErr = validateFormula(
+                storedExpr,
+                calcDrives,
+                availableFormulaFields.map((f) => f.reference_column_name),
+            );
+            if (formulaErr) {
+                setCalcError(formulaErr);
+                errorMsg = formulaErr;
+                hasError = true;
+            } else {
+                calcConfigStr = JSON.stringify({ expr: storedExpr, drives: calcDrives });
+            }
+        }
+
         if (hasError) {
             if (errorMsg) toast.error(errorMsg);
             return;
@@ -354,7 +409,8 @@ const CreateCustomFieldView = ({
                             ? Number(selectedValidationType.value)
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
-                        applicable_modules: applicableModulesStr
+                        applicable_modules: applicableModulesStr,
+                        calc_config: calcConfigStr
                     },
                     setLoading,
                     productToEdit.id,
@@ -393,7 +449,8 @@ const CreateCustomFieldView = ({
                             ? Number(selectedValidationType.value)
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
-                        applicable_modules: applicableModulesStr
+                        applicable_modules: applicableModulesStr,
+                        calc_config: calcConfigStr
                     },
                     setLoading,
                     clearForm,
@@ -739,6 +796,63 @@ const CreateCustomFieldView = ({
                                             <span className="text-danger">{limitError}</span>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {isFormulaApplicable && (
+                                <div className="row mt-2">
+                                    <div className="col-12 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Formula (optional)</h6>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="e.g. {Length} * {Height}"
+                                            value={calcExpr}
+                                            onChange={(e) => {
+                                                setCalcExpr(e.target.value);
+                                                setCalcError("");
+                                            }}
+                                        />
+                                        <div className="mt-1" style={{ fontSize: "12px" }}>
+                                            Click to insert:{" "}
+                                            {[...availableFormulaFields.map((f) => f.title.trim()), ...FORMULA_BUILTINS].map((name) => (
+                                                <button
+                                                    key={name}
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary me-1 mb-1"
+                                                    onClick={() => setCalcExpr((prev) => `${prev}{${name}}`)}
+                                                >
+                                                    {name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div style={{ fontSize: "12px" }}>
+                                            Use + - * / ( ) and round(), min(), max(), abs(). The field becomes read-only on the order screen.
+                                        </div>
+                                        {calcError && <span className="text-danger">{calcError}</span>}
+                                    </div>
+                                    <div className="col-6 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Also use result as</h6>
+                                        </label>
+                                        <select
+                                            className="form-select"
+                                            value={calcDrives ?? ""}
+                                            onChange={(e) =>
+                                                setCalcDrives(
+                                                    e.target.value === "qty" || e.target.value === "amount"
+                                                        ? e.target.value
+                                                        : null,
+                                                )
+                                            }
+                                        >
+                                            <option value="">Nothing (just show it)</option>
+                                            <option value="qty">Line Quantity</option>
+                                            <option value="amount">Line Amount (before discount and GST)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             )}
 
