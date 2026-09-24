@@ -209,6 +209,10 @@ const CreateInquiryView = ({
               regex = /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
               msg = `${item.title} allows letters, numbers & special characters`;
               break;
+            case "7": // Numeric with decimal
+              regex = /^[0-9]+(\.[0-9]+)?$/;
+              msg = `${item.title} must be a number (decimals allowed)`;
+              break;
             default:
               break;
           }

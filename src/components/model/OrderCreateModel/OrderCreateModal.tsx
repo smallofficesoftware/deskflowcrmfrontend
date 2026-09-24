@@ -1752,7 +1752,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       const key = `${idx}:${newQty}`;
       if (lastQtyToastRef.current !== key) {
         lastQtyToastRef.current = key;
-        toast.error("Calculated quantity is a decimal, which is not allowed for this item");
+        toast.error(
+          `${cart[idx].product_name || "Item"}: calculated quantity ${newQty} is a decimal, which is not allowed for this item`,
+        );
       }
       return;
     }
@@ -4397,6 +4399,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
               regex = /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
               msg = "alphanumeric + special chars";
               break;
+            case "7":
+              regex = /^[0-9]+(\.[0-9]+)?$/;
+              msg = "only numbers (decimals allowed)";
+              break;
           }
 
           if (regex && !regex.test(strValue)) {
@@ -4468,6 +4474,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           case "6":
             regex = /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
             msg = "alphanumeric + special chars";
+            break;
+          case "7":
+            regex = /^[0-9]+(\.[0-9]+)?$/;
+            msg = "only numbers (decimals allowed)";
             break;
         }
 
@@ -10802,6 +10812,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                             /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
                                           msg = "alphanumeric + special chars";
                                           break;
+                                        case "7":
+                                          regex = /^[0-9]+(\.[0-9]+)?$/;
+                                          msg = "only numbers (decimals allowed)";
+                                          break;
                                       }
 
                                       if (regex && !regex.test(strValue)) {
@@ -10893,6 +10907,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         regex =
                                           /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
                                         msg = "alphanumeric + special chars";
+                                        break;
+                                      case "7":
+                                        regex = /^[0-9]+(\.[0-9]+)?$/;
+                                        msg = "only numbers (decimals allowed)";
                                         break;
                                     }
 

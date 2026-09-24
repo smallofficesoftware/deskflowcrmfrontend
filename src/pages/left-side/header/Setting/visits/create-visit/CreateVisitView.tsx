@@ -219,6 +219,11 @@ const CreateVisitView = ({
               errorMessage = `${item.title} can contain letters, numbers, and special characters`;
               break;
 
+            case "7": // Numeric with decimal
+              regex = /^[0-9]+(\.[0-9]+)?$/;
+              errorMessage = `${item.title} must be a number (decimals allowed)`;
+              break;
+
             default:
               break;
           }

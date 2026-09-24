@@ -24,7 +24,8 @@ export const orderTypesCustomInquiryList = [
 ];
 
 export const validationTypeList = [
-  { id: "1", label: "Numeric" },
+  { id: "1", label: "Numeric (Without Decimal)" },
+  { id: "7", label: "Numeric (With Decimal)" },
   { id: "2", label: "Alphanumeric" },
   { id: "3", label: "Alpha" },
   { id: "4", label: "Alpha with special Character" },
