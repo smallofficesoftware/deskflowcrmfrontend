@@ -1956,9 +1956,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     try {
       const getUUID = localStorage.getItem("UUID");
 
+      // getAllProduct filters on `productId` (comma-separated), not `id`.
       const { data } = await axiosInstance.post(`product`, {
-        id,
+        productId: String(id),
         a_application_login_id: getUUID,
+        ll: 1,
       });
 
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
