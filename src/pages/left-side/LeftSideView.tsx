@@ -210,6 +210,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     setCheckToken,
     setPermissions,
     setCompanyData,
+    setShowAttendancePopup,
   } = useContext(AppContext)!;
   const token = localStorage.getItem("token");
   const localId = localStorage.getItem("UUID");
@@ -607,6 +608,10 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
               response?.data?.data?.SUPPORT_TICKET_INFO_MESSAGE ?? "",
             CUSTOMER_SUPPORT_TICKET_ASSING_ID: isAssignedToMe,
           });
+          setShowAttendancePopup(
+            response.data.data.compulsary_attendance === true &&
+            response.data.data.hasCheckedInToday === false,
+          );
 
           const company = response?.data?.data?.companyDetails;
 
