@@ -62,6 +62,8 @@ export interface IBomMaterial {
   available_qty: number;
   required_qty: number; // calculated: bom_per_unit × order_qty
   qty_diff: number; // available_qty - required_qty (negative = shortage)
+  reserved_qty?: number; // pending need of other open (not fully produced) job cards
+  consumed_qty?: number; // used so far by this job card in this process (rejected, on rejection rows)
 }
 
 export interface IBomProcess {

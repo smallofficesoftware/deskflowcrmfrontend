@@ -1,5 +1,6 @@
 import React from "react";
 import { IBomProcess } from "../JobCardTypes";
+import { diffOf, pendingOf } from "../materialStock";
 
 interface IProps {
   jobCardId: number | string;
@@ -58,6 +59,8 @@ const RequiredMaterialPrint = React.forwardRef<HTMLDivElement, IProps>(
                   <th style={thStyle}>Unit</th>
                   <th style={thStyle}>Required Qty</th>
                   <th style={thStyle}>Available Qty</th>
+                  <th style={thStyle}>Consumed/Rejected</th>
+                  <th style={thStyle}>Pending Qty</th>
                   <th style={thStyle}>Shortage/Diff</th>
                 </tr>
               </thead>
@@ -70,13 +73,15 @@ const RequiredMaterialPrint = React.forwardRef<HTMLDivElement, IProps>(
                     <td style={tdStyle}>{m.unit}</td>
                     <td style={tdStyle}>{m.required_qty.toFixed(3)}</td>
                     <td style={tdStyle}>{m.available_qty.toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(m.consumed_qty ?? 0).toFixed(3)}</td>
+                    <td style={tdStyle}>{pendingOf(m).toFixed(3)}</td>
                     <td
                       style={{
                         ...tdStyle,
-                        color: m.qty_diff < 0 ? "red" : "inherit",
+                        color: diffOf(m) < 0 ? "red" : "inherit",
                       }}
                     >
-                      {m.qty_diff.toFixed(3)}
+                      {diffOf(m).toFixed(3)}
                     </td>
                   </tr>
                 ))}
@@ -88,13 +93,15 @@ const RequiredMaterialPrint = React.forwardRef<HTMLDivElement, IProps>(
                     <td style={tdStyle}>{m.unit}</td>
                     <td style={tdStyle}>{m.required_qty.toFixed(3)}</td>
                     <td style={tdStyle}>{m.available_qty.toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(m.consumed_qty ?? 0).toFixed(3)}</td>
+                    <td style={tdStyle}>{pendingOf(m).toFixed(3)}</td>
                     <td
                       style={{
                         ...tdStyle,
-                        color: m.qty_diff < 0 ? "red" : "inherit",
+                        color: diffOf(m) < 0 ? "red" : "inherit",
                       }}
                     >
-                      {m.qty_diff.toFixed(3)}
+                      {diffOf(m).toFixed(3)}
                     </td>
                   </tr>
                 ))}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { IBomMaterial, IBomProcess } from "../JobCardTypes";
+import { diffOf, freeStockOf, pendingOf } from "../materialStock";
 import MaterialActionMenu from "./MaterialActionMenu";
 
 interface IProps {
@@ -11,14 +12,22 @@ interface IProps {
   onGeneratePO: (materialId: number, materialName: string) => void;
 }
 
+const shortagesIn = (materials: IBomMaterial[], deductReserved: boolean) =>
+  materials.filter((m) => diffOf(m, deductReserved) < 0).length;
+
 // ─── Material Table ───────────────────────────────────────────────────────────
 
 const MaterialTable = ({
   materials,
+  deductReserved,
+  consumedLabel,
   onAddStock,
   onGeneratePO,
 }: {
   materials: IBomMaterial[];
+  deductReserved: boolean;
+  // "Consumed" on the consumption tab, "Rejected" on the rejection tab.
+  consumedLabel: string;
   onAddStock: (id: number, name: string) => void;
   onGeneratePO: (id: number, name: string) => void;
 }) => {
@@ -42,21 +51,38 @@ const MaterialTable = ({
             <th>Material</th>
             <th style={{ width: 70 }}>Unit</th>
             <th style={{ width: 100 }}>Current Stock</th>
+            {deductReserved && (
+              <>
+                <th style={{ width: 100 }}>Reserved</th>
+                <th style={{ width: 100 }}>Free Stock</th>
+              </>
+            )}
             <th style={{ width: 100 }}>Required</th>
+            <th style={{ width: 100 }}>{consumedLabel}</th>
+            <th style={{ width: 100 }}>Pending</th>
             <th style={{ width: 100 }}>Diff</th>
             <th style={{ width: 50 }}></th>
           </tr>
         </thead>
         <tbody>
           {materials.map((m, idx) => {
-            const shortage = m.qty_diff < 0;
+            const diff = diffOf(m, deductReserved);
+            const shortage = diff < 0;
             return (
               <tr key={m.material_id}>
                 <td className="text-muted">{idx + 1}</td>
                 <td className="fw-semibold">{m.material_name}</td>
                 <td>{m.unit}</td>
                 <td>{m.available_qty.toFixed(2)}</td>
+                {deductReserved && (
+                  <>
+                    <td>{(m.reserved_qty || 0).toFixed(2)}</td>
+                    <td>{freeStockOf(m, true).toFixed(2)}</td>
+                  </>
+                )}
                 <td>{m.required_qty.toFixed(2)}</td>
+                <td>{(m.consumed_qty || 0).toFixed(2)}</td>
+                <td>{pendingOf(m).toFixed(2)}</td>
                 <td>
                   <span
                     className="badge"
@@ -68,7 +94,7 @@ const MaterialTable = ({
                     }}
                   >
                     {shortage ? "" : "+"}
-                    {m.qty_diff.toFixed(2)}
+                    {diff.toFixed(2)}
                   </span>
                 </td>
                 <td>
@@ -95,11 +121,13 @@ const MaterialTable = ({
 const ProcessCard = ({
   process,
   defaultOpen,
+  deductReserved,
   onAddStock,
   onGeneratePO,
 }: {
   process: IBomProcess;
   defaultOpen: boolean;
+  deductReserved: boolean;
   onAddStock: (id: number, name: string) => void;
   onGeneratePO: (id: number, name: string) => void;
 }) => {
@@ -109,8 +137,8 @@ const ProcessCard = ({
   >("consumption");
 
   const shortageCount =
-    process.consumption.filter((m) => m.qty_diff < 0).length +
-    process.rejection.filter((m) => m.qty_diff < 0).length;
+    shortagesIn(process.consumption, deductReserved) +
+    shortagesIn(process.rejection, deductReserved);
 
   return (
     <div
@@ -226,6 +254,8 @@ const ProcessCard = ({
                 ? process.consumption
                 : process.rejection
             }
+            deductReserved={deductReserved}
+            consumedLabel={activeSection === "consumption" ? "Consumed" : "Rejected"}
             onAddStock={onAddStock}
             onGeneratePO={onGeneratePO}
           />
@@ -243,6 +273,8 @@ const RequiredMaterialSection = ({
   onAddStock,
   onGeneratePO,
 }: IProps) => {
+  const [deductReserved, setDeductReserved] = useState(false);
+
   if (loading) {
     return (
       <div>
@@ -268,8 +300,8 @@ const RequiredMaterialSection = ({
   const totalShortages = bomProcesses.reduce(
     (acc, p) =>
       acc +
-      p.consumption.filter((m) => m.qty_diff < 0).length +
-      p.rejection.filter((m) => m.qty_diff < 0).length,
+      shortagesIn(p.consumption, deductReserved) +
+      shortagesIn(p.rejection, deductReserved),
     0,
   );
 
@@ -283,6 +315,19 @@ const RequiredMaterialSection = ({
         >
           {bomProcesses.length} Process{bomProcesses.length > 1 ? "es" : ""}
         </span>
+        <label
+          className="d-flex align-items-center gap-2 mb-0 ms-auto me-3"
+          style={{ fontSize: "0.8rem", color: "#374151", cursor: "pointer" }}
+          title="Deduct material still needed by other job cards that are not fully produced yet"
+        >
+          <input
+            type="checkbox"
+            className="form-check-input mt-0"
+            checked={deductReserved}
+            onChange={(e) => setDeductReserved(e.target.checked)}
+          />
+          Deduct reserved stock (other open job cards)
+        </label>
         {totalShortages > 0 ? (
           <span
             className="badge"
@@ -314,6 +359,7 @@ const RequiredMaterialSection = ({
           key={p.process_id}
           process={p}
           defaultOpen={idx === 0}
+          deductReserved={deductReserved}
           onAddStock={onAddStock}
           onGeneratePO={onGeneratePO}
         />
