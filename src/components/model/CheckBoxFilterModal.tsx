@@ -34,6 +34,13 @@ import CustomSearchDropdown from "../CustomSearchDropdown";
 import MultiSelect from "../MultiSelect";
 import "./ConfirmationModal.css";
 
+// Product filter document types: every cart type plus inquiries, which the
+// backend matches against inquiries.product_id instead of cart_items.
+const productFilterDocTypes = [
+  { id: "inquiry", type: "Inquiry" },
+  ...orderTypesList,
+];
+
 // Fixed Options for Month
 export const monthOptions = [
   { value: 1, label: "January" },
@@ -590,7 +597,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
     }
     if (initialFilterData.orderlistselect) {
-      const orderlistselect = orderTypesList.find(
+      const orderlistselect = productFilterDocTypes.find(
         (a) => a.type === initialFilterData.orderlistselect,
       );
       setSelectedOrderListId(
@@ -615,7 +622,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       fetchProductById(initialFilterData.productId);
     }
     if (initialFilterData.orderlistselect) {
-      const order = orderTypesList.find(
+      const order = productFilterDocTypes.find(
         (o) =>
           o.id === initialFilterData.orderlistselect ||
           o.type === initialFilterData.orderlistselect,
@@ -760,6 +767,19 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     if (isLoading) {
       toast.warn("Data is still loading, please wait...");
       return;
+    }
+    // Product filter only applies with both a product and a document type.
+    if (filtersToShow.includes(19)) {
+      const hasProduct = !!selectedProductSearchId;
+      const hasOrderType = !!selectedOrderListId?.value;
+      if (hasProduct && !hasOrderType) {
+        toast.error("Please select a document type for the product filter.");
+        return;
+      }
+      if (!hasProduct && hasOrderType) {
+        toast.error("Please select a product for the document type filter.");
+        return;
+      }
     }
     const filterData: IFilterData = {
       country: selectedCountryId?.value,
@@ -987,7 +1007,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedWarehouseIds: warehouseIds || "",
       selectedContactId,
       selectedProductSearchId,
-      selectedOrderListId,
+      selectedOrderListId: selectedOrderListId?.value ?? null,
       referenceWiseContact,
       leadAgingBucket,
       leadAgingActivityTypes,
@@ -1784,7 +1804,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     label: option.value,
   }));
 
-  const orderListOptions = (orderTypesList || []).map((option: any) => ({
+  const orderListOptions = productFilterDocTypes.map((option: any) => ({
     value: option.id,
     label: option.type,
   }));
@@ -3869,6 +3889,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
                           {/* Order List Dropdown */}
                           <div className="add-source-of-type-section">
+                            <label
+                              className="pb-2 form_label"
+                              style={{ fontSize: "14px", fontWeight: "500" }}
+                            >
+                              Document Type
+                              <span className="text-danger">*</span>
+                            </label>
                             <CustomSearchDropdown
                               options={orderListOptions}
                               value={selectedOrderListId}
