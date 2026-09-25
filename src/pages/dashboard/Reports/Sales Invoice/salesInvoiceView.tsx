@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import { renderCartTotalsFooter } from "../../../../components/CartTotalsFooter";
 import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -128,6 +129,7 @@ const TeamSalesInvoiceDataReportsView = ({
 }: ITeamcartDataReports) => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [grandTotals, setGrandTotals] = useState<Record<string, number> | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<any[]>([]);
@@ -496,6 +498,7 @@ const TeamSalesInvoiceDataReportsView = ({
       setCustomers(data?.items || []);
       setCurrencyName(data?.getcurrncy);
       setTotalRecords(data?.total || 0);
+      setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -1687,35 +1690,13 @@ const TeamSalesInvoiceDataReportsView = ({
                   style={{ fontSize: "2rem" }}
                 />
               }
-              footer={
-                <div
-                  style={{
-                    padding: "10px",
-                    background: "#f8f9fa",
-                    position: "sticky",
-                    bottom: 0,
-                    zIndex: 1,
-                  }}
-                >
-                  <div style={{ textAlign: "right" }}>
-                    {(() => {
-                      const symbol =
-                        filteredData
-                          .find((row) => row.grand_total)
-                          ?.grand_total.match(/[^\d.,-]+/)?.[0] || "₹";
-
-                      const total = filteredData.reduce((sum, row) => {
-                        const numericValue = parseFloat(
-                          String(row.grand_total).replace(/[^0-9.-]+/g, ""),
-                        );
-                        return sum + (isNaN(numericValue) ? 0 : numericValue);
-                      }, 0);
-
-                      return `Total: ${symbol} ${total.toLocaleString("en-IN")}`;
-                    })()}
-                  </div>
-                </div>
-              }
+              footerColumnGroup={renderCartTotalsFooter({
+                columns: visibleColumns,
+                rows: filteredData,
+                leadingColumnCount: !MobileFlag ? 2 : 0,
+                grandTotals,
+                totalRecords,
+              })}
             >
               {(!MobileFlag ||
                 MobileFlag === undefined ||

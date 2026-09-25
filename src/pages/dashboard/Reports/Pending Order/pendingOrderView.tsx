@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
+import { renderCartTotalsFooter } from "../../../../components/CartTotalsFooter";
 import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -121,6 +122,7 @@ const PendingOrderView = ({
 }: ITeamcartDataReports) => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [grandTotals, setGrandTotals] = useState<Record<string, number> | null>(null);
   // Pending print template picker -- see tryPendingPdfmePrint's own
   // click-time-check comment (QuotationController.ts).
   const [pendingPrintChoices, setPendingPrintChoices] = useState<
@@ -467,6 +469,7 @@ const PendingOrderView = ({
       setCustomers(data?.items || []);
       setCurrencyName(data?.getcurrncy);
       setTotalRecords(data?.total || 0);
+      setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -1491,29 +1494,13 @@ const PendingOrderView = ({
             selectionMode="multiple"
             emptyMessage="No records found"
             // loadingIcon={<span>Loading data, please wait...</span>}
-            footer={
-              <div
-                style={{
-                  padding: "10px",
-                  background: "#f8f9fa",
-                  textAlign: "right",
-                }}
-              >
-                {(() => {
-                  const symbol =
-                    filteredData
-                      .find((r) => r.grand_total)
-                      ?.grand_total.match(/[^\d.,-]+/)?.[0] || "₹";
-                  const total = filteredData.reduce((sum, row) => {
-                    const val = parseFloat(
-                      String(row.grand_total).replace(/[^0-9.-]+/g, ""),
-                    );
-                    return sum + (isNaN(val) ? 0 : val);
-                  }, 0);
-                  return `Total: ${symbol} ${total.toLocaleString("en-IN")}`;
-                })()}
-              </div>
-            }
+            footerColumnGroup={renderCartTotalsFooter({
+              columns: visibleColumns,
+              rows: filteredData,
+              leadingColumnCount: !MobileFlag ? 2 : 0,
+              grandTotals,
+              totalRecords,
+            })}
           >
             {(!MobileFlag ||
               MobileFlag === undefined ||
