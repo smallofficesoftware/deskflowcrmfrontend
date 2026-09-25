@@ -1,3 +1,4 @@
+import "primeicons/primeicons.css";
 import React, { useEffect, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -33,12 +34,14 @@ interface IProps {
   onGeneratePO?: (materialId: number, materialName: string) => void;
 }
 
-// ─── Tab config (3 tabs — production entry is its own modal) ─────────────────
+// ─── Tab config (2 tabs — production entry is its own modal) ─────────────────
+// Details and Required Material share one tab: the job card summary sits on
+// top of the material list, so "which order" and "is stock enough" are
+// visible together. `icon` is a PrimeIcons class.
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "select", label: "Item Select", icon: "🔍" },
-  { id: "details", label: "Details", icon: "📋" },
-  { id: "material", label: "Required Material", icon: "🧰" },
+  { id: "select", label: "Item Select", icon: "pi-search" },
+  { id: "details", label: "Details & Material", icon: "pi-list-check" },
 ];
 
 const JobCardView = ({
@@ -223,7 +226,6 @@ const JobCardView = ({
   const isTabEnabled = (id: TabId): boolean => {
     if (id === "select") return true;
     if (id === "details") return !!contactDetail && !!itemDetail;
-    if (id === "material") return bomProcesses.length > 0;
     return false;
   };
 
@@ -286,7 +288,11 @@ const JobCardView = ({
                 fontSize: "1.05rem",
               }}
             >
-              {isEditMode ? "✏️ Edit Job Card" : "💼 Job Card"}
+              <i
+                className={`pi ${isEditMode ? "pi-pencil" : "pi-briefcase"} me-2`}
+                style={{ fontSize: "0.95rem" }}
+              />
+              {isEditMode ? "Edit Job Card" : "Job Card"}
             </h5>
             <span
               style={{
@@ -359,15 +365,13 @@ const JobCardView = ({
                   marginBottom: -2,
                 }}
               >
-                <span className="me-1">{tab.icon}</span>
+                <i className={`pi ${tab.icon} me-2`} style={{ fontSize: "0.8rem" }} />
                 {tab.label}
                 {!enabled && tab.id !== "select" && (
-                  <span
-                    className="ms-1"
+                  <i
+                    className="pi pi-lock ms-2"
                     style={{ fontSize: "0.65rem", opacity: 0.6 }}
-                  >
-                    🔒
-                  </span>
+                  />
                 )}
               </button>
             );
@@ -419,17 +423,21 @@ const JobCardView = ({
                       }}
                     >
                       <div>
-                        <strong>📦 Item:</strong> {itemDetail?.item_name ?? "—"}
+                        <i className="pi pi-box me-2 text-muted" style={{ fontSize: "0.75rem" }} />
+                        <strong>Item:</strong> {itemDetail?.item_name ?? "—"}
                       </div>
                       <div>
-                        <strong>📋 Order:</strong> {itemDetail?.order_no ?? "—"}
+                        <i className="pi pi-file me-2 text-muted" style={{ fontSize: "0.75rem" }} />
+                        <strong>Order:</strong> {itemDetail?.order_no ?? "—"}
                       </div>
                       <div>
-                        <strong>👤 Customer:</strong>{" "}
+                        <i className="pi pi-user me-2 text-muted" style={{ fontSize: "0.75rem" }} />
+                        <strong>Customer:</strong>{" "}
                         {contactDetail?.name ?? "—"}
                       </div>
                       <div>
-                        <strong>📊 Order Qty:</strong>{" "}
+                        <i className="pi pi-chart-bar me-2 text-muted" style={{ fontSize: "0.75rem" }} />
+                        <strong>Order Qty:</strong>{" "}
                         {itemDetail
                           ? `${itemDetail.order_qty} ${itemDetail.unit}`
                           : "—"}
@@ -492,7 +500,10 @@ const JobCardView = ({
                           Updating…
                         </>
                       ) : (
-                        "💾 Update Job Card"
+                        <>
+                          <i className="pi pi-save me-1" style={{ fontSize: "0.78rem" }} />
+                          Update Job Card
+                        </>
                       )}
                     </button>
                   </div>
@@ -501,24 +512,30 @@ const JobCardView = ({
             </div>
           )}
 
-          {/* ── DETAILS TAB ── */}
+          {/* ── DETAILS & MATERIAL TAB ── */}
           {activeTab === "details" && (
-            <ItemDetailSection
-              contactDetail={contactDetail}
-              itemDetail={itemDetail}
-              loading={loadingDetails}
-              printing={printing}
-              onPrintBom={handlePrintBom}
-            />
-          )}
-
-          {activeTab === "material" && (
-            <RequiredMaterialSection
-              bomProcesses={bomProcesses}
-              loading={loadingDetails}
-              onAddStock={handleAddStock}
-              onGeneratePO={handleGeneratePO}
-            />
+            <>
+              <ItemDetailSection
+                contactDetail={contactDetail}
+                itemDetail={itemDetail}
+                loading={loadingDetails}
+                printing={printing}
+                onPrintBom={handlePrintBom}
+              />
+              <div
+                className="d-flex align-items-center gap-2 mb-2"
+                style={{ fontSize: "0.72rem", fontWeight: 700, color: "#6b7280", letterSpacing: "0.05em" }}
+              >
+                <i className="pi pi-sitemap" style={{ fontSize: "0.75rem" }} />
+                REQUIRED MATERIAL
+              </div>
+              <RequiredMaterialSection
+                bomProcesses={bomProcesses}
+                loading={loadingDetails}
+                onAddStock={handleAddStock}
+                onGeneratePO={handleGeneratePO}
+              />
+            </>
           )}
         </div>
       </div>

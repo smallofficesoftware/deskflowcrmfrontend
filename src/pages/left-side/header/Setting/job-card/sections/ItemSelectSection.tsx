@@ -28,9 +28,9 @@ interface IProps {
 }
 
 const MODES: { id: JobCardMode; label: string; icon: string }[] = [
-  { id: "order", label: "From Order", icon: "📋" },
-  { id: "product", label: "Direct Product", icon: "🏭" },
-  { id: "customer", label: "For Customer", icon: "👤" },
+  { id: "order", label: "From Order", icon: "pi-file" },
+  { id: "product", label: "Direct Product", icon: "pi-box" },
+  { id: "customer", label: "For Customer", icon: "pi-user" },
 ];
 
 const SelectRow = ({
@@ -226,7 +226,7 @@ const ItemSelectSection = ({
                 whiteSpace: "nowrap",
               }}
             >
-              <span className="me-1">{m.icon}</span>
+              <i className={`pi ${m.icon} me-2`} style={{ fontSize: "0.78rem" }} />
               {m.label}
             </button>
           );

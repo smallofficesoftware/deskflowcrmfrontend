@@ -1,5 +1,6 @@
 // ─── Tab Navigation (production entry is now a separate modal) ────────────────
-export type TabId = "select" | "details" | "material";
+// "details" = merged Details & Required Material tab.
+export type TabId = "select" | "details";
 
 // ─── Job Card creation mode ──────────────────────────────────────────────────
 //   "order"    -> Customer → Order → Order Item  (job_card_type 1)
@@ -64,6 +65,9 @@ export interface IBomMaterial {
   qty_diff: number; // available_qty - required_qty (negative = shortage)
   reserved_qty?: number; // pending need of other open (not fully produced) job cards
   consumed_qty?: number; // used so far by this job card in this process (rejected, on rejection rows)
+  reserved_by?: { job_id: number; item_name: string; pending_qty: number }[];
+  incoming_qty?: number; // still to be produced by other open job cards making this material
+  incoming_by?: { job_id: number; production_qty: number; produced_qty: number; pending_qty: number }[];
 }
 
 export interface IBomProcess {

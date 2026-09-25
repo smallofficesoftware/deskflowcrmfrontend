@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+import "primeicons/primeicons.css";
+import { PrimeReactProvider } from "primereact/api";
+import { OverlayPanel } from "primereact/overlaypanel";
+import React, { useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { IBomMaterial, IBomProcess } from "../JobCardTypes";
@@ -14,6 +17,65 @@ interface IProps {
 
 const shortagesIn = (materials: IBomMaterial[], deductReserved: boolean) =>
   materials.filter((m) => diffOf(m, deductReserved) < 0).length;
+
+// A Reserved / In Production qty; when other job cards are behind it, the
+// number is clickable and opens the per-job-card breakdown.
+const BreakdownCell = ({
+  qty,
+  title,
+  headers,
+  rows,
+}: {
+  qty: number;
+  title: string;
+  headers: string[];
+  rows: (string | number)[][];
+}) => {
+  const panel = useRef<OverlayPanel>(null);
+  if (!rows.length) return <>{qty.toFixed(2)}</>;
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-link p-0 d-inline-flex align-items-center gap-1"
+        style={{ fontSize: "0.78rem", textDecoration: "none", color: "#e0732a", fontWeight: 600 }}
+        onClick={(e) => panel.current?.toggle(e)}
+        title={`${rows.length} job card${rows.length > 1 ? "s" : ""}`}
+      >
+        {qty.toFixed(2)}
+        <i className="pi pi-info-circle" style={{ fontSize: "0.68rem" }} />
+      </button>
+      {/* OverlayPanel reads PrimeReact context (hideOverlaysOnDocumentScrolling
+          etc.); the job card modal isn't under a PrimeReactProvider, so give
+          the panel its own - without it the click crashes. */}
+      <PrimeReactProvider>
+      <OverlayPanel ref={panel} style={{ minWidth: 260 }}>
+        <div className="fw-bold mb-2" style={{ fontSize: "0.78rem", color: "#374151" }}>
+          {title}
+        </div>
+        <table className="table table-sm mb-0" style={{ fontSize: "0.75rem" }}>
+          <thead>
+            <tr>
+              {headers.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                {r.map((c, j) => (
+                  <td key={j}>{c}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </OverlayPanel>
+      </PrimeReactProvider>
+    </>
+  );
+};
 
 // ─── Material Table ───────────────────────────────────────────────────────────
 
@@ -54,6 +116,7 @@ const MaterialTable = ({
             {deductReserved && (
               <>
                 <th style={{ width: 100 }}>Reserved</th>
+                <th style={{ width: 100 }}>In Production</th>
                 <th style={{ width: 100 }}>Free Stock</th>
               </>
             )}
@@ -76,7 +139,31 @@ const MaterialTable = ({
                 <td>{m.available_qty.toFixed(2)}</td>
                 {deductReserved && (
                   <>
-                    <td>{(m.reserved_qty || 0).toFixed(2)}</td>
+                    <td>
+                      <BreakdownCell
+                        qty={m.reserved_qty || 0}
+                        title="Reserved by open job cards"
+                        headers={["Job Card", "Item", "Pending"]}
+                        rows={(m.reserved_by || []).map((r) => [
+                          `#${r.job_id}`,
+                          r.item_name || "-",
+                          r.pending_qty.toFixed(2),
+                        ])}
+                      />
+                    </td>
+                    <td>
+                      <BreakdownCell
+                        qty={m.incoming_qty || 0}
+                        title="Being produced by open job cards"
+                        headers={["Job Card", "Qty", "Done", "Pending"]}
+                        rows={(m.incoming_by || []).map((r) => [
+                          `#${r.job_id}`,
+                          r.production_qty,
+                          r.produced_qty,
+                          r.pending_qty.toFixed(2),
+                        ])}
+                      />
+                    </td>
                     <td>{freeStockOf(m, true).toFixed(2)}</td>
                   </>
                 )}
@@ -159,8 +246,8 @@ const ProcessCard = ({
           alignItems: "center",
           justifyContent: "space-between",
           cursor: "pointer",
-          borderTopLeftRadius: "6px", // 👇 Added to keep corners rounded
-          borderTopRightRadius: "6px", // 👇 Added to keep corners rounded
+          borderTopLeftRadius: "6px",
+          borderTopRightRadius: "6px",
         }}
       >
         <div className="d-flex align-items-center gap-2">
@@ -179,7 +266,7 @@ const ProcessCard = ({
               flexShrink: 0,
             }}
           >
-            ⚙
+            <i className="pi pi-cog" style={{ fontSize: "0.75rem" }} />
           </span>
           <span
             style={{ fontWeight: 700, fontSize: "0.85rem", color: "#374151" }}
@@ -200,7 +287,7 @@ const ProcessCard = ({
           )}
         </div>
         <span style={{ color: "#adb5bd", fontSize: "0.75rem" }}>
-          {open ? "▲" : "▼"}
+          <i className={`pi ${open ? "pi-chevron-up" : "pi-chevron-down"}`} style={{ fontSize: "0.7rem" }} />
         </span>
       </button>
 
@@ -227,7 +314,11 @@ const ProcessCard = ({
                     cursor: "pointer",
                   }}
                 >
-                  {sec === "consumption" ? "🔥 Consumption" : "♻️ Rejection"}
+                  <i
+                    className={`pi ${sec === "consumption" ? "pi-arrow-down" : "pi-replay"} me-1`}
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                  {sec === "consumption" ? "Consumption" : "Rejection"}
                   <span
                     className="ms-1 badge"
                     style={{
@@ -291,7 +382,7 @@ const RequiredMaterialSection = ({
         className="text-center py-5 text-muted"
         style={{ fontSize: "0.85rem" }}
       >
-        <div style={{ fontSize: "2.5rem" }}>🧰</div>
+        <i className="pi pi-inbox" style={{ fontSize: "2.2rem", color: "#ced4da" }} />
         <p className="mt-2">No BOM data found for this item.</p>
       </div>
     );
@@ -318,7 +409,7 @@ const RequiredMaterialSection = ({
         <label
           className="d-flex align-items-center gap-2 mb-0 ms-auto me-3"
           style={{ fontSize: "0.8rem", color: "#374151", cursor: "pointer" }}
-          title="Deduct material still needed by other job cards that are not fully produced yet"
+          title="Other job cards not fully produced yet: deduct the material they still need, add what they are still producing of it"
         >
           <input
             type="checkbox"
@@ -326,7 +417,7 @@ const RequiredMaterialSection = ({
             checked={deductReserved}
             onChange={(e) => setDeductReserved(e.target.checked)}
           />
-          Deduct reserved stock (other open job cards)
+          Consider other open job cards (reserved &amp; in production)
         </label>
         {totalShortages > 0 ? (
           <span
@@ -337,7 +428,8 @@ const RequiredMaterialSection = ({
               fontSize: "0.75rem",
             }}
           >
-            ⚠ {totalShortages} material shortage{totalShortages > 1 ? "s" : ""}
+            <i className="pi pi-exclamation-triangle me-1" style={{ fontSize: "0.7rem" }} />
+            {totalShortages} material shortage{totalShortages > 1 ? "s" : ""}
           </span>
         ) : (
           <span
@@ -348,7 +440,8 @@ const RequiredMaterialSection = ({
               fontSize: "0.75rem",
             }}
           >
-            ✓ All materials sufficient
+            <i className="pi pi-check-circle me-1" style={{ fontSize: "0.7rem" }} />
+            All materials sufficient
           </span>
         )}
       </div>
