@@ -31,6 +31,10 @@ interface CartTotalsFooterOptions {
   // Total record count across all pages; the Grand Total row is only
   // shown when it exceeds this page (otherwise both rows would be equal).
   totalRecords?: number;
+  // Grid column key -> row field to sum for its page total. Defaults to
+  // the cart amount columns; other reports pass their own (e.g. Expense
+  // Detailed's amount / pass_amount). grandTotals is keyed the same way.
+  sumFields?: Record<string, string>;
 }
 
 const currencySymbolOf = (rows: any[], key: string) =>
@@ -55,11 +59,12 @@ const renderTotalsRow = (
   leadingColumnCount: number,
   valueFor: (colKey: string, sourceKey: string) => number,
   rows: any[],
+  sumFields: Record<string, string>,
 ) => (
   <Row>
     {leadingColumnCount > 0 && <Column footer={label} colSpan={leadingColumnCount} footerStyle={TOTAL_STYLE} />}
     {columns.map((col, idx) => {
-      const sourceKey = CART_FOOTER_SUM_SOURCE_FIELD[col.key];
+      const sourceKey = sumFields[col.key];
       if (!sourceKey) {
         // No leading columns (mobile): label the first plain column instead.
         const cellLabel = leadingColumnCount === 0 && idx === 0 ? label : "";
@@ -89,13 +94,14 @@ export const renderCartTotalsFooter = ({
   leadingColumnCount,
   grandTotals,
   totalRecords,
+  sumFields = CART_FOOTER_SUM_SOURCE_FIELD,
 }: CartTotalsFooterOptions) => {
   const showGrand = Boolean(grandTotals) && (totalRecords ?? 0) > rows.length;
   return (
     <ColumnGroup>
-      {renderTotalsRow(showGrand ? "Page Total" : "Total", columns, leadingColumnCount, (_k, src) => sumPage(rows, src), rows)}
+      {renderTotalsRow(showGrand ? "Page Total" : "Total", columns, leadingColumnCount, (_k, src) => sumPage(rows, src), rows, sumFields)}
       {showGrand &&
-        renderTotalsRow("Grand Total", columns, leadingColumnCount, (colKey) => Number(grandTotals?.[colKey]) || 0, rows)}
+        renderTotalsRow("Grand Total", columns, leadingColumnCount, (colKey) => Number(grandTotals?.[colKey]) || 0, rows, sumFields)}
     </ColumnGroup>
   );
 };

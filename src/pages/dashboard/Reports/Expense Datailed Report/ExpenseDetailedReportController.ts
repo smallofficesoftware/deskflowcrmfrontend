@@ -27,6 +27,8 @@ export interface IExpenseDetailedReport {
 export interface IExpenseDetailedResult {
     data: IExpenseDetailedReport[];
     total: number;
+    // Sums over every page of the filtered result (amount / pass_amount).
+    grandTotals?: Record<string, number> | null;
 }
 
 export const fetchDetailedExpense = async (
@@ -75,6 +77,7 @@ export const fetchDetailedExpense = async (
             return {
                 data: response.data.data.item || [],
                 total: typeof response.data.data.total === "number" ? response.data.data.total : 0,
+                grandTotals: response.data.data.grand_totals || null,
             };
         } else {
             throw new Error(response.data.ack_msg || "Error");

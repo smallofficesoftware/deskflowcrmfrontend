@@ -19,6 +19,7 @@ import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
+import { renderCartTotalsFooter } from "../../../../components/CartTotalsFooter";
 import ImageViewer from "../../../../components/ImageViewer";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
 import AppliedFilterBar from "../../../../components/report/AppliedFilterBar";
@@ -38,6 +39,14 @@ import {
   fetchDetailedExpense,
   IExpenseDetailedReport,
 } from "./ExpenseDetailedReportController";
+
+// Footer totals: amount / pass_amount are "<symbol> <n>" display strings;
+// the footer strips the symbol when summing a page. grand_totals from the
+// API is keyed the same way.
+const EXPENSE_FOOTER_SUM_FIELDS: Record<string, string> = {
+  amount: "amount",
+  pass_amount: "pass_amount",
+};
 
 interface LazyTableState {
   first: number;
@@ -86,6 +95,7 @@ const ExpenseDetailedReport = ({
 }: IPropsourceReportReports) => {
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [grandTotals, setGrandTotals] = useState<Record<string, number> | null>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
 
   const [selectAll, setSelectAll] = useState(false);
@@ -342,7 +352,7 @@ const ExpenseDetailedReport = ({
           ? filters.selectedDateArray
           : getCurrentMonthDateRange();
 
-      const { data, total } = await fetchDetailedExpense(
+      const { data, total, grandTotals: sums } = await fetchDetailedExpense(
         dateArrayToUse,
         filters.checkedOptionsUser,
         filters.checkedExpenseTypes,
@@ -357,6 +367,7 @@ const ExpenseDetailedReport = ({
 
       setSourceReport(data);
       setTotalRecords(total);
+      setGrandTotals(sums ?? null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1101,6 +1112,14 @@ const ExpenseDetailedReport = ({
                 selectionMode="multiple"
                 tableStyle={{ tableLayout: "fixed", width: "100%" }}
                 emptyMessage="No data found"
+                footerColumnGroup={renderCartTotalsFooter({
+                  columns: visibleColumns,
+                  rows: dataArray,
+                  leadingColumnCount: !MobileFlag ? 2 : 0,
+                  grandTotals,
+                  totalRecords,
+                  sumFields: EXPENSE_FOOTER_SUM_FIELDS,
+                })}
               >
                 {(!MobileFlag ||
                   MobileFlag === undefined ||
