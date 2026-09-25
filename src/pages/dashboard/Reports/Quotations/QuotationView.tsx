@@ -1392,6 +1392,7 @@ const TeamQuotationDataReportsView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="quotation_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -1436,6 +1437,7 @@ const TeamQuotationDataReportsView = ({
 
                   <ExportPdfMenuItem
                     reportType="quotation_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

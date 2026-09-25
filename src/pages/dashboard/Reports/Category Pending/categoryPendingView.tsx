@@ -883,6 +883,7 @@ const CategoryPendingReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="category_pending_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,
@@ -915,6 +916,7 @@ const CategoryPendingReport = ({
 
                 <ExportPdfMenuItem
                   reportType="category_pending_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,

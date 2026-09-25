@@ -1264,6 +1264,7 @@ const PendingPurchaseReportsView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="pending_purchase_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -1305,6 +1306,7 @@ const PendingPurchaseReportsView = ({
 
                   <ExportPdfMenuItem
                     reportType="pending_purchase_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

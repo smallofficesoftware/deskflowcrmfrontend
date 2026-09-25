@@ -791,6 +791,7 @@ const ProductInventoryReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="product_inventory_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,
@@ -809,6 +810,7 @@ const ProductInventoryReport = ({
 
                 <ExportPdfMenuItem
                   reportType="product_inventory_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,

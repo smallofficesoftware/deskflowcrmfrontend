@@ -636,6 +636,7 @@ const AllSourceReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="source_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedSourceTypes: filters.checkedSourceTypes,
@@ -652,6 +653,7 @@ const AllSourceReport = ({
 
                 <ExportPdfMenuItem
                   reportType="source_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedSourceTypes: filters.checkedSourceTypes,

@@ -1115,6 +1115,7 @@ const ProductPendingView = ({
               >
                 <ExportExcelMenuItem
                   reportType="product_pending_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,
@@ -1132,6 +1133,7 @@ const ProductPendingView = ({
 
                 <ExportPdfMenuItem
                   reportType="product_pending_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,

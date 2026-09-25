@@ -930,6 +930,7 @@ const AllReminderReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="all_reminder_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -965,6 +966,7 @@ const AllReminderReport = ({
 
                 <ExportPdfMenuItem
                   reportType="all_reminder_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,

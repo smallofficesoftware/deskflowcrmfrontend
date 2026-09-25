@@ -1361,6 +1361,7 @@ const ProformaInvoiceView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="proforma_invoice_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -1405,6 +1406,7 @@ const ProformaInvoiceView = ({
 
                   <ExportPdfMenuItem
                     reportType="proforma_invoice_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

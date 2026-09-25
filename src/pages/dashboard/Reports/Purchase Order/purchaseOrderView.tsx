@@ -1393,6 +1393,7 @@ const TeamPurchaseOrderDataReportsView = ({
                   >
                     <ExportExcelMenuItem
                       reportType="purchase_order_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,
@@ -1437,6 +1438,7 @@ const TeamPurchaseOrderDataReportsView = ({
 
                     <ExportPdfMenuItem
                       reportType="purchase_order_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,

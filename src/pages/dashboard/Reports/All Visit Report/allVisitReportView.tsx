@@ -1404,6 +1404,7 @@ const AllVisitReportsView = ({
               >
                 <ExportExcelMenuItem
                   reportType="all_visit_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -1421,6 +1422,7 @@ const AllVisitReportsView = ({
 
                 <ExportPdfMenuItem
                   reportType="all_visit_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,

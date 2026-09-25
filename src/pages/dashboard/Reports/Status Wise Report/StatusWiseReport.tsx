@@ -477,6 +477,7 @@ const StatusWiseReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="status_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedStageStatus: filters.checkedOptionsStageStatus,
@@ -491,6 +492,7 @@ const StatusWiseReport = ({
                 />
                 <ExportPdfMenuItem
                   reportType="status_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedStageStatus: filters.checkedOptionsStageStatus,

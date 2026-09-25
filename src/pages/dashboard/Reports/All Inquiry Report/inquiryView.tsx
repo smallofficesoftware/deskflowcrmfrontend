@@ -1141,6 +1141,7 @@ const AllInqueryReport = ({
             >
               <ExportExcelMenuItem
                 reportType="all_inquiry_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selected_dates: filters.selectedDateArray,
                   selectedLabels: filters.checkedOptions,
@@ -1165,6 +1166,7 @@ const AllInqueryReport = ({
 
               <ExportPdfMenuItem
                 reportType="all_inquiry_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selected_dates: filters.selectedDateArray,
                   selectedLabels: filters.checkedOptions,

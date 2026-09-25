@@ -1071,6 +1071,7 @@ const AllDeletedcontactReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="all_deleted_contact_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     setActive,
@@ -1107,6 +1108,7 @@ const AllDeletedcontactReport = ({
 
                 <ExportPdfMenuItem
                   reportType="all_deleted_contact_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     setActive,

@@ -929,6 +929,7 @@ const TeamAttendanceReportsView = ({
             >
               <ExportExcelMenuItem
                 reportType="attendance_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedDates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,
@@ -948,6 +949,7 @@ const TeamAttendanceReportsView = ({
 
               <ExportPdfMenuItem
                 reportType="attendance_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedDates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,

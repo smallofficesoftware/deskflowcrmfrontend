@@ -1066,6 +1066,7 @@ const AllCallReportsView = ({
               >
                 <ExportExcelMenuItem
                   reportType="all_call_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -1085,6 +1086,7 @@ const AllCallReportsView = ({
 
                 <ExportPdfMenuItem
                   reportType="all_call_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,

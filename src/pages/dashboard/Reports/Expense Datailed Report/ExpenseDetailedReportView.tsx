@@ -945,6 +945,7 @@ const ExpenseDetailedReport = ({
                   >
                     <ExportExcelMenuItem
                       reportType="expense_detailed_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,
@@ -975,6 +976,7 @@ const ExpenseDetailedReport = ({
 
                     <ExportPdfMenuItem
                       reportType="expense_detailed_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,

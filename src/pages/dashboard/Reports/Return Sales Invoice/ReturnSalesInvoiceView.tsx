@@ -1518,6 +1518,7 @@ const TeamReturnSalesDataReportsView = ({
                   >
                     <ExportExcelMenuItem
                       reportType="return_sales_invoice_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,
@@ -1559,6 +1560,7 @@ const TeamReturnSalesDataReportsView = ({
 
                     <ExportPdfMenuItem
                       reportType="return_sales_invoice_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,

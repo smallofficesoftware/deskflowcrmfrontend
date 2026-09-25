@@ -857,6 +857,7 @@ const EmployeeTransactionReports = ({
             >
               <ExportExcelMenuItem
                 reportType="employee_account_transaction_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selected_dates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,
@@ -880,6 +881,7 @@ const EmployeeTransactionReports = ({
 
               <ExportPdfMenuItem
                 reportType="employee_account_transaction_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selected_dates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,

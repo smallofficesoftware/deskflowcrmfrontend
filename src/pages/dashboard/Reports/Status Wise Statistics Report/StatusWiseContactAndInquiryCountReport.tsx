@@ -550,6 +550,7 @@ const StatusWiseContactAndInquiryCountReport = ({
                             >
                                 <ExportExcelMenuItem
                                     reportType="status_wise_statistics_report"
+                                    getCellValue={getExportCellValue}
                                     filters={{
                                         selected_dates: filters.selectedDateArray,
                                         selectedStatus: filters.checkedOptionsStageStatus,
@@ -564,6 +565,7 @@ const StatusWiseContactAndInquiryCountReport = ({
 
                                 <ExportPdfMenuItem
                                     reportType="status_wise_statistics_report"
+                                    getCellValue={getExportCellValue}
                                     filters={{
                                         selected_dates: filters.selectedDateArray,
                                         selectedStatus: filters.checkedOptionsStageStatus,

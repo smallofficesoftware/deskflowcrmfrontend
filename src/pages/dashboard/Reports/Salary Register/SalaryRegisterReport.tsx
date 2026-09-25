@@ -1072,6 +1072,7 @@ const SalaryRegisterReport = ({
             >
               <ExportExcelMenuItem
                 reportType="salary_register_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedTeamMembers: filters.checkedOptionsUser,
                   selectedDayMonthYear: activeDayMonthYear,
@@ -1086,6 +1087,7 @@ const SalaryRegisterReport = ({
 
               <ExportPdfMenuItem
                 reportType="salary_register_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedTeamMembers: filters.checkedOptionsUser,
                   selectedDayMonthYear: activeDayMonthYear,

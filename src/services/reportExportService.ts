@@ -38,6 +38,32 @@ export interface FooterSpec {
   rows: Record<string, string | number | { fromSum: string }>[];
 }
 
+// A view's own display mapper (the same getExportCellValue Print uses) -
+// grid columns often render a value derived from other row fields, so a
+// raw row[col.key] lookup would come out blank or as a raw id.
+export type ExportCellValueGetter = (col: any, row: any) => unknown;
+
+// Grid-selection rows are the view's raw row objects: overlay each plain
+// column's display value onto its key so the server exports what the grid
+// shows. Typed columns (date/number/currency/badge/nested-table) keep the
+// raw value - the server formats those itself and needs the unformatted
+// input (and badge colorKeys / nested arrays stay intact via the spread).
+export const mapRowsForExport = (
+  rows: any[] | undefined,
+  columns: ExportColumn[],
+  getCellValue?: ExportCellValueGetter,
+): any[] | undefined => {
+  if (!rows?.length || !getCellValue) return rows;
+  return rows.map((row) => {
+    const mapped = { ...row };
+    for (const col of columns) {
+      if (col.format) continue;
+      mapped[col.key] = getCellValue(col, row);
+    }
+    return mapped;
+  });
+};
+
 export interface ExportReportExcelParams {
   reportType: string;
   filters: Record<string, unknown>;

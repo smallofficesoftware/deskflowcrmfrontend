@@ -640,6 +640,7 @@ const AlllableReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="label_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedLabels: filters.checkedOptions,
@@ -656,6 +657,7 @@ const AlllableReport = ({
 
                 <ExportPdfMenuItem
                   reportType="label_wise_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     selectedLabels: filters.checkedOptions,

@@ -1084,6 +1084,7 @@ const TeamPerformanceReports = ({
               >
                 <ExportExcelMenuItem
                   reportType="team_performance_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -1122,6 +1123,7 @@ const TeamPerformanceReports = ({
 
                 <ExportPdfMenuItem
                   reportType="team_performance_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,

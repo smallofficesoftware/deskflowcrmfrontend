@@ -3,8 +3,10 @@ import { toast } from "react-toastify";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../helpers/AppConstants";
 import {
   exportReportExcel,
+  ExportCellValueGetter,
   ExportColumn,
   FooterSpec,
+  mapRowsForExport,
 } from "../services/reportExportService";
 
 interface ExportExcelMenuItemProps {
@@ -19,6 +21,9 @@ interface ExportExcelMenuItemProps {
   // exactly these rows instead of the full filtered dataset.
   selectedRows?: any[];
   footer?: FooterSpec;
+  // The view's own display mapper (same one Print uses) - applied to
+  // selectedRows so derived columns aren't exported blank / as raw ids.
+  getCellValue?: ExportCellValueGetter;
 }
 
 // Drop-in replacement for the bespoke "Export Excel" <li> every report's
@@ -34,6 +39,7 @@ const ExportExcelMenuItem = ({
   onSelect,
   selectedRows,
   footer,
+  getCellValue,
 }: ExportExcelMenuItemProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +59,7 @@ const ExportExcelMenuItem = ({
         filters,
         columns,
         fileName,
-        rows: selectedRows,
+        rows: mapRowsForExport(selectedRows, columns, getCellValue),
         footer,
       });
     } catch {

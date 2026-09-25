@@ -1259,6 +1259,7 @@ const PendingOrderView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="pending_order_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -1300,6 +1301,7 @@ const PendingOrderView = ({
 
                   <ExportPdfMenuItem
                     reportType="pending_order_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

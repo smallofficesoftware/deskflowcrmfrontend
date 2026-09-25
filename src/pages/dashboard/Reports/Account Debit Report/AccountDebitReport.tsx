@@ -850,6 +850,7 @@ const AccountDebitReport = ({
                 >
                   <ExportExcelMenuItem
                     reportType="account_debit_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -867,6 +868,7 @@ const AccountDebitReport = ({
 
                   <ExportPdfMenuItem
                     reportType="account_debit_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

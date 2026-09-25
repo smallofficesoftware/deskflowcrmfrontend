@@ -638,6 +638,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
               >
                 <ExportExcelMenuItem
                   reportType="target_incentive_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: reportSelectedDates,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -653,6 +654,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
 
                 <ExportPdfMenuItem
                   reportType="target_incentive_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: reportSelectedDates,
                     selectedTeamMembers: filters.checkedOptionsUser,

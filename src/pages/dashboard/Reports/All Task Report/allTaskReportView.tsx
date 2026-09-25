@@ -1640,6 +1640,7 @@ const AllTaskReportsView = ({
                 >
                   <ExportExcelMenuItem
                     reportType="all_task_report"
+                    getCellValue={(col, item) => getExportCellValue(col, item, "excel")}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers:
@@ -1662,6 +1663,7 @@ const AllTaskReportsView = ({
 
                   <ExportPdfMenuItem
                     reportType="all_task_report"
+                    getCellValue={(col, item) => getExportCellValue(col, item, "pdf")}
                     filters={{
                       selectedDates: filters.selectedDateArray,
                       selectedTeamMembers:

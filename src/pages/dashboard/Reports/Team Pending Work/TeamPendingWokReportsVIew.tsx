@@ -778,6 +778,7 @@ const TeamPendingWorkReportsView = ({
               >
                 <ExportExcelMenuItem
                   reportType="team_pending_work_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
@@ -792,6 +793,7 @@ const TeamPendingWorkReportsView = ({
 
                 <ExportPdfMenuItem
                   reportType="team_pending_work_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
