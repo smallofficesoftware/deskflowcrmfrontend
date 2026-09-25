@@ -100,6 +100,7 @@ export const fetchAllcontact = async (
   leadAgingBucket?: string | null,
   leadAgingActivityTypes?: string[] | null,
   setTotalCount?: (total: number) => void,
+  labelwiseContactShowAndOrNot?: number,
 ): Promise<IAllcontact[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -124,6 +125,8 @@ export const fetchAllcontact = async (
     is_archive: isArchivState,
     leadAgingBucket,
     leadAgingActivityTypes,
+    // 1 = match any selected label (OR), 2 = match all (AND).
+    labelwiseContactShowAndOrNot,
   };
 
   try {
@@ -171,6 +174,7 @@ export const fetchAllContactsForExport = async (
     createdByMultiTeamMember?: any,
     leadAgingBucket?: string | null,
     leadAgingActivityTypes?: string[] | null,
+    labelwiseContactShowAndOrNot?: number,
   }
 ): Promise<IAllcontact[]> => {
   const LIMIT = 500;
@@ -200,6 +204,8 @@ export const fetchAllContactsForExport = async (
       false,
       params.leadAgingBucket,
       params.leadAgingActivityTypes,
+      undefined,
+      params.labelwiseContactShowAndOrNot,
     );
 
     if (!chunk.length) break;

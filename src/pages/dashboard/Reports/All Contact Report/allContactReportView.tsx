@@ -43,6 +43,7 @@ import {
 } from "../../../left-side/LeftSideController";
 import RightView from "../../../right-side/RightView";
 import { fetchAllcontact, IAllcontact } from "./allContactReportController";
+import ReportHelpButton from "../../../../components/ReportHelpButton";
 
 interface LazyTableState {
   first: number;
@@ -476,6 +477,7 @@ const AllcontactReport = ({
           filters.leadAgingBucket,
           filters.leadAgingActivityTypes,
           setTotalRecords,
+          filters.labelAndOr,
         );
 
         setCustomers(newData);
@@ -506,6 +508,9 @@ const AllcontactReport = ({
       debouncedSearchText,
       filters.leadAgingBucket,
       filters.leadAgingActivityTypes,
+      filters.assignedByMultiTeamMember,
+      filters.createdByMultiTeamMember,
+      filters.labelAndOr,
     ],
   );
 
@@ -1145,6 +1150,7 @@ const AllcontactReport = ({
           className="dash-board-text-count"
         >
           All Contact
+          <ReportHelpButton reportKey="all_contact" />
         </h3>
         {/* {MobileFlag || MobileFlag != undefined || MobileFlag != null ? (
           ""
@@ -1311,6 +1317,7 @@ const AllcontactReport = ({
                   createdByMultiTeamMember: filters.createdByMultiTeamMember,
                   leadAgingBucket: filters.leadAgingBucket,
                   leadAgingActivityTypes: filters.leadAgingActivityTypes,
+                  labelwiseContactShowAndOrNot: filters.labelAndOr,
                 }}
                 columns={visibleColumns}
                 fileName="All_Contacts_Report"
@@ -1354,6 +1361,7 @@ const AllcontactReport = ({
                   createdByMultiTeamMember: filters.createdByMultiTeamMember,
                   leadAgingBucket: filters.leadAgingBucket,
                   leadAgingActivityTypes: filters.leadAgingActivityTypes,
+                  labelwiseContactShowAndOrNot: filters.labelAndOr,
                 }}
                 columns={visibleColumns}
                 fileName="All_Contacts_Report"
@@ -1600,6 +1608,7 @@ const AllcontactReport = ({
           onHide={() => setIsModalFilterVisible(false)}
           handleSubmit={handleApplyFilters}
           title="Filter Reports"
+          reportKey="all_contact"
           message="Please select the Dates and Team Members for the Report."
           btn1="Clear"
           btn2="Apply"
@@ -1615,6 +1624,13 @@ const AllcontactReport = ({
             orderlistselect: filters.selectedOrderListId,
           }}
           initialCheckedOptions={filters.checkedOptions}
+          labelFilderApplyAndOr={filters.labelAndOr}
+          initialCheckedAssignedByMultiTeamMember={
+            filters.assignedByMultiTeamMember || []
+          }
+          initialCheckedCreatedByMultiTeamMember={
+            filters.createdByMultiTeamMember || []
+          }
           initialCheckedSourceTypes={filters.checkedSourceTypes}
           initialStartSearchDate={filters.startSearchDate}
           initialEndSearchDate={filters.endSearchDate}

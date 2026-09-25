@@ -32,6 +32,7 @@ import { axiosInstance } from "../../services/axiosInstance";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import CustomSearchDropdown from "../CustomSearchDropdown";
 import MultiSelect from "../MultiSelect";
+import ReportHelpButton from "../ReportHelpButton";
 import "./ConfirmationModal.css";
 
 // Product filter document types: every cart type plus inquiries, which the
@@ -101,6 +102,8 @@ interface CheckBoxModalProps {
   onHide: () => void;
   handleSubmit: (filterPayload: IFilterPayload) => void;
   title: string;
+  // Key into REPORT_HELP; shows a "How this report works" icon when set.
+  reportKey?: string;
   message: string;
   btn1: string;
   btn2: string;
@@ -151,6 +154,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   onHide,
   handleSubmit,
   title,
+  reportKey,
   message,
   btn1,
   btn2,
@@ -2209,7 +2213,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
           <div className="modal-content1" style={{ width: "92%" }}>
             <div className="d-flex align-items-center justify-content-end">
               <div className="col-8">
-                <h2 className="modal-title1 form_header_text">{title}</h2>
+                <h2 className="modal-title1 form_header_text">
+                  {title}
+                  <ReportHelpButton reportKey={reportKey} />
+                </h2>
               </div>
               <div className="col-4">
                 <span className="close ms-3 pb-3" onClick={onHide}>
