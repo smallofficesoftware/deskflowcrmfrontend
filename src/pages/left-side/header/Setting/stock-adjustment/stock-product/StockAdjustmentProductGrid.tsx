@@ -23,6 +23,8 @@ interface Props {
   selected: StockProduct[];
   setIsProductGridShow: TReactSetState<boolean>;
   isProductGridShow: boolean;
+  /** Company's "Product Image View In a Cart" setting (1 = show images), same flag order-create uses. */
+  inOrderImageView?: number;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -32,6 +34,7 @@ const StockAdjustmentProductGrid: React.FC<Props> = ({
   selected,
   isProductGridShow,
   setIsProductGridShow,
+  inOrderImageView,
   // search = "",
   // category = null,
 }) => {
@@ -252,11 +255,19 @@ const StockAdjustmentProductGrid: React.FC<Props> = ({
       >
         <div className="row g-2">
           {products.map((product) => (
-            <div key={product.id} className="col-6 col-sm-4 col-md-3 col-lg-3">
+            <div
+              key={product.id}
+              className={
+                inOrderImageView === 2
+                  ? "col-12"
+                  : "col-6 col-sm-4 col-md-3 col-lg-3"
+              }
+            >
               <StockAdjustmentProductCard
                 product={product}
                 onClick={onSelect}
                 selected={selected}
+                inOrderImageView={inOrderImageView}
               />
             </div>
           ))}
