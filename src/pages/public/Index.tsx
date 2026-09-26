@@ -244,6 +244,12 @@ const Index = () => {
       const data = await axiosInstance.post("check-attendance", requestData);
       if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
         setShowAttendancePopup(false);
+        // After an in-page login the popup unmounted LoginView (and the
+        // LeftSideView it was showing), so re-run onLoad to move Index off
+        // its login branch instead of falling back to the login screen.
+        if (checkToken || checkToken1) {
+          await LoginSubmit();
+        }
       }
       toast.success(data.data.ack_msg);
     } catch (error: any) {
