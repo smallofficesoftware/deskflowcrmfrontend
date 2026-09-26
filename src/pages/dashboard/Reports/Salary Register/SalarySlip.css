@@ -136,8 +136,31 @@
   height: 50px;
 }
 
+/* Payroll master not configured (support ticket #2608): shown on screen
+   only - never printed/exported, so a real (legitimately zero) slip stays
+   clean on paper. */
+.slipNoStructureWarning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 720px;
+  margin: 0 auto 12px;
+  padding: 10px 14px;
+  background: #fff4e5;
+  border: 1px solid #f0ad4e;
+  border-radius: 6px;
+  color: #7a4a00;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Print styles */
 @media print {
+  .slipNoStructureWarning {
+    display: none;
+  }
+
   .slipWrapper {
     padding: 0;
   }

@@ -268,6 +268,16 @@ function keepLineItem(item: LineItem, record: SalarySlipRecord): boolean {
   return !isEmptyValue(record[item.field]);
 }
 
+/** Support ticket #2608: a slip where every earning is 0 usually means the
+ *  employee's Basic+DA/HRA/allowances were never filled in under Employee
+ *  Payroll - not a calculation problem (attendance-based fields, e.g.
+ *  Payable Days, can still be correct). Flagged on screen only; never
+ *  changes what gets calculated or printed. */
+function hasNoSalaryStructure(record: SalarySlipRecord): boolean {
+  const zero = (v: number | string) => Number(v) === 0;
+  return zero(record.basicda) && zero(record.hra) && zero(record.gross);
+}
+
 /* ----------------------- Single-employee table ----------------------- */
 /* The FULL table (title + headers + one data row) - repeated once per
    employee by the component below, not shared as multi-row rows. */
@@ -617,6 +627,15 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
               pageBreakAfter: index < rows.length - 1 ? "always" : "auto",
             }}
           >
+            {hasNoSalaryStructure(record) && (
+              <div className="slipNoStructureWarning">
+                <i className="pi pi-exclamation-triangle" aria-hidden="true" />
+                <span>
+                  {record.employeeName || "This employee"}&apos;s salary is showing 0 because their Basic+DA / HRA / allowances
+                  are not set up yet in Employee Payroll. Fill those in, then run Salary Process again for this month.
+                </span>
+              </div>
+            )}
             <SingleEmployeeSalaryTable
               monthYear={resolvedMonthYear}
               record={record}
