@@ -49,6 +49,7 @@ import SupportTicket from "../pages/online-store/store-support-ticket/SupportTic
 import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
 import RegistrationView from "../pages/public/resternation/RegistrationView";
 import SideView from "../pages/side-view/SideView";
+import AutomationsShell from "../pages/automations/AutomationsShell";
 import JobCardPdfView from "../pages/left-side/header/Setting/job-card/JobCardPdfView";
 import ProductionEntryPdfView from "../pages/left-side/header/Setting/job-card/ProductionEntryPdfView";
 import JobCardFullPdfView from "../pages/left-side/header/Setting/job-card/JobCardFullPdfView";
@@ -243,6 +244,7 @@ const RoutesIndex = () => {
             <Route path="/BomPdfView/:id/:bomId" element={<BomPdfView />} />
             <Route path="/SideView" element={<SideView />} />
             <Route path="/SideView/report/:slug" element={<SideView />} />
+            <Route path="/Automations/:view?/:id?" element={<AutomationsShell />} />
             <Route
               path="/ProcessAttendanceMonthlySlip/:empId/:month/:year"
               element={<ProcessAttendanceMonthlySlip />}

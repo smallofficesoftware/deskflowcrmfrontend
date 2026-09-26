@@ -112,6 +112,30 @@ const WorkFlowAutomationView = ({
             id="settings"
             style={{ maxHeight: "80vh" }}
           >
+            <div
+              className="mb-4 d-flex justify-content-between align-items-start border-bottom pb-3"
+              style={{ cursor: "pointer" }}
+              role="button"
+              onClick={() => window.open("/Automations", "_blank")}
+            >
+              <div className="pe-3">
+                <>
+                  <h6 className="fw-semibold mb-1" style={{ color: "#1070b2" }}>
+                    Automations
+                  </h6>
+                  <p className="text-muted small mb-0">
+                    Build a flow: trigger something (a contact, order, task…), then run actions
+                    automatically — WhatsApp, email, assign, create task, and more.
+                  </p>
+                </>
+              </div>
+              <div className="mt-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1070b2" strokeWidth="2.5">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+            </div>
+
             <div className="mb-4 d-flex justify-content-between align-items-start border-bottom pb-3">
               <div className="pe-3">
                 <>
