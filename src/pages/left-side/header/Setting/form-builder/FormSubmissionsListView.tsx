@@ -9,12 +9,20 @@ import {
   linkDuplicateContact,
   dismissDuplicateContact,
   exportSubmissionPdf,
+  exportBlankFormPdf,
+  IRestricted,
   exportSubmissionsBulkPdf,
+  exportSubmissionsPagesPdf,
   exportSubmissionsExcel,
   getSubmissionAuditLog,
+  isEncryptedField,
   IFormBuilderField,
 } from "./FormBuilderController";
 import FormBuilderBrandStyles from "./formBuilderBrandStyles";
+import SensitiveValueCell from "./SensitiveValueCell";
+import SubmissionDetailView from "./SubmissionDetailView";
+import { entryNumberOf, listCellText, listFieldsOf } from "./listCells";
+import { STATUS_LABELS } from "./approval";
 
 const FORM_SUBMISSIONS_ORDER_TYPE = 13; // stageAndStatusMasterTableReference["form_builder_submissions"] (backend statusLogServices.js)
 
@@ -35,10 +43,22 @@ interface Props {
 const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [title, setTitle] = useState("");
   const [filterableFields, setFilterableFields] = useState<IFormBuilderField[]>([]);
+  // Full-number (encrypted) Aadhaar fields get their own column: the list
+  // returns them masked, with a Show button when the server allows reveal.
+  const [encryptedFields, setEncryptedFields] = useState<IFormBuilderField[]>([]);
+  // Answers shown as columns (Show in the entries list) and all fields, for the entry number.
+  const [listFields, setListFields] = useState<IFormBuilderField[]>([]);
+  const [restricted, setRestricted] = useState<IRestricted | null>(null);
+  // Approval stages (plan I): stage names and the "waiting for me" filter.
+  const [approval, setApproval] = useState<{ enabled: boolean; stages?: { id: string; name: string }[]; my_stage_ids?: string[] } | null>(null);
+  const [stageFilter, setStageFilter] = useState<"all" | "mine" | "completed">("all");
+  const [allFields, setAllFields] = useState<IFormBuilderField[]>([]);
+  const [canRevealSensitive, setCanRevealSensitive] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
   const [auditFor, setAuditFor] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
 
@@ -60,13 +80,24 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   };
 
   const reload = async () => {
-    const filters = Object.fromEntries(Object.entries(fieldFilters).filter(([, v]) => v !== ""));
+    const filters: Record<string, any> = Object.fromEntries(Object.entries(fieldFilters).filter(([, v]) => v !== ""));
+    if (stageFilter === "mine") filters.pending_for_me = true;
+    if (stageFilter === "completed") filters.stage_status = "completed";
     const res = await listSubmissions(formId, {
       search: search || undefined,
       filters: Object.keys(filters).length ? filters : undefined,
     });
     setRows(res?.data?.item || []);
+    setCanRevealSensitive(res?.data?.can_reveal_sensitive === true);
+    setRestricted(res?.data?.restricted || null);
+    setApproval(res?.data?.approval?.enabled ? res.data.approval : null);
   };
+
+  // Re-load when the "waiting for me" tab changes.
+  useEffect(() => {
+    if (allFields.length || approval) reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageFilter]);
 
   useEffect(() => {
     (async () => {
@@ -76,8 +107,14 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         try {
           const fields = JSON.parse(formRes.data.item.published_schema_json || "[]") as IFormBuilderField[];
           setFilterableFields(fields.filter((f) => f.filterable));
+          setEncryptedFields(fields.filter(isEncryptedField));
+          setListFields(listFieldsOf(fields));
+          setAllFields(fields);
         } catch {
           setFilterableFields([]);
+          setEncryptedFields([]);
+          setListFields([]);
+          setAllFields([]);
         }
       }
       reload();
@@ -85,6 +122,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
+
+  // Columns this user may see (hidden fields are left out; masked ones show ••••).
+  const shownListFields = listFields.filter((f) => !restricted?.hidden?.includes(f.key));
 
   const openLink = (url?: string) => {
     if (url) window.open(url, "_blank");
@@ -107,6 +147,26 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
               Back
             </button>
           ) : null}
+          <button
+            className="btn btn-outline-secondary me-2"
+            title="A blank copy of this form to print and fill in by hand"
+            onClick={async () => {
+              const res = await exportBlankFormPdf(formId);
+              openLink(res?.data?.fileUrl);
+            }}
+          >
+            Print blank form
+          </button>
+          <button
+            className="btn btn-outline-secondary me-2"
+            title="Every entry printed with the form's own layout, one after another"
+            onClick={async () => {
+              const res = await exportSubmissionsPagesPdf(formId);
+              openLink(res?.data?.fileUrl);
+            }}
+          >
+            Print all entries
+          </button>
           <button
             className="btn btn-outline-secondary me-2"
             onClick={async () => {
@@ -165,12 +225,29 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         </div>
       ) : null}
 
+      {approval ? (
+        <div className="btn-group mb-3" role="group" aria-label="Approval filter">
+          {(["all", "mine", "completed"] as const).map((k) => (
+            <button key={k} type="button" className={`btn btn-sm ${stageFilter === k ? "fb-btn-primary" : "btn-outline-secondary"}`} onClick={() => setStageFilter(k)}>
+              {k === "all" ? "All entries" : k === "mine" ? "Waiting for me" : "Completed"}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="table-responsive">
       <table className="table">
         <thead>
           <tr>
-            <th>ID</th>
+            <th>Entry</th>
             <th>Submitted</th>
             <th>By</th>
+            {shownListFields.map((f) => (
+              <th key={f.key}>{f.label}</th>
+            ))}
+            {encryptedFields.map((f) => (
+              <th key={f.key}>{f.label}</th>
+            ))}
+            {approval ? <th>Approval</th> : null}
             <th>Status</th>
             <th>Possible Match</th>
             <th></th>
@@ -179,9 +256,37 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td>{row.id}</td>
+              <td>{entryNumberOf(allFields, row)}</td>
               <td>{new Date(row.created_date_time).toLocaleString()}</td>
-              <td>{row.submitted_by_type === "public" ? row.submitter_name || "Public" : "Internal"}</td>
+              <td>{row.submitted_by_type === "public" ? row.submitter_name || "Public" : row._created_by_name || "Internal"}</td>
+              {shownListFields.map((f) => (
+                <td key={f.key}>{restricted?.masked?.includes(f.key) ? "••••" : listCellText(f, row)}</td>
+              ))}
+              {encryptedFields.map((f) => (
+                <td key={f.key}>
+                  <SensitiveValueCell
+                    formId={formId}
+                    submissionId={row.id}
+                    fieldKey={f.key}
+                    maskedValue={row[f.key]}
+                    canReveal={canRevealSensitive}
+                  />
+                </td>
+              ))}
+              {approval ? (
+                <td>
+                  {row.current_stage ? (
+                    <>
+                      <div>{approval.stages?.find((st) => st.id === row.current_stage)?.name || row.current_stage}</div>
+                      <span className={`badge ${row.stage_status === "completed" ? "bg-success" : row.stage_status === "sent_back" ? "bg-warning text-dark" : "bg-primary"}`}>
+                        {STATUS_LABELS[row.stage_status] || row.stage_status}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
+              ) : null}
               <td>
                 <select
                   className="form-control form-control-sm"
@@ -223,6 +328,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
                 ) : null}
               </td>
               <td>
+                <button className="btn btn-sm fb-btn-outline-primary me-1" onClick={() => setOpenId(row.id)}>
+                  View / Edit
+                </button>
                 <button
                   className="btn btn-sm fb-btn-outline-primary me-1"
                   onClick={async () => {
@@ -253,6 +361,18 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           ))}
         </tbody>
       </table>
+      </div>
+
+      {openId != null ? (
+        <SubmissionDetailView
+          formId={formId}
+          submissionId={openId}
+          onClose={() => setOpenId(null)}
+          onSaved={() => {
+            reload();
+          }}
+        />
+      ) : null}
 
       {auditFor != null ? (
         <div className="card p-3 mt-3">
