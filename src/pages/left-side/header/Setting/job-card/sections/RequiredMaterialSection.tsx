@@ -1,4 +1,6 @@
 import "primeicons/primeicons.css";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { PrimeReactProvider } from "primereact/api";
 import { OverlayPanel } from "primereact/overlaypanel";
 import React, { useRef, useState } from "react";
@@ -7,6 +9,7 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { IBomMaterial, IBomProcess } from "../JobCardTypes";
 import { diffOf, freeStockOf, pendingOf } from "../materialStock";
 import MaterialActionMenu from "./MaterialActionMenu";
+import MaterialPipelineSummary from "./MaterialPipelineSummary";
 
 interface IProps {
   bomProcesses: IBomProcess[];
@@ -47,8 +50,11 @@ const BreakdownCell = ({
       </button>
       {/* OverlayPanel reads PrimeReact context (hideOverlaysOnDocumentScrolling
           etc.); the job card modal isn't under a PrimeReactProvider, so give
-          the panel its own - without it the click crashes. */}
-      <PrimeReactProvider>
+          the panel its own - without it the click crashes. zIndex.overlay is
+          bumped above .modal1's z-index:1000 (modal.css) so the popup - a
+          document.body portal, same stacking context as the modal - paints
+          on top of it instead of behind. */}
+      <PrimeReactProvider value={{ zIndex: { overlay: 2000 } }}>
       <OverlayPanel ref={panel} style={{ minWidth: 260 }}>
         <div className="fw-bold mb-2" style={{ fontSize: "0.78rem", color: "#374151" }}>
           {title}
@@ -72,6 +78,70 @@ const BreakdownCell = ({
           </tbody>
         </table>
       </OverlayPanel>
+      </PrimeReactProvider>
+    </>
+  );
+};
+
+// Small clickable "N job cards" badge for a process header; opens a popup
+// listing which other open job cards are at this process and their status.
+const JobCardsBadge = ({
+  jobCards,
+}: {
+  jobCards: { job_id: number; status_name: string; status_color: string }[];
+}) => {
+  const panel = useRef<OverlayPanel>(null);
+  if (!jobCards.length) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-link p-0 d-inline-flex align-items-center gap-1 badge"
+        style={{
+          background: "#e0f2fe",
+          color: "#0369a1",
+          fontSize: "0.68rem",
+          textDecoration: "none",
+        }}
+        onClick={(e) => panel.current?.toggle(e)}
+        title="Job cards at this process"
+      >
+        {jobCards.length} job card{jobCards.length > 1 ? "s" : ""}
+        <i className="pi pi-info-circle" style={{ fontSize: "0.65rem" }} />
+      </button>
+      <PrimeReactProvider value={{ zIndex: { overlay: 2000 } }}>
+        <OverlayPanel ref={panel} style={{ minWidth: 220 }}>
+          <div className="fw-bold mb-2" style={{ fontSize: "0.78rem", color: "#374151" }}>
+            Job cards at this process
+          </div>
+          <table className="table table-sm mb-0" style={{ fontSize: "0.75rem" }}>
+            <thead>
+              <tr>
+                <th>Job Card</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobCards.map((jc) => (
+                <tr key={jc.job_id}>
+                  <td>#{jc.job_id}</td>
+                  <td>
+                    <span
+                      className="badge"
+                      style={{
+                        background: jc.status_color || "#e9ecef",
+                        color: "#fff",
+                        fontSize: "0.7rem",
+                      }}
+                    >
+                      {jc.status_name || "-"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </OverlayPanel>
       </PrimeReactProvider>
     </>
   );
@@ -143,10 +213,11 @@ const MaterialTable = ({
                       <BreakdownCell
                         qty={m.reserved_qty || 0}
                         title="Reserved by open job cards"
-                        headers={["Job Card", "Item", "Pending"]}
+                        headers={["Job Card", "Item", "Process", "Pending"]}
                         rows={(m.reserved_by || []).map((r) => [
                           `#${r.job_id}`,
                           r.item_name || "-",
+                          r.process_name || "-",
                           r.pending_qty.toFixed(2),
                         ])}
                       />
@@ -226,6 +297,7 @@ const ProcessCard = ({
   const shortageCount =
     shortagesIn(process.consumption, deductReserved) +
     shortagesIn(process.rejection, deductReserved);
+  const jobCards = process.job_cards || [];
 
   return (
     <div
@@ -273,6 +345,7 @@ const ProcessCard = ({
           >
             {process.process_name}
           </span>
+          <JobCardsBadge jobCards={jobCards} />
           {shortageCount > 0 && (
             <span
               className="badge"
@@ -445,6 +518,8 @@ const RequiredMaterialSection = ({
           </span>
         )}
       </div>
+
+      <MaterialPipelineSummary bomProcesses={bomProcesses} />
 
       {/* Process cards */}
       {bomProcesses.map((p, idx) => (

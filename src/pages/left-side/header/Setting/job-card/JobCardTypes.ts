@@ -65,7 +65,7 @@ export interface IBomMaterial {
   qty_diff: number; // available_qty - required_qty (negative = shortage)
   reserved_qty?: number; // pending need of other open (not fully produced) job cards
   consumed_qty?: number; // used so far by this job card in this process (rejected, on rejection rows)
-  reserved_by?: { job_id: number; item_name: string; pending_qty: number }[];
+  reserved_by?: { job_id: number; item_name: string; pending_qty: number; process_name?: string }[];
   incoming_qty?: number; // still to be produced by other open job cards making this material
   incoming_by?: { job_id: number; production_qty: number; produced_qty: number; pending_qty: number }[];
 }
@@ -76,6 +76,9 @@ export interface IBomProcess {
   process_name: string;
   consumption: IBomMaterial[];
   rejection: IBomMaterial[];
+  // Other open job cards (same product) also logging consumption at this
+  // process - click to see which job cards and their status.
+  job_cards?: { job_id: number; status_name: string; status_color: string }[];
 }
 
 // ─── Job Card List Item (for JobCardListView) ─────────────────────────────────
