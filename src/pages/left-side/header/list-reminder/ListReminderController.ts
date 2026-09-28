@@ -215,11 +215,18 @@ export const fetchReminderApi = async (
     due: number;
     future: number;
     complete: number;
+    all: number;
+    my: number;
   }) => void,
   assignedByMultiTeamMember?: any,
   createdByMultiTeamMember?: any,
   startSearchDate?: TFilterDate,
   endSearchDate?: TFilterDate,
+  // "All"/"My" toggle (same idea as Task Management's All/My) - "my" always
+  // means own+assigned, "all" asks for company-wide (still capped by rights
+  // server-side). Omitted = today's rights-only default, unchanged.
+  viewScope?: "all" | "my",
+  setCanSeeAllData?: TReactSetState<boolean>,
 ) => {
   const token = await localStorage.getItem("token");
   const getUUID = await localStorage.getItem("UUID");
@@ -237,6 +244,7 @@ export const fetchReminderApi = async (
       ul: start,
       ll: itemsPerPage,
       typeFilter,
+      viewScope,
       startDate: startSearchDate,
       endDate: endSearchDate,
       reminderCheckFlag: reminderCheckFlag,
@@ -255,6 +263,7 @@ export const fetchReminderApi = async (
 
         setCompanyFlag(data.data.company_flag || null);
         setCounts(data.data.counts);
+        setCanSeeAllData?.(!!data.data.can_see_all_data);
 
         if (page === 0) {
           setReminderList(data.data.item || []);
@@ -308,6 +317,8 @@ export const createRescheduleReminder = async (
     due: number;
     future: number;
     complete: number;
+    all: number;
+    my: number;
   }) => void,
 ) => {
   console.log("insertObj", insertObj);
@@ -385,6 +396,8 @@ export const createReminderForMy = async (
     due: number;
     future: number;
     complete: number;
+    all: number;
+    my: number;
   }) => void,
 ) => {
   if (!insertObj.selectedCategory?.value) {
@@ -523,6 +536,8 @@ export const handleDeleteReminder = async (
     due: number;
     future: number;
     complete: number;
+    all: number;
+    my: number;
   }) => void,
 ) => {
   const requestData = {

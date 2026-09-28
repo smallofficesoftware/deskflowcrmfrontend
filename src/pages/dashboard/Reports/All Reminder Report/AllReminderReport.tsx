@@ -92,7 +92,11 @@ const AllReminderReport = ({
     future: 0,
     complete: 0,
     all: 0,
+    my: 0,
   });
+  // "All"/"My" toggle (same idea as Task Management's All/My buttons).
+  const [viewScope, setViewScope] = useState<"all" | "my">("my");
+  const [canSeeAllData, setCanSeeAllData] = useState(false);
   const [selectedReminders, setSelectedReminders] = useState<IReminderItem[]>(
     [],
   );
@@ -254,6 +258,7 @@ const AllReminderReport = ({
     filters.selectedContactId,
     filters.referenceWiseContact,
     filterType,
+    viewScope,
   ]);
 
   const loadReminders = async (offset: number, limit: number) => {
@@ -280,6 +285,8 @@ const AllReminderReport = ({
         filterType,
         setCounts,
         setTotalRecords,
+        viewScope,
+        setCanSeeAllData,
       );
 
       setReminders(newData);
@@ -707,6 +714,50 @@ const AllReminderReport = ({
           >
             {title}
           </h3>
+          {/* "All"/"My" scope toggle (same idea as Task Management's All/My
+              buttons) - separate from the status tabs below. "All Reminders"
+              is only shown once rights actually allow it. */}
+          <div className="d-flex align-items-center gap-1">
+            {canSeeAllData && (
+              <button
+                className={`btn rounded-5 contact-btn-search fw_500 ${viewScope === "all" ? "selected-btn active" : ""}`}
+                onClick={() => setViewScope("all")}
+              >
+                <span className="contact-btn-search-text">All Reminders</span>
+                <span
+                  className="badge bg-success ms-1"
+                  style={{
+                    fontSize: "0.60rem",
+                    lineHeight: "15px",
+                    borderRadius: "45%",
+                    minWidth: "20px",
+                    height: "20px",
+                  }}
+                >
+                  {counts.all}
+                </span>
+              </button>
+            )}
+            <button
+              className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${viewScope === "my" ? "selected-btn active" : ""}`}
+              onClick={() => setViewScope("my")}
+            >
+              <span className="contact-btn-search-text">My Reminders</span>
+              <span
+                className="badge ms-1"
+                style={{
+                  fontSize: "0.60rem",
+                  lineHeight: "15px",
+                  borderRadius: "45%",
+                  minWidth: "20px",
+                  height: "20px",
+                  backgroundColor: "#0066ff",
+                }}
+              >
+                {counts.my}
+              </span>
+            </button>
+          </div>
           <div className="d-flex align-items-center gap-1">
             <button
               className={`btn rounded-5 contact-btn-search fw_500 ${filterType === "due" ? "selected-btn active" : ""}`}
