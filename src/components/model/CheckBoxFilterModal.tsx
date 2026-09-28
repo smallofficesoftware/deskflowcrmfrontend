@@ -131,7 +131,9 @@ interface CheckBoxModalProps {
   getID?: string;
   MobileFlag?: string;
   stageandStatusOrderType?: number;
-  initialSelectedStockTypeId?: number;
+  // The saved filter holds the whole picked option ({ value, label }); a bare
+  // id is accepted too.
+  initialSelectedStockTypeId?: number | { value: number; label?: string } | null;
   filtershowSeriesOrderType?: string;
   initialCheckedAssignedByMultiTeamMember?: any[] | null;
   initialCheckedCreatedByMultiTeamMember?: any[] | null;
@@ -612,9 +614,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     }
 
     if (initialSelectedStockTypeId) {
-      const e = stockTypeOptions.find(
-        (a) => a.value === initialSelectedStockTypeId,
-      );
+      // Apply saves the whole option object, so compare on its value - comparing
+      // the object itself never matched, and the Stock Type came back empty.
+      const initialStockTypeValue =
+        typeof initialSelectedStockTypeId === "object"
+          ? initialSelectedStockTypeId.value
+          : initialSelectedStockTypeId;
+      const e = stockTypeOptions.find((a) => a.value === initialStockTypeValue);
       e && handleStockTypeChange({ value: e.value, label: e.label });
     }
     setSelectedDays(
