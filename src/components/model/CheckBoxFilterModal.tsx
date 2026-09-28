@@ -977,6 +977,37 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       ]);
     if (selectedCategoryId?.label)
       pushChip("category", "Category", [selectedCategoryId.label]);
+    // Stock Summary's Stock Type (zero stock / less than min / more than max ...)
+    // was applied but never listed here, so the bar above the grid didn't show it.
+    if (selectedStockTypeId?.label)
+      pushChip("stockType", "Stock Type", [selectedStockTypeId.label]);
+    // Other applied filters that also had no chip (each gated by the same group
+    // number that shows its control in this modal).
+    if (showGroup(16))
+      pushChip(
+        "warehouse",
+        "Warehouse",
+        (selectedWarehouses || []).map((w: any) => w?.label),
+      );
+    if (showGroup(18) && selectedContactId?.label)
+      pushChip("contact", "Contact", [selectedContactId.label]);
+    if (showGroup(19) && selectedOrderListId?.label)
+      pushChip("documentType", "Document Type", [selectedOrderListId.label]);
+    if (showGroup(10) && (checkedOptionsTaskassignOrNot || []).includes(1))
+      pushChip("unassignTask", "Task", ["UnAssign Task"]);
+    if (showGroup(12) && (checkedOptionsShowTemplateTask || []).includes(1))
+      pushChip("templateTask", "Task", ["Only Template Task"]);
+    if (showGroup(20) && (checkedOptionsContactassignOrNot || []).includes(1))
+      pushChip("unassignContact", "Contact", ["UnAssign Contacts"]);
+    if (showGroup(13) && checkCreditDataForAccount == 1)
+      pushChip("credit", "Show", ["Credit"]);
+    if (showGroup(14) && checkDebitDataForAccount == 2)
+      pushChip("debit", "Show", ["Debit"]);
+    if (showGroup(29) && leadAgingBucket)
+      pushChip("leadAgeing", "Lead Ageing", [`${leadAgingBucket} days`]);
+    if (selectedYear?.label) pushChip("year", "Year", [selectedYear.label]);
+    if (selectedMonth?.label) pushChip("month", "Month", [selectedMonth.label]);
+    if (selectedDay?.label) pushChip("day", "Day", [selectedDay.label]);
     if (selectedProductId?.label || selectedProductSearchId?.label)
       pushChip("product", "Product", [
         selectedProductId?.label || selectedProductSearchId?.label,
@@ -1823,8 +1854,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     { value: 1, label: "Zero stock" },
     { value: 2, label: "Less than zero" },
     { value: 3, label: "Greater than zero" },
-    { value: 4, label: "More then max qty" },
-    { value: 5, label: "Less then min qty" },
+    { value: 4, label: "More than max qty" },
+    { value: 5, label: "Less than min qty" },
   ];
 
   const gstOptions = [
