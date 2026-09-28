@@ -32,6 +32,12 @@ interface IProps {
   initialProductQty?: number; // pre-fills qty field in edit mode
   onAddStock?: (materialId: number, materialName: string) => void;
   onGeneratePO?: (materialId: number, materialName: string) => void;
+  onGenerateSubJobCard?: (
+    materialId: number,
+    materialName: string,
+    parentJobCardId: number,
+    pendingQty: number,
+  ) => void;
 }
 
 // ─── Tab config (2 tabs — production entry is its own modal) ─────────────────
@@ -52,6 +58,7 @@ const JobCardView = ({
   initialProductQty,
   onAddStock: onAddStockProp,
   onGeneratePO: onGeneratePOProp,
+  onGenerateSubJobCard: onGenerateSubJobCardProp,
 }: IProps) => {
   const isEditMode = !!editJobCardId;
 
@@ -220,6 +227,17 @@ const JobCardView = ({
       onGeneratePOProp(id, name);
     }
   };
+  const handleGenerateSubJobCard = (
+    id: number,
+    name: string,
+    pendingQty: number,
+  ) => {
+    const parentId = jobCardId ?? editJobCardId ?? null;
+    if (onGenerateSubJobCardProp && parentId) {
+      onHide();
+      onGenerateSubJobCardProp(id, name, parentId, pendingQty);
+    }
+  };
 
   // ── Tab accessibility ──
 
@@ -306,6 +324,18 @@ const JobCardView = ({
             >
               {headerSubtitle}
             </span>
+            {itemDetail?.parent_job_card && (
+              <span
+                style={{
+                  color: "rgba(255,255,255,0.75)",
+                  fontSize: "0.7rem",
+                  display: "block",
+                }}
+              >
+                ↳ Sub job of #{itemDetail.parent_job_card.id} —{" "}
+                {itemDetail.parent_job_card.item_name}
+              </span>
+            )}
           </div>
           {/* ✅ Fix: stopPropagation so click doesn't bubble to backdrop */}
           <button
@@ -534,6 +564,7 @@ const JobCardView = ({
                 loading={loadingDetails}
                 onAddStock={handleAddStock}
                 onGeneratePO={handleGeneratePO}
+                onGenerateSubJobCard={handleGenerateSubJobCard}
               />
             </>
           )}

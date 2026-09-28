@@ -16,6 +16,11 @@ interface IProps {
   loading: boolean;
   onAddStock: (materialId: number, materialName: string) => void;
   onGeneratePO: (materialId: number, materialName: string) => void;
+  onGenerateSubJobCard: (
+    materialId: number,
+    materialName: string,
+    pendingQty: number,
+  ) => void;
 }
 
 const shortagesIn = (materials: IBomMaterial[], deductReserved: boolean) =>
@@ -155,6 +160,7 @@ const MaterialTable = ({
   consumedLabel,
   onAddStock,
   onGeneratePO,
+  onGenerateSubJobCard,
 }: {
   materials: IBomMaterial[];
   deductReserved: boolean;
@@ -162,6 +168,7 @@ const MaterialTable = ({
   consumedLabel: string;
   onAddStock: (id: number, name: string) => void;
   onGeneratePO: (id: number, name: string) => void;
+  onGenerateSubJobCard: (id: number, name: string, pendingQty: number) => void;
 }) => {
   if (materials.length === 0)
     return (
@@ -228,7 +235,7 @@ const MaterialTable = ({
                         title="Being produced by open job cards"
                         headers={["Job Card", "Qty", "Done", "Pending"]}
                         rows={(m.incoming_by || []).map((r) => [
-                          `#${r.job_id}`,
+                          `#${r.job_id}${r.is_sub_job_card ? " (sub job)" : ""}`,
                           r.production_qty,
                           r.produced_qty,
                           r.pending_qty.toFixed(2),
@@ -263,6 +270,16 @@ const MaterialTable = ({
                     onGeneratePO={() =>
                       onGeneratePO(m.material_id, m.material_name)
                     }
+                    onGenerateSubJobCard={
+                      m.has_own_bom
+                        ? () =>
+                            onGenerateSubJobCard(
+                              m.material_id,
+                              m.material_name,
+                              pendingOf(m),
+                            )
+                        : undefined
+                    }
                   />
                 </td>
               </tr>
@@ -282,12 +299,14 @@ const ProcessCard = ({
   deductReserved,
   onAddStock,
   onGeneratePO,
+  onGenerateSubJobCard,
 }: {
   process: IBomProcess;
   defaultOpen: boolean;
   deductReserved: boolean;
   onAddStock: (id: number, name: string) => void;
   onGeneratePO: (id: number, name: string) => void;
+  onGenerateSubJobCard: (id: number, name: string, pendingQty: number) => void;
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const [activeSection, setActiveSection] = useState<
@@ -422,6 +441,7 @@ const ProcessCard = ({
             consumedLabel={activeSection === "consumption" ? "Consumed" : "Rejected"}
             onAddStock={onAddStock}
             onGeneratePO={onGeneratePO}
+            onGenerateSubJobCard={onGenerateSubJobCard}
           />
         </div>
       )}
@@ -436,6 +456,7 @@ const RequiredMaterialSection = ({
   loading,
   onAddStock,
   onGeneratePO,
+  onGenerateSubJobCard,
 }: IProps) => {
   const [deductReserved, setDeductReserved] = useState(false);
 
@@ -530,6 +551,7 @@ const RequiredMaterialSection = ({
           deductReserved={deductReserved}
           onAddStock={onAddStock}
           onGeneratePO={onGeneratePO}
+          onGenerateSubJobCard={onGenerateSubJobCard}
         />
       ))}
     </div>

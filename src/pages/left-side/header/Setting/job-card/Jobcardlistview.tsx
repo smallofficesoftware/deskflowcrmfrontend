@@ -20,6 +20,7 @@ import { fetchAllCompanyApi } from "../../../LeftSideController";
 import { fetchDepartmentsApi } from "../../../list-company/EditTeamMemberController";
 import { fetchLabelApi } from "../label/LabelController";
 import {
+  createSubJobCard,
   deleteJobCardApi,
   fetchJobCardList,
   fetchStageStatusApiForJobCard,
@@ -101,6 +102,27 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   const handleGeneratePOFromJobCard = (_materialId: number, _materialName: string) => {
     setShowPOModalFromJobCard(true);
+  };
+
+  const [creatingSubJobCard, setCreatingSubJobCard] = useState(false);
+  const handleGenerateSubJobCardFromJobCard = async (
+    materialId: number,
+    _materialName: string,
+    parentJobCardId: number,
+    pendingQty: number,
+  ) => {
+    const newId = await createSubJobCard(
+      parentJobCardId,
+      materialId,
+      pendingQty,
+      setCreatingSubJobCard,
+    );
+    if (newId) {
+      setSelectedJobCardId(newId);
+      setSelectedJobCardProdQty(pendingQty);
+      setShowEditJobCard(true);
+      handleRefresh();
+    }
   };
 
   const { darkMode } = useTheme();
@@ -1206,6 +1228,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           onComplete={handleRefresh}
           onAddStock={handleAddStockFromJobCard}
           onGeneratePO={handleGeneratePOFromJobCard}
+          onGenerateSubJobCard={handleGenerateSubJobCardFromJobCard}
         />
       )}
 
@@ -1218,6 +1241,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           initialProductQty={selectedJobCardProdQty ?? 0}
           onAddStock={handleAddStockFromJobCard}
           onGeneratePO={handleGeneratePOFromJobCard}
+          onGenerateSubJobCard={handleGenerateSubJobCardFromJobCard}
         />
       )}
 

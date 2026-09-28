@@ -53,6 +53,7 @@ export interface IItemDetail {
   pending_qty?: number;
   unit: string;
   delivery_date?: string;
+  parent_job_card?: { id: number; item_name: string } | null; // set when this job card is a sub jobwork
 }
 
 // ─── BOM / Required Material ──────────────────────────────────────────────────
@@ -67,7 +68,14 @@ export interface IBomMaterial {
   consumed_qty?: number; // used so far by this job card in this process (rejected, on rejection rows)
   reserved_by?: { job_id: number; item_name: string; pending_qty: number; process_name?: string }[];
   incoming_qty?: number; // still to be produced by other open job cards making this material
-  incoming_by?: { job_id: number; production_qty: number; produced_qty: number; pending_qty: number }[];
+  incoming_by?: {
+    job_id: number;
+    production_qty: number;
+    produced_qty: number;
+    pending_qty: number;
+    is_sub_job_card?: boolean; // this job card was auto-created FOR this parent, not just incidentally producing the same material
+  }[];
+  has_own_bom?: boolean; // this material is itself a manufactured product with its own BOM - eligible for "Generate Sub Job Card"
 }
 
 export interface IBomProcess {

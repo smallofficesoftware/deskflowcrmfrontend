@@ -3,9 +3,14 @@ import React, { useEffect, useRef, useState } from "react";
 interface IProps {
   onAddStock: () => void;
   onGeneratePO: () => void;
+  onGenerateSubJobCard?: () => void; // only passed when the material has its own BOM
 }
 
-const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
+const MaterialActionMenu = ({
+  onAddStock,
+  onGeneratePO,
+  onGenerateSubJobCard,
+}: IProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -83,6 +88,8 @@ const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
         >
           {menuItem("pi-plus-circle", "Add Stock", onAddStock)}
           {menuItem("pi-shopping-cart", "Generate PO", onGeneratePO)}
+          {onGenerateSubJobCard &&
+            menuItem("pi-sitemap", "Generate Sub Job Card", onGenerateSubJobCard)}
         </div>
       )}
     </div>
