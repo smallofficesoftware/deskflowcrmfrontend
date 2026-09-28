@@ -793,6 +793,12 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                           }}
                         >
                           <Container fluid className="mt-2">
+                            <WorkspaceUsageCard
+                              parentCompanyId={
+                                activeCompanyForStats?.parent_company_id ||
+                                activeCompanyForStats?.id
+                              }
+                            />
                             <Row className="mb-2">
                               <Col md={6} className="dash-board-company-column">
                                 <Card
@@ -1101,12 +1107,6 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                 </Card>
                               </Col>
                             </Row>
-                            <WorkspaceUsageCard
-                              parentCompanyId={
-                                activeCompanyForStats?.parent_company_id ||
-                                activeCompanyForStats?.id
-                              }
-                            />
                           </Container>
                         </div>
                         )}

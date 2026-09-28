@@ -8,7 +8,11 @@ interface IWorkspaceUsageCardProps {
 }
 
 const WorkspaceUsageCard = ({ parentCompanyId }: IWorkspaceUsageCardProps) => {
-  const [usage, setUsage] = useState<{ limit: number | null; used: number } | null>(null);
+  const [usage, setUsage] = useState<{
+    limit: number | null;
+    used: number;
+    storageLimitGb: number | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!parentCompanyId) return;
@@ -17,7 +21,11 @@ const WorkspaceUsageCard = ({ parentCompanyId }: IWorkspaceUsageCardProps) => {
       .then((response) => {
         const item = response.data?.data?.item;
         if (response.data?.ack === DEFAULT_STATUS_CODE_SUCCESS && item) {
-          setUsage({ limit: item.limit, used: item.used });
+          setUsage({
+            limit: item.limit,
+            used: item.used,
+            storageLimitGb: item.storage_limit_gb ?? null,
+          });
         }
       })
       .catch(() => setUsage(null));
@@ -48,6 +56,29 @@ const WorkspaceUsageCard = ({ parentCompanyId }: IWorkspaceUsageCardProps) => {
           </Card.Body>
         </Card>
       </Col>
+      {usage.storageLimitGb !== null && (
+        <Col md={6} className="dash-board-company-column">
+          <Card className="text-end" style={{ borderRadius: "0px" }}>
+            <Card.Body>
+              <h4 className="dash-board-text-company-count">
+                {usage.storageLimitGb + " GB"}
+              </h4>
+              <span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="24px"
+                  viewBox="0 -960 960 960"
+                  width="24px"
+                  fill="#5f6368"
+                >
+                  <path d="M160-160q-33 0-56.5-23.5T80-240v-160q0-33 23.5-56.5T160-480h640q33 0 56.5 23.5T880-400v160q0 33-23.5 56.5T800-160H160Zm0-80h640v-160H160v160Zm40-40h80v-80h-80v80Zm-40-260q-33 0-56.5-23.5T80-640v-80q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v80q0 33-23.5 56.5T800-560H160Zm0-80h640v-80H160v80Zm40-40h80v-80h-80v80Z" />
+                </svg>
+              </span>
+              <h4 className="dash-board-company-text">Storage (Plan Limit)</h4>
+            </Card.Body>
+          </Card>
+        </Col>
+      )}
     </Row>
   );
 };
