@@ -138,11 +138,20 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
         ? companyLists.find((c) => c.id === activeCompanyId)
         : companyLists[0];
       const planId = activeCompany?.plan_id || companyLists[0]?.plan_id;
-      if (planId) {
+      // Plan usage counters (Total Contacts / Inquiry ...) are owner-only.
+      if (planId && activeCompany?.company_flag === 1) {
         fetchPlanStatisticsCounts(setPlanStatistics, planId);
       }
     }
   }, [companyLists]);
+
+  const activeCompanyForStats = (() => {
+    const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+    return activeCompanyId
+      ? companyLists.find((c) => c.id === activeCompanyId)
+      : companyLists[0];
+  })();
+  const isCompanyOwner = activeCompanyForStats?.company_flag === 1;
 
   useEffect(() => {
     if (refersh) {
@@ -773,6 +782,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                               </>
                             );
                           })}
+                        {isCompanyOwner && (
                         <div
                           style={{
                             flex: "60%",
@@ -1092,6 +1102,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                             </Row>
                           </Container>
                         </div>
+                        )}
                       </>
                     </div>
                   </div>
