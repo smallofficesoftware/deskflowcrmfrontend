@@ -18,6 +18,7 @@ import {
 } from "../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import CreateVisitView from "./create-visit/CreateVisitView";
 import {
   fetchCustomInqFromApiForVisit,
@@ -52,6 +53,7 @@ const VisitView = ({
   const dropdownRef = useRef<Record<number, HTMLUListElement | null>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const [hasIdAvail, setHasIdAvail] = useState<number | null>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [isOpenCreateModel, setIsCreateModel] = useState(false);
   const [isOpenEditModel, setIsOpenEditModel] = useState(false);
@@ -713,6 +715,17 @@ const VisitView = ({
                                   }`}
                                 style={{ width: "126px", zIndex: "1", marginTop: "30px" }}
                               >
+                                <li
+                                  className="listItem text-start"
+                                  role="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setHasIdAvail(null);
+                                    openSubmitForm("visit", item.id);
+                                  }}
+                                >
+                                  Submit Form
+                                </li>
 
                                 {item.end_date == null ? (
                                   <li

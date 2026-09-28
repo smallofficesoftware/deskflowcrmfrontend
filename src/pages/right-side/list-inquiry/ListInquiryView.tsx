@@ -3,6 +3,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../store/forms/useSubmitFormStore";
 import {
   convertDateTimeFormat,
   useEscapeKey,
@@ -93,6 +94,7 @@ const ListInquiryView = ({
     useState(false);
 
   const [labelDropdownOpen, setLabelDropdownOpen] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [inquiryId, setInquiryId] = useState<number>();
   const [inquiryToEdit, setInquiryToiEdit] = useState<IInquiry>();
   const [editInquiry, setEditInquiry] = useState(false);
@@ -1153,6 +1155,17 @@ const ListInquiryView = ({
                               }}
                             >
                               Assign label
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLabelDropdownOpen(null);
+                                openSubmitForm("inquiry", item.id);
+                              }}
+                            >
+                              Submit Form
                             </li>
                             <li
                               className="listItem"

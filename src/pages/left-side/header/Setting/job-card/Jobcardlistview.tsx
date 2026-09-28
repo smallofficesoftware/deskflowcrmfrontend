@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../../components/model/CheckBoxFilterModal";
 import CheckBoxModal from "../../../../../components/model/CheckBoxModal";
@@ -89,6 +90,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   // Dropdown
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const dropdownRefs = useRef<Record<number, HTMLUListElement | null>>({});
 
   const [deleteJobCardId, setDeleteJobCardId] = useState<number | null>(null);
@@ -908,6 +910,21 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         backgroundColor: "#fff",
                                       }}
                                     >
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenDropdownId(null);
+                                          openSubmitForm("job_card", item.id);
+                                        }}
+                                        style={{
+                                          padding: "8px 12px",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        Submit Form
+                                      </li>
                                       <li
                                         className="listItem"
                                         role="button"

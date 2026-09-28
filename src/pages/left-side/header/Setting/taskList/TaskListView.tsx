@@ -9,6 +9,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import { AppContext } from "../../../../../common/AppContext";
 import {
   truncateText,
@@ -158,6 +159,7 @@ const TaskListView = ({
   const [targetVsIncenTiveDropdown, setTargetVsIncentiveDropdown] =
     useState<any>(null);
   const [hasIdAvail, setHasIdAvail] = useState<number>();
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [isTaskComplatedConfirmation, setIsTaskComplatedConfirmation] =
     useState(false);
@@ -3867,6 +3869,20 @@ const TaskListView = ({
                                       role="button"
                                     >
                                       Edit
+                                    </li>
+                                    <li
+                                      className="listItem text-start"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTargetVsIncentiveDropdown(null);
+                                        openSubmitForm(
+                                          supportTicketFlag == 1 ? "support_ticket" : "task",
+                                          item.id,
+                                        );
+                                      }}
+                                      role="button"
+                                    >
+                                      Submit Form
                                     </li>
                                     <li
                                       className="listItem text-start"

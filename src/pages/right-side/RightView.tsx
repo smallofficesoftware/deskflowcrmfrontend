@@ -48,6 +48,7 @@ import RightSearch from "./Search";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../store/forms/useSubmitFormStore";
 import useSocketEvent from "../../hooks/useSocketEvent";
 import { AppContext } from "../../common/AppContext";
 import {
@@ -235,6 +236,7 @@ const RightView = ({
   const dropdownCreateOrderRef = useRef<HTMLButtonElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [dropdownOpenCreateOrder, setDropdownOpenCreateOrder] = useState(false);
   const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>("");
   const [isMainWorkspace, setIsMainWorkspace] = useState<boolean>(true);
@@ -4110,6 +4112,17 @@ const RightView = ({
                                     id="closeChat"
                                   >
                                     Statistics
+                                  </li>
+
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={() => {
+                                      setDropdownOpen(false);
+                                      if (getData?.id) openSubmitForm("contact", getData.id);
+                                    }}
+                                  >
+                                    Submit Form
                                   </li>
 
                                   <li

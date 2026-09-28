@@ -54,6 +54,7 @@ import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
+import { useSubmitFormStore } from "../../store/forms/useSubmitFormStore";
 import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
 import { useReviewStore } from "../../store/review/useReviewStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
@@ -698,6 +699,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [isArchivState, setIsArchivState] = useState<number>(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [labelDropdownOpen, setLabelDropdownOpen] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [isCreatecampaignsConfirmation, setIsCreatecampaignsConfirmation] =
@@ -4970,6 +4972,18 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                                         }}
                                       >
                                         Edit
+                                      </li>
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLabelDropdownOpen(null);
+                                          setHasOneData(null);
+                                          openSubmitForm("contact", item.id);
+                                        }}
+                                      >
+                                        Submit Form
                                       </li>
                                       {/* {item.is_pin !== 1 && (
                                       <li

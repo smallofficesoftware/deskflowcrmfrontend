@@ -35,6 +35,7 @@ import {
   tryPendingPdfmePrint,
 } from "../../dashboard/Reports/Quotations/QuotationController";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
+import { CART_TYPE_TO_RELATED_MODULE, useSubmitFormStore } from "../../../store/forms/useSubmitFormStore";
 import {
   ModuleType,
   useSalesDependencyGuard,
@@ -125,6 +126,7 @@ const ListOrderView = ({
   const [refreshCarts, setRefreshCarts] = useState(false);
   const [orderId, setOrderId] = useState<number>();
   const [orderDropdownOpen, setOrderDropdownOpen] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [isEditOrderShow, setIsEditOrderShow] = useState(false);
   const [orderIdDelete, setOrderIdDelete] = useState(0);
   const [converCartId, setConverCartId] = useState(0);
@@ -2909,6 +2911,18 @@ const ListOrderView = ({
                           >
                             Add Task
                           </li>
+                          {CART_TYPE_TO_RELATED_MODULE[item.type] && (
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={() => {
+                                setOrderDropdownOpen(null);
+                                openSubmitForm(CART_TYPE_TO_RELATED_MODULE[item.type], item.id);
+                              }}
+                            >
+                              Submit Form
+                            </li>
+                          )}
                           <li
                             className="listItem"
                             role="button"

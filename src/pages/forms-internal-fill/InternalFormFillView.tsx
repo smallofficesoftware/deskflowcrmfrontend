@@ -26,17 +26,20 @@ interface Props {
   // A saved draft to carry on with (plan M7).
   draftId?: number;
   onDraftSaved?: () => void;
+  // Opened from a record's "Submit Form" menu item: the record is already
+  // chosen, so the related-record picker is hidden.
+  presetRelatedRecordId?: number;
 }
 
 // Internal, logged-in fill page — shares FormFieldsRenderer/fieldTypes.ts/
 // ReferenceFieldInput.tsx with PublicFormFillView.tsx (plan §7); only the
 // data-fetching layer (authenticated axiosInstance vs. anonymous public
 // client) and the related-record picker's presence differ.
-const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, draftId, onDraftSaved }) => {
+const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, draftId, onDraftSaved, presetRelatedRecordId }) => {
   const [fields, setFields] = useState<IFormBuilderField[]>([]);
   const [title, setTitle] = useState("");
   const [relatedModule, setRelatedModule] = useState<string | null>(null);
-  const [relatedRecordId, setRelatedRecordId] = useState<number | null>(null);
+  const [relatedRecordId, setRelatedRecordId] = useState<number | null>(presetRelatedRecordId ?? null);
   // Date edit rules (plan C): may this user change locked dates?
   const [canChangeDates, setCanChangeDates] = useState(false);
   const [canOverrideAutoNumber, setCanOverrideAutoNumber] = useState(false);
@@ -171,7 +174,7 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
       </div>
       {errors._form ? <div className="alert alert-danger">{errors._form}</div> : null}
 
-      {relatedModule ? (
+      {relatedModule && !presetRelatedRecordId ? (
         <RelatedRecordPicker relatedModule={relatedModule} value={relatedRecordId} onChange={setRelatedRecordId} />
       ) : null}
 
