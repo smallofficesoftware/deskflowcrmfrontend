@@ -86,7 +86,9 @@ const CreateLabelView = ({
             setLabelInputInput(productToEdit.lable_name);
             setLabelHexColorInput(productToEdit.color || "#999999");
             setlabelError("");
-            setIsLabelInputReadOnly(productToEdit.id < 0);
+            // Default (negative-id) labels are fully editable now - same as
+            // any other label (ticket #2621).
+            setIsLabelInputReadOnly(false);
         }
     }, []);
 

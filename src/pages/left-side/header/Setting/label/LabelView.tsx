@@ -215,7 +215,9 @@ const LabelView = ({ isLableView, closeLabelView }: IPropsLabelView) => {
       const newSelected = prev.includes(id)
         ? prev.filter((i) => i !== id)
         : [...prev, id];
-      const totalSelectable = labelLists.filter((c) => c.id !== -1).length;
+      // Default (negative-id) labels are selectable/deletable too - only an
+      // actually missing id is excluded.
+      const totalSelectable = labelLists.filter((c) => c.id !== undefined).length;
       setIsAllSelected(newSelected.length === totalSelectable);
       return newSelected;
     });
@@ -228,7 +230,7 @@ const LabelView = ({ isLableView, closeLabelView }: IPropsLabelView) => {
     } else {
       const allIds = labelLists
         .map((c) => c.id)
-        .filter((id): id is number => id >= 0 && id !== undefined);
+        .filter((id): id is number => id !== undefined);
       setSelectedIds(allIds);
       setIsAllSelected(true);
     }
@@ -573,14 +575,12 @@ const LabelView = ({ isLableView, closeLabelView }: IPropsLabelView) => {
                                   key={index}
                                   className="source-of-type-list-grid-list"
                                 >
-                                  {item.id >= 0 && (
-                                    <input
-                                      type="checkbox"
-                                      className="custom-checkbox mx-1"
-                                      checked={selectedIds.includes(item.id)}
-                                      onChange={() => toggleSelection(item.id)}
-                                    />
-                                  )}
+                                  <input
+                                    type="checkbox"
+                                    className="custom-checkbox mx-1"
+                                    checked={selectedIds.includes(item.id)}
+                                    onChange={() => toggleSelection(item.id)}
+                                  />
                                   <span
                                     style={{
                                       backgroundColor: item.color || "#999999",
@@ -640,7 +640,7 @@ const LabelView = ({ isLableView, closeLabelView }: IPropsLabelView) => {
                                       >
                                         Edit
                                       </li>
-                                      {item.id >= 0 && <li
+                                      <li
                                         style={{ color: "red", fontWeight: "600" }}
                                         className="listItem"
                                         role="button"
@@ -651,7 +651,7 @@ const LabelView = ({ isLableView, closeLabelView }: IPropsLabelView) => {
                                         }}
                                       >
                                         Delete
-                                      </li>}
+                                      </li>
                                     </ul>
                                   </>
 
