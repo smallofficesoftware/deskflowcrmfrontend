@@ -1,3 +1,4 @@
+import "primeicons/primeicons.css";
 import { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -26,6 +27,7 @@ import {
 } from "./JobCardController";
 import { IJobCardListItem } from "./JobCardTypes";
 import JobCardView from "./JobCardView";
+import RawMaterialProcessStatusReportView from "./RawMaterialProcessStatusReportView";
 import ProductionEntryListModel from "./ProductionEntryListModel";
 import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
 import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
@@ -69,6 +71,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   // Modal visibility
   const [showJobCard, setShowJobCard] = useState(false);
+  const [showRawMaterialReport, setShowRawMaterialReport] = useState(false);
   const [showProductionEntry, setShowProductionEntry] = useState(false);
   const [showEditJobCard, setShowEditJobCard] = useState(false);
   const [selectedOrderItemId, setSelectedOrderItemId] = useState<number | null>(
@@ -586,6 +589,15 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                       <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                     </svg>
                   </span>
+                </button>
+
+                {/* Raw Material Process Status report (ticket #2575) */}
+                <button
+                  className="icons"
+                  onClick={() => setShowRawMaterialReport(true)}
+                  title="Raw Material Process Status"
+                >
+                  <i className="pi pi-sitemap" style={{ fontSize: "20px" }} />
                 </button>
               </div>
 
@@ -1164,6 +1176,24 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raw Material Process Status report modal (ticket #2575) */}
+      {showRawMaterialReport && (
+        <div className="modal1">
+          <div
+            className="modal-content1"
+            style={{ width: "80vw", maxHeight: "85vh", overflowY: "auto" }}
+          >
+            <span
+              className="close"
+              onClick={() => setShowRawMaterialReport(false)}
+            >
+              &times;
+            </span>
+            <RawMaterialProcessStatusReportView />
           </div>
         </div>
       )}
