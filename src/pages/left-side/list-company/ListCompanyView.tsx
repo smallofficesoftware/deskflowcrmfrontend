@@ -15,6 +15,7 @@ import PricingTable from "../../public/payment-gateway/PricingTable";
 import CreateCompanyView from "../create-company/CreateCompanyView";
 import NewCreateCompanyView from "../new-create-company/NewCreateCompanyView";
 import ManageWorkspacesModal from "../../../components/model/ManageWorkspacesModal";
+import WorkspaceUsageCard from "./WorkspaceUsageCard";
 import {
   companyLeave,
   companyMainDelete,
@@ -1100,6 +1101,12 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                 </Card>
                               </Col>
                             </Row>
+                            <WorkspaceUsageCard
+                              parentCompanyId={
+                                activeCompanyForStats?.parent_company_id ||
+                                activeCompanyForStats?.id
+                              }
+                            />
                           </Container>
                         </div>
                         )}
