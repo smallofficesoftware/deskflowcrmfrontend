@@ -668,11 +668,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                 <div key={index} className="block chat-list p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
                                   <div className="h-text w-100">
                                     {/* Header Row: Title & Chevron Dropdown */}
-                                    <div
-                                      className="d-flex align-items-start justify-content-between mb-1"
-                                      onClick={() => openCompanySide(item)}
-                                      style={{ cursor: "pointer" }}
-                                    >
+                                    <div className="d-flex align-items-start justify-content-between mb-1">
                                       <div>
                                         <div
                                           className="fw-bold"
@@ -739,7 +735,6 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                     <div
                                       className="mb-1.5 text-secondary text-truncate"
                                       style={{ fontSize: "12px", color: "#64748b" }}
-                                      onClick={() => openCompanySide(item)}
                                     >
                                       {item.company_contact}
                                       {item.company_contact && item.company_email ? ", " : ""}
@@ -750,7 +745,6 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                     <div
                                       className="d-flex flex-column gap-0.5 mb-1"
                                       style={{ fontSize: "12px", color: "#475569" }}
-                                      onClick={() => openCompanySide(item)}
                                     >
                                       <div>
                                         <b>Plan Type :</b> {item.plan_name}
