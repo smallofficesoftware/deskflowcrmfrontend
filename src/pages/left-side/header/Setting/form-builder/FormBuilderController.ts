@@ -15,6 +15,18 @@ export const relatedModuleOptions = [
   { id: "task", label: "Task" },
   { id: "support_ticket", label: "Support Ticket" },
   { id: "work_order", label: "Work Order (Production)" },
+  { id: "visit", label: "Visit" },
+  { id: "quotation", label: "Quotation" },
+  { id: "sales_invoice", label: "Sales Invoice" },
+  { id: "purchase_invoice", label: "Purchase Invoice" },
+  { id: "purchase_order", label: "Purchase Order" },
+  { id: "sales_return", label: "Sales Return" },
+  { id: "purchase_return", label: "Purchase Return" },
+  { id: "inward", label: "Inward (GRN)" },
+  { id: "dispatch", label: "Dispatch" },
+  { id: "proforma_invoice", label: "Proforma Invoice" },
+  { id: "job_card", label: "Job Card" },
+  { id: "expense", label: "Expense" },
 ];
 
 // Field-type option list backing fieldTypes.ts's registry keys. Entries
