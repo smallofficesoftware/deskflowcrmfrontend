@@ -3,6 +3,7 @@ import { Button, Form, ListGroup, Modal, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../helpers/AppConstants";
 import { axiosInstance } from "../../services/axiosInstance";
+import ManageWorkspaceTeamModal from "./ManageWorkspaceTeamModal";
 import {
   fetchCompanyApi,
   fetchCompanyTeamApi,
@@ -32,6 +33,7 @@ const ManageWorkspacesModal = ({
     limit: number | null;
     used: number;
   } | null>(null);
+  const [teamWorkspace, setTeamWorkspace] = useState<ICompany | null>(null);
   const isSubmittingRef = React.useRef(false);
 
   const activeCompanyId = localStorage.getItem("COMPANY_ID");
@@ -198,6 +200,7 @@ const ManageWorkspacesModal = ({
     : "";
 
   return (
+    <>
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton className="border-bottom-0 pb-0">
         <Modal.Title className="fw-bold font-size-20">
@@ -379,6 +382,19 @@ const ManageWorkspacesModal = ({
                     <div className="text-muted font-size-13">
                       {workspace.company_email}
                     </div>
+                    {!isParent && isMainCompany && (
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() => setTeamWorkspace(workspace)}
+                        style={{
+                          fontSize: "12px",
+                          padding: "4px 12px",
+                        }}
+                      >
+                        Manage Team
+                      </Button>
+                    )}
                     {!isActive && (
                       <Button
                         size="sm"
@@ -410,6 +426,13 @@ const ManageWorkspacesModal = ({
         </Button>
       </Modal.Footer>
     </Modal>
+      <ManageWorkspaceTeamModal
+        show={teamWorkspace !== null}
+        onHide={() => setTeamWorkspace(null)}
+        workspaceId={teamWorkspace?.id}
+        workspaceName={teamWorkspace?.company_name}
+      />
+    </>
   );
 };
 
