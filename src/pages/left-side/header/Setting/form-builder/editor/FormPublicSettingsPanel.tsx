@@ -19,6 +19,8 @@ const FormPublicSettingsPanel: React.FC<Props> = ({ form, onSettingsChange }) =>
   const url = publicFormUrl(form);
   const [showEmbed, setShowEmbed] = useState(false);
 
+  const phoneRequired = !!p.one_per_mobile || !!p.require_otp;
+
   const patch = (next: Partial<typeof p>) => onSettingsChange({ ...settings, public: { ...p, ...next } });
 
   const copy = (text: string, label: string) =>
@@ -96,6 +98,41 @@ const FormPublicSettingsPanel: React.FC<Props> = ({ form, onSettingsChange }) =>
           value={p.max_entries ?? ""}
           onChange={(e) => patch({ max_entries: e.target.value === "" ? null : Math.max(1, Number(e.target.value)) })}
         />
+      </div>
+
+      <div className="form-group">
+        <label className="pb-2 form_label d-block">Ask the visitor for</label>
+        <div className="d-flex flex-wrap" style={{ gap: 16 }}>
+          <div className="form-check">
+            <input id="fb-pub-ask-name" type="checkbox" className="form-check-input" checked={p.ask_name !== false} onChange={(e) => patch({ ask_name: e.target.checked })} />
+            <label className="form-check-label" htmlFor="fb-pub-ask-name">
+              Name
+            </label>
+          </div>
+          <div className="form-check">
+            <input id="fb-pub-ask-email" type="checkbox" className="form-check-input" checked={p.ask_email !== false} onChange={(e) => patch({ ask_email: e.target.checked })} />
+            <label className="form-check-label" htmlFor="fb-pub-ask-email">
+              Email
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              id="fb-pub-ask-phone"
+              type="checkbox"
+              className="form-check-input"
+              checked={p.ask_phone !== false || phoneRequired}
+              disabled={phoneRequired}
+              onChange={(e) => patch({ ask_phone: e.target.checked })}
+            />
+            <label className="form-check-label" htmlFor="fb-pub-ask-phone">
+              Phone
+            </label>
+          </div>
+        </div>
+        <small className="text-muted d-block">
+          Shown at the top of the public form and saved with each entry. Turn off what your form already asks for.
+          {phoneRequired ? " Phone stays on because of the mobile-number options below." : ""}
+        </small>
       </div>
 
       <div className="form-check mb-2">

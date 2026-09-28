@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams } from "react-router-dom";
 import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../helpers/AppConstants";
 import FormFieldsRenderer from "../left-side/header/Setting/form-builder/FormFieldsRenderer";
+import FormBuilderBrandStyles from "../left-side/header/Setting/form-builder/formBuilderBrandStyles";
 import { IFormBuilderField } from "../left-side/header/Setting/form-builder/FormBuilderController";
 import { buildInitialAnswers } from "../left-side/header/Setting/form-builder/fieldTypes";
 import { evaluateVisibility } from "../left-side/header/Setting/form-builder/conditions";
@@ -36,6 +37,20 @@ function leadParamsFromUrl(): { source: string | null; campaign: string | null }
   };
 }
 
+// Own wrapper classes on purpose: the app's global "body .container" rule (style.css) makes
+// .container a fixed-height flex row for the app shell, which wrecks this standalone page.
+const PublicPageStyles: React.FC = () => (
+  <style>{`
+    .fb-public-page { min-height: 100vh; background: #f4f6f8; padding: 16px 12px; }
+    .fb-public-card { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 16px; }
+    @media (min-width: 768px) {
+      .fb-public-page { padding: 32px 16px; }
+      .fb-public-card { padding: 28px; }
+    }
+    .fb-public-message { max-width: 720px; margin: 0 auto; }
+  `}</style>
+);
+
 // Modeled on pages/online-store/Form.tsx's no-auth company resolution
 // (plan §7) — company/tenant is resolved server-side purely from the
 // qrCode+shareToken URL params, no login context at all.
@@ -59,6 +74,9 @@ const PublicFormFillView: React.FC = () => {
   // Public form controls (plan M3, M5, M6).
   const [requireOtp, setRequireOtp] = useState(false);
   const [onePerMobile, setOnePerMobile] = useState(false);
+  const [askName, setAskName] = useState(true);
+  const [askEmail, setAskEmail] = useState(true);
+  const [askPhone, setAskPhone] = useState(true);
   const [otpToken, setOtpToken] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -78,6 +96,9 @@ const PublicFormFillView: React.FC = () => {
           setStatus(data.data.item.status || { open: true });
           setRequireOtp(!!data.data.item.require_otp);
           setOnePerMobile(!!data.data.item.one_per_mobile);
+          setAskName(data.data.item.ask_name !== false);
+          setAskEmail(data.data.item.ask_email !== false);
+          setAskPhone(data.data.item.ask_phone !== false);
           setLanguageName(data.data.item.language || null);
           const list: IFormBuilderField[] = data.data.item.fields || [];
           setFields(list);
@@ -161,9 +182,9 @@ const PublicFormFillView: React.FC = () => {
       fd.append("qrCode", qrCode || "");
       fd.append("shareToken", shareToken || "");
       fd.append("answers", JSON.stringify(answers));
-      if (submitterName) fd.append("submitter_name", submitterName);
-      if (submitterEmail) fd.append("submitter_email", submitterEmail);
-      if (submitterPhone) fd.append("submitter_phone", submitterPhone);
+      if (askName && submitterName) fd.append("submitter_name", submitterName);
+      if (askEmail && submitterEmail) fd.append("submitter_email", submitterEmail);
+      if (askPhone && submitterPhone) fd.append("submitter_phone", submitterPhone);
       if (lead.source) fd.append("source", lead.source);
       if (lead.campaign) fd.append("campaign", lead.campaign);
       if (requireOtp) {
@@ -194,20 +215,30 @@ const PublicFormFillView: React.FC = () => {
     setSubmitting(false);
   };
 
-  if (loading) return <div className="p-4 text-center">Loading...</div>;
+  const message = (content: React.ReactNode) => (
+    <div className="fb-public-page">
+      <PublicPageStyles />
+      <div className="fb-public-card fb-public-message text-center">{content}</div>
+    </div>
+  );
+
+  if (loading) return message("Loading...");
   if (!status.open) {
-    return (
-      <div className="p-4 text-center">
+    return message(
+      <>
         <h5 className="mb-2">{title || "This form"}</h5>
-        <p className="text-muted">{status.message || "This form isn't accepting entries right now."}</p>
-      </div>
+        <p className="text-muted mb-0">{status.message || "This form isn't accepting entries right now."}</p>
+      </>,
     );
   }
-  if (errorMsg && fields.length === 0) return <div className="p-4 text-center text-danger">{errorMsg}</div>;
-  if (submitted) return <div className="p-4 text-center">{submitted.redirect_url ? "Redirecting…" : submitted.message}</div>;
+  if (errorMsg && fields.length === 0) return message(<span className="text-danger">{errorMsg}</span>);
+  if (submitted) return message(submitted.redirect_url ? "Redirecting…" : submitted.message);
 
   return (
-    <div className="container px-3 py-3 px-md-4 py-md-4" style={{ maxWidth: 720 }}>
+    <div className="fb-public-page">
+      <PublicPageStyles />
+      <FormBuilderBrandStyles />
+      <div className="fb-public-card">
       <div className="d-flex justify-content-between align-items-start">
         <h3 className="mb-1 text-break">{title}</h3>
         {languageName ? (
@@ -220,12 +251,15 @@ const PublicFormFillView: React.FC = () => {
       {errorMsg ? <div className="alert alert-danger">{errorMsg}</div> : null}
 
       <div className="row fb-fill">
+        {askName ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
             <label className="pb-2 form_label d-block">Your Name</label>
             <input className="form-control" autoComplete="name" value={submitterName} onChange={(e) => setSubmitterName(e.target.value)} />
           </div>
         </div>
+        ) : null}
+        {askEmail ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
             <label className="pb-2 form_label d-block">Your Email</label>
@@ -239,6 +273,8 @@ const PublicFormFillView: React.FC = () => {
             />
           </div>
         </div>
+        ) : null}
+        {askPhone ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
             <label className="pb-2 form_label d-block">
@@ -267,6 +303,7 @@ const PublicFormFillView: React.FC = () => {
             {onePerMobile ? <small className="text-muted">Only one entry is allowed per mobile number.</small> : null}
           </div>
         </div>
+        ) : null}
         {requireOtp && otpSent ? (
           <div className="col-12 col-md-4">
             <div className="form-group">
@@ -297,9 +334,10 @@ const PublicFormFillView: React.FC = () => {
 
       {/* Sticks to the bottom of the screen on phones (FillResponsiveStyles). */}
       <div className="fb-submit-bar">
-        <button type="button" className="btn btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
+        <button type="button" className="btn fb-btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
           {submitting ? "Submitting..." : "Submit"}
         </button>
+      </div>
       </div>
     </div>
   );
