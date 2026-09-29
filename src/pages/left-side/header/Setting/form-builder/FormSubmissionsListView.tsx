@@ -65,7 +65,7 @@ const RowActionMenu = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -107,19 +107,19 @@ const RowActionMenu = ({
   );
 
   return (
-    <div style={{ display: "inline-block" }}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className="btn btn-sm btn-outline-secondary"
+    <div ref={buttonRef} style={{ display: "inline-block" }}>
+      <Button
+        icon="pi pi-ellipsis-v"
+        className="report_button"
+        style={{ backgroundColor: "#4C4C4C" }}
+        rounded
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        title="Actions"
-      >
-        &#8942;
-      </button>
+        tooltip="Actions"
+        tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+      />
       {open
         ? createPortal(
             <ul
