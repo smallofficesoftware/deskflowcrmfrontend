@@ -73,6 +73,7 @@ export const orderTypesStageList = [
   { id: "8", order_type_display: "Task Management" },
   { id: "13", order_type_display: "Job Card" },
   { id: "14", order_type_display: "Route Planner" },
+  { id: "15", order_type_display: "Form Submissions" },
 ];
 
 export const handleDeleteStageStatus = async (

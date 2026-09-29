@@ -26,6 +26,11 @@ const ReferenceFieldInput: React.FC<Props> = ({ field, value, onChange, parentVa
 
   useEffect(() => {
     let cancelled = false;
+    // No list picked in the editor: nothing to ask the server for.
+    if (!field.master) {
+      setOptions([]);
+      return;
+    }
     if (field.cascades_from && !parentValue) {
       setOptions([]);
       return;
@@ -61,6 +66,7 @@ const ReferenceFieldInput: React.FC<Props> = ({ field, value, onChange, parentVa
           </option>
         ))}
       </select>
+      {!field.master ? <div className="field-error text-danger">No list is set for this field. Pick one in Form Builder and publish again.</div> : null}
       {error ? <div className="field-error text-danger">{error}</div> : null}
     </div>
   );

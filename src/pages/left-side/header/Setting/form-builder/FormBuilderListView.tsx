@@ -1,5 +1,6 @@
 import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, listTemplates, IFormBuilderForm, IStarterTemplate, ICompanyTemplate, TemplateChoice } from "./FormBuilderController";
 import FormBuilderEditorView from "./FormBuilderEditorView";
@@ -16,11 +17,24 @@ import MyDraftsPanel from "./drafts/MyDraftsPanel";
 // Create/edit stay a plain in-page component swap here, no modal, matching
 // how this same component already behaved before this list was wired to
 // go through the tile grid instead of a dedicated route.
-const FormBuilderListView: React.FC = () => {
+interface Props {
+  // Set by SideView.tsx when landing here via a per-form sidebar row
+  // (reportsMenuData.tsx's "form_submissions_<id>" entries) - jumps
+  // straight to that form's Submissions grid, no picker step.
+  deepLinkFormId?: number | null;
+}
+
+const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
+  // Also supports /SideView?view=forms&submissions_form_id=<id> (Submit
+  // Form menu items and similar navigate here directly with a query param).
+  const [searchParams] = useSearchParams();
+  const queryDeepLinkFormId = searchParams.get("submissions_form_id");
+  const initialSubmissionsId = deepLinkFormId ?? (queryDeepLinkFormId ? Number(queryDeepLinkFormId) : null);
+
   const [forms, setForms] = useState<IFormBuilderForm[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [viewingSubmissionsId, setViewingSubmissionsId] = useState<number | null>(null);
+  const [viewingSubmissionsId, setViewingSubmissionsId] = useState<number | null>(initialSubmissionsId);
   // Fill a form now (optionally the due day of a recurring schedule), import from Excel, recurring setup (plan Q).
   const [filling, setFilling] = useState<{ formId: number; scheduleEntryId?: number; draftId?: number } | null>(null);
   const [importingId, setImportingId] = useState<number | null>(null);
@@ -31,6 +45,16 @@ const FormBuilderListView: React.FC = () => {
   const [starters, setStarters] = useState<IStarterTemplate[]>([]);
   const [companyTemplates, setCompanyTemplates] = useState<ICompanyTemplate[]>([]);
   const [templateChoice, setTemplateChoice] = useState(""); // "" = blank, "b:<key>" or "c:<id>"
+
+  // Switching between "Custom Forms" and a per-form sidebar row while
+  // already on this screen (activeView stays "forms_home" either way, so
+  // BottomView keeps this same component instance mounted) only changes
+  // this prop - sync both directions: a form id opens its grid, null goes
+  // back to the list. Without the null case, clicking "Custom Forms" after
+  // a per-form row left the previous form's grid stuck on screen.
+  useEffect(() => {
+    setViewingSubmissionsId(deepLinkFormId ?? null);
+  }, [deepLinkFormId]);
 
   const reload = async () => {
     const res = await listForms();

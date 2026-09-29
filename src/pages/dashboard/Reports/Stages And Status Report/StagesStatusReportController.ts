@@ -2,7 +2,7 @@ import { toast } from "react-toastify";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../helpers/AppConstants";
 import { TReactSetState } from "../../../../helpers/AppType";
 import { axiosInstance } from "../../../../services/axiosInstance";
-import { IStageStatusView } from "../../../left-side/header/Setting/stage-status/StageStatusController";
+import { IStageStatusView, orderTypesStageList } from "../../../left-side/header/Setting/stage-status/StageStatusController";
 
 export interface ICompanyReport {
   invoice_title: string;
@@ -16,21 +16,11 @@ export interface ICompanyReport {
   inward_title: string;
   dispatch_title: string;
 }
-export const orderTypesStageStatusList = [
-  { id: "1", order_type_display: "Contact" },
-  { id: "2", order_type_display: "Inquiry" },
-  { id: "3", order_type_display: "Quotation" },
-  { id: "4", order_type_display: "Sales Order" },
-  { id: "11", order_type_display: "Dispatch" },
-  { id: "5", order_type_display: "Sales Invoice" },
-  { id: "9", order_type_display: "Return Sales Invoice" },
-  { id: "7", order_type_display: "Purchase Order" },
-  { id: "12", order_type_display: "Goods Received Note" },
-  { id: "6", order_type_display: "Purchase Invoice" },
-  { id: "10", order_type_display: "Return Purchase Invoice" },
-  { id: "8", order_type_display: "Task Management" },
-
-];
+// Was its own stale copy of stage-status/StageStatusController.ts's list
+// (missing Job Card/Route Planner/Form Submissions entirely) - re-exported
+// from the canonical one instead, so this report can't drift out of sync
+// with the actual Stages & Status management screen again.
+export const orderTypesStageStatusList = orderTypesStageList;
 
 export const fetchStageStatusApi = async (
   setStageStatusList: TReactSetState<IStageStatusView[]>,

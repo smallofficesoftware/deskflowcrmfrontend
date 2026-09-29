@@ -1,9 +1,10 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import deshFlow_log_icon from "../../assets/images/deshFlow_log.png";
 import smalll_office_logo from "../../assets/images/smalll_office_logo.png";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import { listForms } from "../left-side/header/Setting/form-builder/FormBuilderController";
 import { reportsMenuData } from "./reportsMenuData";
 
 const SidebarView = ({
@@ -38,6 +39,31 @@ const SidebarView = ({
 
   const { permissions } = useContext(AppContext)!;
   const navigate = useNavigate();
+
+  // Each published form gets its own row, grouped into its own Category
+  // (CRM, HRMS, ...) section - same taxonomy and same grouping pattern as
+  // ReportsTileView.tsx merges custom report_definitions into these same
+  // sections by report.category. No category set -> "Others", not "Forms".
+  const [formRowsByCategory, setFormRowsByCategory] = useState<
+    Record<string, { label: string; value: string; icon: string; description: string }[]>
+  >({});
+  useEffect(() => {
+    (async () => {
+      const res = await listForms();
+      const forms = (res?.data?.item || []).filter((f: any) => f.published_schema_json);
+      const byCategory: Record<string, { label: string; value: string; icon: string; description: string }[]> = {};
+      forms.forEach((f: any) => {
+        const category = f.category || "Others";
+        (byCategory[category] ||= []).push({
+          label: f.title,
+          value: `form_submissions_${f.id}`,
+          icon: "list_alt",
+          description: `Submissions for "${f.title}"`,
+        });
+      });
+      setFormRowsByCategory(byCategory);
+    })();
+  }, []);
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -82,8 +108,11 @@ const SidebarView = ({
     color: "#4B4B4D",
   };
 
-  const menuData = reportsMenuData;
-
+  const menuData = reportsMenuData.map((menu) =>
+    formRowsByCategory[menu.key]
+      ? { ...menu, subMenus: [...menu.subMenus, ...formRowsByCategory[menu.key]] }
+      : menu,
+  );
 
   const permissionFilteredMenus = menuData
     .map((menu) => ({

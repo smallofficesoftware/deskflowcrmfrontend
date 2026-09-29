@@ -115,6 +115,7 @@ const BottomView = ({
   onReportClick,
   isEmbed,
   onEmbedBack,
+  formSubmissionsDeepLinkId,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
@@ -275,7 +276,9 @@ const BottomView = ({
           />
         )}
 
-        {activeView === "forms_home" && <FormBuilderListView />}
+        {activeView === "forms_home" && (
+          <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} />
+        )}
 
         {isEmbed && appliedReportType && (
           <div

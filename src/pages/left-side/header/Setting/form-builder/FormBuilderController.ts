@@ -225,6 +225,9 @@ export interface IFormBuilderForm {
   has_unpublished_changes?: number;
   version?: number;
   related_module?: string | null;
+  // Sidebar section this form's per-form row shows under (CRM, HRMS, ...) -
+  // same taxonomy as Report Builder's report_definitions.category.
+  category?: string | null;
   allow_public_submission?: number;
   share_token?: string | null;
   restrict_to_assigned_team?: number;
@@ -283,7 +286,7 @@ export interface ICompanyTemplate {
 }
 export type TemplateChoice = { source: "builtin"; key: string } | { source: "company"; id: number };
 
-export const createForm = (body: { title: string; description?: string; related_module?: string; template?: TemplateChoice }) =>
+export const createForm = (body: { title: string; description?: string; related_module?: string; category?: string; template?: TemplateChoice }) =>
   post("form-builder/create", body);
 export const updateDraftForm = (body: { id: number; [key: string]: any }) => post("form-builder/update", body);
 // Same call for the editor's autosave — no toasts; failures come back as

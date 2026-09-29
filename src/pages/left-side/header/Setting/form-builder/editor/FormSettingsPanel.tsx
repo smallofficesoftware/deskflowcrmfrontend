@@ -1,6 +1,7 @@
 import React from "react";
 import { toast } from "react-toastify";
 import { IFormBuilderForm, publicFormUrl, relatedModuleOptions } from "../FormBuilderController";
+import { REPORT_CATEGORIES } from "../../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 
 interface Props {
   form: IFormBuilderForm;
@@ -54,6 +55,24 @@ const FormSettingsPanel: React.FC<Props> = ({ form, onChange, onTogglePublic, on
           {relatedModuleOptions.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
+        <label className="pb-2 form_label d-block" htmlFor="fb-form-category">
+          Category (sidebar section)
+        </label>
+        <select
+          id="fb-form-category"
+          className="form-control"
+          value={form.category || ""}
+          onChange={(e) => onChange({ category: e.target.value || null })}
+        >
+          <option value="">Others</option>
+          {REPORT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
             </option>
           ))}
         </select>
