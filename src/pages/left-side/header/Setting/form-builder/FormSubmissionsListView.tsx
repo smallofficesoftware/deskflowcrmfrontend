@@ -144,7 +144,7 @@ const RowActionMenu = ({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {menuItem("View / Edit", onViewEdit)}
+              {menuItem("Edit", onViewEdit)}
               {menuItem("PDF", onPdf)}
               {menuItem("History", onHistory)}
               {menuItem("Change Status", onChangeStatus)}
@@ -883,6 +883,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           onSaved={() => {
             reload();
           }}
+          startInEdit
         />
       ) : null}
 

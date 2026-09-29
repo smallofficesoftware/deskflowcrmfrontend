@@ -14,6 +14,7 @@ interface Props {
   submissionId: number;
   onClose: () => void;
   onSaved?: () => void;
+  startInEdit?: boolean;
 }
 
 // Upload fields can't be changed from this screen (the server ignores files
@@ -131,7 +132,7 @@ const fileUrl = (file: SavedFile) => `${(BACKEND_OF_SMALL_OFFICE_CRM_END_POINT |
 // One saved entry: everything that was filled in, who created / last changed
 // it, and (for people allowed to fill the form) an Edit mode that saves
 // through the normal update API. The server re-checks every rule.
-const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, onSaved }) => {
+const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, onSaved, startInEdit }) => {
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [fields, setFields] = useState<IFormBuilderField[]>([]);
@@ -173,7 +174,9 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
       setAllFields(list);
       setSavedFiles(subRes.data.item._files || []);
       setRestricted(subRes.data.restricted || null);
-      setApproval(subRes.data.approval?.enabled ? subRes.data.approval : null);
+      const approvalInfo = subRes.data.approval?.enabled ? subRes.data.approval : null;
+      setApproval(approvalInfo);
+      if (startInEdit && (!approvalInfo || approvalInfo.write_mode !== "locked")) setEditing(true);
       setRemoveIds([]);
       setNewFiles([]);
       const shown = list.filter((f) => !UPLOAD_TYPES.has(f.type) && !SKIP_TYPES.has(f.type));
@@ -308,52 +311,26 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
         </div>
         <div className="p-3" style={{ overflowY: "auto", flex: 1 }}>
         <div className="d-flex flex-wrap align-items-center mb-2" style={{ gap: 8 }}>
-          {!loading && item ? (
-            editing ? (
-              <>
-                <button className="btn fb-btn-primary" disabled={saving || acting} onClick={handleSave}>
-                  {saving ? "Saving…" : "Save changes"}
-                </button>
-                {approval && approval.can_act ? (
-                  <button className="btn btn-outline-success" disabled={saving || acting} onClick={saveAndApprove}>
-                    Save and approve
+          {!loading && item && !editing ? (
+            <>
+              {approval && approval.can_act ? (
+                <>
+                  <button className="btn fb-btn-primary" disabled={acting} onClick={() => runStageAction("approve")}>
+                    <i className="pi pi-check" /> Approve
                   </button>
-                ) : null}
-                <button
-                  className="btn btn-outline-secondary"
-                  disabled={saving}
-                  onClick={() => {
-                    setEditing(false);
-                    setErrors({});
-                    setAnswers(answersFromItem(fields, item));
-                    setRemoveIds([]);
-                    setNewFiles([]);
-                  }}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                {approval && approval.can_act ? (
-                  <>
-                    <button className="btn fb-btn-primary" disabled={acting} onClick={() => runStageAction("approve")}>
-                      <i className="pi pi-check" /> Approve
+                  {approval.can_send_back ? (
+                    <button className="btn btn-outline-danger" disabled={acting} onClick={() => setSendBackOpen(!sendBackOpen)}>
+                      <i className="pi pi-undo" /> Send back
                     </button>
-                    {approval.can_send_back ? (
-                      <button className="btn btn-outline-danger" disabled={acting} onClick={() => setSendBackOpen(!sendBackOpen)}>
-                        <i className="pi pi-undo" /> Send back
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
-                {!approval || approval.write_mode !== "locked" ? (
-                  <button className="btn fb-btn-outline-primary" onClick={() => setEditing(true)}>
-                    <i className="pi pi-pencil" /> Edit
-                  </button>
-                ) : null}
-              </>
-            )
+                  ) : null}
+                </>
+              ) : null}
+              {!approval || approval.write_mode !== "locked" ? (
+                <button className="btn fb-btn-outline-primary" onClick={() => setEditing(true)}>
+                  <i className="pi pi-pencil" /> Edit
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
 
@@ -513,6 +490,39 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
               </div>
             ) : null}
           </>
+        ) : null}
+
+        {!loading && item && editing ? (
+          <div className="d-flex justify-content-end pt-4 modal-buttons" style={{ gap: 8 }}>
+            <button
+              type="button"
+              className="modal-button1"
+              disabled={saving}
+              onClick={() => {
+                setEditing(false);
+                setErrors({});
+                setAnswers(answersFromItem(fields, item));
+                setRemoveIds([]);
+                setNewFiles([]);
+              }}
+            >
+              Close
+            </button>
+            {approval && approval.can_act ? (
+              <button className="btn btn-outline-success" disabled={saving || acting} onClick={saveAndApprove}>
+                Save and approve
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-primary px-4 py-2 text-light form_label rounded-1"
+              style={{ backgroundColor: "#f58634" }}
+              disabled={saving || acting}
+              onClick={handleSave}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
         ) : null}
         </div>
       </div>
