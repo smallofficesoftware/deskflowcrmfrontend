@@ -5,6 +5,7 @@ import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable, type DataTableFilterEvent, type DataTableFilterMeta, type DataTableSortEvent, type SortOrder } from "primereact/datatable";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import ColumnsButton from "../../../../../components/ColumnsButton";
@@ -43,8 +44,12 @@ import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
 const FORM_SUBMISSIONS_ORDER_TYPE = 15;
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
-// Same self-contained kebab menu pattern as job-card's MaterialActionMenu.tsx
-// (own ref + outside-click close) - one row's actions, not shared state.
+// Portaled to document.body (not the .labelDropLeft in-flow dropdown
+// pattern) - a PrimeReact scrollable DataTable's body wrapper clips/traps
+// any position:absolute menu nested inside a row cell (overflow + its own
+// stacking context beat any z-index we set), so the menu never became
+// visible in-place. Rendering outside the table via a portal, positioned
+// from the button's own bounding rect, sidesteps that entirely.
 const RowActionMenu = ({
   onViewEdit,
   onPdf,
@@ -59,15 +64,33 @@ const RowActionMenu = ({
   onDelete: () => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    const reposition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (rect) setCoords({ top: rect.bottom + 4, left: rect.right - 150 });
     };
+    reposition();
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (buttonRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const handleScroll = () => setOpen(false);
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open]);
 
   const menuItem = (label: string, onClick: () => void, danger = false) => (
     <li
@@ -84,8 +107,9 @@ const RowActionMenu = ({
   );
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+    <div style={{ display: "inline-block" }}>
       <button
+        ref={buttonRef}
         type="button"
         className="btn btn-sm btn-outline-secondary"
         onClick={(e) => {
@@ -96,17 +120,31 @@ const RowActionMenu = ({
       >
         &#8942;
       </button>
-      <ul
-        className={`labelDropLeft ${open ? "isVisible" : "isHidden"}`}
-        style={{ width: 150, right: 0, left: "auto", marginLeft: 0, marginTop: 4, top: "100%", zIndex: 1200 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {menuItem("View / Edit", onViewEdit)}
-        {menuItem("PDF", onPdf)}
-        {menuItem("History", onHistory)}
-        {menuItem("Change Status", onChangeStatus)}
-        {menuItem("Delete", onDelete, true)}
-      </ul>
+      {open
+        ? createPortal(
+            <ul
+              ref={menuRef}
+              className="labelDropLeft isVisible"
+              style={{
+                position: "fixed",
+                top: coords.top,
+                left: coords.left,
+                right: "auto",
+                width: 150,
+                margin: 0,
+                zIndex: 9999,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {menuItem("View / Edit", onViewEdit)}
+              {menuItem("PDF", onPdf)}
+              {menuItem("History", onHistory)}
+              {menuItem("Change Status", onChangeStatus)}
+              {menuItem("Delete", onDelete, true)}
+            </ul>,
+            document.body
+          )
+        : null}
     </div>
   );
 };
