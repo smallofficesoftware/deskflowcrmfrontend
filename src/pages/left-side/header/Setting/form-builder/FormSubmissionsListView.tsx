@@ -3,7 +3,7 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, type DataTableSortEvent, type SortOrder } from "primereact/datatable";
+import { DataTable, type DataTableFilterEvent, type DataTableFilterMeta, type DataTableSortEvent, type SortOrder } from "primereact/datatable";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
@@ -445,6 +445,37 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const orderedVisibleKeys = colOrder.filter((k) => !hiddenKeys.has(k));
   const columnDefByKey = new Map(allColumnDefs.map((c) => [c.key, c]));
 
+  // ── Per-column filter row (filterDisplay="row") - same as
+  // allContactReportView.tsx's own DataTable: one active field at a time
+  // (typing in a new column clears any other), client-side over the
+  // currently loaded page only (Contact Book's own onFilter/getFilteredData
+  // never sends these to the server either - only the global search box and
+  // the "Filter Report" modal do). ──
+  const [colFilters, setColFilters] = useState<DataTableFilterMeta>({});
+
+  useEffect(() => {
+    setColFilters((prev) => {
+      const next: DataTableFilterMeta = {};
+      allColumnDefs.forEach((c) => {
+        next[c.key] = prev[c.key] ?? { value: null, matchMode: "contains" };
+      });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allColumnDefs]);
+
+  const onColumnFilter = (event: DataTableFilterEvent) => {
+    const activeField = Object.keys(event.filters).find((key) => {
+      const f: any = event.filters[key];
+      return "value" in f && f.value !== null && f.value !== "";
+    });
+    const next: DataTableFilterMeta = { ...event.filters };
+    Object.keys(next).forEach((key) => {
+      if (key !== activeField) (next[key] as any).value = null;
+    });
+    setColFilters(next);
+  };
+
   const cellFor = (row: any, key: string): React.ReactNode => {
     if (key === "_entry") return entryNumberOf(allFields, row);
     if (key === "_submitted") return new Date(row.created_date_time).toLocaleString();
@@ -520,6 +551,15 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, sortField, sortOrder]);
 
+  const filteredRows = useMemo(() => {
+    const activeEntry = Object.entries(colFilters).find(([, f]: [string, any]) => f?.value != null && f.value !== "");
+    if (!activeEntry) return sortedRows;
+    const [key, f] = activeEntry as [string, any];
+    const needle = String(f.value).toLowerCase();
+    return sortedRows.filter((row) => textValueFor(row, key).toLowerCase().includes(needle));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedRows, colFilters]);
+
   const exportColumns: ExportColumn[] = orderedVisibleKeys.map((key) => ({
     key,
     label: columnDefByKey.get(key)?.label || key,
@@ -560,7 +600,37 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
       <FormBuilderBrandStyles />
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap" style={{ gap: 8 }}>
         <h4 className="mb-0">{title} — Submissions</h4>
-        <div className="d-flex align-items-center">
+        <div className="d-flex gap-2 flex-wrap align-items-center">
+          {/* Search sits inline with the round buttons - same single toolbar
+              row as allContactReportView.tsx (search first, then Refresh /
+              Filter / More Option / ColumnsButton), not a separate row. */}
+          <div className="d-flex gap-2 align-items-center me-2" style={{ position: "relative" }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search Anything in This Report"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && reload()}
+            />
+            {search ? (
+              <span className="clear-icon" onClick={() => setSearch("")}>
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                  <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                </svg>
+              </span>
+            ) : null}
+            <Button
+              icon="pi pi-search"
+              className="report_button"
+              style={{ backgroundColor: "#4C4C4C" }}
+              rounded
+              onClick={reload}
+              tooltip="Search"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+          </div>
+
           {/* Round gray Buttons + the pi-ellipsis-v "More Option" dropdown -
               exact same toolbar pattern as allContactReportView.tsx
               (Refresh / Filter / More Option / ColumnsButton), not a
@@ -604,41 +674,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
             onReorder={reorderColumns}
             onReset={resetColumns}
           />
-        </div>
-      </div>
-
-      {/* Same search bar as allContactReportView.tsx: plain form-control +
-          clear-icon "x" + a round pi-search Button, not the chat-style
-          icon-in-input bar Orders uses. Kept the debounced auto-search
-          (400ms) on top - Enter/the Search button just trigger it early. */}
-      <div className="row mb-3">
-        <div className="col-12 col-md-5">
-          <div className="d-flex gap-2 align-items-center" style={{ position: "relative" }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search Anything in This Report"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && reload()}
-            />
-            {search ? (
-              <span className="clear-icon" onClick={() => setSearch("")}>
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                  <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-                </svg>
-              </span>
-            ) : null}
-            <Button
-              icon="pi pi-search"
-              className="report_button"
-              style={{ backgroundColor: "#4C4C4C" }}
-              rounded
-              onClick={reload}
-              tooltip="Search"
-              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
-            />
-          </div>
         </div>
       </div>
 
@@ -700,7 +735,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
 
       <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
         <DataTable
-          value={sortedRows}
+          value={filteredRows}
           dataKey="id"
           scrollable
           resizableColumns
@@ -718,6 +753,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           sortField={sortField ?? undefined}
           sortOrder={sortOrder}
           sortMode="single"
+          filterDisplay="row"
+          filters={colFilters}
+          onFilter={onColumnFilter}
           loading={loading}
           selection={selectedRows}
           onSelectionChange={(e: any) => setSelectedRows(e.value)}
@@ -735,6 +773,10 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
                 field={key}
                 header={def.label}
                 sortable
+                filter
+                filterField={key}
+                filterPlaceholder="Search"
+                filterMatchMode="contains"
                 headerStyle={{ width: "150px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
                 bodyStyle={{ fontSize: "14px" }}
                 body={(row) => cellFor(row, key)}
