@@ -311,23 +311,14 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
         </div>
         <div className="p-3" style={{ overflowY: "auto", flex: 1 }}>
         <div className="d-flex flex-wrap align-items-center mb-2" style={{ gap: 8 }}>
-          {!loading && item && !editing ? (
+          {!loading && item && approval?.can_act ? (
             <>
-              {approval && approval.can_act ? (
-                <>
-                  <button className="btn fb-btn-primary" disabled={acting} onClick={() => runStageAction("approve")}>
-                    <i className="pi pi-check" /> Approve
-                  </button>
-                  {approval.can_send_back ? (
-                    <button className="btn btn-outline-danger" disabled={acting} onClick={() => setSendBackOpen(!sendBackOpen)}>
-                      <i className="pi pi-undo" /> Send back
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
-              {!approval || approval.write_mode !== "locked" ? (
-                <button className="btn fb-btn-outline-primary" onClick={() => setEditing(true)}>
-                  <i className="pi pi-pencil" /> Edit
+              <button className="btn fb-btn-primary" disabled={acting} onClick={() => runStageAction("approve")}>
+                <i className="pi pi-check" /> Approve
+              </button>
+              {approval.can_send_back ? (
+                <button className="btn btn-outline-danger" disabled={acting} onClick={() => setSendBackOpen(!sendBackOpen)}>
+                  <i className="pi pi-undo" /> Send back
                 </button>
               ) : null}
             </>
@@ -502,13 +493,7 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
               type="button"
               className="modal-button1"
               disabled={saving}
-              onClick={() => {
-                setEditing(false);
-                setErrors({});
-                setAnswers(answersFromItem(fields, item));
-                setRemoveIds([]);
-                setNewFiles([]);
-              }}
+              onClick={onClose}
             >
               Close
             </button>
