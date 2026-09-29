@@ -257,7 +257,6 @@ interface Props {
 // formats the given rows - so no backend registry change was needed).
 const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [title, setTitle] = useState("");
-  const [filterableFields, setFilterableFields] = useState<IFormBuilderField[]>([]);
   // Full-number (encrypted) Aadhaar fields get their own column: the list
   // returns them masked, with a Show button when the server allows reveal.
   const [encryptedFields, setEncryptedFields] = useState<IFormBuilderField[]>([]);
@@ -272,8 +271,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [rows, setRows] = useState<any[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [search, setSearch] = useState("");
-  const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [auditFor, setAuditFor] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [auditRows, setAuditRows] = useState<any[]>([]);
@@ -318,7 +315,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   };
 
   const buildFilters = () => {
-    const filters: Record<string, any> = Object.fromEntries(Object.entries(fieldFilters).filter(([, v]) => v !== ""));
+    const filters: Record<string, any> = {};
     if (stageFilter === "mine") filters.pending_for_me = true;
     if (stageFilter === "completed") filters.stage_status = "completed";
     return filters;
@@ -379,12 +376,10 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         setTitle(formRes.data.item.title);
         try {
           const fields = JSON.parse(formRes.data.item.published_schema_json || "[]") as IFormBuilderField[];
-          setFilterableFields(fields.filter((f) => f.filterable));
           setEncryptedFields(fields.filter(isEncryptedField));
           setListFields(listFieldsOf(fields));
           setAllFields(fields);
         } catch {
-          setFilterableFields([]);
           setEncryptedFields([]);
           setListFields([]);
           setAllFields([]);
@@ -399,7 +394,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
 
   // Columns this user may see (hidden fields are left out; masked ones show ••••).
   const shownListFields = listFields.filter((f) => !restricted?.hidden?.includes(f.key));
-  const activeFilterCount = Object.values(fieldFilters).filter((v) => v).length + (stageFilter !== "all" ? 1 : 0);
 
   // Column definitions for the DataTable/ColumnsButton/Export set - one
   // source of truth for all three, same as allContactReportView.tsx's
@@ -633,8 +627,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
 
           {/* Round gray Buttons + the pi-ellipsis-v "More Option" dropdown -
               exact same toolbar pattern as allContactReportView.tsx
-              (Refresh / Filter / More Option / ColumnsButton), not a
-              bespoke SVG icon set. */}
+              (Refresh / More Option / ColumnsButton), not a bespoke SVG
+              icon set. The separate exact-match "Filter Report" panel was
+              removed - the per-column filter row covers that now. */}
           <Button
             icon="pi pi-refresh"
             className="report_button me-2"
@@ -642,15 +637,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
             rounded
             onClick={reload}
             tooltip="Refresh"
-            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
-          />
-          <Button
-            icon={activeFilterCount > 0 ? "pi pi-filter-slash" : "pi pi-filter"}
-            className="report_button me-2"
-            style={{ backgroundColor: "#4C4C4C" }}
-            rounded
-            onClick={() => setFiltersOpen((v) => !v)}
-            tooltip="Filter Report"
             tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
           />
           <div className="me-2">
@@ -676,27 +662,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           />
         </div>
       </div>
-
-      {filtersOpen && filterableFields.length > 0 ? (
-        <div className="row mb-3">
-          {filterableFields.map((f) => (
-            <div className="col-12 col-md-3" key={f.key}>
-              <label className="pb-1 form_label d-block small">{f.label}</label>
-              <input
-                className="form-control form-control-sm"
-                value={fieldFilters[f.key] || ""}
-                onChange={(e) => setFieldFilters((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                onKeyDown={(e) => e.key === "Enter" && reload()}
-              />
-            </div>
-          ))}
-          <div className="col-12 col-md-2 d-flex align-items-end">
-            <button className="btn btn-sm fb-btn-outline-primary w-100 mb-1" onClick={reload}>
-              Apply Filters
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {approval ? (
         <div className="btn-group mb-3" role="group" aria-label="Approval filter">
