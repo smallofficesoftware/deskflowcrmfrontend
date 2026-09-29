@@ -159,7 +159,7 @@ export interface IFormBuilderField {
   max?: number | null;
   pattern?: string | null;
   help_text?: string | null;
-  match_key?: "email" | "phone" | null;
+  match_key?: "email" | "phone" | "related" | null;
   multiple?: boolean;
   max_files?: number;
   master?: string;

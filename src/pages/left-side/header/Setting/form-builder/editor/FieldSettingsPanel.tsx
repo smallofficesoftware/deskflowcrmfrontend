@@ -728,6 +728,21 @@ const FieldSettingsPanel: React.FC<Props> = ({
           </div>
         ) : null}
 
+        {["text", "number"].includes(field.type) && relatedModule && relatedModule !== "contact" ? (
+          <div className="form-group">
+            <label className="pb-2 form_label d-block" htmlFor={`${fid}-relmatch`}>
+              Use to find the matching {relatedModule.replace(/_/g, " ")}
+            </label>
+            <select id={`${fid}-relmatch`} className="form-control" value={field.match_key || ""} onChange={(e) => onPatch({ match_key: (e.target.value || null) as any })}>
+              <option value="">No</option>
+              <option value="related">Match on submit</option>
+            </select>
+            <small className="text-muted d-block">
+              When a visitor types an id/number/code here, a matching record is offered to staff as "Possible match" — never linked automatically.
+            </small>
+          </div>
+        ) : null}
+
         <div className="form-group">
           <label className="pb-2 form_label d-block" htmlFor={`${fid}-key`}>
             Internal name
