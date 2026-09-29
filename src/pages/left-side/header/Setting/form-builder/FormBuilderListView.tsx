@@ -97,24 +97,67 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
   if (filling) {
     const form = forms.find((f) => f.id === filling.formId);
     return (
-      <div>
-        <div className="px-3 pt-3">
-          <button className="btn btn-link px-0" onClick={() => setFilling(null)}>
-            ← Back to forms
-          </button>
-        </div>
-        <InternalFormFillView
-          formId={filling.formId}
-          scheduleEntryId={filling.scheduleEntryId}
-          draftId={filling.draftId}
-          onDraftSaved={() => setDueRefresh((n) => n + 1)}
-          onSubmitted={() => {
-            // A due day is done once filled — go back to the list, which reloads what is still due.
-            setDueRefresh((n) => n + 1);
-            if (filling.scheduleEntryId || filling.draftId) setFilling(null);
+      <div
+        onClick={() => setFilling(null)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 2000,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 12,
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(98vw, 820px)",
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "column",
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#fff",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
           }}
-          key={`${form?.id}-${filling.scheduleEntryId || 0}-${filling.draftId || 0}`}
-        />
+        >
+          <FormBuilderBrandStyles />
+          <div
+            style={{
+              background: "linear-gradient(135deg,#f58634 0%,#e0732a 100%)",
+              padding: "12px 18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+            }}
+          >
+            <h5 style={{ margin: 0, color: "#fff", fontWeight: 700, fontSize: "1.05rem" }}>{form?.title || "Fill Form"}</h5>
+            <button
+              type="button"
+              onClick={() => setFilling(null)}
+              style={{ background: "rgba(255,255,255,0.22)", border: "none", borderRadius: 6, color: "#fff", width: 30, height: 30, fontSize: "1.1rem" }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            <InternalFormFillView
+              formId={filling.formId}
+              scheduleEntryId={filling.scheduleEntryId}
+              draftId={filling.draftId}
+              onDraftSaved={() => setDueRefresh((n) => n + 1)}
+              onSubmitted={() => {
+                // A due day is done once filled — go back to the list, which reloads what is still due.
+                setDueRefresh((n) => n + 1);
+                if (filling.scheduleEntryId || filling.draftId) setFilling(null);
+              }}
+              key={`${form?.id}-${filling.scheduleEntryId || 0}-${filling.draftId || 0}`}
+            />
+          </div>
+        </div>
       </div>
     );
   }

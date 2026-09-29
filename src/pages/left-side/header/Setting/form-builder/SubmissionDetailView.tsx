@@ -258,13 +258,56 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
   const edited = item?.last_edited_date_time ? new Date(item.last_edited_date_time).toLocaleString() : "";
 
   return (
-    <div className="card mt-3" style={{ borderColor: "#F58634" }}>
-      <FormBuilderBrandStyles />
-      <div className="card-body">
-        <div className="d-flex flex-wrap align-items-center mb-2" style={{ gap: 8 }}>
-          <h5 className="mb-0 me-auto">
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 12,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(98vw, 820px)",
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "#fff",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
+        }}
+      >
+        <FormBuilderBrandStyles />
+        <div
+          style={{
+            background: "linear-gradient(135deg,#f58634 0%,#e0732a 100%)",
+            padding: "12px 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <h5 style={{ margin: 0, color: "#fff", fontWeight: 700, fontSize: "1.05rem" }}>
             {title} — Entry {entryNumberOf(allFields, item || { id: submissionId })}
           </h5>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: "rgba(255,255,255,0.22)", border: "none", borderRadius: 6, color: "#fff", width: 30, height: 30, fontSize: "1.1rem" }}
+          >
+            ×
+          </button>
+        </div>
+        <div className="p-3" style={{ overflowY: "auto", flex: 1 }}>
+        <div className="d-flex flex-wrap align-items-center mb-2" style={{ gap: 8 }}>
           {!loading && item ? (
             editing ? (
               <>
@@ -312,9 +355,6 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
               </>
             )
           ) : null}
-          <button className="btn btn-link" onClick={onClose}>
-            Close
-          </button>
         </div>
 
         {approval ? (
@@ -474,6 +514,7 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
             ) : null}
           </>
         ) : null}
+        </div>
       </div>
     </div>
   );
