@@ -491,9 +491,13 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
             ) : null}
           </>
         ) : null}
+        </div>
 
         {!loading && item && editing ? (
-          <div className="d-flex justify-content-end pt-4 modal-buttons" style={{ gap: 8 }}>
+          <div
+            className="d-flex justify-content-end modal-buttons"
+            style={{ gap: 8, padding: "12px 18px", borderTop: "1px solid #eee", flexShrink: 0 }}
+          >
             <button
               type="button"
               className="modal-button1"
@@ -524,7 +528,6 @@ const SubmissionDetailView: React.FC<Props> = ({ formId, submissionId, onClose, 
             </button>
           </div>
         ) : null}
-        </div>
       </div>
     </div>
   );
