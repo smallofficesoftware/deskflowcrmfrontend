@@ -94,9 +94,16 @@ const RowActionMenu = ({
 
   const menuItem = (label: string, onClick: () => void, danger = false) => (
     <li
-      className="listItem text-start"
+      className="listItem"
       role="button"
-      style={danger ? { color: "#dc3545" } : undefined}
+      style={{
+        margin: "0 10px",
+        height: "25px",
+        display: "flex",
+        alignItems: "center",
+        color: danger ? "#dc3545" : undefined,
+        fontWeight: danger ? "bold" : undefined,
+      }}
       onClick={() => {
         setOpen(false);
         onClick();
@@ -109,30 +116,31 @@ const RowActionMenu = ({
   return (
     <div ref={buttonRef} style={{ display: "inline-block" }}>
       <Button
-        icon="pi pi-ellipsis-v"
-        className="report_button"
-        style={{ backgroundColor: "#4C4C4C" }}
-        rounded
+        icon="pi pi-cog"
+        className="p-button-text source-of-type-list-grid-options"
+        style={{ color: "green", width: "2rem" }}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        tooltip="Actions"
-        tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
       />
       {open
         ? createPortal(
             <ul
               ref={menuRef}
-              className="labelDropLeft isVisible"
               style={{
                 position: "fixed",
                 top: coords.top,
                 left: coords.left,
-                right: "auto",
                 width: 150,
-                margin: 0,
+                height: "auto",
                 zIndex: 9999,
+                background: "#fff",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                borderRadius: "6px",
+                padding: "5px 0",
+                listStyle: "none",
+                margin: 0,
               }}
               onClick={(e) => e.stopPropagation()}
             >
