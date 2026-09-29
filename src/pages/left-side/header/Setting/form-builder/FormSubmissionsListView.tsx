@@ -33,6 +33,7 @@ import SensitiveValueCell from "./SensitiveValueCell";
 import SubmissionDetailView from "./SubmissionDetailView";
 import { entryNumberOf, listCellText, listFieldsOf } from "./listCells";
 import { STATUS_LABELS } from "./approval";
+import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
 
 // stageAndStatusMasterTableReference["form_builder_submissions"] (backend
 // statusLogServices.js) - 15, not 13: 13 is job_cards' own order_type
@@ -48,11 +49,13 @@ const RowActionMenu = ({
   onViewEdit,
   onPdf,
   onHistory,
+  onChangeStatus,
   onDelete,
 }: {
   onViewEdit: () => void;
   onPdf: () => void;
   onHistory: () => void;
+  onChangeStatus: () => void;
   onDelete: () => void;
 }) => {
   const [open, setOpen] = useState(false);
@@ -95,12 +98,13 @@ const RowActionMenu = ({
       </button>
       <ul
         className={`labelDropLeft ${open ? "isVisible" : "isHidden"}`}
-        style={{ width: 150, right: 0, left: "auto" }}
+        style={{ width: 150, right: 0, left: "auto", marginLeft: 0, marginTop: 4, top: "100%", zIndex: 1200 }}
         onClick={(e) => e.stopPropagation()}
       >
         {menuItem("View / Edit", onViewEdit)}
         {menuItem("PDF", onPdf)}
         {menuItem("History", onHistory)}
+        {menuItem("Change Status", onChangeStatus)}
         {menuItem("Delete", onDelete, true)}
       </ul>
     </div>
@@ -291,6 +295,10 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // Per-row "Change Status" modal - same RadioButtonModal used by Contact's
+  // "Assign Status" action, instead of an inline <select> in the grid cell.
+  const [statusModalRow, setStatusModalRow] = useState<any>(null);
+
   // ── Column chooser (ColumnsButton) - simple in-memory toggle, not the
   // persisted useColumnPreferences hook (that's per-report-key localStorage;
   // out of scope for a per-form dynamic column set). ──
@@ -311,7 +319,11 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
 
   const changeStatus = async (submissionId: number, statusId: number) => {
     const res = await updateSubmissionStatus(formId, submissionId, statusId);
-    if (res?.ack === 1) reload();
+    if (res?.ack === 1) {
+      reload();
+    } else {
+      toast.error(res?.ack_msg || "Could not update status");
+    }
   };
 
   const buildFilters = () => {
@@ -486,20 +498,12 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
       );
     }
     if (key === "_status") {
-      return (
-        <select
-          className="form-control form-control-sm"
-          style={row._status?.color ? { borderLeft: `4px solid ${row._status.color}` } : undefined}
-          value={row.submission_status_id || ""}
-          onChange={(e) => e.target.value && changeStatus(row.id, Number(e.target.value))}
-        >
-          <option value="">— No status —</option>
-          {statusOptions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+      return row._status?.name ? (
+        <span className="badge rounded-pill" style={{ backgroundColor: row._status.color || "#6c757d" }}>
+          {row._status.name}
+        </span>
+      ) : (
+        <span className="text-muted">— No status —</span>
       );
     }
     const encField = encryptedFields.find((f) => f.key === key);
@@ -729,6 +733,30 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           emptyMessage="No data found"
         >
           <Column selectionMode="multiple" headerStyle={{ width: "3rem", position: "sticky", top: 0, zIndex: 1 }} bodyStyle={{ textAlign: "center" }} />
+          <Column
+            field="actions"
+            header=""
+            headerStyle={{ width: "60px", position: "sticky", top: 0, zIndex: 1 }}
+            body={(row) => (
+              <RowActionMenu
+                onViewEdit={() => setOpenId(row.id)}
+                onPdf={async () => {
+                  const res = await exportSubmissionPdf(formId, row.id);
+                  openLink(res?.data?.fileUrl);
+                }}
+                onHistory={() => openAudit(row.id)}
+                onChangeStatus={() => setStatusModalRow(row)}
+                onDelete={async () => {
+                  if (!window.confirm("Delete this submission?")) return;
+                  const res = await deleteSubmission(formId, row.id);
+                  if (res?.ack === 1) {
+                    toast.success("Deleted");
+                    reload();
+                  }
+                }}
+              />
+            )}
+          />
           {orderedVisibleKeys.map((key) => {
             const def = columnDefByKey.get(key);
             if (!def) return null;
@@ -778,31 +806,28 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
               ) : null
             }
           />
-          <Column
-            field="actions"
-            header=""
-            headerStyle={{ width: "60px", position: "sticky", top: 0, zIndex: 1 }}
-            body={(row) => (
-              <RowActionMenu
-                onViewEdit={() => setOpenId(row.id)}
-                onPdf={async () => {
-                  const res = await exportSubmissionPdf(formId, row.id);
-                  openLink(res?.data?.fileUrl);
-                }}
-                onHistory={() => openAudit(row.id)}
-                onDelete={async () => {
-                  if (!window.confirm("Delete this submission?")) return;
-                  const res = await deleteSubmission(formId, row.id);
-                  if (res?.ack === 1) {
-                    toast.success("Deleted");
-                    reload();
-                  }
-                }}
-              />
-            )}
-          />
         </DataTable>
       </div>
+
+      <RadioButtonModal
+        show={statusModalRow != null}
+        onHide={() => setStatusModalRow(null)}
+        title="Change Status"
+        message=""
+        btn1="Cancel"
+        btn2="Save"
+        options={statusOptions}
+        selectedLabelIds={statusModalRow?.submission_status_id}
+        contactId={statusModalRow?.id}
+        getOptionColor={(s) => s.color}
+        getOptionName={(s) => s.name}
+        showColorBadge
+        displayClearButton={false}
+        handleSubmit={(statusId) => {
+          if (statusModalRow && statusId) changeStatus(statusModalRow.id, statusId);
+          setStatusModalRow(null);
+        }}
+      />
 
       {openId != null ? (
         <SubmissionDetailView
