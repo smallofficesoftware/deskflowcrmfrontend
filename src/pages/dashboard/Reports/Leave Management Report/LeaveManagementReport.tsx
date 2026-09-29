@@ -9,7 +9,6 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -100,14 +99,6 @@ const LeaveManagementReport = ({
     const dropdownContactRef = useRef<Record<number, HTMLUListElement | null>>(
         {}
     );
-    // Popup portaled to document.body (see FormSubmissionsListView.tsx's
-    // RowActionMenu) - a scrollable DataTable's row cell clips/traps any
-    // position:absolute dropdown nested inside it, so it never became
-    // visible in place. menuCoords/openButtonRef position it from the
-    // trigger button's own bounding rect instead.
-    const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
-    const openButtonRef = useRef<HTMLElement | null>(null);
-    const actionMenuRef = useRef<HTMLUListElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [deleteItemId, setDeleteItemId] = useState<number | undefined>(
         undefined
@@ -255,23 +246,6 @@ const LeaveManagementReport = ({
     // }, []);
 
     useEffect(() => {
-        if (openDropdownId == null) return;
-        const handleClickOutsideAction = (event: MouseEvent) => {
-            const target = event.target as Node;
-            if (openButtonRef.current?.contains(target)) return;
-            if (actionMenuRef.current?.contains(target)) return;
-            setOpenDropdownId(null);
-        };
-        const handleScroll = () => setOpenDropdownId(null);
-        document.addEventListener("mousedown", handleClickOutsideAction);
-        window.addEventListener("scroll", handleScroll, true);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutsideAction);
-            window.removeEventListener("scroll", handleScroll, true);
-        };
-    }, [openDropdownId]);
-
-    useEffect(() => {
         if (refreshProduct) {
             const fetchData = async () => {
                 await fetchLeaveReportApi(setLeaveList, setLoading, searchTerm, team_id);
@@ -292,22 +266,18 @@ const LeaveManagementReport = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsActionDropdownOpen(false);
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setMenuCoords({ top: rect.bottom + 4, left: rect.right - 150 });
-                            openButtonRef.current = e.currentTarget;
                             setOpenDropdownId((prev) => prev === rowData.id ? null : rowData.id);
                         }}
                     />
 
-                    {openDropdownId === rowData.id ? createPortal(
                     <ul
-                        ref={actionMenuRef}
+                        ref={(el) => (dropdownContactRef.current[rowData.id] = el)}
                         style={{
                             width: "150px",
+                            marginLeft: "15%",
                             height: "auto",
-                            position: "fixed",
-                            top: menuCoords.top,
-                            left: menuCoords.left,
+                            display: openDropdownId === rowData.id ? "block" : "none",
+                            position: "absolute",
                             zIndex: 9999,
                             background: "#fff",
                             boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
@@ -403,13 +373,11 @@ const LeaveManagementReport = ({
                                 </li>
                             </>
                         )}
-                    </ul>,
-                    document.body
-                    ) : null}
+                    </ul>
                 </>
             </div>
         );
-    }, [openDropdownId, canEdit, canDelete, menuCoords]);
+    }, [openDropdownId, canEdit, canDelete]);
 
     const leaveStatusBodyTemplate = (rowData: ILeaveView) => {
         return (
