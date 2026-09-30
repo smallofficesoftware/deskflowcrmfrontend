@@ -30,6 +30,7 @@ import {
   IFormBuilderField,
 } from "./FormBuilderController";
 import FormBuilderBrandStyles from "./formBuilderBrandStyles";
+import FormFillModal from "./FormFillModal";
 import SensitiveValueCell from "./SensitiveValueCell";
 import SubmissionDetailView from "./SubmissionDetailView";
 import { entryNumberOf, listCellText, listFieldsOf } from "./listCells";
@@ -323,6 +324,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [search, setSearch] = useState("");
   const [auditFor, setAuditFor] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [filling, setFilling] = useState(false);
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
 
@@ -642,12 +644,29 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   return (
     <div className="p-3">
       <FormBuilderBrandStyles />
+      {filling ? (
+        <FormFillModal
+          formId={formId}
+          title={title}
+          onClose={() => setFilling(false)}
+          onSubmitted={() => reload()}
+        />
+      ) : null}
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap" style={{ gap: 8 }}>
         <h4 className="mb-0">{title} — Submissions</h4>
         <div className="d-flex gap-2 flex-wrap align-items-center">
           {/* Search sits inline with the round buttons - same single toolbar
               row as allContactReportView.tsx (search first, then Refresh /
               Filter / More Option / ColumnsButton), not a separate row. */}
+          <Button
+            icon="pi pi-plus"
+            className="report_button me-2"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={() => setFilling(true)}
+            tooltip="Fill Form"
+            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+          />
           <div className="d-flex gap-2 align-items-center me-2" style={{ position: "relative" }}>
             <input
               type="text"
