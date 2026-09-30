@@ -1,6 +1,7 @@
 import { Button, Form } from "react-bootstrap";
 import { ICatalog, IFlowNode } from "../automationTypes";
 import FieldEditor from "./FieldEditor";
+import FieldListPanel from "./FieldListPanel";
 
 interface IFlowMeta {
   name: string;
@@ -66,6 +67,7 @@ const SettingsPanel = ({ catalog, selectedNode, flowMeta, onFlowMetaChange, onNo
             onChange={(key, value) => onFlowMetaChange({ trigger_config: { ...flowMeta.trigger_config, [key]: value } })}
           />
         )}
+        <FieldListPanel triggerType={flowMeta.trigger_type} triggerConfig={flowMeta.trigger_config} />
       </div>
     );
   }
@@ -90,6 +92,7 @@ const SettingsPanel = ({ catalog, selectedNode, flowMeta, onFlowMetaChange, onNo
         ) : (
           <p className="text-muted small">This step needs no settings.</p>
         )}
+        <FieldListPanel triggerType={flowMeta.trigger_type} triggerConfig={flowMeta.trigger_config} />
       </div>
     );
   }
