@@ -137,36 +137,6 @@ export const updateCheckBox = async (
   }
 };
 
-export const updateStageStatusForInquiriesRadioButton = async (
-  hasOneData: number | undefined,
-  selectedOptions: any,
-  setLoading: TReactSetState<boolean>,
-) => {
-  const requestData = {
-    table: "inquiries",
-    where: `{"id":"${hasOneData}"}`,
-    data: `{"contact_status":"${selectedOptions}"}`,
-  };
-  setLoading(false);
-  const getUUID = localStorage.getItem("UUID");
-  try {
-    const { data } = await axiosInstance.post("commonUpdate", requestData);
-    if (data.code === 200) {
-      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-        setLoading(true);
-      } else {
-        setLoading(false);
-        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-      }
-    }
-  } catch (error: any) {
-    toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-  } finally {
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-  }
-};
 export const fetchStageStatusForInquiryApi = async (
   setStageStatusList: TReactSetState<IStageStatusView[]>,
   current_status: number | undefined,
