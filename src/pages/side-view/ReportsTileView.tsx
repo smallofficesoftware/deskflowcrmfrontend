@@ -48,7 +48,7 @@ interface IProps {
 
 const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
   const [searchValue, setSearchValue] = useState("");
-  const { permissions } = useContext(AppContext)!;
+  const { permissions, companyFlag } = useContext(AppContext)!;
 
   // Report Builder's own report_definitions (owner's own + any copied from
   // the system gallery), merged straight into the fixed-category sections
@@ -175,12 +175,10 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     }))
     .filter((menu) => menu.subMenus.length > 0);
 
-  // Same gate Setting.tsx's old "Report Builder" menu item used
-  // (isCompanyOwnerForReportBuilder || REPORT_BUILDER view rights) — the
-  // owner side of that check isn't available here, so this is the
-  // rights-only half; a non-owner still needs an explicit grant to see
-  // the "Report Builder" button.
-  const canAddReport = hasPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
+  // Same gate Setting.tsx's Report Builder menu item uses: company owner
+  // (companyFlag 1) OR REPORT_BUILDER view rights. A non-owner still needs
+  // an explicit grant to see the "Report Builder" button.
+  const canAddReport = companyFlag === 1 || hasPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
 
   const filteredMenus = permissionFilteredMenus
     .map((menu) => {
