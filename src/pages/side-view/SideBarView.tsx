@@ -263,6 +263,36 @@ const SidebarView = ({
           )}
         </div>
 
+        {/* BACK TO MAIN PANEL - kept with the logo, not in the page header */}
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          title="Back to Main Panel"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isOpen ? "flex-start" : "center",
+            gap: "8px",
+            width: "100%",
+            height: "34px",
+            marginTop: "10px",
+            padding: isOpen ? "0 12px" : "0",
+            borderRadius: "10px",
+            border: "1px solid #c9c9c9",
+            background: "#fff",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#4B4B4D",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B4B4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          {isOpen && "Back to Main Panel"}
+        </button>
+
         {/* SEARCH */}
         {isOpen && (
           <div style={{ position: "relative", marginTop: "15px" }}>
