@@ -19,6 +19,8 @@ export interface IReportColumn {
   // Company-defined custom field (custom_field_form_masters), resolved
   // fresh per company by the backend — not part of the fixed static schema.
   dynamic?: boolean;
+  // Filter-only virtual flag (no DB column) — offered in Filters, hidden from the column picker.
+  filterOnly?: boolean;
 }
 
 export interface IModelRelation {
