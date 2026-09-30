@@ -4,6 +4,7 @@ import {
   MESSAGE_UNKNOWN_ERROR_OCCURRED,
 } from "../../../../../helpers/AppConstants";
 import { TReactSetState } from "../../../../../helpers/AppType";
+import { IOption } from "../../../../../helpers/AppInterface";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 
 export const orderTypesCustomInquiryList = [
@@ -105,6 +106,8 @@ export interface ICustomInquiryFromList {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  display_on?: number;
+  stage_ids?: string | null;
   calc_config?: string | null;
 }
 interface IAddCustomInquiryFromObj {
@@ -122,8 +125,36 @@ interface IAddCustomInquiryFromObj {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  display_on?: number;
+  stage_ids?: string | null;
   calc_config?: string | null;
 }
+// Where a custom field is asked: on the normal form, or in the stage form popup.
+export const displayOnCustomInquiryList = [
+  { id: "1", order_type_display: "Form" },
+  { id: "2", order_type_display: "Stage Form" },
+];
+
+// Stages (stage_status_masters) of a form type; only Contact (1) and Inquiry (2) have stage forms.
+export const fetchStageOptionsForFormType = async (
+  formType: number,
+): Promise<IOption[]> => {
+  if (formType !== 1 && formType !== 2) return [];
+  try {
+    const { data } = await axiosInstance.post("commonGet", {
+      table: "stage_status_masters",
+      columns: "id,name,display_order_type",
+      where: ["isDelete=0", `order_type=${formType}`],
+      request_flag: 0,
+      order: `{"display_order_type":"ASC","id":"ASC"}`,
+    });
+    const rows: any[] = data?.data || [];
+    return rows.map((r) => ({ value: String(r.id), label: r.name }));
+  } catch (error) {
+    return [];
+  }
+};
+
 export interface ICompany {
   quotation_title: string;
   order_title: string;
@@ -143,7 +174,7 @@ export const fetchCustomInquiryFromApi = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     table: "custom_field_form_masters",
-    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules,calc_config",
+    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules,calc_config,display_on,stage_ids",
     where: [
       "isDelete=0",
       `form_type=${pageType}`,
@@ -341,6 +372,8 @@ export const createCustomInquiryFrom = async (
     validation_type: customInquiryFromInput.validation_type,
     third_party_field_name: customInquiryFromInput.third_party_field_name,
     applicable_modules: customInquiryFromInput.applicable_modules,
+    display_on: customInquiryFromInput.display_on ?? 1,
+    stage_ids: customInquiryFromInput.stage_ids ?? null,
     calc_config: customInquiryFromInput.calc_config,
   };
   console.log("requestDatarequestDatarequestDatarequestData", requestData);
@@ -390,6 +423,8 @@ export const updateCustomInqFrom = async (
       validation_type: customInquiryFromInput.validation_type,
       third_party_field_name: customInquiryFromInput.third_party_field_name,
       applicable_modules: customInquiryFromInput.applicable_modules,
+      display_on: customInquiryFromInput.display_on ?? 1,
+      stage_ids: (customInquiryFromInput.display_on ?? 1) === 2 ? (customInquiryFromInput.stage_ids ?? null) : null,
       calc_config: customInquiryFromInput.calc_config ?? null,
     }),
   };

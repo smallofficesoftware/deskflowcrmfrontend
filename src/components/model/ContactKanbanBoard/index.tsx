@@ -17,6 +17,7 @@ import { fetchDataUser } from "../../../pages/left-side/LeftSideController";
 import { axiosInstance } from "../../../services/axiosInstance";
 import { useContactFilterStore } from "../../../store/contact/useContactFilterStore";
 import ContactDetailModel from "../ContactdetailsModel/ContactDetailModel";
+import { useStageChange } from "../StageFormModal/useStageChange";
 import CheckBoxFilterModal from "../CheckBoxFilterModal";
 import ConfirmationModal from "../ConfirmationModal";
 import { KanbanBoard } from "../shared-kanban/components/KanbanBoard";
@@ -333,21 +334,47 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
         [token, localId, setCheckToken, filters, applicationId],
     );
 
+    const { requestStageChange, stageFormModal } = useStageChange();
+
     const updateItemPosition = useCallback(
         async (itemId: string | number, columnId: string | number, position: number) => {
-            const { data } = await axiosInstance.post("commonUpdate", {
+            // Reordering inside a column only changes position; a real stage
+            // change goes through the stage-form flow (popup when the stage has fields).
+            const { data: current } = await axiosInstance.post("commonGet", {
                 table: "contact_masters",
-                where: JSON.stringify({ id: Number(itemId) }),
-                data: JSON.stringify({
-                    contact_status: Number(columnId),
-                    position,
-                }),
+                columns: "id,contact_status",
+                where: [`id=${Number(itemId)}`],
+                request_flag: 0,
             });
-            if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
-                throw new Error(data.ack_msg || "Failed to update stage");
+            const currentStage = current?.data?.[0]?.contact_status;
+            if (currentStage !== undefined && String(currentStage) === String(columnId)) {
+                const { data } = await axiosInstance.post("commonUpdate", {
+                    table: "contact_masters",
+                    where: JSON.stringify({ id: Number(itemId) }),
+                    data: JSON.stringify({ position }),
+                });
+                if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+                    throw new Error(data.ack_msg || "Failed to update order");
+                }
+                return;
+            }
+            // resolves when the stage really changed; rejecting makes the drag hook snap the card back
+            const changed = await new Promise<boolean>((resolve) => {
+                requestStageChange({
+                    module: "contact",
+                    stageId: Number(columnId),
+                    appliedTo: Number(itemId),
+                    position,
+                    silentSuccess: true,
+                    onSuccess: () => resolve(true),
+                    onCancel: () => resolve(false),
+                });
+            });
+            if (!changed) {
+                throw new Error("Stage change cancelled");
             }
         },
-        [],
+        [requestStageChange],
     );
 
     const handleViewTask = useCallback((cardId: string | number) => {
@@ -676,6 +703,7 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                     headerName={"Create Contact"}
                 />
             )}
+            {stageFormModal}
         </>
     );
 };

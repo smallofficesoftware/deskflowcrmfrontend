@@ -5,6 +5,32 @@ import {
     MESSAGE_UNKNOWN_ERROR_OCCURRED,
 } from "../../../helpers/AppConstants";
 import { axiosInstance } from "../../../services/axiosInstance";
+import moment from "moment";
+
+interface IStageFormLogField {
+    field_id: number;
+    title: string;
+    data_type: number;
+    old_value: string | number | null;
+    new_value: string | number | null;
+}
+
+// Stage form values saved with the status change (old -> new), one line per field.
+const formatStageFormValue = (dataType: number, value: string | number | null) => {
+    if (value === null || value === undefined || value === "") return "";
+    if (dataType === 4) return moment(value).format("DD-MM-YYYY");
+    if (dataType === 5) return moment(value).format("DD-MM-YYYY hh:mm A");
+    if (dataType === 7) return Number(value) === 1 ? "Yes" : "No";
+    return String(value);
+};
+
+const stageFormLine = (f: IStageFormLogField) => {
+    const oldText = formatStageFormValue(f.data_type, f.old_value);
+    const newText = formatStageFormValue(f.data_type, f.new_value);
+    if (!oldText && !newText) return null;
+    if (oldText && oldText !== newText) return `${f.title}: ${oldText} -> ${newText || "-"}`;
+    return `${f.title}: ${newText}`;
+};
 
 interface IStatusLog {
     id: number;
@@ -18,6 +44,7 @@ interface IStatusLog {
     status_name: string;
     status_color_code: string;
     updated_by_name: string;
+    stage_form_data?: IStageFormLogField[] | null;
 }
 
 interface IPropsStatusTimeLine {
@@ -137,7 +164,17 @@ const StatusTimeLine: React.FC<IPropsStatusTimeLine> = ({
                                             </td>
                                             <td className="align-middle"><span className="badge rounded-pill " style={{ backgroundColor: `${log.status_color_code}` }}>{log.status_name}</span></td>
                                             <td style={{ whiteSpace: "nowrap" }}>{log.updated_by_name}</td>
-                                            <td>{log.information}</td>
+                                            <td>
+                                                {log.information}
+                                                {(log.stage_form_data || []).map((f) => {
+                                                    const line = stageFormLine(f);
+                                                    return line ? (
+                                                        <div key={f.field_id} className="small text-muted">
+                                                            {line}
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (

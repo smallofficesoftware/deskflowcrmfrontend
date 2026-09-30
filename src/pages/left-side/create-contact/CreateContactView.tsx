@@ -6,6 +6,7 @@ import {
   FormikErrors,
   FormikTouched,
 } from "formik";
+import { fetchReachedStageIds, isCustomFieldVisible } from "../../../components/model/StageFormModal/StageFormApi";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import TimePicker from "react-multi-date-picker/plugins/time_picker";
@@ -131,7 +132,13 @@ const CreateContactView = ({
   // string (product_remarks), not comma-joined like the other row fields.
   const [newRowRemarks, setNewRowRemarks] = useState("");
   const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
-  const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
+  const [allCustomFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
+  // Stage form fields show only once this contact has reached one of their stages
+  const [reachedStageIds, setReachedStageIds] = useState<Set<string>>(new Set());
+  const customFormList = useMemo(
+    () => allCustomFormList.filter((item) => isCustomFieldVisible(item as any, reachedStageIds)),
+    [allCustomFormList, reachedStageIds],
+  );
   const [areaList, setAreaList] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(contactData ? true : false);
   const [isMenuOpen2, setIsMenuOpen2] = useState(contactData ? false : true);
@@ -873,6 +880,11 @@ const CreateContactView = ({
 
   useEffect(() => {
     fetchCustomInqFromApiForContact(setCustomFromList);
+    if (contactData?.id) {
+      fetchReachedStageIds("contact", contactData.id).then(setReachedStageIds);
+    } else {
+      setReachedStageIds(new Set());
+    }
   }, [show]);
 
   // This inline inquiry section is always for a NEW inquiry (contactData

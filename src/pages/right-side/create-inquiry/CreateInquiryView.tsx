@@ -6,7 +6,8 @@ import {
   FormikErrors,
   FormikTouched,
 } from "formik";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { fetchReachedStageIds, isCustomFieldVisible } from "../../../components/model/StageFormModal/StageFormApi";
 import DatePicker from "react-multi-date-picker";
 import TimePicker from "react-multi-date-picker/plugins/time_picker";
 import { SingleValue } from "react-select";
@@ -81,7 +82,13 @@ const CreateInquiryView = ({
   // from the edit-load lookup below) so row labels stay correct regardless
   // of which category is currently selected in the filter.
   const [productNameCache, setProductNameCache] = useState<Record<string, string>>({});
-  const [customFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
+  const [allCustomFormList, setCustomFromList] = useState<ICustomFromList[]>([]);
+  // Stage form fields show only once this inquiry has reached one of their stages
+  const [reachedStageIds, setReachedStageIds] = useState<Set<string>>(new Set());
+  const customFormList = useMemo(
+    () => allCustomFormList.filter((item) => isCustomFieldVisible(item as any, reachedStageIds)),
+    [allCustomFormList, reachedStageIds],
+  );
   const [isSwitchActive, setIsSwitchActive] = useState(false);
   const [datasorce, setDataScorce] = useState<any[]>([]);
   const [dropdownDataMap, setDropdownDataMap] = useState<{
@@ -543,6 +550,11 @@ const CreateInquiryView = ({
 
   useEffect(() => {
     fetchCustomInqFromApiForInquiry(setCustomFromList, setDataScorce);
+    if (show && contactData?.id) {
+      fetchReachedStageIds("inquiry", contactData.id).then(setReachedStageIds);
+    } else {
+      setReachedStageIds(new Set());
+    }
   }, [show]);
   const categoryOptions = categoryList.map((itemState: any) => ({
     value: itemState.id,

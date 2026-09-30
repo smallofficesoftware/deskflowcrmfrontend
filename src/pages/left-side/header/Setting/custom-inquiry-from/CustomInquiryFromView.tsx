@@ -1144,6 +1144,13 @@ const CustomInquiryFromView = ({
                                           ) : (
                                             ""
                                           )}
+                                          {Number(item.display_on) === 2 ? (
+                                            <span className="text-danger">
+                                              *Stage Form
+                                            </span>
+                                          ) : (
+                                            ""
+                                          )}
                                           {item.required_for == 1 ? (
                                             <span className="text-danger">
                                               *Create

@@ -1245,7 +1245,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       table: "stage_status_masters",
       columns: "id,name,color,order_type,display_order_type,visibility",
       where: [`order_type=${stageandStatusOrderType}`, `isDelete=0`],
-      order: JSON.stringify({ id: "DESC" }),
+      order: JSON.stringify({ display_order_type: "ASC", id: "ASC" }),
       request_flag: 0,
     };
 

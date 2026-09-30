@@ -8,7 +8,7 @@ import { IOption } from "../../../../../helpers/AppInterface";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { FORMULA_BUILTINS, parseCalcConfig, TCalcDrives, translateFormulaRefs, validateFormula } from "../../../../../helpers/FormulaEngine";
-import { createCustomInquiryFrom, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
+import { createCustomInquiryFrom, displayOnCustomInquiryList, fetchStageOptionsForFormType, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
 
 interface IPropsCreateCustomField {
     show: boolean;
@@ -40,6 +40,11 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [selectedApplicableModules, setSelectedApplicableModules] =
         useState<any[]>([]);
+    const [selectedDisplayOn, setSelectedDisplayOn] =
+        useState<SingleValue<IOption> | null>({ value: "1", label: "Form" });
+    const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
+    const [stageOptions, setStageOptions] = useState<IOption[]>([]);
+    const [stageError, setStageError] = useState("");
     const [selectedRequiredFor, setSelectedRequiredFor] =
         useState<SingleValue<IOption> | null>(null);
     const [selectedReqList, setSelectedReqList] =
@@ -93,6 +98,35 @@ const CreateCustomFieldView = ({
             toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
         }
     }, []);
+
+    // Stage form is only available for Contact (1) and Inquiry (2) fields.
+    const isStageFormAllowed = ["1", "2"].includes(selectedPageType?.value?.toString() || "");
+    const isStageForm = isStageFormAllowed && selectedDisplayOn?.value?.toString() === "2";
+
+    useEffect(() => {
+        const formType = Number(selectedPageType?.value);
+        if (formType === 1 || formType === 2) {
+            fetchStageOptionsForFormType(formType).then(setStageOptions);
+        } else {
+            setStageOptions([]);
+        }
+    }, [selectedPageType?.value]);
+
+    const selectedStageOptions = stageOptions.filter((o) => selectedStageIds.includes(String(o.value)));
+
+    const handleDisplayOnChange = (selectedOption: SingleValue<IOption>) => {
+        setSelectedDisplayOn(selectedOption);
+        if (selectedOption?.value?.toString() !== "2") {
+            setStageError("");
+        }
+    };
+
+    const handleStagesChange = (selectedOptions: any) => {
+        setSelectedStageIds((selectedOptions || []).map((o: any) => String(o.value)));
+        if (selectedOptions && selectedOptions.length > 0) {
+            setStageError("");
+        }
+    };
 
     const showLimitFields = ["1", "2", "3", "8"].includes(
         selectedOrderList?.value?.toString() || ""
@@ -270,6 +304,8 @@ const CreateCustomFieldView = ({
         setSelectedPrintReport(null);
         setSelectedrowOrColumn(null);
         setSelectedApplicableModules([]);
+        setSelectedDisplayOn({ value: "1", label: "Form" });
+        setSelectedStageIds([]);
         setSelectedPageType(null);
         setSelectedRequiredFor(null);
         setSelectedValidationType(null);
@@ -290,6 +326,7 @@ const CreateCustomFieldView = ({
         setPrintTypeError("");
         setPrintReportTypeError("");
         setApplicableModulesError("");
+        setStageError("");
         setRowOrColumnError("");
         setRequiredForError("");
         setLimitError("");
@@ -347,6 +384,12 @@ const CreateCustomFieldView = ({
             hasError = true;
         }
 
+        if (isStageForm && selectedStageOptions.length === 0) {
+            setStageError("Select at least one stage.");
+            errorMsg = "Please select at least one stage for the stage form.";
+            hasError = true;
+        }
+
         if (titleInput.trim() === "") {
             setTitleListError("Field Name is required");
             errorMsg = "Field Name is required";
@@ -379,6 +422,10 @@ const CreateCustomFieldView = ({
         const applicableModulesStr = selectedApplicableModules
             ? selectedApplicableModules.map((item: any) => item.value).join(",")
             : "";
+        const displayOnValue = isStageForm ? 2 : 1;
+        const stageIdsStr = isStageForm
+            ? selectedStageOptions.map((o) => o.value).join(",")
+            : "";
 
         if (productToEdit) {
             if (canUpdateCustomInquiry) {
@@ -410,6 +457,8 @@ const CreateCustomFieldView = ({
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
+                        display_on: displayOnValue,
+                        stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
                     },
                     setLoading,
@@ -450,6 +499,8 @@ const CreateCustomFieldView = ({
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
+                        display_on: displayOnValue,
+                        stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
                     },
                     setLoading,
@@ -539,6 +590,17 @@ const CreateCustomFieldView = ({
                     setSelectedApplicableModules(initialMods);
                 }
             }
+
+            setSelectedDisplayOn(
+                Number(productToEdit.display_on) === 2
+                    ? { value: "2", label: "Stage Form" }
+                    : { value: "1", label: "Form" }
+            );
+            setSelectedStageIds(
+                productToEdit.stage_ids
+                    ? String(productToEdit.stage_ids).split(",").map((m) => m.trim()).filter(Boolean)
+                    : []
+            );
 
             setSelectedPageType(formTypeSelectedOption);
             setSelectedOrderList(selectedOption);
@@ -730,6 +792,44 @@ const CreateCustomFieldView = ({
                                             </div>
                                             {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
                                         </div>
+                                    </>
+                                )}
+                                {isStageFormAllowed && (
+                                    <>
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Display On</h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={displayOnCustomInquiryList.map(opt => ({ value: opt.id, label: opt.order_type_display }))}
+                                                        value={selectedDisplayOn}
+                                                        onChange={handleDisplayOnChange}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {isStageForm && (
+                                            <div className="col-6 mt-2">
+                                                <label className="form-check-label">
+                                                    <h6>On Which Stage <span className="text-danger">*</span></h6>
+                                                </label>
+                                                <div className="">
+                                                    <div className="add-source-of-type-section ">
+                                                        <CustomSearchDropdown
+                                                            options={stageOptions}
+                                                            value={selectedStageOptions}
+                                                            onChange={handleStagesChange}
+                                                            isMulti={true}
+                                                            className="w-100"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {stageError && <span className="text-danger">{stageError}</span>}
+                                            </div>
+                                        )}
                                     </>
                                 )}
                                 {selectedPageType?.value == "3" && (

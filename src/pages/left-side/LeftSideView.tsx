@@ -31,6 +31,7 @@ import ContactLocationModel from "../../components/model/ContactLocationModel";
 import ImportExcelForContactModal from "../../components/model/ImportExcelForContactModal";
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
+import { useStageChange } from "../../components/model/StageFormModal/useStageChange";
 import WorkFlowModel from "../../components/model/workflowConformatioModel/workFlowModelView";
 import ReviewDialog from "../../components/review/ReviewDialog";
 import {
@@ -814,6 +815,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [optionRadioButtonStatus, setOptionRadioButtonStatus] = useState<any[]>(
     [],
   );
+  const { requestStageChange, stageFormModal } = useStageChange();
 
   const [contactSelections, setContactSelections] = useState<
     Record<number, any[]>
@@ -2099,10 +2101,16 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       return;
     }
 
-    setRefreshContact(false);
-    await updateBulkSelectionActionPerformInContact(
-      setLoading,
-      {
+    const stageId = checkedOptions as unknown as number;
+    setIsModalAssignStatusVisible(false);
+    // Stage change goes through the stage-form flow: asks the stage's custom
+    // fields (if any) in a popup, then saves everything in one call.
+    await requestStageChange({
+      module: "contact",
+      stageId,
+      stageName: optionRadioButtonStatus.find((o) => o.id === stageId)?.name,
+      appliedTo: appliedTo as number | string | number[],
+      appliedFilers: {
         ...filters,
         statusFilter: filters.checkedOptionsStageStatus,
         startDate: filters.startSearchDate,
@@ -2120,20 +2128,17 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           : undefined,
         isArchive: isArchivState,
       },
-      checkedOptions,
-      appliedTo,
-      "status_assignment",
-    );
-    setTimeout(() => {
-      setRefreshContact(true);
-      setCurrentPage(0); // Reset page to 0 when search term changes
-    }, 100);
-
-    setLabelDropdownOpen(null);
-
-    setIsModalAssignStatusVisible(false);
-    setIsAllSelected(false);
-    setSelectedIds([]);
+      onSuccess: () => {
+        setRefreshContact(false);
+        setTimeout(() => {
+          setRefreshContact(true);
+          setCurrentPage(0); // Reset page to 0 when search term changes
+        }, 100);
+        setLabelDropdownOpen(null);
+        setIsAllSelected(false);
+        setSelectedIds([]);
+      },
+    });
   };
   const handleConfirmChangeSourceType = async (checkedOptions: any[]) => {
     let appliedTo: number | string | undefined | number[];
@@ -6056,6 +6061,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       {isCRMDashBoardOpen && (
         <NewDashboardView onClose={() => setIsCRMDashBoardOpen(false)} />
       )}
+      {stageFormModal}
     </>
   );
 };

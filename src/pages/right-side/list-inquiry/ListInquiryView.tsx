@@ -14,6 +14,7 @@ import CheckBoxModal from "../../../components/model/CheckBoxModal";
 import ConfirmationModal from "../../../components/model/ConfirmationModal";
 import EventLogs from "../../../components/model/EventLogModel/EventLogsModel";
 import RadioButtonModal from "../../../components/model/RadioButtonModal";
+import { useStageChange } from "../../../components/model/StageFormModal/useStageChange";
 import ReminderModal from "../../../components/model/ReminderModal";
 import WorkFlowModel from "../../../components/model/workflowConformatioModel/workFlowModelView";
 import SafeHtml from "../../../components/SafeHtml";
@@ -43,7 +44,6 @@ import {
   handleChangeStatusOfReminderForInquiry,
   IInquiry,
   updateCheckBox,
-  updateStageStatusForInquiriesRadioButton,
   updateUserCheckBox,
 } from "./ListInquiryController";
 
@@ -112,6 +112,7 @@ const ListInquiryView = ({
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const [hasData, setHasData] = useState<boolean>(false);
+  const { requestStageChange, stageFormModal } = useStageChange();
   const [optionRadioButtonStatus, setOptionRadioButtonStatus] = useState<any[]>(
     [],
   );
@@ -597,17 +598,23 @@ const ListInquiryView = ({
   const handleConfirmInquiriesRadioButton = async (checkedOptions: any[]) => {
     if (statusAssignContactId === undefined) return;
 
-    await updateStageStatusForInquiriesRadioButton(
-      statusAssignContactId,
-      checkedOptions,
-      setLoading,
-    );
-    refreshInquiriesList(0);
-    setContactSelections((prev) => ({
-      ...prev,
-      [statusAssignContactId]: checkedOptions,
-    }));
+    const inquiryId = statusAssignContactId;
+    const stageId = checkedOptions as unknown as number;
     setIsModalAssignStatusVisible(false);
+    // Stage change goes through the stage-form flow (popup when the stage has fields).
+    await requestStageChange({
+      module: "inquiry",
+      stageId,
+      stageName: optionRadioButtonStatus.find((o) => o.id === stageId)?.name,
+      appliedTo: inquiryId,
+      onSuccess: () => {
+        refreshInquiriesList(0);
+        setContactSelections((prev) => ({
+          ...prev,
+          [inquiryId]: checkedOptions,
+        }));
+      },
+    });
   };
 
   const handleConfirmAssignUser = async (
@@ -1712,6 +1719,7 @@ const ListInquiryView = ({
           btn2="Start"
         />
       )}
+      {stageFormModal}
     </>
   );
 };
