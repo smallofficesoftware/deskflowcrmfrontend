@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import BetaFeatureNotice from "../../components/BetaFeatureNotice";
 import UpperView from "../side-view/UpperView";
 import AutomationSidebarView, { AutomationView } from "./AutomationSidebarView";
 import AutomationListView from "./AutomationListView";
@@ -47,7 +48,12 @@ const AutomationsShell = () => {
       <UpperView />
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <AutomationSidebarView active={active} onNavigate={goTo} />
-        <div style={{ flex: 1, minWidth: 0, overflow: "auto", background: "#f7f8fa" }}>{renderBody()}</div>
+        <div style={{ flex: 1, minWidth: 0, overflow: "auto", background: "#f7f8fa" }}>
+          <div style={{ padding: "16px 16px 0" }}>
+            <BetaFeatureNotice />
+          </div>
+          {renderBody()}
+        </div>
       </div>
     </div>
   );
