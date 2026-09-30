@@ -73,6 +73,7 @@ export const orderTypesStageList = [
   { id: "8", order_type_display: "Task Management" },
   { id: "13", order_type_display: "Job Card" },
   { id: "14", order_type_display: "Route Planner" },
+  { id: "15", order_type_display: "Form Submissions" },
 ];
 
 export const handleDeleteStageStatus = async (
@@ -135,11 +136,33 @@ export const createStageStatus = async (
     const change_status_team_ids = change_status_team_ids_fill_arr.length > 0 ? change_status_team_ids_fill_arr.join(",") : "";
     const show_status_data_team_ids = show_status_data_team_ids_fill_arr.length > 0 ? show_status_data_team_ids_fill_arr.join(",") : "";
 
+    // Display order for the new stage: continue after the last one when the
+    // company already orders this module's stages, else leave 0 (0 = "always
+    // allowed" in the next-step chain, so an unused module must stay at 0).
+    let nextDisplayOrder = 0;
+    try {
+      const { data: orderData } = await axiosInstance.post("commonGet", {
+        table: "stage_status_masters",
+        columns: "id,display_order_type",
+        where: [`order_type=${stagestatusInput.order_type}`, "isDelete=0"],
+        request_flag: 0,
+      });
+      const maxOrder = Math.max(
+        0,
+        ...((orderData?.data || []) as { display_order_type: number | string }[]).map(
+          (r) => Number(r.display_order_type) || 0
+        )
+      );
+      nextDisplayOrder = maxOrder > 0 ? maxOrder + 1 : 0;
+    } catch (error) {
+      nextDisplayOrder = 0;
+    }
+
     const requestData = {
       table: "stage_status_masters",
       data: `{"name":"${stagestatusInput.name}","color":"${stagestatusInput.color
         }","visibility":"${stagestatusInput.visibility
-        }","order_type":"${stagestatusInput.order_type}","change_status_team_ids":"${change_status_team_ids}","status_type":"${stagestatusInput.status_type || ""}","show_status_data_team_ids":"${show_status_data_team_ids}","a_application_login_id":${Number(getUUID)}}`,
+        }","order_type":"${stagestatusInput.order_type}","display_order_type":${nextDisplayOrder},"change_status_team_ids":"${change_status_team_ids}","status_type":"${stagestatusInput.status_type || ""}","show_status_data_team_ids":"${show_status_data_team_ids}","a_application_login_id":${Number(getUUID)}}`,
     };
 
     try {

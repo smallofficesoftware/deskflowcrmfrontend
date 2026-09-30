@@ -39,6 +39,41 @@ interface ICustomEditorProps {
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_FILES_PER_SEND = 10;
+
+const VALID_ATTACHMENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+  "image/svg+xml",
+  "video/mp4",
+  "video/x-matroska",
+  "video/mpeg",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/csv",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "application/xml",
+  "text/xml",
+  "application/x-zip-compressed",
+];
+
+interface IPreviewAttachment {
+  id: number;
+  file: File;
+  // Object URL for images, "" for other file types (shown as an icon)
+  url: string;
+}
+
+let nextPreviewAttachmentId = 1;
 
 const createEditorState = (text: string): EditorState => {
   const contentState = stateFromHTML(text);
@@ -70,11 +105,15 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
   const [taskList, setTaskList] = useState<ITaskView[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // New states for image paste/drop preview
-  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string>("");
-  const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
+  // Multi-attachment preview (photos and/or documents picked, pasted or dropped)
+  const [previewAttachments, setPreviewAttachments] = useState<IPreviewAttachment[]>([]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
+  const [isSendingAttachments, setIsSendingAttachments] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const isAttachmentPreviewOpen = previewAttachments.length > 0;
+  const activePreviewAttachment = previewAttachments[activePreviewIndex];
+  const previewAttachmentsRef = useRef<IPreviewAttachment[]>([]);
+  previewAttachmentsRef.current = previewAttachments;
 
   // New states for non-image file preview
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
@@ -119,39 +158,76 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
     }
   }, [voice, setEditorState, createEditorState]);
 
+  // Routes picked / pasted / dropped files to a preview: a lone non-image file
+  // keeps the single-file preview, anything else (several files, any mix of
+  // photos and documents) goes to the multi-attachment preview. Only uses
+  // setters and refs, so it is safe inside the mount-only paste/drop listeners
+  // below.
+  const addFilesToPreview = (files: File[], validateType: boolean) => {
+    const accepted: File[] = [];
+    for (const file of files) {
+      if (validateType && !VALID_ATTACHMENT_TYPES.includes(file.type)) {
+        toast.error(`Invalid file format: ${file.name}`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`${file.name} is too large. Max: ${MAX_FILE_SIZE_MB}MB`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    if (accepted.length === 0) return;
+
+    const alreadyQueued = previewAttachmentsRef.current.length;
+
+    if (
+      accepted.length === 1 &&
+      alreadyQueued === 0 &&
+      !accepted[0].type.startsWith("image/")
+    ) {
+      setPreviewFile(accepted[0]);
+      setIsFilePreviewOpen(true);
+      return;
+    }
+
+    const room = MAX_FILES_PER_SEND - alreadyQueued;
+    if (room <= 0) {
+      toast.error(`You can send up to ${MAX_FILES_PER_SEND} files at a time.`);
+      return;
+    }
+    if (accepted.length > room) {
+      toast.error(
+        `You can send up to ${MAX_FILES_PER_SEND} files at a time. Extra files were skipped.`,
+      );
+    }
+
+    const newAttachments = accepted.slice(0, room).map((file) => ({
+      id: nextPreviewAttachmentId++,
+      file,
+      url: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+    }));
+    setActivePreviewIndex(alreadyQueued);
+    setPreviewAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
   // Handle paste event for images and files
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
 
+      const files: File[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-
         if (item.kind === "file") {
-          e.preventDefault();
           const file = item.getAsFile();
-
-          if (file) {
-            if (file.size > MAX_FILE_SIZE_BYTES) {
-              toast.error(`File is too large. Max: ${MAX_FILE_SIZE_MB}MB`);
-              return;
-            }
-
-            // Check if it's an image
-            if (file.type.startsWith("image/")) {
-              const imageUrl = URL.createObjectURL(file);
-              setPreviewImageUrl(imageUrl);
-              setPreviewImageFile(file);
-              setIsImagePreviewOpen(true);
-            } else {
-              // For non-image files
-              setPreviewFile(file);
-              setIsFilePreviewOpen(true);
-            }
-          }
+          if (file) files.push(file);
         }
       }
+
+      if (files.length === 0) return;
+      e.preventDefault();
+      addFilesToPreview(files, false);
     };
 
     const editorElement = wrapperRef.current;
@@ -185,24 +261,7 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
       const files = e.dataTransfer?.files;
       if (!files || files.length === 0) return;
 
-      const file = files[0];
-
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        toast.error(`File is too large. Max: ${MAX_FILE_SIZE_MB}MB`);
-        return;
-      }
-
-      // Check if it's an image
-      if (file.type.startsWith("image/")) {
-        const imageUrl = URL.createObjectURL(file);
-        setPreviewImageUrl(imageUrl);
-        setPreviewImageFile(file);
-        setIsImagePreviewOpen(true);
-      } else {
-        // For non-image files
-        setPreviewFile(file);
-        setIsFilePreviewOpen(true);
-      }
+      addFilesToPreview(Array.from(files), false);
     };
 
     const editorElement = wrapperRef.current;
@@ -263,57 +322,12 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files && event.target.files[0];
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    // Clear so picking the same file(s) again still fires onChange
+    event.target.value = "";
+    if (files.length === 0) return;
 
-    if (!file) return;
-
-    const validTypes = [
-      "image/jpeg",
-      "image/png",
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/zip",
-      "image/svg+xml",
-      "video/mp4",
-      "video/x-matroska",
-      "video/mpeg",
-      "text/plain",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-excel",
-      "application/vnd.ms-powerpoint",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "text/csv",
-      "audio/mpeg",
-      "audio/ogg",
-      "audio/wav",
-      "application/xml",
-      "text/xml",
-      "application/x-zip-compressed",
-    ];
-
-    if (!validTypes.includes(file.type)) {
-      toast.error("Invalid file format.");
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error(`File is too large. Max: ${MAX_FILE_SIZE_MB}MB`);
-      event.target.value = "";
-      return;
-    }
-
-    // Check if it's an image file - if yes, show image preview modal
-    if (file.type.startsWith("image/")) {
-      const imageUrl = URL.createObjectURL(file);
-      setPreviewImageUrl(imageUrl);
-      setPreviewImageFile(file);
-      setIsImagePreviewOpen(true);
-    } else {
-      setPreviewFile(file);
-      setIsFilePreviewOpen(true);
-    }
+    addFilesToPreview(files, true);
   };
 
   const handleAttachmentConfirm = async () => {
@@ -522,53 +536,45 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
       );
     }
   };
-  const handleImagePreviewSend = async () => {
-    if (!previewImageFile) return;
+  // Backend accepts one "file" per request, so attachments are uploaded one
+  // after another (in selection order, so they appear in that order in chat).
+  const handleAttachmentPreviewSend = async () => {
+    if (previewAttachments.length === 0 || isSendingAttachments) return;
 
-    setIsLoadedMessage(false);
     const token = localStorage.getItem("token");
     const getUUID = localStorage.getItem("UUID");
     const getUserName = localStorage.getItem("USERNAME");
 
-    try {
-      if (!getUUID || !getUserName) throw new Error("Missing user info");
+    if (!getUUID || !getUserName) {
+      toast.error("Missing user info");
+      return;
+    }
 
+    setIsSendingAttachments(true);
+    setIsLoadedMessage(false);
+
+    let sentCount = 0;
+    let lastError = "";
+
+    for (const { file } of previewAttachments) {
       const formData = new FormData();
-      formData.append("file", previewImageFile);
-
+      formData.append("file", file);
       if (taskFlagtoHideWP === 1) {
         formData.append("task_id", contactData?.id);
-        formData.append("a_application_login_id", getUUID);
-        formData.append("message_type_id", "1");
-        formData.append("application_login_name", getUserName);
-        formData.append("message_side", `${isToggledButton ? 2 : 1}`);
-        formData.append("msg", `${isWhatsAppAuto ? 0 : 1}`);
-
-        const response = await axiosInstanceFormData.post(
-          "messageAttachmentsUploadTask",
-          formData,
-          {
-            headers: {
-              Authorization: `${token}`,
-              "x-tenant-id": getUUID,
-            },
-          },
-        );
-
-        if (response.status === 200) {
-          setIsLoadedMessage(true);
-          toast.success("Image sent successfully.");
-        }
       } else {
         formData.append("contact_masters_id", contactData?.id);
-        formData.append("a_application_login_id", getUUID);
-        formData.append("message_type_id", "1");
-        formData.append("application_login_name", getUserName);
-        formData.append("message_side", `${isToggledButton ? 2 : 1}`);
-        formData.append("msg", `${isWhatsAppAuto ? 0 : 1}`);
+      }
+      formData.append("a_application_login_id", getUUID);
+      formData.append("message_type_id", "1");
+      formData.append("application_login_name", getUserName);
+      formData.append("message_side", `${isToggledButton ? 2 : 1}`);
+      formData.append("msg", `${isWhatsAppAuto ? 0 : 1}`);
 
+      try {
         const response = await axiosInstanceFormData.post(
-          "messageAttachmentsUpload",
+          taskFlagtoHideWP === 1
+            ? "messageAttachmentsUploadTask"
+            : "messageAttachmentsUpload",
           formData,
           {
             headers: {
@@ -577,24 +583,44 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
             },
           },
         );
-
-        if (response.status === 200) {
-          setIsLoadedMessage(true);
-          toast.success("Image sent successfully.");
-        }
+        if (response.status === 200) sentCount++;
+      } catch (error: any) {
+        lastError = error.response?.data?.message || "Upload failed.";
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Upload failed.");
-    } finally {
-      handleCloseImagePreview();
     }
+
+    const total = previewAttachments.length;
+    if (sentCount === total) {
+      toast.success(
+        total === 1 ? "File sent successfully." : `${total} files sent successfully.`,
+      );
+    } else if (sentCount > 0) {
+      toast.warn(`${sentCount} of ${total} files sent. ${lastError}`);
+    } else {
+      toast.error(lastError || "Upload failed.");
+    }
+
+    setIsLoadedMessage(true);
+    setIsSendingAttachments(false);
+    handleCloseAttachmentPreview();
   };
 
-  const handleCloseImagePreview = () => {
-    setIsImagePreviewOpen(false);
-    URL.revokeObjectURL(previewImageUrl);
-    setPreviewImageUrl("");
-    setPreviewImageFile(null);
+  const handleCloseAttachmentPreview = () => {
+    previewAttachmentsRef.current.forEach(
+      ({ url }) => url && URL.revokeObjectURL(url),
+    );
+    setPreviewAttachments([]);
+    setActivePreviewIndex(0);
+  };
+
+  const handleRemovePreviewAttachment = (index: number) => {
+    const { url } = previewAttachments[index];
+    if (url) URL.revokeObjectURL(url);
+    const remaining = previewAttachments.filter((_, i) => i !== index);
+    setPreviewAttachments(remaining);
+    setActivePreviewIndex((current) =>
+      Math.max(0, Math.min(current > index ? current - 1 : current, remaining.length - 1)),
+    );
   };
 
   // Handle non-image file preview send
@@ -904,6 +930,7 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
                   id="input-files"
                   className="form-control-file border"
                   ref={fileInputRef}
+                  multiple
                   accept="image/jpeg,image/png,image/heic,image/svg+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip,application/x-zip-compressed,video/mp4,video/x-matroska,video/mpeg,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,audio/mpeg,audio/ogg,audio/wav,application/xml,text/xml"
                   onChange={(e) => handleFileChange(e)}
                   style={{ display: "none" }}
@@ -1244,7 +1271,7 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
       )}
 
       {/* Image Preview Modal */}
-      {isImagePreviewOpen && (
+      {isAttachmentPreviewOpen && (
         <div
           style={{
             position: "fixed",
@@ -1260,10 +1287,11 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
             justifyContent: "center",
           }}
           onKeyDown={(e) => {
+            if (isSendingAttachments) return;
             if (e.key === "Enter") {
-              handleImagePreviewSend();
+              handleAttachmentPreviewSend();
             } else if (e.key === "Escape") {
-              handleCloseImagePreview();
+              handleCloseAttachmentPreview();
             }
           }}
           tabIndex={0}
@@ -1280,7 +1308,8 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
           >
             {/* Close Button */}
             <button
-              onClick={handleCloseImagePreview}
+              onClick={handleCloseAttachmentPreview}
+              disabled={isSendingAttachments}
               style={{
                 position: "absolute",
                 top: "-40px",
@@ -1297,18 +1326,144 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
               ×
             </button>
 
-            {/* Image Preview */}
-            <img
-              src={previewImageUrl}
-              alt="Preview"
+            {/* Active attachment: full image, or icon + name for other files */}
+            {activePreviewAttachment?.url ? (
+              <img
+                src={activePreviewAttachment.url}
+                alt="Preview"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "60vh",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+                }}
+              />
+            ) : activePreviewAttachment ? (
+              <div
+                style={{
+                  background: "white",
+                  borderRadius: "8px",
+                  padding: "32px 48px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  maxWidth: "400px",
+                }}
+              >
+                {getFileIcon(activePreviewAttachment.file.type)}
+                <div
+                  style={{
+                    marginTop: "12px",
+                    fontWeight: 500,
+                    wordBreak: "break-all",
+                    textAlign: "center",
+                  }}
+                >
+                  {activePreviewAttachment.file.name}
+                </div>
+                <div style={{ color: "#757575", fontSize: "13px" }}>
+                  Size: {(activePreviewAttachment.file.size / 1024).toFixed(2)} KB
+                </div>
+              </div>
+            ) : null}
+
+            {/* Thumbnails: pick which one to view, remove, or add more */}
+            <div
               style={{
-                maxWidth: "100%",
-                maxHeight: "70vh",
-                objectFit: "contain",
-                borderRadius: "8px",
-                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+                marginTop: "16px",
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
+                justifyContent: "center",
               }}
-            />
+            >
+              {previewAttachments.map((attachment, index) => (
+                <div
+                  key={attachment.id}
+                  style={{ position: "relative", width: "64px", height: "64px" }}
+                >
+                  <div
+                    title={attachment.file.name}
+                    onClick={() => setActivePreviewIndex(index)}
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      overflow: "hidden",
+                      background: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                      border:
+                        index === activePreviewIndex
+                          ? "2px solid #25d366"
+                          : "2px solid transparent",
+                    }}
+                  >
+                    {attachment.url ? (
+                      <img
+                        src={attachment.url}
+                        alt={attachment.file.name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      React.cloneElement(getFileIcon(attachment.file.type), {
+                        width: "36px",
+                        height: "36px",
+                      })
+                    )}
+                  </div>
+                  {!isSendingAttachments && (
+                    <button
+                      onClick={() => handleRemovePreviewAttachment(index)}
+                      title="Remove"
+                      style={{
+                        position: "absolute",
+                        top: "-6px",
+                        right: "-6px",
+                        width: "20px",
+                        height: "20px",
+                        lineHeight: "16px",
+                        borderRadius: "50%",
+                        border: "none",
+                        background: "#333",
+                        color: "white",
+                        fontSize: "14px",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!isSendingAttachments &&
+                previewAttachments.length < MAX_FILES_PER_SEND && (
+                  <label
+                    htmlFor="input-files"
+                    title="Add more files"
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "6px",
+                      border: "2px dashed #aaa",
+                      color: "#ddd",
+                      fontSize: "28px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      margin: 0,
+                    }}
+                  >
+                    +
+                  </label>
+                )}
+            </div>
 
             {/* Send Button */}
             <div
@@ -1317,15 +1472,23 @@ const CustomEditor: React.FC<ICustomEditorProps> = ({
             >
               <button
                 className="modal-button1"
-                onClick={handleCloseImagePreview}
+                onClick={handleCloseAttachmentPreview}
+                disabled={isSendingAttachments}
               >
                 Cancel
               </button>
               <button
                 className="modal-button2"
-                onClick={handleImagePreviewSend}
+                onClick={handleAttachmentPreviewSend}
+                disabled={isSendingAttachments}
               >
-                <span>Send</span>
+                <span>
+                  {isSendingAttachments
+                    ? "Sending..."
+                    : previewAttachments.length > 1
+                      ? `Send ${previewAttachments.length}`
+                      : "Send"}
+                </span>
                 <svg
                   height="20px"
                   viewBox="0 -960 960 960"

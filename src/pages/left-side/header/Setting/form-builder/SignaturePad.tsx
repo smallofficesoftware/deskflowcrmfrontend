@@ -15,9 +15,14 @@ const SignaturePad: React.FC<Props> = ({ onCapture, disabled }) => {
 
   const getCtx = () => canvasRef.current?.getContext("2d") || null;
 
+  // The canvas is drawn at a fixed 480x180 but shown at whatever width fits
+  // (full width on a phone), so scale the pointer into canvas pixels.
   const pointerPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const sx = rect.width ? canvas.width / rect.width : 1;
+    const sy = rect.height ? canvas.height / rect.height : 1;
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
   };
 
   const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -34,7 +39,7 @@ const SignaturePad: React.FC<Props> = ({ onCapture, disabled }) => {
     const ctx = getCtx();
     if (!ctx) return;
     const { x, y } = pointerPos(e);
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#000";
     ctx.lineTo(x, y);
@@ -62,16 +67,25 @@ const SignaturePad: React.FC<Props> = ({ onCapture, disabled }) => {
     <div>
       <canvas
         ref={canvasRef}
-        width={320}
-        height={120}
-        style={{ border: "1px solid #ced4da", borderRadius: 4, touchAction: "none", background: "#fff" }}
+        width={480}
+        height={180}
+        style={{
+          border: "1px solid #ced4da",
+          borderRadius: 4,
+          touchAction: "none",
+          background: "#fff",
+          display: "block",
+          width: "100%",
+          maxWidth: 480,
+          height: "auto",
+        }}
         onPointerDown={startDraw}
         onPointerMove={draw}
         onPointerUp={endDraw}
         onPointerLeave={endDraw}
       />
       <div className="mt-1">
-        <button type="button" className="btn btn-sm btn-outline-secondary" disabled={disabled || !hasDrawn} onClick={clear}>
+        <button type="button" className="btn btn-sm btn-outline-secondary px-3" disabled={disabled || !hasDrawn} onClick={clear}>
           Clear
         </button>
       </div>

@@ -72,7 +72,7 @@ export const orderTypesList = [
   { id: "7", type: "Return Purchase Invoice" },
   { id: "8", type: "Inward" },
   { id: "9", type: "Dispatch" },
-  { id: "12", order_type: "Proforma Invoice" },
+  { id: "12", type: "Proforma Invoice" },
 ];
 
 // order Type 10 = Stock Inward and 11 = Stock Outward so do not use this two type he is work in direactly backend side

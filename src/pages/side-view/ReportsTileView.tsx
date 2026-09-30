@@ -175,11 +175,8 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
     }))
     .filter((menu) => menu.subMenus.length > 0);
 
-  // Same gate Setting.tsx's old "Report Builder" menu item used
-  // (isCompanyOwnerForReportBuilder || REPORT_BUILDER view rights) — the
-  // owner side of that check isn't available here, so this is the
-  // rights-only half; a non-owner still needs an explicit grant to see
-  // the "Report Builder" button.
+  // Same gate Setting.tsx's Report Builder menu item uses: REPORT_BUILDER
+  // view rights only (no owner bypass).
   const canAddReport = hasPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
 
   const filteredMenus = permissionFilteredMenus

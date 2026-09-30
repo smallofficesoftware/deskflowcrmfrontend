@@ -1,9 +1,10 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import deshFlow_log_icon from "../../assets/images/deshFlow_log.png";
 import smalll_office_logo from "../../assets/images/smalll_office_logo.png";
 import { AppContext } from "../../common/AppContext";
 import { PERMISSION_TYPE } from "../../helpers/AppEnum";
+import { listForms } from "../left-side/header/Setting/form-builder/FormBuilderController";
 import { reportsMenuData } from "./reportsMenuData";
 
 const SidebarView = ({
@@ -38,6 +39,31 @@ const SidebarView = ({
 
   const { permissions } = useContext(AppContext)!;
   const navigate = useNavigate();
+
+  // Each published form gets its own row, grouped into its own Category
+  // (CRM, HRMS, ...) section - same taxonomy and same grouping pattern as
+  // ReportsTileView.tsx merges custom report_definitions into these same
+  // sections by report.category. No category set -> "Others", not "Forms".
+  const [formRowsByCategory, setFormRowsByCategory] = useState<
+    Record<string, { label: string; value: string; icon: string; description: string }[]>
+  >({});
+  useEffect(() => {
+    (async () => {
+      const res = await listForms();
+      const forms = (res?.data?.item || []).filter((f: any) => f.published_schema_json);
+      const byCategory: Record<string, { label: string; value: string; icon: string; description: string }[]> = {};
+      forms.forEach((f: any) => {
+        const category = f.category || "Others";
+        (byCategory[category] ||= []).push({
+          label: f.title,
+          value: `form_submissions_${f.id}`,
+          icon: "list_alt",
+          description: `Submissions for "${f.title}"`,
+        });
+      });
+      setFormRowsByCategory(byCategory);
+    })();
+  }, []);
 
   const hasPermission = (pageId: number, permissionType: string) => {
     const pagePermission = permissions?.find(
@@ -82,8 +108,11 @@ const SidebarView = ({
     color: "#4B4B4D",
   };
 
-  const menuData = reportsMenuData;
-
+  const menuData = reportsMenuData.map((menu) =>
+    formRowsByCategory[menu.key]
+      ? { ...menu, subMenus: [...menu.subMenus, ...formRowsByCategory[menu.key]] }
+      : menu,
+  );
 
   const permissionFilteredMenus = menuData
     .map((menu) => ({
@@ -233,6 +262,36 @@ const SidebarView = ({
             </>
           )}
         </div>
+
+        {/* BACK TO MAIN PANEL - kept with the logo, not in the page header */}
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          title="Back to Main Panel"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isOpen ? "flex-start" : "center",
+            gap: "8px",
+            width: "100%",
+            height: "34px",
+            marginTop: "10px",
+            padding: isOpen ? "0 12px" : "0",
+            borderRadius: "10px",
+            border: "1px solid #c9c9c9",
+            background: "#fff",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#4B4B4D",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B4B4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          {isOpen && "Back to Main Panel"}
+        </button>
 
         {/* SEARCH */}
         {isOpen && (

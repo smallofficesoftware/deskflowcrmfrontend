@@ -3,6 +3,7 @@ import { Button, Form, ListGroup, Modal, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../helpers/AppConstants";
 import { axiosInstance } from "../../services/axiosInstance";
+import ManageWorkspaceTeamModal from "./ManageWorkspaceTeamModal";
 import {
   fetchCompanyApi,
   fetchCompanyTeamApi,
@@ -28,6 +29,11 @@ const ManageWorkspacesModal = ({
   const [noDataFound, setNoDataFound] = useState<any>(false);
   const [companyJoinOrCreate, setCompanyJoinOrCreate] = useState<any>(false);
   const [isSwitching, setIsSwitching] = useState<number | null>(null);
+  const [workspaceLimit, setWorkspaceLimit] = useState<{
+    limit: number | null;
+    used: number;
+  } | null>(null);
+  const [teamWorkspace, setTeamWorkspace] = useState<ICompany | null>(null);
   const isSubmittingRef = React.useRef(false);
 
   const activeCompanyId = localStorage.getItem("COMPANY_ID");
@@ -99,6 +105,26 @@ const ManageWorkspacesModal = ({
   );
   const parentCompanyId = activeCompany?.parent_company_id || activeCompany?.id;
 
+  const fetchWorkspaceLimit = async (companyId: number) => {
+    try {
+      const response = await axiosInstance.post("workspaceLimitInfo", {
+        parent_company_id: companyId,
+      });
+      const item = response.data?.data?.item;
+      if (response.data?.ack === DEFAULT_STATUS_CODE_SUCCESS && item) {
+        setWorkspaceLimit({ limit: item.limit, used: item.used });
+      }
+    } catch {
+      setWorkspaceLimit(null);
+    }
+  };
+
+  useEffect(() => {
+    if (show && parentCompanyId) {
+      fetchWorkspaceLimit(parentCompanyId);
+    }
+  }, [show, parentCompanyId]);
+
   useEffect(() => {
     if (show && parentCompanyId) {
       fetchCompanyTeamApi(setParentTeamList, parentCompanyId, "");
@@ -148,6 +174,7 @@ const ManageWorkspacesModal = ({
         setNewWorkspaceName("");
         setSelectedEmployees([]);
         await fetchWorkspaces();
+        await fetchWorkspaceLimit(parentCompanyId);
       } else {
         toast.error(response.data.ack_msg || "Failed to create workspace");
       }
@@ -164,7 +191,16 @@ const ManageWorkspacesModal = ({
     activeCompany?.parent_company_id === null ||
     activeCompany?.parent_company_id === undefined;
 
+  const limitReached =
+    workspaceLimit !== null &&
+    workspaceLimit.limit !== null &&
+    workspaceLimit.used >= workspaceLimit.limit;
+  const workspaceCounterText = workspaceLimit
+    ? `${workspaceLimit.used} / ${workspaceLimit.limit === null ? "Unlimited" : workspaceLimit.limit} used`
+    : "";
+
   return (
+    <>
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton className="border-bottom-0 pb-0">
         <Modal.Title className="fw-bold font-size-20">
@@ -183,8 +219,15 @@ const ManageWorkspacesModal = ({
             className="mb-4 border p-3 rounded bg-white"
           >
             <Form.Group className="mb-3">
-              <Form.Label className="fw-semibold font-size-14">
-                Workspace Name
+              <Form.Label className="fw-semibold font-size-14 d-flex justify-content-between">
+                <span>Workspace Name</span>
+                {workspaceCounterText && (
+                  <span
+                    className={`badge font-size-12 fw-normal ${limitReached ? "bg-danger" : "bg-light text-dark border"}`}
+                  >
+                    Workspaces: {workspaceCounterText}
+                  </span>
+                )}
               </Form.Label>
               <Form.Control
                 type="text"
@@ -238,11 +281,16 @@ const ManageWorkspacesModal = ({
               </Form.Group>
             )}
 
-            <div className="d-flex justify-content-end">
+            <div className="d-flex justify-content-end align-items-center gap-3">
+              {limitReached && (
+                <span className="text-danger font-size-13">
+                  Workspace limit reached. Please upgrade your plan to add more.
+                </span>
+              )}
               <Button
                 type="submit"
                 variant="primary"
-                disabled={isCreating}
+                disabled={isCreating || limitReached}
                 style={{
                   backgroundColor: "#f58634",
                   borderColor: "#f58634",
@@ -275,7 +323,14 @@ const ManageWorkspacesModal = ({
           </div>
         )}
 
-        <h5 className="fw-semibold mb-3 font-size-16">Workspaces List</h5>
+        <h5 className="fw-semibold mb-3 font-size-16 d-flex justify-content-between align-items-center">
+          <span>Workspaces List</span>
+          {workspaceCounterText && (
+            <span className="font-size-13 fw-normal text-muted">
+              {workspaceCounterText}
+            </span>
+          )}
+        </h5>
 
         {isLoading ? (
           <div className="text-center py-4">
@@ -327,6 +382,19 @@ const ManageWorkspacesModal = ({
                     <div className="text-muted font-size-13">
                       {workspace.company_email}
                     </div>
+                    {!isParent && isMainCompany && (
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() => setTeamWorkspace(workspace)}
+                        style={{
+                          fontSize: "12px",
+                          padding: "4px 12px",
+                        }}
+                      >
+                        Manage Team
+                      </Button>
+                    )}
                     {!isActive && (
                       <Button
                         size="sm"
@@ -358,6 +426,13 @@ const ManageWorkspacesModal = ({
         </Button>
       </Modal.Footer>
     </Modal>
+      <ManageWorkspaceTeamModal
+        show={teamWorkspace !== null}
+        onHide={() => setTeamWorkspace(null)}
+        workspaceId={teamWorkspace?.id}
+        workspaceName={teamWorkspace?.company_name}
+      />
+    </>
   );
 };
 

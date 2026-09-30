@@ -888,6 +888,7 @@ const AllTeamExpense = ({
             >
               <ExportExcelMenuItem
                 reportType="team_day_wise_expense_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedDates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,
@@ -903,6 +904,7 @@ const AllTeamExpense = ({
 
               <ExportPdfMenuItem
                 reportType="team_day_wise_expense_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   selectedDates: filters.selectedDateArray,
                   selectedTeamMembers: filters.checkedOptionsUser,

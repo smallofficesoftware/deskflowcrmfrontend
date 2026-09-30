@@ -13,7 +13,8 @@ export const createItemList = async (
     master_product_id: number,
     bomId: number,
     processId: number,
-    reuse: "yes" | "no"
+    reuse: "yes" | "no",
+    requiresSubJobCard: boolean = false,
 ) => {
 
     if (master_product_id === selectedItem?.value) {
@@ -39,7 +40,8 @@ export const createItemList = async (
         process_id: processId,
         item_id: selectedItem?.value,
         unit: selectedUnitId,
-        reuse: type === "reject" ? is_reusable : 0
+        reuse: type === "reject" ? is_reusable : 0,
+        requires_sub_job_card: type === "cons" && requiresSubJobCard ? 1 : 0,
     }
 
     try {

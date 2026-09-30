@@ -5,6 +5,7 @@ import {
   IItemDetail,
   IProductionEntryListItem,
 } from "../JobCardTypes";
+import { diffOf, pendingOf } from "../materialStock";
 
 interface IProps {
   jobCardId: number | string;
@@ -123,6 +124,8 @@ const JobCardFullPrint = React.forwardRef<HTMLDivElement, IProps>(
                     <th style={thStyle}>Material Name</th>
                     <th style={thStyle}>Required Qty</th>
                     <th style={thStyle}>Available Qty</th>
+                    <th style={thStyle}>Consumed/Rejected</th>
+                    <th style={thStyle}>Pending Qty</th>
                     <th style={thStyle}>Shortage/Diff</th>
                   </tr>
                 </thead>
@@ -139,13 +142,15 @@ const JobCardFullPrint = React.forwardRef<HTMLDivElement, IProps>(
                       <td style={tdStyle}>
                         {Number(m.available_qty ?? 0).toFixed(3)}
                       </td>
+                      <td style={tdStyle}>{Number(m.consumed_qty ?? 0).toFixed(3)}</td>
+                      <td style={tdStyle}>{pendingOf(m).toFixed(3)}</td>
                       <td
                         style={{
                           ...tdStyle,
-                          color: m.qty_diff < 0 ? "red" : "inherit",
+                          color: diffOf(m) < 0 ? "red" : "inherit",
                         }}
                       >
-                        {Number(m.qty_diff ?? 0).toFixed(3)}
+                        {diffOf(m).toFixed(3)}
                       </td>
                     </tr>
                   ))}
@@ -161,13 +166,15 @@ const JobCardFullPrint = React.forwardRef<HTMLDivElement, IProps>(
                       <td style={tdStyle}>
                         {Number(m.available_qty ?? 0).toFixed(3)}
                       </td>
+                      <td style={tdStyle}>{Number(m.consumed_qty ?? 0).toFixed(3)}</td>
+                      <td style={tdStyle}>{pendingOf(m).toFixed(3)}</td>
                       <td
                         style={{
                           ...tdStyle,
-                          color: m.qty_diff < 0 ? "red" : "inherit",
+                          color: diffOf(m) < 0 ? "red" : "inherit",
                         }}
                       >
-                        {Number(m.qty_diff ?? 0).toFixed(3)}
+                        {diffOf(m).toFixed(3)}
                       </td>
                     </tr>
                   ))}
@@ -175,7 +182,7 @@ const JobCardFullPrint = React.forwardRef<HTMLDivElement, IProps>(
                     process.rejection.length === 0 && (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={7}
                           style={{ ...tdStyle, textAlign: "center" }}
                         >
                           No materials required for this process.

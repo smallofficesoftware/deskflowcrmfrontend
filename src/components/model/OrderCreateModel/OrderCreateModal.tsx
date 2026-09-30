@@ -100,6 +100,7 @@ import {
   ICustomFormFiledValuesLastParty,
   ICustomFormList,
 } from "./OrderCreateModelController";
+import { computeRowFormulas, parseCalcConfig } from "../../../helpers/FormulaEngine";
 import PageTextEditModel from "./PageTextEditModel/PageTextEditModel";
 import DesignerPageEditModel from "./PageTextEditModel/DesignerPageEditModel";
 
@@ -1711,10 +1712,69 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
     setCart(updatedCart);
   };
+
+  const hasQtyFormula = customFormListProduct.some(
+    (f) => parseCalcConfig(f.calc_config)?.drives === "qty",
+  );
+  const lastQtyToastRef = React.useRef("");
+
+  // Keeps calculated custom fields, the formula-driven quantity and the formula-driven
+  // amount in sync with the row inputs. Every pass only writes when a value differs, so it settles.
+  useEffect(() => {
+    if (!customFormListProduct.some((f) => parseCalcConfig(f.calc_config))) return;
+    const round = (n: number) => Number(n.toFixed(4));
+
+    let patched = false;
+    const next = cart.map((item) => {
+      const r = computeRowFormulas(item, customFormListProduct);
+      const patch: Record<string, any> = {};
+      Object.entries(r.values).forEach(([k, v]) => {
+        if (Number((item as any)[k]) !== round(v)) patch[k] = round(v);
+      });
+      const wantAmount = r.amount !== undefined ? round(r.amount) : undefined;
+      if ((item as any).calc_amount !== wantAmount) patch.calc_amount = wantAmount;
+      if (Object.keys(patch).length === 0) return item;
+      patched = true;
+      return { ...item, ...patch };
+    });
+    if (patched) {
+      setCart(next);
+      return;
+    }
+
+    const idx = cart.findIndex((item) => {
+      const r = computeRowFormulas(item, customFormListProduct);
+      return r.qty !== undefined && Number(item.quantity) !== round(r.qty);
+    });
+    if (idx < 0) return;
+    const newQty = round(computeRowFormulas(cart[idx], customFormListProduct).qty as number);
+    if (cart[idx].is_point_value_allow !== 1 && !Number.isInteger(newQty)) {
+      const key = `${idx}:${newQty}`;
+      if (lastQtyToastRef.current !== key) {
+        lastQtyToastRef.current = key;
+        toast.error(
+          `${cart[idx].product_name || "Item"}: calculated quantity ${newQty} is a decimal, which is not allowed for this item`,
+        );
+      }
+      return;
+    }
+    handleQuantityChange(idx, newQty);
+  }, [cart, customFormListProduct]);
+
   const handleDescriptionChange = (index: number, value: string) => {
     const updatedCart = [...cart];
     updatedCart[index].product_description = value;
     setCart(updatedCart);
+  };
+
+  // With an "amount" formula, the line's gross amount replaces rate x qty, so the
+  // per-unit rate every discount/GST calculation works from is amount / qty.
+  const effectiveRate = (item: any) => {
+    if (item.calc_amount !== undefined && item.calc_amount !== null) {
+      const q = Number(item.quantity) || 1;
+      return (Number(item.calc_amount) || 0) / q;
+    }
+    return Number(item.rate) || 0;
   };
 
   const calculateAmount = (
@@ -2259,7 +2319,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item.data_type == 9 ||
         item.data_type == 10 ||
         item.data_type == 11 ||
-        item.data_type == 12);
+        item.data_type == 12 ||
+        !!parseCalcConfig(item.calc_config));
 
     return (
       <div className={item.form_type === 4 ? "col-12 px-2" : "col-6 px-2"}>
@@ -3702,7 +3763,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   // }, 0);
   // ✅ Fixed & Improved totalAmount (Subtotal before GST)
   const totalAmount = cart.reduce((total, item) => {
-    const rate = Number(item.rate) || 0;
+    const rate = effectiveRate(item);
     const qty = Number(item.quantity) || 1;
 
     let discountPerUnit = 0;
@@ -3717,7 +3778,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   }, 0);
   // ✅ Fixed totalGst
   const totalGst = cart.reduce((total, item) => {
-    const rate = Number(item.rate) || 0;
+    const rate = effectiveRate(item);
     const qty = Number(item.quantity) || 1;
     const gst = Number(item.GST) || 0;
 
@@ -3872,6 +3933,46 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       }),
     );
   };
+  const handleGstChange = (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = e.target.value;
+
+    if (!/^\d*\.?\d{0,2}$/.test(value)) return;
+
+    if (Number(value) > 100) {
+      toast.error("GST % cannot be more than 100");
+      return;
+    }
+
+    setCart((prevCart) =>
+      prevCart.map((item, i) => {
+        if (i !== index) return item;
+
+        const result = calculateNetRate(
+          Number(item.rate),
+          discountType === "percentage"
+            ? Number(item.item_discount_pct)
+            : Number(item.item_discount_pr),
+          Number(value) || 0,
+          discountType,
+        );
+
+        // raw string kept while typing so "9." and "2.5" work; handleGstBlur turns it back into a number
+        return { ...item, GST: value as unknown as number, net_rate: result.net };
+      }),
+    );
+  };
+
+  const handleGstBlur = (index: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item, i) =>
+        i === index ? { ...item, GST: Number(item.GST) || 0 } : item,
+      ),
+    );
+  };
+
   const handleProductItemDiscountChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>,
@@ -4298,6 +4399,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
               regex = /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
               msg = "alphanumeric + special chars";
               break;
+            case "7":
+              regex = /^[0-9]+(\.[0-9]+)?$/;
+              msg = "only numbers (decimals allowed)";
+              break;
           }
 
           if (regex && !regex.test(strValue)) {
@@ -4369,6 +4474,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           case "6":
             regex = /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
             msg = "alphanumeric + special chars";
+            break;
+          case "7":
+            regex = /^[0-9]+(\.[0-9]+)?$/;
+            msg = "only numbers (decimals allowed)";
             break;
         }
 
@@ -4654,7 +4763,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item_discount_pct: item.item_discount_pct,
         item_discount_pr: item.item_discount_pr,
         item_total: calculateAmount(
-          item.rate,
+          effectiveRate(item),
           item.quantity,
           item.item_discount_pct, // always %
           discountType,
@@ -4698,7 +4807,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         item_discount_pct: item.item_discount_pct,
         item_discount_pr: item.item_discount_pr,
         item_total: calculateAmount(
-          item.rate,
+          effectiveRate(item),
           item.quantity,
           item.item_discount_pct, // always %
           discountType,
@@ -7770,32 +7879,31 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                     </div>
                   )}
 
-                {/* TEAM MEMBER */}
-                {cartnumber == "" && (
-                  <div className="col-xl-2 col-lg-3 col-md-6">
-                    <label
-                      className="form_label"
-                      style={{ fontWeight: "bold" }}
-                    >
-                      Select Team Member
-                    </label>
+                {/* TEAM MEMBER (created by) — also editable on an existing
+                    order; the edit flow pre-selects the saved creator and
+                    orderUpdate saves a_application_login_id from it */}
+                <div className="col-xl-2 col-lg-3 col-md-6">
+                  <label
+                    className="form_label"
+                    style={{ fontWeight: "bold" }}
+                  >
+                    Select Team Member
+                  </label>
 
-                    <div
-                      className="mt-1"
-                      style={{
-                        position: "relative",
-                        zIndex: 9999,
-                      }}
-                    >
-                      <CustomSearchDropdown
-                        options={TeamMamberOptions}
-                        value={selectedTeamMamber}
-                        onChange={handleTeamMamberChange}
-                        isDisabled={cartnumber ? "disabled" : false}
-                      />
-                    </div>
+                  <div
+                    className="mt-1"
+                    style={{
+                      position: "relative",
+                      zIndex: 9999,
+                    }}
+                  >
+                    <CustomSearchDropdown
+                      options={TeamMamberOptions}
+                      value={selectedTeamMamber}
+                      onChange={handleTeamMamberChange}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* SEARCH PREVIOUS ORDER */}
                 {flag == "quick" && (
@@ -8739,6 +8847,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                     }}
                                     onFocus={(e) => e.target.select()}
                                     disabled={
+                                      hasQtyFormula ||
                                       ([3, 4, 8, 9].includes(
                                         Number(isOrderShowNum),
                                       ) &&
@@ -9007,7 +9116,38 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                 ?.getSize(),
                                             }}
                                           >
-                                            {item.GST}
+                                            <input
+                                              className="form-control"
+                                              type="text"
+                                              title="GST %"
+                                              placeholder="GST %"
+                                              value={item.GST}
+                                              onChange={(e) =>
+                                                handleGstChange(index, e)
+                                              }
+                                              onBlur={() =>
+                                                handleGstBlur(index)
+                                              }
+                                              style={{ textAlign: "right" }}
+                                              onFocus={(e) =>
+                                                e.target.select()
+                                              }
+                                              disabled={
+                                                orderTypesNameFind !==
+                                                  "Quotation" &&
+                                                  orderTypesNameFind !==
+                                                  "Sales Order" &&
+                                                  orderTypesNameFind !==
+                                                  "Sales Invoice" &&
+                                                  orderTypesNameFind !==
+                                                  "Proforma Invoice" &&
+                                                  orderTypesNameFind !==
+                                                  "Purchase Order" &&
+                                                  cartnumber
+                                                  ? true
+                                                  : false
+                                              }
+                                            />
                                           </td>
                                           <td
                                             className="text-end"
@@ -9028,7 +9168,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                             >
                                               {formatNumber(
                                                 calculateAmount(
-                                                  item.rate,
+                                                  effectiveRate(item),
                                                   item.quantity,
                                                   item.item_discount_pct,
                                                   discountType,
@@ -9051,7 +9191,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                           >
                                             {formatNumber(
                                               calculateAmount(
-                                                item.rate,
+                                                effectiveRate(item),
                                                 item.quantity,
                                                 item.item_discount_pct,
                                                 discountType,
@@ -10672,6 +10812,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                             /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
                                           msg = "alphanumeric + special chars";
                                           break;
+                                        case "7":
+                                          regex = /^[0-9]+(\.[0-9]+)?$/;
+                                          msg = "only numbers (decimals allowed)";
+                                          break;
                                       }
 
                                       if (regex && !regex.test(strValue)) {
@@ -10763,6 +10907,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                         regex =
                                           /^[A-Za-z0-9\s!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
                                         msg = "alphanumeric + special chars";
+                                        break;
+                                      case "7":
+                                        regex = /^[0-9]+(\.[0-9]+)?$/;
+                                        msg = "only numbers (decimals allowed)";
                                         break;
                                     }
 

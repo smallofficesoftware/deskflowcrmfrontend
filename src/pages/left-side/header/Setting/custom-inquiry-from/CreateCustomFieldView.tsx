@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
@@ -7,7 +7,8 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { IOption } from "../../../../../helpers/AppInterface";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
-import { createCustomInquiryFrom, fetchCompanyForTitle, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
+import { FORMULA_BUILTINS, parseCalcConfig, TCalcDrives, translateFormulaRefs, validateFormula } from "../../../../../helpers/FormulaEngine";
+import { createCustomInquiryFrom, displayOnCustomInquiryList, fetchStageOptionsForFormType, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
 
 interface IPropsCreateCustomField {
     show: boolean;
@@ -39,6 +40,11 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [selectedApplicableModules, setSelectedApplicableModules] =
         useState<any[]>([]);
+    const [selectedDisplayOn, setSelectedDisplayOn] =
+        useState<SingleValue<IOption> | null>({ value: "1", label: "Form" });
+    const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
+    const [stageOptions, setStageOptions] = useState<IOption[]>([]);
+    const [stageError, setStageError] = useState("");
     const [selectedRequiredFor, setSelectedRequiredFor] =
         useState<SingleValue<IOption> | null>(null);
     const [selectedReqList, setSelectedReqList] =
@@ -65,6 +71,12 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [limitError, setLimitError] = useState("");
     const [displayOrderInput, setDisplayOrderInput] = useState(0);
+    const [calcExpr, setCalcExpr] = useState("");
+    const [calcDrives, setCalcDrives] = useState<TCalcDrives>(null);
+    const [calcError, setCalcError] = useState("");
+    const [formulaFields, setFormulaFields] = useState<ICustomInquiryFromList[]>([]);
+    const [formulaFieldsLoaded, setFormulaFieldsLoaded] = useState(false);
+    const calcPrefilled = useRef(false);
 
     const canAddCustomInquiry = useCheckUserPermission(
         PAGE_ID.CUSTOM_FORM_FIELD,
@@ -87,9 +99,65 @@ const CreateCustomFieldView = ({
         }
     }, []);
 
+    // Stage form is only available for Contact (1) and Inquiry (2) fields.
+    const isStageFormAllowed = ["1", "2"].includes(selectedPageType?.value?.toString() || "");
+    const isStageForm = isStageFormAllowed && selectedDisplayOn?.value?.toString() === "2";
+
+    useEffect(() => {
+        const formType = Number(selectedPageType?.value);
+        if (formType === 1 || formType === 2) {
+            fetchStageOptionsForFormType(formType).then(setStageOptions);
+        } else {
+            setStageOptions([]);
+        }
+    }, [selectedPageType?.value]);
+
+    const selectedStageOptions = stageOptions.filter((o) => selectedStageIds.includes(String(o.value)));
+
+    const handleDisplayOnChange = (selectedOption: SingleValue<IOption>) => {
+        setSelectedDisplayOn(selectedOption);
+        if (selectedOption?.value?.toString() !== "2") {
+            setStageError("");
+        }
+    };
+
+    const handleStagesChange = (selectedOptions: any) => {
+        setSelectedStageIds((selectedOptions || []).map((o: any) => String(o.value)));
+        if (selectedOptions && selectedOptions.length > 0) {
+            setStageError("");
+        }
+    };
+
     const showLimitFields = ["1", "2", "3", "8"].includes(
         selectedOrderList?.value?.toString() || ""
     );
+
+    // Formulas only make sense for number/decimal product fields that appear on order lines.
+    const isFormulaApplicable =
+        selectedPageType?.value?.toString() === "4" &&
+        ["1", "8"].includes(selectedOrderList?.value?.toString() || "") &&
+        selectedApplicableModules.some((m: any) => String(m.value) !== "4");
+
+    const availableFormulaFields = formulaFields.filter((f) => f.id !== productToEdit?.id);
+    const titleToRef: Record<string, string> = { rate: "rate", quantity: "quantity" };
+    const refToTitle: Record<string, string> = { rate: "rate", quantity: "quantity" };
+    availableFormulaFields.forEach((f) => {
+        titleToRef[f.title.trim().toLowerCase()] = f.reference_column_name;
+        refToTitle[f.reference_column_name] = f.title.trim();
+    });
+
+    useEffect(() => {
+        fetchProductNumberFields(setFormulaFields).then(() => setFormulaFieldsLoaded(true));
+    }, []);
+
+    useEffect(() => {
+        if (!productToEdit || !formulaFieldsLoaded || calcPrefilled.current) return;
+        calcPrefilled.current = true;
+        const cfg = parseCalcConfig(productToEdit.calc_config);
+        if (!cfg) return;
+        setCalcExpr(translateFormulaRefs(cfg.expr, refToTitle));
+        setCalcDrives(cfg.drives);
+    }, [formulaFieldsLoaded]);
 
     const customLabels: Record<string, string> = {
         "4": "Product Master",
@@ -236,6 +304,8 @@ const CreateCustomFieldView = ({
         setSelectedPrintReport(null);
         setSelectedrowOrColumn(null);
         setSelectedApplicableModules([]);
+        setSelectedDisplayOn({ value: "1", label: "Form" });
+        setSelectedStageIds([]);
         setSelectedPageType(null);
         setSelectedRequiredFor(null);
         setSelectedValidationType(null);
@@ -244,6 +314,9 @@ const CreateCustomFieldView = ({
         setDisplayOrderInput(0);
         setMinLimit("");
         setMaxLimit("");
+        setCalcExpr("");
+        setCalcDrives(null);
+        setCalcError("");
     };
 
     const handelSubmit = async () => {
@@ -253,6 +326,7 @@ const CreateCustomFieldView = ({
         setPrintTypeError("");
         setPrintReportTypeError("");
         setApplicableModulesError("");
+        setStageError("");
         setRowOrColumnError("");
         setRequiredForError("");
         setLimitError("");
@@ -310,10 +384,34 @@ const CreateCustomFieldView = ({
             hasError = true;
         }
 
+        if (isStageForm && selectedStageOptions.length === 0) {
+            setStageError("Select at least one stage.");
+            errorMsg = "Please select at least one stage for the stage form.";
+            hasError = true;
+        }
+
         if (titleInput.trim() === "") {
             setTitleListError("Field Name is required");
             errorMsg = "Field Name is required";
             hasError = true;
+        }
+
+        let calcConfigStr: string | null = null;
+        setCalcError("");
+        if (isFormulaApplicable && calcExpr.trim()) {
+            const storedExpr = translateFormulaRefs(calcExpr.trim(), titleToRef);
+            const formulaErr = validateFormula(
+                storedExpr,
+                calcDrives,
+                availableFormulaFields.map((f) => f.reference_column_name),
+            );
+            if (formulaErr) {
+                setCalcError(formulaErr);
+                errorMsg = formulaErr;
+                hasError = true;
+            } else {
+                calcConfigStr = JSON.stringify({ expr: storedExpr, drives: calcDrives });
+            }
         }
 
         if (hasError) {
@@ -323,6 +421,10 @@ const CreateCustomFieldView = ({
 
         const applicableModulesStr = selectedApplicableModules
             ? selectedApplicableModules.map((item: any) => item.value).join(",")
+            : "";
+        const displayOnValue = isStageForm ? 2 : 1;
+        const stageIdsStr = isStageForm
+            ? selectedStageOptions.map((o) => o.value).join(",")
             : "";
 
         if (productToEdit) {
@@ -354,7 +456,10 @@ const CreateCustomFieldView = ({
                             ? Number(selectedValidationType.value)
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
-                        applicable_modules: applicableModulesStr
+                        applicable_modules: applicableModulesStr,
+                        display_on: displayOnValue,
+                        stage_ids: stageIdsStr || null,
+                        calc_config: calcConfigStr
                     },
                     setLoading,
                     productToEdit.id,
@@ -393,7 +498,10 @@ const CreateCustomFieldView = ({
                             ? Number(selectedValidationType.value)
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
-                        applicable_modules: applicableModulesStr
+                        applicable_modules: applicableModulesStr,
+                        display_on: displayOnValue,
+                        stage_ids: stageIdsStr || null,
+                        calc_config: calcConfigStr
                     },
                     setLoading,
                     clearForm,
@@ -482,6 +590,17 @@ const CreateCustomFieldView = ({
                     setSelectedApplicableModules(initialMods);
                 }
             }
+
+            setSelectedDisplayOn(
+                Number(productToEdit.display_on) === 2
+                    ? { value: "2", label: "Stage Form" }
+                    : { value: "1", label: "Form" }
+            );
+            setSelectedStageIds(
+                productToEdit.stage_ids
+                    ? String(productToEdit.stage_ids).split(",").map((m) => m.trim()).filter(Boolean)
+                    : []
+            );
 
             setSelectedPageType(formTypeSelectedOption);
             setSelectedOrderList(selectedOption);
@@ -675,6 +794,44 @@ const CreateCustomFieldView = ({
                                         </div>
                                     </>
                                 )}
+                                {isStageFormAllowed && (
+                                    <>
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Display On</h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={displayOnCustomInquiryList.map(opt => ({ value: opt.id, label: opt.order_type_display }))}
+                                                        value={selectedDisplayOn}
+                                                        onChange={handleDisplayOnChange}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {isStageForm && (
+                                            <div className="col-6 mt-2">
+                                                <label className="form-check-label">
+                                                    <h6>On Which Stage <span className="text-danger">*</span></h6>
+                                                </label>
+                                                <div className="">
+                                                    <div className="add-source-of-type-section ">
+                                                        <CustomSearchDropdown
+                                                            options={stageOptions}
+                                                            value={selectedStageOptions}
+                                                            onChange={handleStagesChange}
+                                                            isMulti={true}
+                                                            className="w-100"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {stageError && <span className="text-danger">{stageError}</span>}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                                 {selectedPageType?.value == "3" && (
                                     <div className="col-6 mt-2">
                                         <label className="form-check-label">
@@ -739,6 +896,63 @@ const CreateCustomFieldView = ({
                                             <span className="text-danger">{limitError}</span>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {isFormulaApplicable && (
+                                <div className="row mt-2">
+                                    <div className="col-12 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Formula (optional)</h6>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="e.g. {Length} * {Height}"
+                                            value={calcExpr}
+                                            onChange={(e) => {
+                                                setCalcExpr(e.target.value);
+                                                setCalcError("");
+                                            }}
+                                        />
+                                        <div className="mt-1" style={{ fontSize: "12px" }}>
+                                            Click to insert:{" "}
+                                            {[...availableFormulaFields.map((f) => f.title.trim()), ...FORMULA_BUILTINS].map((name) => (
+                                                <button
+                                                    key={name}
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary me-1 mb-1"
+                                                    onClick={() => setCalcExpr((prev) => `${prev}{${name}}`)}
+                                                >
+                                                    {name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div style={{ fontSize: "12px" }}>
+                                            Use + - * / ( ) and round(), min(), max(), abs(). The field becomes read-only on the order screen.
+                                        </div>
+                                        {calcError && <span className="text-danger">{calcError}</span>}
+                                    </div>
+                                    <div className="col-6 mt-2">
+                                        <label className="form-check-label">
+                                            <h6>Also use result as</h6>
+                                        </label>
+                                        <select
+                                            className="form-select"
+                                            value={calcDrives ?? ""}
+                                            onChange={(e) =>
+                                                setCalcDrives(
+                                                    e.target.value === "qty" || e.target.value === "amount"
+                                                        ? e.target.value
+                                                        : null,
+                                                )
+                                            }
+                                        >
+                                            <option value="">Nothing (just show it)</option>
+                                            <option value="qty">Line Quantity</option>
+                                            <option value="amount">Line Amount (before discount and GST)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             )}
 

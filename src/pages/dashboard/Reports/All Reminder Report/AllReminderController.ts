@@ -45,8 +45,11 @@ export const fetchTaskReport = async (
   selectedContactId?: string | null,
   referenceWiseContact?: number,
   typeFilter: string = "due",
-  setCounts?: (counts: { due: number; future: number; complete: number; all: number }) => void,
+  setCounts?: (counts: { due: number; future: number; complete: number; all: number; my: number }) => void,
   setTotalRecords?: (total: number) => void,
+  // "All"/"My" toggle (same idea as Task Management's All/My buttons).
+  viewScope?: "all" | "my",
+  setCanSeeAllData?: TReactSetState<boolean>,
 ): Promise<IReminderItem[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const uuid = getID || localStorage.getItem("UUID");
@@ -75,6 +78,7 @@ export const fetchTaskReport = async (
     globalSearch,
     referenceWiseContact: referenceWiseContact,
     typeFilter,
+    viewScope,
   };
 
   try {
@@ -91,6 +95,7 @@ export const fetchTaskReport = async (
     if (res.data?.data?.counts && setCounts) {
       setCounts(res.data.data.counts);
     }
+    setCanSeeAllData?.(!!res.data?.data?.can_see_all_data);
     setTotalRecords?.(Number(res.data?.data?.total) || 0);
     setData?.(items);
     return items;

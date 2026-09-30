@@ -819,6 +819,7 @@ const AccountCreaditReport = ({
                 >
                   <ExportExcelMenuItem
                     reportType="account_credit_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -846,6 +847,7 @@ const AccountCreaditReport = ({
 
                   <ExportPdfMenuItem
                     reportType="account_credit_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

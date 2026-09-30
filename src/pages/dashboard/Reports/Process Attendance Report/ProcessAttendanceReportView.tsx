@@ -795,6 +795,7 @@ const ProcessAttendanceReportView = ({
             >
               <ExportExcelMenuItem
                 reportType="process_attendance_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   request_flag: 2,
                   selectedTeamMembers: filters.checkedOptionsUser,
@@ -810,6 +811,7 @@ const ProcessAttendanceReportView = ({
 
               <ExportPdfMenuItem
                 reportType="process_attendance_report"
+                getCellValue={getExportCellValue}
                 filters={{
                   request_flag: 2,
                   selectedTeamMembers: filters.checkedOptionsUser,

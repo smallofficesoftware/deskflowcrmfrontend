@@ -1,5 +1,6 @@
 // ─── Tab Navigation (production entry is now a separate modal) ────────────────
-export type TabId = "select" | "details" | "material";
+// "details" = merged Details & Required Material tab.
+export type TabId = "select" | "details";
 
 // ─── Job Card creation mode ──────────────────────────────────────────────────
 //   "order"    -> Customer → Order → Order Item  (job_card_type 1)
@@ -52,6 +53,7 @@ export interface IItemDetail {
   pending_qty?: number;
   unit: string;
   delivery_date?: string;
+  parent_job_card?: { id: number; item_name: string } | null; // set when this job card is a sub jobwork
 }
 
 // ─── BOM / Required Material ──────────────────────────────────────────────────
@@ -62,6 +64,18 @@ export interface IBomMaterial {
   available_qty: number;
   required_qty: number; // calculated: bom_per_unit × order_qty
   qty_diff: number; // available_qty - required_qty (negative = shortage)
+  reserved_qty?: number; // pending need of other open (not fully produced) job cards
+  consumed_qty?: number; // used so far by this job card in this process (rejected, on rejection rows)
+  reserved_by?: { job_id: number; item_name: string; pending_qty: number; process_name?: string }[];
+  incoming_qty?: number; // still to be produced by other open job cards making this material
+  incoming_by?: {
+    job_id: number;
+    production_qty: number;
+    produced_qty: number;
+    pending_qty: number;
+    is_sub_job_card?: boolean; // this job card was auto-created FOR this parent, not just incidentally producing the same material
+  }[];
+  has_own_bom?: boolean; // this material is itself a manufactured product with its own BOM - eligible for "Generate Sub Job Card"
 }
 
 export interface IBomProcess {
@@ -70,6 +84,9 @@ export interface IBomProcess {
   process_name: string;
   consumption: IBomMaterial[];
   rejection: IBomMaterial[];
+  // Other open job cards (same product) also logging consumption at this
+  // process - click to see which job cards and their status.
+  job_cards?: { job_id: number; status_name: string; status_color: string }[];
 }
 
 // ─── Job Card List Item (for JobCardListView) ─────────────────────────────────

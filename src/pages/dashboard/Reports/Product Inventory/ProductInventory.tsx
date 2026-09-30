@@ -462,15 +462,21 @@ const ProductInventoryReport = ({
   const closingStockBodyTemplate = (rowData: IProductInventory) => {
     const closingStock = rowData.closingStock ?? 0;
     const minStock = rowData.min_stock_quantity ?? 0;
-    const maxStock = rowData.max_stock_quantity ?? Infinity;
+    // A max of 0 means "no maximum set" (the More-than-max filter ignores it
+    // too) - it must not turn every in-stock product green.
+    const maxStock = rowData.max_stock_quantity ? rowData.max_stock_quantity : Infinity;
     let backgroundColor = "";
     if (closingStock < minStock) {
       backgroundColor = "#D76C82";
     } else if (closingStock > maxStock) {
       backgroundColor = "#C1D8C3";
     }
+    // Hover shows what minimum / maximum is set on this product (0 = not set).
+    const minLabel = minStock > 0 ? minStock : "Not set";
+    const maxLabel = rowData.max_stock_quantity ? rowData.max_stock_quantity : "Not set";
     return (
       <span
+        title={`Minimum stock: ${minLabel}\nMaximum stock: ${maxLabel}`}
         style={{
           backgroundColor,
           textAlign: "right",
@@ -791,6 +797,7 @@ const ProductInventoryReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="product_inventory_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,
@@ -809,6 +816,7 @@ const ProductInventoryReport = ({
 
                 <ExportPdfMenuItem
                   reportType="product_inventory_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,

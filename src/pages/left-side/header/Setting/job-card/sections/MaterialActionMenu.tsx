@@ -3,9 +3,14 @@ import React, { useEffect, useRef, useState } from "react";
 interface IProps {
   onAddStock: () => void;
   onGeneratePO: () => void;
+  onGenerateSubJobCard?: () => void; // only passed when the material has its own BOM
 }
 
-const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
+const MaterialActionMenu = ({
+  onAddStock,
+  onGeneratePO,
+  onGenerateSubJobCard,
+}: IProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -18,7 +23,7 @@ const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const menuItem = (label: string, onClick: () => void) => (
+  const menuItem = (icon: string, label: string, onClick: () => void) => (
     <button
       onClick={() => {
         onClick();
@@ -38,6 +43,7 @@ const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
       onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
     >
+      <i className={`pi ${icon} me-2`} style={{ fontSize: "0.75rem", color: "#6b7280" }} />
       {label}
     </button>
   );
@@ -80,8 +86,10 @@ const MaterialActionMenu = ({ onAddStock, onGeneratePO }: IProps) => {
             paddingBottom: 4,
           }}
         >
-          {menuItem("📦 Add Stock", onAddStock)}
-          {menuItem("📄 Generate PO", onGeneratePO)}
+          {menuItem("pi-plus-circle", "Add Stock", onAddStock)}
+          {menuItem("pi-shopping-cart", "Generate PO", onGeneratePO)}
+          {onGenerateSubJobCard &&
+            menuItem("pi-sitemap", "Generate Sub Job Card", onGenerateSubJobCard)}
         </div>
       )}
     </div>

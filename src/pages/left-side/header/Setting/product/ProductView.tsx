@@ -3,6 +3,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { useTheme } from "../../../../../components/ThemeContext";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
@@ -51,6 +52,7 @@ const ProductView = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [Currency, setCurrency] = useState<any>([]);
   const [productDropdown, setProductDropdown] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [hasIdAvail, setHasIdAvail] = useState<number>();
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [isOpenStockMovement, setIsOpenStockMovement] = useState(false);
@@ -1031,6 +1033,17 @@ const ProductView = ({
                                           }}
                                         >
                                           Edit
+                                        </li>
+                                        <li
+                                          className="listItem text-start"
+                                          role="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProductDropdown(null);
+                                            openSubmitForm("product", item.id);
+                                          }}
+                                        >
+                                          Submit Form
                                         </li>
                                         <li
                                           className="listItem text-start"

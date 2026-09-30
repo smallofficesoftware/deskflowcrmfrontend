@@ -1,7 +1,9 @@
+import "primeicons/primeicons.css";
 import { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../../../components/model/CheckBoxFilterModal";
 import CheckBoxModal from "../../../../../components/model/CheckBoxModal";
@@ -19,6 +21,7 @@ import { fetchAllCompanyApi } from "../../../LeftSideController";
 import { fetchDepartmentsApi } from "../../../list-company/EditTeamMemberController";
 import { fetchLabelApi } from "../label/LabelController";
 import {
+  createSubJobCard,
   deleteJobCardApi,
   fetchJobCardList,
   fetchStageStatusApiForJobCard,
@@ -26,6 +29,7 @@ import {
 } from "./JobCardController";
 import { IJobCardListItem } from "./JobCardTypes";
 import JobCardView from "./JobCardView";
+import RawMaterialProcessStatusReportView from "./RawMaterialProcessStatusReportView";
 import ProductionEntryListModel from "./ProductionEntryListModel";
 import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
 import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
@@ -69,6 +73,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   // Modal visibility
   const [showJobCard, setShowJobCard] = useState(false);
+  const [showRawMaterialReport, setShowRawMaterialReport] = useState(false);
   const [showProductionEntry, setShowProductionEntry] = useState(false);
   const [showEditJobCard, setShowEditJobCard] = useState(false);
   const [selectedOrderItemId, setSelectedOrderItemId] = useState<number | null>(
@@ -85,6 +90,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   // Dropdown
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const dropdownRefs = useRef<Record<number, HTMLUListElement | null>>({});
 
   const [deleteJobCardId, setDeleteJobCardId] = useState<number | null>(null);
@@ -98,6 +104,27 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
   const handleGeneratePOFromJobCard = (_materialId: number, _materialName: string) => {
     setShowPOModalFromJobCard(true);
+  };
+
+  const [creatingSubJobCard, setCreatingSubJobCard] = useState(false);
+  const handleGenerateSubJobCardFromJobCard = async (
+    materialId: number,
+    _materialName: string,
+    parentJobCardId: number,
+    pendingQty: number,
+  ) => {
+    const newId = await createSubJobCard(
+      parentJobCardId,
+      materialId,
+      pendingQty,
+      setCreatingSubJobCard,
+    );
+    if (newId) {
+      setSelectedJobCardId(newId);
+      setSelectedJobCardProdQty(pendingQty);
+      setShowEditJobCard(true);
+      handleRefresh();
+    }
   };
 
   const { darkMode } = useTheme();
@@ -587,6 +614,15 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                     </svg>
                   </span>
                 </button>
+
+                {/* Raw Material Process Status report (ticket #2575) */}
+                <button
+                  className="icons"
+                  onClick={() => setShowRawMaterialReport(true)}
+                  title="Raw Material Process Status"
+                >
+                  <i className="pi pi-sitemap" style={{ fontSize: "20px" }} />
+                </button>
               </div>
 
               {/* Refresh button */}
@@ -874,6 +910,21 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         backgroundColor: "#fff",
                                       }}
                                     >
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenDropdownId(null);
+                                          openSubmitForm("job_card", item.id);
+                                        }}
+                                        style={{
+                                          padding: "8px 12px",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        Submit Form
+                                      </li>
                                       <li
                                         className="listItem"
                                         role="button"
@@ -1168,6 +1219,24 @@ const JobCardListView = ({ show, onHide }: IProps) => {
         </div>
       )}
 
+      {/* Raw Material Process Status report modal (ticket #2575) */}
+      {showRawMaterialReport && (
+        <div className="modal1">
+          <div
+            className="modal-content1"
+            style={{ width: "80vw", maxHeight: "85vh", overflowY: "auto" }}
+          >
+            <span
+              className="close"
+              onClick={() => setShowRawMaterialReport(false)}
+            >
+              &times;
+            </span>
+            <RawMaterialProcessStatusReportView />
+          </div>
+        </div>
+      )}
+
       {/* New Job Card modal */}
       {showJobCard && (
         <JobCardView
@@ -1176,6 +1245,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           onComplete={handleRefresh}
           onAddStock={handleAddStockFromJobCard}
           onGeneratePO={handleGeneratePOFromJobCard}
+          onGenerateSubJobCard={handleGenerateSubJobCardFromJobCard}
         />
       )}
 
@@ -1188,6 +1258,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
           initialProductQty={selectedJobCardProdQty ?? 0}
           onAddStock={handleAddStockFromJobCard}
           onGeneratePO={handleGeneratePOFromJobCard}
+          onGenerateSubJobCard={handleGenerateSubJobCardFromJobCard}
         />
       )}
 

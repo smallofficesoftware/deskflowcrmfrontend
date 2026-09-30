@@ -3,7 +3,12 @@ import axios from "axios";
 import { useParams } from "react-router-dom";
 import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT } from "../../helpers/AppConstants";
 import FormFieldsRenderer from "../left-side/header/Setting/form-builder/FormFieldsRenderer";
+import FormBuilderBrandStyles from "../left-side/header/Setting/form-builder/formBuilderBrandStyles";
 import { IFormBuilderField } from "../left-side/header/Setting/form-builder/FormBuilderController";
+import { buildInitialAnswers } from "../left-side/header/Setting/form-builder/fieldTypes";
+import { evaluateVisibility } from "../left-side/header/Setting/form-builder/conditions";
+import { validateFormatPresets } from "../left-side/header/Setting/form-builder/formatPresets";
+import { localizeFields } from "../left-side/header/Setting/form-builder/language";
 
 // Deliberately its own plain axios client, not the shared authenticated
 // axiosInstance — a public visitor has no login, and this page shouldn't
@@ -15,6 +20,37 @@ const publicClient = axios.create({
   timeout: 30000,
 });
 
+interface FormStatus {
+  open: boolean;
+  reason?: "not_open_yet" | "closed" | "full";
+  message?: string;
+}
+
+// Lead source (plan M6): whichever the link carries — ?source= / ?utm_source=
+// and ?campaign= / ?utm_campaign= — captured once on load, sent with the
+// entry, never shown to the visitor.
+function leadParamsFromUrl(): { source: string | null; campaign: string | null } {
+  const q = new URLSearchParams(window.location.search);
+  return {
+    source: q.get("source") || q.get("utm_source") || null,
+    campaign: q.get("campaign") || q.get("utm_campaign") || null,
+  };
+}
+
+// Own wrapper classes on purpose: the app's global "body .container" rule (style.css) makes
+// .container a fixed-height flex row for the app shell, which wrecks this standalone page.
+const PublicPageStyles: React.FC = () => (
+  <style>{`
+    .fb-public-page { min-height: 100vh; background: #f4f6f8; padding: 16px 12px; }
+    .fb-public-card { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 16px; }
+    @media (min-width: 768px) {
+      .fb-public-page { padding: 32px 16px; }
+      .fb-public-card { padding: 28px; }
+    }
+    .fb-public-message { max-width: 720px; margin: 0 auto; }
+  `}</style>
+);
+
 // Modeled on pages/online-store/Form.tsx's no-auth company resolution
 // (plan §7) — company/tenant is resolved server-side purely from the
 // qrCode+shareToken URL params, no login context at all.
@@ -24,14 +60,31 @@ const PublicFormFillView: React.FC = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<{ key: string; file: File }[]>([]);
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterPhone, setSubmitterPhone] = useState("");
   const [loading, setLoading] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<{ message: string; redirect_url: string | null } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<FormStatus>({ open: true });
+
+  // Public form controls (plan M3, M5, M6).
+  const [requireOtp, setRequireOtp] = useState(false);
+  const [onePerMobile, setOnePerMobile] = useState(false);
+  const [askName, setAskName] = useState(true);
+  const [askEmail, setAskEmail] = useState(true);
+  const [askPhone, setAskPhone] = useState(true);
+  const [otpToken, setOtpToken] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [lead] = useState(leadParamsFromUrl);
+  // Second language (plan M8).
+  const [languageName, setLanguageName] = useState<string | null>(null);
+  const [showSecondLanguage, setShowSecondLanguage] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -40,7 +93,17 @@ const PublicFormFillView: React.FC = () => {
         if (data.ack === 1 && data.data?.item) {
           setTitle(data.data.item.title);
           setDescription(data.data.item.description || "");
-          setFields(data.data.item.fields || []);
+          setStatus(data.data.item.status || { open: true });
+          setRequireOtp(!!data.data.item.require_otp);
+          setOnePerMobile(!!data.data.item.one_per_mobile);
+          setAskName(data.data.item.ask_name !== false);
+          setAskEmail(data.data.item.ask_email !== false);
+          setAskPhone(data.data.item.ask_phone !== false);
+          setLanguageName(data.data.item.language || null);
+          const list: IFormBuilderField[] = data.data.item.fields || [];
+          setFields(list);
+          // Public fill always starts a new submission, so defaults apply.
+          setAnswers(buildInitialAnswers(list));
         } else {
           setErrorMsg(data.ack_msg || "This form is not available.");
         }
@@ -51,7 +114,15 @@ const PublicFormFillView: React.FC = () => {
     })();
   }, [qrCode, shareToken]);
 
-  const handleChange = (key: string, value: any) => setAnswers((prev) => ({ ...prev, [key]: value }));
+  const handleChange = (key: string, value: any) => {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
   const handleFile = (key: string, file: File | null) => {
     setFiles((prev) => {
       const rest = prev.filter((f) => f.key !== key);
@@ -62,7 +133,48 @@ const PublicFormFillView: React.FC = () => {
     handleFile(`${repeaterKey}[${rowIndex}].${subKey}`, file);
   };
 
+  const sendOtp = async () => {
+    if (!submitterPhone.trim()) {
+      setErrorMsg("Enter your mobile number first.");
+      return;
+    }
+    setSendingOtp(true);
+    setErrorMsg("");
+    try {
+      const { data } = await publicClient.post("public-form/send-otp", { qrCode, shareToken, mobile: submitterPhone });
+      if (data.ack === 1) {
+        setOtpToken(data.data?.token || "");
+        setOtpSent(true);
+      } else {
+        setErrorMsg(data.ack_msg || "Couldn't send the code. Please try again.");
+      }
+    } catch {
+      setErrorMsg("Couldn't send the code. Please try again.");
+    }
+    setSendingOtp(false);
+  };
+
   const handleSubmit = async () => {
+    if (requireOtp && !submitterPhone.trim()) {
+      setErrorMsg("Enter your mobile number.");
+      return;
+    }
+    if (requireOtp && (!otpSent || !otpCode.trim())) {
+      setErrorMsg("Send and enter the code from WhatsApp first.");
+      return;
+    }
+    // Fields hidden by a "show only when" rule are not checked.
+    const visibleKeys = evaluateVisibility(fields, answers);
+    const formatErrors = validateFormatPresets(
+      fields.filter((f) => !f.key || visibleKeys.has(f.key)),
+      answers,
+      { newEntry: true },
+    );
+    setFieldErrors(formatErrors);
+    if (Object.keys(formatErrors).length) {
+      setErrorMsg("Please correct the highlighted fields.");
+      return;
+    }
     setSubmitting(true);
     setErrorMsg("");
     try {
@@ -70,18 +182,32 @@ const PublicFormFillView: React.FC = () => {
       fd.append("qrCode", qrCode || "");
       fd.append("shareToken", shareToken || "");
       fd.append("answers", JSON.stringify(answers));
-      if (submitterName) fd.append("submitter_name", submitterName);
-      if (submitterEmail) fd.append("submitter_email", submitterEmail);
-      if (submitterPhone) fd.append("submitter_phone", submitterPhone);
+      if (askName && submitterName) fd.append("submitter_name", submitterName);
+      if (askEmail && submitterEmail) fd.append("submitter_email", submitterEmail);
+      if (askPhone && submitterPhone) fd.append("submitter_phone", submitterPhone);
+      if (lead.source) fd.append("source", lead.source);
+      if (lead.campaign) fd.append("campaign", lead.campaign);
+      if (requireOtp) {
+        fd.append("otp_token", otpToken);
+        fd.append("otp_code", otpCode);
+      }
       files.forEach((f) => fd.append(f.key, f.file, f.file.name));
 
       const { data } = await publicClient.post("public-form/submit", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       if (data.ack === 1) {
-        setSubmitted(true);
+        const redirect = data.data?.item?.redirect_url || null;
+        setSubmitted({ message: data.ack_msg || "Thank you — your response has been recorded.", redirect_url: redirect });
+        if (redirect) window.location.href = redirect;
       } else {
         setErrorMsg(data.ack_msg || "Something went wrong — please try again.");
+        // A wrong code hands back a fresh, attempt-counted token to retry with.
+        const nextToken = data.data?.item?.otp_token;
+        if (nextToken) {
+          setOtpToken(nextToken);
+          setOtpCode("");
+        }
       }
     } catch {
       setErrorMsg("Something went wrong — please try again.");
@@ -89,43 +215,114 @@ const PublicFormFillView: React.FC = () => {
     setSubmitting(false);
   };
 
-  if (loading) return <div className="p-4 text-center">Loading...</div>;
-  if (errorMsg && fields.length === 0) return <div className="p-4 text-center text-danger">{errorMsg}</div>;
-  if (submitted) return <div className="p-4 text-center">Thank you — your response has been recorded.</div>;
+  const message = (content: React.ReactNode) => (
+    <div className="fb-public-page">
+      <PublicPageStyles />
+      <div className="fb-public-card fb-public-message text-center">{content}</div>
+    </div>
+  );
+
+  if (loading) return message("Loading...");
+  if (!status.open) {
+    return message(
+      <>
+        <h5 className="mb-2">{title || "This form"}</h5>
+        <p className="text-muted mb-0">{status.message || "This form isn't accepting entries right now."}</p>
+      </>,
+    );
+  }
+  if (errorMsg && fields.length === 0) return message(<span className="text-danger">{errorMsg}</span>);
+  if (submitted) return message(submitted.redirect_url ? "Redirecting…" : submitted.message);
 
   return (
-    <div className="container p-4" style={{ maxWidth: 720 }}>
-      <h3 className="mb-1">{title}</h3>
+    <div className="fb-public-page">
+      <PublicPageStyles />
+      <FormBuilderBrandStyles />
+      <div className="fb-public-card">
+      <div className="d-flex justify-content-between align-items-start">
+        <h3 className="mb-1 text-break">{title}</h3>
+        {languageName ? (
+          <button type="button" className="btn btn-sm btn-outline-secondary flex-shrink-0 ms-2" onClick={() => setShowSecondLanguage((v) => !v)}>
+            {showSecondLanguage ? "English" : languageName}
+          </button>
+        ) : null}
+      </div>
       {description ? <p className="text-muted mb-3">{description}</p> : null}
       {errorMsg ? <div className="alert alert-danger">{errorMsg}</div> : null}
 
-      <div className="row">
+      <div className="row fb-fill">
+        {askName ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
             <label className="pb-2 form_label d-block">Your Name</label>
-            <input className="form-control" value={submitterName} onChange={(e) => setSubmitterName(e.target.value)} />
+            <input className="form-control" autoComplete="name" value={submitterName} onChange={(e) => setSubmitterName(e.target.value)} />
           </div>
         </div>
+        ) : null}
+        {askEmail ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
             <label className="pb-2 form_label d-block">Your Email</label>
-            <input className="form-control" value={submitterEmail} onChange={(e) => setSubmitterEmail(e.target.value)} />
+            <input
+              className="form-control"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={submitterEmail}
+              onChange={(e) => setSubmitterEmail(e.target.value)}
+            />
           </div>
         </div>
+        ) : null}
+        {askPhone ? (
         <div className="col-12 col-md-4">
           <div className="form-group">
-            <label className="pb-2 form_label d-block">Your Phone</label>
-            <input className="form-control" value={submitterPhone} onChange={(e) => setSubmitterPhone(e.target.value)} />
+            <label className="pb-2 form_label d-block">
+              Your Phone{requireOtp ? <span className="text-danger"> *</span> : null}
+            </label>
+            <div className="d-flex" style={{ gap: 6 }}>
+              <input
+                className="form-control"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={submitterPhone}
+                onChange={(e) => {
+                  setSubmitterPhone(e.target.value);
+                  setOtpSent(false);
+                  setOtpToken("");
+                  setOtpCode("");
+                }}
+              />
+              {requireOtp ? (
+                <button type="button" className="btn btn-sm btn-outline-secondary text-nowrap" disabled={sendingOtp || !submitterPhone.trim()} onClick={sendOtp}>
+                  {sendingOtp ? "Sending…" : otpSent ? "Resend" : "Send code"}
+                </button>
+              ) : null}
+            </div>
+            {onePerMobile ? <small className="text-muted">Only one entry is allowed per mobile number.</small> : null}
           </div>
         </div>
+        ) : null}
+        {requireOtp && otpSent ? (
+          <div className="col-12 col-md-4">
+            <div className="form-group">
+              <label className="pb-2 form_label d-block">Code from WhatsApp</label>
+              <input className="form-control" inputMode="numeric" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))} />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* No related-record picker here — public submissions are always
           standalone, enforced server-side regardless of what's rendered
           (plan §1/§4). */}
       <FormFieldsRenderer
-        fields={fields}
+        fields={localizeFields(fields, showSecondLanguage)}
         answers={answers}
+        errors={fieldErrors}
+        newEntry
+        isPublic
         onChange={handleChange}
         onFile={handleFile}
         onRepeaterFile={handleRepeaterFile}
@@ -135,9 +332,13 @@ const PublicFormFillView: React.FC = () => {
         }}
       />
 
-      <button type="button" className="btn btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
-        {submitting ? "Submitting..." : "Submit"}
-      </button>
+      {/* Sticks to the bottom of the screen on phones (FillResponsiveStyles). */}
+      <div className="fb-submit-bar">
+        <button type="button" className="btn fb-btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
+          {submitting ? "Submitting..." : "Submit"}
+        </button>
+      </div>
+      </div>
     </div>
   );
 };

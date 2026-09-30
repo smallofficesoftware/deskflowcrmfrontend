@@ -906,6 +906,7 @@ const ChainWiseContactReportView = ({
               >
                 <ExportExcelMenuItem
                   reportType="chain_wise_contact_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     setActive,
@@ -930,6 +931,7 @@ const ChainWiseContactReportView = ({
 
                 <ExportPdfMenuItem
                   reportType="chain_wise_contact_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     setActive,

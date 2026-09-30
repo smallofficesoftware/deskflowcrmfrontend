@@ -94,7 +94,9 @@ const CustomSearchDropdown: React.FC<CustomSearchDropdownProps> = ({
       styles={customStyles}
       isDisabled={isDisabled === "disabled" ? true : false}
       filterOption={(option, inputValue) => {
-        return option.label.toLowerCase().includes(inputValue.toLowerCase());
+        return String(option.label ?? "")
+          .toLowerCase()
+          .includes(inputValue.toLowerCase());
       }}
       menuPortalTarget={menuPortalTarget}
       menuPosition="fixed"

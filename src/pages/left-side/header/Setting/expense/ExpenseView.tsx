@@ -18,6 +18,7 @@ import { IFilterPayload, TFilterDate } from "../../../../../helpers/AppInterface
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { useCommonFilterStore } from "../../../../../store/report/useCommonFilterStore";
 import { formatDateToDDMMYYYY } from "../../../../dashboard/Reports/Salary Register/SalaryRegisterReport";
+import { useSubmitFormStore } from "../../../../../store/forms/useSubmitFormStore";
 import CreateExpenseView from "./create-expense/CreateExpenseView";
 import {
   fetchExpenseApi,
@@ -79,6 +80,7 @@ const ExpenseView = ({
     null
   );
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
 
   const { getFilter, setFilter, setFilters, clearFilters } =
     useCommonFilterStore();
@@ -889,6 +891,17 @@ const ExpenseView = ({
                                               marginTop: "0%",
                                             }}
                                           >
+                                            <li
+                                              className="listItem text-start"
+                                              role="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdownId(null);
+                                                openSubmitForm("expense", item.id);
+                                              }}
+                                            >
+                                              Submit Form
+                                            </li>
                                             {item.expense_status === 1 && (
                                               <>
                                                 <li

@@ -3,6 +3,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../store/forms/useSubmitFormStore";
 import {
   convertDateTimeFormat,
   useEscapeKey,
@@ -13,6 +14,7 @@ import CheckBoxModal from "../../../components/model/CheckBoxModal";
 import ConfirmationModal from "../../../components/model/ConfirmationModal";
 import EventLogs from "../../../components/model/EventLogModel/EventLogsModel";
 import RadioButtonModal from "../../../components/model/RadioButtonModal";
+import { useStageChange } from "../../../components/model/StageFormModal/useStageChange";
 import ReminderModal from "../../../components/model/ReminderModal";
 import WorkFlowModel from "../../../components/model/workflowConformatioModel/workFlowModelView";
 import SafeHtml from "../../../components/SafeHtml";
@@ -42,7 +44,6 @@ import {
   handleChangeStatusOfReminderForInquiry,
   IInquiry,
   updateCheckBox,
-  updateStageStatusForInquiriesRadioButton,
   updateUserCheckBox,
 } from "./ListInquiryController";
 
@@ -93,6 +94,7 @@ const ListInquiryView = ({
     useState(false);
 
   const [labelDropdownOpen, setLabelDropdownOpen] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [inquiryId, setInquiryId] = useState<number>();
   const [inquiryToEdit, setInquiryToiEdit] = useState<IInquiry>();
   const [editInquiry, setEditInquiry] = useState(false);
@@ -110,6 +112,7 @@ const ListInquiryView = ({
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
   const [hasData, setHasData] = useState<boolean>(false);
+  const { requestStageChange, stageFormModal } = useStageChange();
   const [optionRadioButtonStatus, setOptionRadioButtonStatus] = useState<any[]>(
     [],
   );
@@ -595,17 +598,23 @@ const ListInquiryView = ({
   const handleConfirmInquiriesRadioButton = async (checkedOptions: any[]) => {
     if (statusAssignContactId === undefined) return;
 
-    await updateStageStatusForInquiriesRadioButton(
-      statusAssignContactId,
-      checkedOptions,
-      setLoading,
-    );
-    refreshInquiriesList(0);
-    setContactSelections((prev) => ({
-      ...prev,
-      [statusAssignContactId]: checkedOptions,
-    }));
+    const inquiryId = statusAssignContactId;
+    const stageId = checkedOptions as unknown as number;
     setIsModalAssignStatusVisible(false);
+    // Stage change goes through the stage-form flow (popup when the stage has fields).
+    await requestStageChange({
+      module: "inquiry",
+      stageId,
+      stageName: optionRadioButtonStatus.find((o) => o.id === stageId)?.name,
+      appliedTo: inquiryId,
+      onSuccess: () => {
+        refreshInquiriesList(0);
+        setContactSelections((prev) => ({
+          ...prev,
+          [inquiryId]: checkedOptions,
+        }));
+      },
+    });
   };
 
   const handleConfirmAssignUser = async (
@@ -1160,6 +1169,17 @@ const ListInquiryView = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setLabelDropdownOpen(null);
+                                openSubmitForm("inquiry", item.id);
+                              }}
+                            >
+                              Submit Form
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLabelDropdownOpen(null);
                                 handleModalOpenStatusAssign(
                                   item.id,
                                   item.contact_status,
@@ -1699,6 +1719,7 @@ const ListInquiryView = ({
           btn2="Start"
         />
       )}
+      {stageFormModal}
     </>
   );
 };

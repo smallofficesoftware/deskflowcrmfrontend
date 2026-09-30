@@ -60,6 +60,9 @@ cp "$REACT_ENV_FILE" .env.production.local
 cleanup() { rm -f .env.production.local; }
 trap cleanup EXIT
 
+echo "Installing deps (bun, per packageManager in package.json)..."
+bun install
+
 echo "Building locally..."
 GENERATE_SOURCEMAP=false npm run build
 

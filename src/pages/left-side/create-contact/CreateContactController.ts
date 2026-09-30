@@ -171,6 +171,15 @@ const formatDateForDateTimeLocal = (dateString: string) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+// Contact list API returns DATEONLY columns as "DD-MM-YYYY", but a native
+// <input type="date"> only accepts "YYYY-MM-DD" and renders blank otherwise.
+const toDateInputValue = (value: string | undefined, fallback: string) => {
+  if (!value) return fallback;
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : fallback;
+};
+
 export const createCustomerInitialValues = (
   contactData: ICreateCustomer | undefined,
 ): ICreateCustomer => {
@@ -195,8 +204,10 @@ export const createCustomerInitialValues = (
     gst_reg_type:
       (contactData as any)?.gst_reg_type ||
       (contactData?.gst_number ? "Regular" : "Consumer"),
-    gst_reg_date:
-      (contactData as any)?.gst_reg_date || "2017-07-01",
+    gst_reg_date: toDateInputValue(
+      (contactData as any)?.gst_reg_date,
+      "2017-07-01",
+    ),
     qty: "",
     description: "",
     category_id: 0,

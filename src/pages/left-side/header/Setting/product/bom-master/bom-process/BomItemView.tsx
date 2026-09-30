@@ -68,6 +68,7 @@ const ProcessItemTable = ({
 
     const [consRemark, setConsRemark] = useState<string>("");
     const [rejectRemark, setRejectRemark] = useState<string>("");
+    const [consRequiresSubJobCard, setConsRequiresSubJobCard] = useState(false);
 
     const [recallGetItemOnDelete, setRecallGetItemOnDelete] = useState<boolean>(false);
     const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
@@ -178,12 +179,14 @@ const ProcessItemTable = ({
                 product.id,
                 bomId,
                 processId,
-                rejectReuse
+                rejectReuse,
+                consRequiresSubJobCard
             );
             setSelectedProductSearchOptionForCons(null);
             setConsQty("");
             setConsUnitValue(null);
             setConsRemark("");
+            setConsRequiresSubJobCard(false);
 
         } else {
             success = await createItemList(
@@ -249,6 +252,7 @@ const ProcessItemTable = ({
                                         <th className="text-end">Qty</th>
                                         <th className="text-end">Unit</th>
                                         <th className="text-end">Remark</th>
+                                        <th className="text-center">Sub Job Work</th>
                                         <th className="text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -346,6 +350,17 @@ const ProcessItemTable = ({
                                             </div>
                                         </td>
 
+                                        <td style={{ width: "6vw", textAlign: "center" }}>
+                                            <input
+                                                type="checkbox"
+                                                title="This material needs its own sub jobwork"
+                                                checked={consRequiresSubJobCard}
+                                                onChange={(e) =>
+                                                    setConsRequiresSubJobCard(e.target.checked)
+                                                }
+                                            />
+                                        </td>
+
                                         <td>
                                             <div className=" mt-2" style={{ textAlign: "center" }}>
                                                 <button className=""
@@ -380,6 +395,7 @@ const ProcessItemTable = ({
                                         <th className="text-end">Purchase Cost<br /><span style={{ color: "#FF5454", fontWeight: "500" }}>*Per Unit</span></th>
                                         {/* <th className="text-end">Market Rate<br /><span style={{ color: "#FF5454", fontWeight: "500" }}>*Per Unit</span></th> */}
                                         <th className="text-end">Remark</th>
+                                        <th className="text-center">Sub Job Work</th>
                                         <th className="text-center">Action</th>
                                     </tr>
 
@@ -407,6 +423,9 @@ const ProcessItemTable = ({
                                             </td> */}
                                             <td className="text-end"><div style={{ maxWidth: "95px", wordBreak: "break-word", height: "100%" }}>{item.remark}</div></td>
                                             <td style={{ textAlign: "center" }}>
+                                                {Number(item.requires_sub_job_card) === 1 ? "Yes" : "No"}
+                                            </td>
+                                            <td style={{ textAlign: "center" }}>
                                                 <button
                                                     style={{ cursor: "pointer", marginRight: "10px" }}
                                                     onClick={() => handleDeleteById(item.id)}
@@ -430,6 +449,7 @@ const ProcessItemTable = ({
                                         <td className="text-end"><b>Total</b></td>
                                         <td className="text-end">{totalPCCost.toFixed(2)}</td>
                                         {/* <td className="text-end">MR Total</td> */}
+                                        <td></td>
                                         <td></td>
                                         <td></td>
                                     </tr>

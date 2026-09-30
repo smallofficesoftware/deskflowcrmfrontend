@@ -104,7 +104,10 @@ const ListReminderView = ({
   const [filterType, setFilterType] = useState<
     "due" | "future" | "complete" | "all"
   >("all");
-  const [counts, setCounts] = useState({ due: 0, future: 0, complete: 0 });
+  const [counts, setCounts] = useState({ due: 0, future: 0, complete: 0, all: 0, my: 0 });
+  // "All"/"My" toggle (same idea as Task Management's All/My buttons).
+  const [viewScope, setViewScope] = useState<"all" | "my">("my");
+  const [canSeeAllData, setCanSeeAllData] = useState(false);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [tooltipBgColor, setTolltipBgColor] = useState<string>("#fff");
@@ -176,6 +179,8 @@ const ListReminderView = ({
       createdByMultiTeamMember,
       startSearchDate,
       endSearchDate,
+      viewScope,
+      setCanSeeAllData,
     );
 
     setIsModalFilterVisible(false);
@@ -230,6 +235,8 @@ const ListReminderView = ({
         filterParams.initialCreatedMembers,
         filterParams.startSearchDate,
         filterParams.endSearchDate,
+        viewScope,
+        setCanSeeAllData,
       );
     }
   }, [reminderCheckFlag, allreminderCheckFlag, canView]);
@@ -254,6 +261,8 @@ const ListReminderView = ({
           filterParams.initialCreatedMembers,
           filterParams.startSearchDate,
           filterParams.endSearchDate,
+          viewScope,
+          setCanSeeAllData,
         );
       } else {
         return false;
@@ -322,6 +331,8 @@ const ListReminderView = ({
             filterParams.initialCreatedMembers,
             filterParams.startSearchDate,
             filterParams.endSearchDate,
+            viewScope,
+            setCanSeeAllData,
           );
         }
       }
@@ -371,6 +382,8 @@ const ListReminderView = ({
       filterParams.initialCreatedMembers,
       filterParams.startSearchDate,
       filterParams.endSearchDate,
+      viewScope,
+      setCanSeeAllData,
     );
   };
 
@@ -397,6 +410,8 @@ const ListReminderView = ({
       filterParams.initialCreatedMembers,
       filterParams.startSearchDate,
       filterParams.endSearchDate,
+      viewScope,
+      setCanSeeAllData,
     );
   };
 
@@ -423,6 +438,8 @@ const ListReminderView = ({
       filterParams.initialCreatedMembers,
       filterParams.startSearchDate,
       filterParams.endSearchDate,
+      viewScope,
+      setCanSeeAllData,
     );
   };
 
@@ -522,6 +539,8 @@ const ListReminderView = ({
           filterParams.initialCreatedMembers,
           filterParams.startSearchDate,
           filterParams.endSearchDate,
+          viewScope,
+          setCanSeeAllData,
         );
         toast.success("Reminder completed successfully");
         setIsReminderConfirmationStatus(false);
@@ -682,6 +701,8 @@ const ListReminderView = ({
         filterParams.initialCreatedMembers,
         filterParams.startSearchDate,
         filterParams.endSearchDate,
+        viewScope,
+        setCanSeeAllData,
       );
     }
   };
@@ -760,6 +781,8 @@ const ListReminderView = ({
             filterParams.initialCreatedMembers,
             filterParams.startSearchDate,
             filterParams.endSearchDate,
+            viewScope,
+            setCanSeeAllData,
           );
         }, 1000),
       );
@@ -794,6 +817,8 @@ const ListReminderView = ({
           filterParams.initialCreatedMembers,
           filterParams.startSearchDate,
           filterParams.endSearchDate,
+          viewScope,
+          setCanSeeAllData,
         );
       }, 1000),
     );
@@ -840,6 +865,38 @@ const ListReminderView = ({
       filterParams.initialCreatedMembers,
       filterParams.startSearchDate,
       filterParams.endSearchDate,
+      viewScope,
+      setCanSeeAllData,
+    );
+  };
+
+  // "All"/"My" toggle (same idea as Task Management's All/My buttons).
+  const handleScopeChange = (scope: "all" | "my") => {
+    setViewScope(scope);
+    setLabelDropdownOpen(null);
+    setHasOneData(null);
+    setCurrentPage(0);
+    setReminderList([]);
+    setLoading(true);
+    fetchReminderApi(
+      0,
+      ITEMS_PER_PAGE,
+      setReminderList,
+      searchDate,
+      setNoDataFound,
+      setLoading,
+      reminderCheckFlag,
+      allreminderCheckFlag,
+      setCompanyFlag,
+      searchTerm,
+      selectedButton,
+      setCounts,
+      filterParams.initialAssignedMembers,
+      filterParams.initialCreatedMembers,
+      filterParams.startSearchDate,
+      filterParams.endSearchDate,
+      scope,
+      setCanSeeAllData,
     );
   };
 
@@ -878,6 +935,8 @@ const ListReminderView = ({
         filterParams.initialCreatedMembers,
         filterParams.startSearchDate,
         filterParams.endSearchDate,
+        viewScope,
+        setCanSeeAllData,
       );
     } else {
       setIsReminderConfirmation(false);
@@ -1190,6 +1249,52 @@ const ListReminderView = ({
           )}
           {canView ? (
             <>
+              {/* "All"/"My" scope toggle (same idea as Task Management's All/My
+                  buttons) - separate from the status tabs below. "All Reminders"
+                  is only shown once rights actually allow it. */}
+              <div className="mt-2">
+                {canSeeAllData && (
+                  <button
+                    className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${viewScope === "all" ? "selected-btn" : ""
+                      }`}
+                    onClick={() => handleScopeChange("all")}
+                  >
+                    <span className="contact-btn-search-text"> All Reminders </span>
+                    <span
+                      className="badge bg-success ms-1"
+                      style={{
+                        fontSize: "0.60rem",
+                        lineHeight: "15px",
+                        borderRadius: "50%",
+                        minWidth: "20px",
+                        height: "20px",
+                      }}
+                    >
+                      {counts.all}
+                    </span>
+                  </button>
+                )}
+                <button
+                  className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${viewScope === "my" ? "selected-btn" : ""
+                    }`}
+                  onClick={() => handleScopeChange("my")}
+                >
+                  <span className="contact-btn-search-text"> My Reminders </span>
+                  <span
+                    className="badge ms-1"
+                    style={{
+                      fontSize: "0.60rem",
+                      lineHeight: "15px",
+                      borderRadius: "50%",
+                      minWidth: "20px",
+                      height: "20px",
+                      backgroundColor: "#0066FF",
+                    }}
+                  >
+                    {counts.my}
+                  </span>
+                </button>
+              </div>
               <div className="mt-2">
                 <button
                   className={`btn ms-1 rounded-5 contact-btn-search fw_500 ${selectedButton === "all" ? "selected-btn" : ""

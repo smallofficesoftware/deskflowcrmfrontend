@@ -203,7 +203,7 @@ const LabelReport = ({ onHide }: ILabelReport) => {
                         >
                             Edit
                         </li>
-                        {rowData.id > 0 && <li
+                        <li
                             style={{ color: "red", fontWeight: "600", marginLeft: "10px", height: "25px", display: "flex", alignItems: "center" }}
                             className="listItem"
                             role="button"
@@ -214,7 +214,7 @@ const LabelReport = ({ onHide }: ILabelReport) => {
                             }}
                         >
                             Delete
-                        </li>}
+                        </li>
                     </ul>
                 </>
             </div>

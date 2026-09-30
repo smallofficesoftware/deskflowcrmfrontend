@@ -963,6 +963,7 @@ const AllAccountReports = ({
                 >
                   <ExportExcelMenuItem
                     reportType="all_account_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,
@@ -988,6 +989,7 @@ const AllAccountReports = ({
 
                   <ExportPdfMenuItem
                     reportType="all_account_report"
+                    getCellValue={getExportCellValue}
                     filters={{
                       selected_dates: filters.selectedDateArray,
                       selectedTeamMembers: filters.checkedOptionsUser,

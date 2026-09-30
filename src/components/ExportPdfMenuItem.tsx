@@ -3,8 +3,10 @@ import { toast } from "react-toastify";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../helpers/AppConstants";
 import {
   exportReportPdf,
+  ExportCellValueGetter,
   ExportColumn,
   FooterSpec,
+  mapRowsForExport,
 } from "../services/reportExportService";
 
 interface ExportPdfMenuItemProps {
@@ -19,6 +21,9 @@ interface ExportPdfMenuItemProps {
   // exactly these rows instead of the full filtered dataset.
   selectedRows?: any[];
   footer?: FooterSpec;
+  // The view's own display mapper (same one Print uses) - applied to
+  // selectedRows so derived columns aren't exported blank / as raw ids.
+  getCellValue?: ExportCellValueGetter;
 }
 
 // Drop-in replacement for each report's own client-side jsPDF/
@@ -35,6 +40,7 @@ const ExportPdfMenuItem = ({
   onSelect,
   selectedRows,
   footer,
+  getCellValue,
 }: ExportPdfMenuItemProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +60,7 @@ const ExportPdfMenuItem = ({
         filters,
         columns,
         fileName,
-        rows: selectedRows,
+        rows: mapRowsForExport(selectedRows, columns, getCellValue),
         footer,
       });
     } catch {

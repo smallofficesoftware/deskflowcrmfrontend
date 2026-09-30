@@ -32,7 +32,15 @@ import { axiosInstance } from "../../services/axiosInstance";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import CustomSearchDropdown from "../CustomSearchDropdown";
 import MultiSelect from "../MultiSelect";
+import ReportHelpButton from "../ReportHelpButton";
 import "./ConfirmationModal.css";
+
+// Product filter document types: every cart type plus inquiries, which the
+// backend matches against inquiries.product_id instead of cart_items.
+const productFilterDocTypes = [
+  { id: "inquiry", type: "Inquiry" },
+  ...orderTypesList,
+];
 
 // Fixed Options for Month
 export const monthOptions = [
@@ -94,6 +102,8 @@ interface CheckBoxModalProps {
   onHide: () => void;
   handleSubmit: (filterPayload: IFilterPayload) => void;
   title: string;
+  // Key into REPORT_HELP; shows a "How this report works" icon when set.
+  reportKey?: string;
   message: string;
   btn1: string;
   btn2: string;
@@ -121,7 +131,9 @@ interface CheckBoxModalProps {
   getID?: string;
   MobileFlag?: string;
   stageandStatusOrderType?: number;
-  initialSelectedStockTypeId?: number;
+  // The saved filter holds the whole picked option ({ value, label }); a bare
+  // id is accepted too.
+  initialSelectedStockTypeId?: number | { value: number; label?: string } | null;
   filtershowSeriesOrderType?: string;
   initialCheckedAssignedByMultiTeamMember?: any[] | null;
   initialCheckedCreatedByMultiTeamMember?: any[] | null;
@@ -144,6 +156,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
   onHide,
   handleSubmit,
   title,
+  reportKey,
   message,
   btn1,
   btn2,
@@ -590,7 +603,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       );
     }
     if (initialFilterData.orderlistselect) {
-      const orderlistselect = orderTypesList.find(
+      const orderlistselect = productFilterDocTypes.find(
         (a) => a.type === initialFilterData.orderlistselect,
       );
       setSelectedOrderListId(
@@ -601,9 +614,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     }
 
     if (initialSelectedStockTypeId) {
-      const e = stockTypeOptions.find(
-        (a) => a.value === initialSelectedStockTypeId,
-      );
+      // Apply saves the whole option object, so compare on its value - comparing
+      // the object itself never matched, and the Stock Type came back empty.
+      const initialStockTypeValue =
+        typeof initialSelectedStockTypeId === "object"
+          ? initialSelectedStockTypeId.value
+          : initialSelectedStockTypeId;
+      const e = stockTypeOptions.find((a) => a.value === initialStockTypeValue);
       e && handleStockTypeChange({ value: e.value, label: e.label });
     }
     setSelectedDays(
@@ -615,7 +632,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       fetchProductById(initialFilterData.productId);
     }
     if (initialFilterData.orderlistselect) {
-      const order = orderTypesList.find(
+      const order = productFilterDocTypes.find(
         (o) =>
           o.id === initialFilterData.orderlistselect ||
           o.type === initialFilterData.orderlistselect,
@@ -760,6 +777,19 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     if (isLoading) {
       toast.warn("Data is still loading, please wait...");
       return;
+    }
+    // Product filter only applies with both a product and a document type.
+    if (filtersToShow.includes(19)) {
+      const hasProduct = !!selectedProductSearchId;
+      const hasOrderType = !!selectedOrderListId?.value;
+      if (hasProduct && !hasOrderType) {
+        toast.error("Please select a document type for the product filter.");
+        return;
+      }
+      if (!hasProduct && hasOrderType) {
+        toast.error("Please select a product for the document type filter.");
+        return;
+      }
     }
     const filterData: IFilterData = {
       country: selectedCountryId?.value,
@@ -947,6 +977,37 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       ]);
     if (selectedCategoryId?.label)
       pushChip("category", "Category", [selectedCategoryId.label]);
+    // Stock Summary's Stock Type (zero stock / less than min / more than max ...)
+    // was applied but never listed here, so the bar above the grid didn't show it.
+    if (selectedStockTypeId?.label)
+      pushChip("stockType", "Stock Type", [selectedStockTypeId.label]);
+    // Other applied filters that also had no chip (each gated by the same group
+    // number that shows its control in this modal).
+    if (showGroup(16))
+      pushChip(
+        "warehouse",
+        "Warehouse",
+        (selectedWarehouses || []).map((w: any) => w?.label),
+      );
+    if (showGroup(18) && selectedContactId?.label)
+      pushChip("contact", "Contact", [selectedContactId.label]);
+    if (showGroup(19) && selectedOrderListId?.label)
+      pushChip("documentType", "Document Type", [selectedOrderListId.label]);
+    if (showGroup(10) && (checkedOptionsTaskassignOrNot || []).includes(1))
+      pushChip("unassignTask", "Task", ["UnAssign Task"]);
+    if (showGroup(12) && (checkedOptionsShowTemplateTask || []).includes(1))
+      pushChip("templateTask", "Task", ["Only Template Task"]);
+    if (showGroup(20) && (checkedOptionsContactassignOrNot || []).includes(1))
+      pushChip("unassignContact", "Contact", ["UnAssign Contacts"]);
+    if (showGroup(13) && checkCreditDataForAccount == 1)
+      pushChip("credit", "Show", ["Credit"]);
+    if (showGroup(14) && checkDebitDataForAccount == 2)
+      pushChip("debit", "Show", ["Debit"]);
+    if (showGroup(29) && leadAgingBucket)
+      pushChip("leadAgeing", "Lead Ageing", [`${leadAgingBucket} days`]);
+    if (selectedYear?.label) pushChip("year", "Year", [selectedYear.label]);
+    if (selectedMonth?.label) pushChip("month", "Month", [selectedMonth.label]);
+    if (selectedDay?.label) pushChip("day", "Day", [selectedDay.label]);
     if (selectedProductId?.label || selectedProductSearchId?.label)
       pushChip("product", "Product", [
         selectedProductId?.label || selectedProductSearchId?.label,
@@ -987,7 +1048,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       selectedWarehouseIds: warehouseIds || "",
       selectedContactId,
       selectedProductSearchId,
-      selectedOrderListId,
+      selectedOrderListId: selectedOrderListId?.value ?? null,
       referenceWiseContact,
       leadAgingBucket,
       leadAgingActivityTypes,
@@ -1184,7 +1245,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       table: "stage_status_masters",
       columns: "id,name,color,order_type,display_order_type,visibility",
       where: [`order_type=${stageandStatusOrderType}`, `isDelete=0`],
-      order: JSON.stringify({ id: "DESC" }),
+      order: JSON.stringify({ display_order_type: "ASC", id: "ASC" }),
       request_flag: 0,
     };
 
@@ -1784,7 +1845,7 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     label: option.value,
   }));
 
-  const orderListOptions = (orderTypesList || []).map((option: any) => ({
+  const orderListOptions = productFilterDocTypes.map((option: any) => ({
     value: option.id,
     label: option.type,
   }));
@@ -1793,8 +1854,8 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     { value: 1, label: "Zero stock" },
     { value: 2, label: "Less than zero" },
     { value: 3, label: "Greater than zero" },
-    { value: 4, label: "More then max qty" },
-    { value: 5, label: "Less then min qty" },
+    { value: 4, label: "More than max qty" },
+    { value: 5, label: "Less than min qty" },
   ];
 
   const gstOptions = [
@@ -1936,9 +1997,11 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
     try {
       const getUUID = localStorage.getItem("UUID");
 
+      // getAllProduct filters on `productId` (comma-separated), not `id`.
       const { data } = await axiosInstance.post(`product`, {
-        id,
+        productId: String(id),
         a_application_login_id: getUUID,
+        ll: 1,
       });
 
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
@@ -2187,7 +2250,10 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
           <div className="modal-content1" style={{ width: "92%" }}>
             <div className="d-flex align-items-center justify-content-end">
               <div className="col-8">
-                <h2 className="modal-title1 form_header_text">{title}</h2>
+                <h2 className="modal-title1 form_header_text">
+                  {title}
+                  <ReportHelpButton reportKey={reportKey} />
+                </h2>
               </div>
               <div className="col-4">
                 <span className="close ms-3 pb-3" onClick={onHide}>
@@ -3869,6 +3935,13 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
 
                           {/* Order List Dropdown */}
                           <div className="add-source-of-type-section">
+                            <label
+                              className="pb-2 form_label"
+                              style={{ fontSize: "14px", fontWeight: "500" }}
+                            >
+                              Document Type
+                              <span className="text-danger">*</span>
+                            </label>
                             <CustomSearchDropdown
                               options={orderListOptions}
                               value={selectedOrderListId}

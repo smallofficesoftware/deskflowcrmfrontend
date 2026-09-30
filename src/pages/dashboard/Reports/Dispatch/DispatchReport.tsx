@@ -1260,6 +1260,7 @@ const TeamDispatchDataReportsView = ({
                   >
                     <ExportExcelMenuItem
                       reportType="dispatch_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,
@@ -1285,6 +1286,7 @@ const TeamDispatchDataReportsView = ({
 
                     <ExportPdfMenuItem
                       reportType="dispatch_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,

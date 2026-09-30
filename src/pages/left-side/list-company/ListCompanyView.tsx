@@ -15,6 +15,7 @@ import PricingTable from "../../public/payment-gateway/PricingTable";
 import CreateCompanyView from "../create-company/CreateCompanyView";
 import NewCreateCompanyView from "../new-create-company/NewCreateCompanyView";
 import ManageWorkspacesModal from "../../../components/model/ManageWorkspacesModal";
+import WorkspaceUsageCard from "./WorkspaceUsageCard";
 import {
   companyLeave,
   companyMainDelete,
@@ -138,11 +139,20 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
         ? companyLists.find((c) => c.id === activeCompanyId)
         : companyLists[0];
       const planId = activeCompany?.plan_id || companyLists[0]?.plan_id;
-      if (planId) {
+      // Plan usage counters (Total Contacts / Inquiry ...) are owner-only.
+      if (planId && activeCompany?.company_flag === 1) {
         fetchPlanStatisticsCounts(setPlanStatistics, planId);
       }
     }
   }, [companyLists]);
+
+  const activeCompanyForStats = (() => {
+    const activeCompanyId = Number(localStorage.getItem("COMPANY_ID"));
+    return activeCompanyId
+      ? companyLists.find((c) => c.id === activeCompanyId)
+      : companyLists[0];
+  })();
+  const isCompanyOwner = activeCompanyForStats?.company_flag === 1;
 
   useEffect(() => {
     if (refersh) {
@@ -658,11 +668,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                 <div key={index} className="block chat-list p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
                                   <div className="h-text w-100">
                                     {/* Header Row: Title & Chevron Dropdown */}
-                                    <div
-                                      className="d-flex align-items-start justify-content-between mb-1"
-                                      onClick={() => openCompanySide(item)}
-                                      style={{ cursor: "pointer" }}
-                                    >
+                                    <div className="d-flex align-items-start justify-content-between mb-1">
                                       <div>
                                         <div
                                           className="fw-bold"
@@ -729,7 +735,6 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                     <div
                                       className="mb-1.5 text-secondary text-truncate"
                                       style={{ fontSize: "12px", color: "#64748b" }}
-                                      onClick={() => openCompanySide(item)}
                                     >
                                       {item.company_contact}
                                       {item.company_contact && item.company_email ? ", " : ""}
@@ -740,7 +745,6 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                     <div
                                       className="d-flex flex-column gap-0.5 mb-1"
                                       style={{ fontSize: "12px", color: "#475569" }}
-                                      onClick={() => openCompanySide(item)}
                                     >
                                       <div>
                                         <b>Plan Type :</b> {item.plan_name}
@@ -773,6 +777,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                               </>
                             );
                           })}
+                        {isCompanyOwner && (
                         <div
                           style={{
                             flex: "60%",
@@ -782,6 +787,12 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                           }}
                         >
                           <Container fluid className="mt-2">
+                            <WorkspaceUsageCard
+                              parentCompanyId={
+                                activeCompanyForStats?.parent_company_id ||
+                                activeCompanyForStats?.id
+                              }
+                            />
                             <Row className="mb-2">
                               <Col md={6} className="dash-board-company-column">
                                 <Card
@@ -1092,6 +1103,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                             </Row>
                           </Container>
                         </div>
+                        )}
                       </>
                     </div>
                   </div>

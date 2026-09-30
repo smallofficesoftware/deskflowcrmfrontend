@@ -2,6 +2,7 @@ import axios from "axios";
 import { Button } from "primereact/button";
 import { useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../store/forms/useSubmitFormStore";
 import useSocketEvent from "../../../hooks/useSocketEvent";
 import CsvIcon from "../../../assets/images/CsvIcon.png";
 import docxIcon from "../../../assets/images/docxIcon.png";
@@ -124,6 +125,7 @@ const TaskChatRightSide = ({
 
   /* open three dot's dropdown Start */
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const dropdownRef = useRef<HTMLButtonElement>(null);
   /* open three dot's dropdown End */
 
@@ -1323,6 +1325,21 @@ const TaskChatRightSide = ({
                         }
                       >
                         Assign Team Member
+                      </li>
+                      <li
+                        className="listItem"
+                        role="button"
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          if (signleDataTask?.id) {
+                            openSubmitForm(
+                              supportTicketFlag == 1 ? "support_ticket" : "task",
+                              signleDataTask.id,
+                            );
+                          }
+                        }}
+                      >
+                        Submit Form
                       </li>
                       <li
                         className="listItem"

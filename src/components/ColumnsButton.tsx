@@ -64,7 +64,7 @@ const SortableRow = ({
       <span
         {...attributes}
         {...listeners}
-        style={{ cursor: "grab", color: "#999" }}
+        style={{ cursor: "grab", color: "#999", touchAction: "none" }}
       >
         <i className="pi pi-bars" style={{ fontSize: "12px" }} />
       </span>

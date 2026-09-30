@@ -31,6 +31,7 @@ import ContactLocationModel from "../../components/model/ContactLocationModel";
 import ImportExcelForContactModal from "../../components/model/ImportExcelForContactModal";
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
+import { useStageChange } from "../../components/model/StageFormModal/useStageChange";
 import WorkFlowModel from "../../components/model/workflowConformatioModel/workFlowModelView";
 import ReviewDialog from "../../components/review/ReviewDialog";
 import {
@@ -54,6 +55,7 @@ import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
 import { useCompanyStore } from "../../store/company/useCompanyStore";
 import { useContactFilterStore } from "../../store/contact/useContactFilterStore";
+import { useSubmitFormStore } from "../../store/forms/useSubmitFormStore";
 import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
 import { useReviewStore } from "../../store/review/useReviewStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
@@ -210,6 +212,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     setCheckToken,
     setPermissions,
     setCompanyData,
+    setShowAttendancePopup,
   } = useContext(AppContext)!;
   const token = localStorage.getItem("token");
   const localId = localStorage.getItem("UUID");
@@ -607,6 +610,10 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
               response?.data?.data?.SUPPORT_TICKET_INFO_MESSAGE ?? "",
             CUSTOMER_SUPPORT_TICKET_ASSING_ID: isAssignedToMe,
           });
+          setShowAttendancePopup(
+            response.data.data.compulsary_attendance === true &&
+            response.data.data.hasCheckedInToday === false,
+          );
 
           const company = response?.data?.data?.companyDetails;
 
@@ -693,6 +700,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [isArchivState, setIsArchivState] = useState<number>(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [labelDropdownOpen, setLabelDropdownOpen] = useState<any>(null);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [isCloseConfirmation, setIsCloseConfirmation] = useState(false);
   const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
   const [isCreatecampaignsConfirmation, setIsCreatecampaignsConfirmation] =
@@ -807,6 +815,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [optionRadioButtonStatus, setOptionRadioButtonStatus] = useState<any[]>(
     [],
   );
+  const { requestStageChange, stageFormModal } = useStageChange();
 
   const [contactSelections, setContactSelections] = useState<
     Record<number, any[]>
@@ -2092,10 +2101,16 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       return;
     }
 
-    setRefreshContact(false);
-    await updateBulkSelectionActionPerformInContact(
-      setLoading,
-      {
+    const stageId = checkedOptions as unknown as number;
+    setIsModalAssignStatusVisible(false);
+    // Stage change goes through the stage-form flow: asks the stage's custom
+    // fields (if any) in a popup, then saves everything in one call.
+    await requestStageChange({
+      module: "contact",
+      stageId,
+      stageName: optionRadioButtonStatus.find((o) => o.id === stageId)?.name,
+      appliedTo: appliedTo as number | string | number[],
+      appliedFilers: {
         ...filters,
         statusFilter: filters.checkedOptionsStageStatus,
         startDate: filters.startSearchDate,
@@ -2113,20 +2128,17 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           : undefined,
         isArchive: isArchivState,
       },
-      checkedOptions,
-      appliedTo,
-      "status_assignment",
-    );
-    setTimeout(() => {
-      setRefreshContact(true);
-      setCurrentPage(0); // Reset page to 0 when search term changes
-    }, 100);
-
-    setLabelDropdownOpen(null);
-
-    setIsModalAssignStatusVisible(false);
-    setIsAllSelected(false);
-    setSelectedIds([]);
+      onSuccess: () => {
+        setRefreshContact(false);
+        setTimeout(() => {
+          setRefreshContact(true);
+          setCurrentPage(0); // Reset page to 0 when search term changes
+        }, 100);
+        setLabelDropdownOpen(null);
+        setIsAllSelected(false);
+        setSelectedIds([]);
+      },
+    });
   };
   const handleConfirmChangeSourceType = async (checkedOptions: any[]) => {
     let appliedTo: number | string | undefined | number[];
@@ -4966,6 +4978,18 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                                       >
                                         Edit
                                       </li>
+                                      <li
+                                        className="listItem"
+                                        role="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLabelDropdownOpen(null);
+                                          setHasOneData(null);
+                                          openSubmitForm("contact", item.id);
+                                        }}
+                                      >
+                                        Submit Form
+                                      </li>
                                       {/* {item.is_pin !== 1 && (
                                       <li
                                         className="listItem"
@@ -6037,6 +6061,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       {isCRMDashBoardOpen && (
         <NewDashboardView onClose={() => setIsCRMDashBoardOpen(false)} />
       )}
+      {stageFormModal}
     </>
   );
 };

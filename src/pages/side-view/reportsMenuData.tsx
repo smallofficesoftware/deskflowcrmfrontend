@@ -316,6 +316,10 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "description",
         description: "Build custom forms and manage their submissions.",
       },
+      // Individual published forms are appended here at render time
+      // (SideBarView.tsx) — each form gets its own row, value
+      // "form_submissions:<id>", jumping straight to that form's
+      // Submissions grid. Static here because this file has no data access.
     ],
   },
 

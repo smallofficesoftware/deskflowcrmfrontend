@@ -38,7 +38,6 @@ import {
   fetchStageStatusApi,
   IUserList,
   upateCheckBox,
-  updateStageStatusRadioButton,
   updateUserCheckBox,
 } from "../left-side/LeftSideController";
 import ContactStatistic from "./contact-statistics/ContactStatistic";
@@ -48,6 +47,7 @@ import RightSearch from "./Search";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../store/forms/useSubmitFormStore";
 import useSocketEvent from "../../hooks/useSocketEvent";
 import { AppContext } from "../../common/AppContext";
 import {
@@ -63,6 +63,7 @@ import EventLogs from "../../components/model/EventLogModel/EventLogsModel";
 import ExploreNearbyModal from "../../components/model/ExploreNearbyModel";
 import OrderCreateModal from "../../components/model/OrderCreateModel/OrderCreateModal";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
+import { useStageChange } from "../../components/model/StageFormModal/useStageChange";
 import ReminderModal from "../../components/model/ReminderModal";
 import PinnedMessageShow from "../../components/PinnedMessageShow";
 import SafeHtml from "../../components/SafeHtml";
@@ -235,6 +236,7 @@ const RightView = ({
   const dropdownCreateOrderRef = useRef<HTMLButtonElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
   const [dropdownOpenCreateOrder, setDropdownOpenCreateOrder] = useState(false);
   const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>("");
   const [isMainWorkspace, setIsMainWorkspace] = useState<boolean>(true);
@@ -375,6 +377,7 @@ const RightView = ({
   const [statusAssignStatusId, setStatusAssignStatusId] = useState<number>();
   const [isModalAssignStatusVisible, setIsModalAssignStatusVisible] =
     useState<boolean>(false);
+  const { requestStageChange, stageFormModal } = useStageChange();
   const [optionRadioButtonStatus, setOptionRadioButtonStatus] = useState<any[]>(
     [],
   );
@@ -3459,17 +3462,20 @@ const RightView = ({
   const handleConfirmRadioButton = async (checkedOptions: any[]) => {
     if (statusAssignContactId === undefined) return;
 
-    await updateStageStatusRadioButton(
-      statusAssignContactId,
-      checkedOptions,
-      setLoading,
-    );
-
-    setTimeout(() => {
-      setCurrentPage(0);
-    }, 100);
+    const stageId = checkedOptions as unknown as number;
     setIsModalAssignStatusVisible(false);
-    // setRefreshContact && setRefreshContact(true);
+    // Stage change goes through the stage-form flow (popup when the stage has fields).
+    await requestStageChange({
+      module: "contact",
+      stageId,
+      stageName: optionRadioButtonStatus.find((o) => o.id === stageId)?.name,
+      appliedTo: statusAssignContactId,
+      onSuccess: () => {
+        setTimeout(() => {
+          setCurrentPage(0);
+        }, 100);
+      },
+    });
   };
 
   const handleModalOpenUserAssign = (id: number | undefined) => {
@@ -4110,6 +4116,17 @@ const RightView = ({
                                     id="closeChat"
                                   >
                                     Statistics
+                                  </li>
+
+                                  <li
+                                    className="listItem"
+                                    role="button"
+                                    onClick={() => {
+                                      setDropdownOpen(false);
+                                      if (getData?.id) openSubmitForm("contact", getData.id);
+                                    }}
+                                  >
+                                    Submit Form
                                   </li>
 
                                   <li
@@ -6865,6 +6882,7 @@ const RightView = ({
         </div>
       )}
       {/* <IntroductionVideo /> */}
+      {stageFormModal}
     </>
   );
 };

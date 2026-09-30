@@ -826,6 +826,7 @@ const AccountOutstandingReports = ({
               >
                 <ExportExcelMenuItem
                   reportType="account_outstanding_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     globalSearch: debouncedSearchText,
@@ -869,6 +870,7 @@ const AccountOutstandingReports = ({
 
                 <ExportPdfMenuItem
                   reportType="account_outstanding_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selected_dates: filters.selectedDateArray,
                     globalSearch: debouncedSearchText,

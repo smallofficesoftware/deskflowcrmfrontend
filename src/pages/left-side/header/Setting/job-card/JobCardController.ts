@@ -374,6 +374,40 @@ export const saveJobCard = async (
   }
 };
 
+// ─── Sub Job Card ───────────────────────────────────────────────────────────
+// Auto-creates a job card for a BOM material that itself has its own BOM
+// (has_own_bom), linked back to the parent job card / material row.
+
+export const createSubJobCard = async (
+  parentJobCardId: number,
+  materialId: number,
+  productionQty: number,
+  setLoading: TReactSetState<boolean>,
+): Promise<number | null> => {
+  setLoading(true);
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/create", {
+      a_application_login_id: uuid(),
+      parent_job_card_id: parentJobCardId,
+      material_id: materialId,
+      production_qty: productionQty,
+    });
+
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      toast.success(data.ack_msg || "Sub job card created.");
+      return data.data.id;
+    }
+
+    toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+};
+
 // ─── BOM Print ────────────────────────────────────────────────────────────────
 
 export const printBomDetail = async (orderItemId: number): Promise<boolean> => {

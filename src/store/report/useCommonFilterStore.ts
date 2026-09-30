@@ -52,6 +52,8 @@ export interface ReportsFilter {
   year?: number | string;
   leadAgingBucket?: string | null;
   leadAgingActivityTypes?: string[] | null;
+  // Label filter mode from CheckBoxFilterModal: 1 = OR, 2 = AND.
+  labelAndOr?: number;
   checkedOptionsTaskType?: any[];
   checkedOptionsTaskassignOrNot?: any[];
   checkedOptionsShowTemplateTask?: any[];

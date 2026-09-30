@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
+import { useSubmitFormStore } from "../../../store/forms/useSubmitFormStore";
 import { AppContext } from "../../../common/AppContext";
 import { truncateText, useEscapeKey } from "../../../common/SharedFunction";
 import CheckBoxFilterModal from "../../../components/model/CheckBoxFilterModal";
@@ -78,6 +79,7 @@ const ContactTaskListView = ({
     const [targetVsIncenTiveDropdown, setTargetVsIncentiveDropdown] =
         useState<any>(null);
     const [hasIdAvail, setHasIdAvail] = useState<number>();
+    const openSubmitForm = useSubmitFormStore((s) => s.openSubmitForm);
     const [isDeleteConfirmation, setIsDeleteConfirmation] = useState(false);
     const [isTaskComplatedConfirmation, setIsTaskComplatedConfirmation] =
         useState(false);
@@ -3204,6 +3206,20 @@ const ContactTaskListView = ({
                                                                             role="button"
                                                                         >
                                                                             Edit
+                                                                        </li>
+                                                                        <li
+                                                                            className="listItem text-start"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setTargetVsIncentiveDropdown(null);
+                                                                                openSubmitForm(
+                                                                                    supportTicketFlag == 1 ? "support_ticket" : "task",
+                                                                                    item.id,
+                                                                                );
+                                                                            }}
+                                                                            role="button"
+                                                                        >
+                                                                            Submit Form
                                                                         </li>
                                                                         <li
                                                                             className="listItem text-start"

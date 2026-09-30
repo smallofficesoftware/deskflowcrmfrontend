@@ -1387,6 +1387,7 @@ const TeamInwardDataReportsView = ({
                   >
                     <ExportExcelMenuItem
                       reportType="inward_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,
@@ -1408,6 +1409,7 @@ const TeamInwardDataReportsView = ({
 
                     <ExportPdfMenuItem
                       reportType="inward_report"
+                      getCellValue={getExportCellValue}
                       filters={{
                         selectedDates: filters.selectedDateArray,
                         selectedTeamMembers: filters.checkedOptionsUser,

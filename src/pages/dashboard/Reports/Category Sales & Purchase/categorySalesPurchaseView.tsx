@@ -830,6 +830,7 @@ const CategorySalesPurchaseReport = ({
               >
                 <ExportExcelMenuItem
                   reportType="category_sales_purchase_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,
@@ -861,6 +862,7 @@ const CategorySalesPurchaseReport = ({
 
                 <ExportPdfMenuItem
                   reportType="category_sales_purchase_report"
+                  getCellValue={getExportCellValue}
                   filters={{
                     selectedDates: filters.selectedDateArray,
                     selectedProduct: filters.selectedProductId,

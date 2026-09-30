@@ -18,6 +18,10 @@ import {
 } from "./StockAdjustmentController";
 import StockDetails from "./StockDetails";
 import RibbonBanner from "../../../../../components/model/RibbonBedgetLeftSide/RibbonBannerLeft";
+import {
+  fetchCompanyForTerms,
+  ICompanyTerms,
+} from "../../../../../components/model/OrderCreateModel/OrderCreateModelController";
 
 const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
   show,
@@ -30,6 +34,11 @@ const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
   const headerTitle = flag === 1 ? "Stock Adjustment" : "Edit Stock Adjustment";
   const [selected, setSelected] = useState<StockProduct[]>([]);
   const [isProductGridShow, setIsProductGridShow] = useState<boolean>(true);
+  // Same "Product Image View In a Cart" company setting the order-create
+  // screen uses (OrderCreateModal.tsx dynamicImageView) - extended here so
+  // Stock Adjustment's product list matches it instead of always showing images.
+  const [printDate, setPrintDate] = useState<ICompanyTerms[]>([]);
+  const inOrderImageView = printDate[0]?.in_order_image_view;
 
   const [stockDetailList, setStockDetailList] = useState<IStockDetailList>({
     stock_adjustment_type: null,
@@ -71,6 +80,7 @@ const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
       stock_remark: "",
     });
     setSelected([]);
+    fetchCompanyForTerms(setPrintDate, undefined);
   }, []);
 
   const handleStockSubmit = async (stockItemList: IStockItemList[]) => {
@@ -200,6 +210,7 @@ const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
                         selected={selected}
                         isProductGridShow={isProductGridShow}
                         setIsProductGridShow={setIsProductGridShow}
+                        inOrderImageView={inOrderImageView}
                       />
                     </div>
                   )}
