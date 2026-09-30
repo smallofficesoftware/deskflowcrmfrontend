@@ -277,9 +277,11 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
                 <button className="btn btn-sm fb-btn-outline-primary me-1" onClick={() => setEditingId(f.id)}>
                   Edit
                 </button>
-                <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => setViewingSubmissionsId(f.id)}>
-                  Submissions
-                </button>
+                {f.published_schema_json ? (
+                  <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => setViewingSubmissionsId(f.id)}>
+                    Submissions
+                  </button>
+                ) : null}
                 {f.published_schema_json ? (
                   <>
                     <button className="btn btn-sm btn-outline-secondary me-1" title="Bring in old records from an Excel sheet" onClick={() => setImportingId(f.id)}>
