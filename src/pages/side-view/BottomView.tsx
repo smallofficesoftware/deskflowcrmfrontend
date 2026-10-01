@@ -12,6 +12,7 @@ import AccountDebitReport from "../dashboard/Reports/Account Debit Report/Accoun
 import AccountOutstandingReports from "../dashboard/Reports/Account Outstanding/AccountOutstandingReportsVIew";
 import AdjustmentTypeGridView from "../dashboard/Reports/Adjustment Type Grid View/AdjustmentTypeGridView";
 import AllAccountReports from "../dashboard/Reports/All Account Report/AllAccountReportsVIew";
+import CartPaymentReportView from "../dashboard/Reports/Cart Payment Report/CartPaymentReportView";
 import AllAreasReport from "../dashboard/Reports/All Areas Report/AllAreasReport";
 import AllCallReportsView from "../dashboard/Reports/All Call Report/AllCallReportView";
 import AllCitiesReport from "../dashboard/Reports/All Cities Report/AllCitiesReport";
@@ -544,6 +545,9 @@ const BottomView = ({
         )}
         {appliedReportType === "allaccount_report" && (
           <AllAccountReports MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
+        )}
+        {appliedReportType === "cart_payment_report" && (
+          <CartPaymentReportView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "account_credit_report" && (
           <AccountCreaditReport MobileFlag={isEmbed ? "1" : undefined} credit_debit_flag={1} onHide={handleonHide} />

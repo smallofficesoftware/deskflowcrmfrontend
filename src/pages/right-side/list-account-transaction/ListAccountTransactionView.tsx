@@ -1813,6 +1813,11 @@ const ListAccountTransactionView = ({
                                           <SafeHtml htmlContent={item.remark} />
                                         </b>
                                       )}
+                                      {item.cart_number && (
+                                        <div className="small text-muted">
+                                          {item.cart_type_name} {item.cart_number}
+                                        </div>
+                                      )}
                                     </h4>
                                   </div>
                                 </div>
@@ -2275,6 +2280,11 @@ const ListAccountTransactionView = ({
                                         <b style={{ color: " #000066" }}>
                                           <SafeHtml htmlContent={item.remark} />
                                         </b>
+                                      )}
+                                      {item.cart_number && (
+                                        <div className="small text-muted">
+                                          {item.cart_type_name} {item.cart_number}
+                                        </div>
                                       )}
                                     </h4>
                                   </div>

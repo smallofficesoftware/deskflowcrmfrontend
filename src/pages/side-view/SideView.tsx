@@ -905,6 +905,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Account");
       setAppliedReportType(name);
       return;
+    } else if (canViewAllAccountTransition && name === "cart_payment_report") {
+      setActiveView("Account");
+      setAppliedReportType(name);
+      return;
     } else if (
       canViewAllAccountTransition &&
       name === "account_credit_report"
