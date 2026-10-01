@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import ColumnsButton from "../../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../../components/ExportPdfMenuItem";
@@ -644,6 +645,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   return (
     <div className="p-3">
       <FormBuilderBrandStyles />
+      <BetaFeatureNotice />
       {filling ? (
         <FormFillModal
           formId={formId}
