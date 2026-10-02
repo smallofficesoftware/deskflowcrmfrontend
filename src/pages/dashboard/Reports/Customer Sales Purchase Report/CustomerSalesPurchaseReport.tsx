@@ -12,6 +12,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
@@ -96,6 +97,7 @@ const CustomerSalesPurchaseReport: React.FC<
     const dt = useRef<DataTable<ICustomerSalesPurchaseItem[]>>(null);
 
     const isFetchingRef = useRef(false);
+    const queuedLoad = useQueuedLoad<[number, number]>();
 
     const currSym =
       summaryData.currency_symbol || customers[0]?.currency_symbol || "₹";
@@ -193,7 +195,10 @@ const CustomerSalesPurchaseReport: React.FC<
 
     const loadData = async (offset: number, limit: number) => {
       if (!canViewReport) return;
-      if (isFetchingRef.current) return;
+      if (isFetchingRef.current) {
+        queuedLoad.defer(offset, limit);
+        return;
+      }
 
       isFetchingRef.current = true;
       setLoading(true);
@@ -221,11 +226,13 @@ const CustomerSalesPurchaseReport: React.FC<
         );
       } catch (err) {
         console.error(err);
+        queuedLoad.runQueued();
       } finally {
         isFetchingRef.current = false;
         setLoading(false);
       }
     };
+    queuedLoad.setRunner(loadData);
 
     const handleRefresh = async () => {
       loadData(lazyState.first, lazyState.rows);

@@ -16,6 +16,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -148,6 +149,7 @@ const TeamInwardDataReportsView = ({
   const [showProductDetails, setShowProductDetails] = useState(false);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(100);
   const [isOrderShow, setIsOrderShow] = useState(false);
@@ -467,7 +469,10 @@ const TeamInwardDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadInwards = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -497,6 +502,7 @@ const TeamInwardDataReportsView = ({
       setTotalRecords(data?.total || 0);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -504,6 +510,7 @@ const TeamInwardDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadInwards);
 
   const handleRefresh = async () => {
     setPage(0);

@@ -12,6 +12,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -99,6 +100,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
   const [hasData, setHasData] = useState<boolean>(false);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number?, string?, any?, any?]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(PAGE_SIZE);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -203,7 +205,10 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     categoryId?: any,
     productId?: any,
   ) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(pageIndex, limit, searchText, categoryId, productId);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -221,11 +226,13 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
       );
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => setLoading(false), 200);
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadPage);
 
   // ── Reset on filter / search change (same as SalesOrder's useEffect) ──
   useEffect(() => {

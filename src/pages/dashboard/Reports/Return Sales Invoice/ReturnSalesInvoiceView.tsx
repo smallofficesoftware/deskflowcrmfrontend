@@ -16,6 +16,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -152,6 +153,7 @@ const TeamReturnSalesDataReportsView = ({
     useState<string>("");
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [isOrderShow, setIsOrderShow] = useState(false);
   const [contactData, setContactData] = useState<IUserList | undefined>();
   const [actionType, setActionType] = useState<string>("");
@@ -473,7 +475,10 @@ const TeamReturnSalesDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadInvoices = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -505,6 +510,7 @@ const TeamReturnSalesDataReportsView = ({
       setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -512,6 +518,7 @@ const TeamReturnSalesDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadInvoices);
 
   const onPageChange = (event: DataTablePageEvent) => {
     setPage(event.page ?? 0);

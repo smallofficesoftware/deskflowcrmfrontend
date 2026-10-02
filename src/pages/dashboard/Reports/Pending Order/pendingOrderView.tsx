@@ -14,6 +14,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -179,6 +180,7 @@ const PendingOrderView = ({
   }, [selectedCustomers]);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(50);
 
@@ -444,7 +446,10 @@ const PendingOrderView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadOrders = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
 
@@ -472,6 +477,7 @@ const PendingOrderView = ({
       setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -479,6 +485,7 @@ const PendingOrderView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadOrders);
 
   const handleRefresh = async () => {
     setPage(0);
