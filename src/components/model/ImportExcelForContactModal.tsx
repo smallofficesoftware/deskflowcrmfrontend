@@ -306,6 +306,54 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           setIsSubmitting(false);
         }
         break;
+      case 9:
+        // Update existing contacts from an edited sheet (same flow as case 5 for products).
+        try {
+          setErrorResponceMeg("");
+          setSuccessResponseMsg("");
+          const response = await axiosInstanceProductAndContact.post(
+            "excel-sheet-contact-update-data",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `${token}`,
+                "x-tenant-id": getUUID,
+              },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  setUploadProgress(
+                    Math.round((progressEvent.loaded * 100) / progressEvent.total),
+                  );
+                }
+              },
+            },
+          );
+
+          // Row-by-row reasons for the rows that were skipped.
+          const errorDetails = response?.data?.data;
+          if (errorDetails && typeof errorDetails === "string") {
+            setErrorResponceMeg(errorDetails);
+          }
+
+          if (response && response.data.ack === 1) {
+            setAttachment(null);
+            setSuccessResponseMsg(
+              response.data.ack_msg || "Successfully updated contacts.",
+            );
+          } else if (!errorDetails) {
+            setErrorResponceMeg(
+              response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED,
+            );
+          }
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          setErrorResponceMeg(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setUploadProgress(0);
+          setIsSubmitting(false);
+        }
+        break;
       case 6:
         try {
           setErrorResponceMeg("");
@@ -612,6 +660,33 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         }
         break;
+      case 9:
+        // Sheet of the contacts the user can see, with contact_id, to edit and upload back.
+        try {
+          setIsGenerateSampleExport(true);
+          const getUUID = localStorage.getItem("UUID");
+
+          const { data } = await axiosInstance.post(
+            "generate-contact-update-sheet",
+            { a_application_login_id: getUUID },
+          );
+
+          if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+            const link: HTMLAnchorElement = document.createElement("a");
+            link.href = data.data.fileUrl;
+            link.download = data.data.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          }
+        } catch (error: any) {
+          toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+          setIsGenerateSampleExport(false);
+        }
+        break;
       case 6:
         try {
           setIsGenerateSampleExport(true);
@@ -838,6 +913,32 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
                     mandatory for internal system functionality.
                   </div>
                 </>
+              )}
+              {potions == 9 && (
+                <div className="alert alert-warning border-0 mb-3">
+                  <strong>Note:</strong> Download the sheet, edit it and upload
+                  it back. Do not remove the <code>contact_id</code> column or
+                  its values.
+                  <ul className="mb-0 mt-2">
+                    <li>An empty cell keeps the contact&apos;s current value.</li>
+                    <li>
+                      <code>mobile_number</code> is for reference only and is
+                      not updated.
+                    </li>
+                    <li>
+                      Country, State, City, Area, price list, source type and
+                      label must match the names already in your masters.
+                    </li>
+                    <li>
+                      The <code>label</code> cell replaces the contact&apos;s
+                      labels with the ones listed (comma separated).
+                    </li>
+                    <li>
+                      Rows with a problem are listed by row number and skipped;
+                      the other rows are updated.
+                    </li>
+                  </ul>
+                </div>
               )}
               {potions == 7 && (
                 <div
