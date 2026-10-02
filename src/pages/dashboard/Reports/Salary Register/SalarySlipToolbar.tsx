@@ -1,25 +1,24 @@
 import React, { useState } from "react";
 import { Button } from "primereact/button";
 import { toast } from "react-toastify";
-import { downloadSalarySlipsPdf } from "./salarySlipPdf";
+import { downloadSalarySlipPdfFromServer } from "./salarySlipServerPdf";
 
 interface SalarySlipToolbarProps {
-  /** PDF file name, e.g. "Salary_Slip_September_2026.pdf" */
-  fileName: string;
+  employeeIds: string[];
+  month: number;
+  year: number;
 }
 
 // Download PDF / Print for the salary slip page. Hidden when printing.
-const SalarySlipToolbar: React.FC<SalarySlipToolbarProps> = ({ fileName }) => {
+const SalarySlipToolbar: React.FC<SalarySlipToolbarProps> = ({ employeeIds, month, year }) => {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
-      const done = await downloadSalarySlipsPdf(fileName);
-      if (!done) toast.info("No salary slip to download.");
-    } catch {
-      toast.error("Failed to download the salary slip PDF.");
+      const result = await downloadSalarySlipPdfFromServer(employeeIds, month, year);
+      if (!result.ok) toast.error(result.message || "Failed to download the salary slip PDF.");
     } finally {
       setDownloading(false);
     }

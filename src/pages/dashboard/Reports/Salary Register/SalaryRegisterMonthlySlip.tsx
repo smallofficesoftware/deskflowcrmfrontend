@@ -332,7 +332,7 @@ const SingleEmployeeSalaryTable: React.FC<SingleSalaryTableProps> = ({
   }));
 
   return (
-    <div className="slipWrapper" data-salary-slip>
+    <div className="slipWrapper">
       <table className="slipTable">
         <tbody>
           {/* Header: Logo + Company Info */}
@@ -636,9 +636,7 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
       </style>
 
       {rows.length > 0 && (
-        <SalarySlipToolbar
-          fileName={`Salary_Slip_${resolvedMonthYear.replace(/\s+/g, "_")}.pdf`}
-        />
+        <SalarySlipToolbar employeeIds={employeeIds} month={month} year={year} />
       )}
 
       {rows.length > 0 ? (
