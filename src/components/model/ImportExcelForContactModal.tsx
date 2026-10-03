@@ -331,8 +331,11 @@ const ImportExcelForContactModal: React.FC<IImportExcelForContactModal> = ({
           );
 
           // Row-by-row reasons for the rows that were skipped.
-          const errorDetails = response?.data?.data;
-          if (errorDetails && typeof errorDetails === "string") {
+          // (the API sends an empty array when there are none, so only a non-empty string counts)
+          const rawDetails = response?.data?.data;
+          const errorDetails =
+            typeof rawDetails === "string" ? rawDetails : "";
+          if (errorDetails) {
             setErrorResponceMeg(errorDetails);
           }
 
