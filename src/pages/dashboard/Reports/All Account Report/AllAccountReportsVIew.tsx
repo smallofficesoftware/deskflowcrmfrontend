@@ -1090,6 +1090,8 @@ const AllAccountReports = ({
           totalRecords={totalRecords}
           lazy
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           rowsPerPageOptions={[25, 50, 100, 200]}
           resizableColumns
           columnResizeMode="fit"

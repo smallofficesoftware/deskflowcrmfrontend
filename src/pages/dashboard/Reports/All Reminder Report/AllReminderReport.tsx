@@ -1114,6 +1114,8 @@ const AllReminderReport = ({
           className="custom-centered-table"
           scrollHeight="flex"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={page * rows}
           rows={rows}

@@ -1129,6 +1129,8 @@ const TeamSalesOrderDataReportsView = ({
             scrollable
             scrollHeight="80vh"
             paginator
+            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Total Records: {totalRecords}"
             lazy
             first={page * rows}
             rows={rows}

@@ -171,7 +171,7 @@ const CartPaymentReportView = ({
         </div>
       </div>
 
-      <DataTable value={visibleRows} loading={loading} paginator rows={50} rowsPerPageOptions={[25, 50, 100]} size="small" emptyMessage="No carts found">
+      <DataTable value={visibleRows} loading={loading} paginator paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport" currentPageReportTemplate="Total Records: {totalRecords}" rows={50} rowsPerPageOptions={[25, 50, 100]} size="small" emptyMessage="No carts found">
         <Column field="cart_type_name" header="Cart Type" sortable />
         <Column field="cart_number" header="Cart No" sortable />
         <Column field="cart_date" header="Date" sortable />

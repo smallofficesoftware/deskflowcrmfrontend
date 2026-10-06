@@ -729,6 +729,8 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
               filters={tablefilters}
               onFilter={onFilter}
               paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
               lazy
               first={page * rows}
               rows={rows}
