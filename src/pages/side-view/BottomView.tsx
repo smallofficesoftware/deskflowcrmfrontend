@@ -115,7 +115,6 @@ const BottomView = ({
   setAppliedReportType,
   onReportClick,
   isEmbed,
-  onEmbedBack,
   formSubmissionsDeepLinkId,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
@@ -279,33 +278,6 @@ const BottomView = ({
 
         {activeView === "forms_home" && (
           <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} />
-        )}
-
-        {isEmbed && appliedReportType && (
-          <div
-            onClick={onEmbedBack}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              cursor: "pointer",
-              width: "fit-content",
-              marginBottom: "10px",
-              fontWeight: 600,
-              color: "rgb(245, 134, 52)",
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="20px"
-              viewBox="0 -960 960 960"
-              width="20px"
-              fill="rgb(245, 134, 52)"
-            >
-              <path d="M400-80 0-480l400-400 71 71-329 329 329 329-71 71Z" />
-            </svg>
-            Back
-          </div>
         )}
 
         {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (
