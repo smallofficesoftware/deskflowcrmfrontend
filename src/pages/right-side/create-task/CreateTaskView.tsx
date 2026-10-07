@@ -19,6 +19,7 @@ import {
 } from "../../../common/SharedFunction";
 import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
+import SerialProductFields from "../../../components/SerialProductFields";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import MultiSelect from "../../../components/MultiSelect";
 import {
@@ -518,6 +519,12 @@ const CreateTaskView = ({
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     try {
+      if (values.is_serial_required && !String(values.serial_number || "").trim()) {
+        setFieldError("serial_number", "Serial number is required for this product");
+        toast.error("Serial number is required for this product");
+        setSubmitting(false);
+        return;
+      }
       for (const item of customFormList) {
         if (item.form_type !== 14 && item.form_type !== 15) continue;
 
@@ -1397,6 +1404,7 @@ const CreateTaskView = ({
                                     />
                                   </div>
                                 </div>
+                                <SerialProductFields requiredOnSave={false} />
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">
                                     <label
