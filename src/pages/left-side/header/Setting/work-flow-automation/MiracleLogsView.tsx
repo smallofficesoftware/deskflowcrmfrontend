@@ -276,7 +276,7 @@ const MiracleLogsView = ({ show, onHide }: IPropsMiracleLogs) => {
               style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input type="text" placeholder="Search URL, module, error…" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder="Search URL, module, error, payload / UniqueId…" value={search} onChange={(e) => setSearch(e.target.value)}
               style={{ width: "100%", paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem", color: "#374151" }} />
           </div>
           <button onClick={() => fetchLogs(1)}

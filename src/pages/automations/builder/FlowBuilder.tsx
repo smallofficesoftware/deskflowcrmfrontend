@@ -45,6 +45,7 @@ const toRFNode = (n: IFlowNode, def?: ICatalog["nodes"][number]): Node<IBuilderN
   id: n.id,
   type: n.type,
   position: n.position || { x: 250, y: 250 },
+  deletable: n.type !== "trigger",
   data: {
     nodeType: n.type,
     label: n.type === "trigger" ? "Trigger" : def?.label || n.type,
@@ -123,6 +124,7 @@ const FlowBuilderInner = ({ flowId }: IProps) => {
               id: TRIGGER_ID,
               type: "trigger",
               position: { x: 250, y: 60 },
+              deletable: false,
               data: { nodeType: "trigger", label: "Trigger", group: "Start", parameters: {} },
             },
           ]);
@@ -314,6 +316,7 @@ const FlowBuilderInner = ({ flowId }: IProps) => {
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
+            deleteKeyCode={["Backspace", "Delete"]}
             nodeTypes={{ trigger: GenericNode, ...Object.fromEntries(catalog.nodes.map((n) => [n.type, GenericNode])) }}
             fitView
           >
