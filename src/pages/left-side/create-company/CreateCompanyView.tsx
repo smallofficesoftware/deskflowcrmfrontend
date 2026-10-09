@@ -6289,6 +6289,19 @@ const CreateCompanyView = ({
                                               setisStrictCheckProductStock(
                                                 value,
                                               );
+
+                                              // Warehouse wise only means something
+                                              // while the strict check is on, so
+                                              // turning that off turns this off too.
+                                              if (value !== 2) {
+                                                setFieldValue(
+                                                  "is_strict_wharehouse_wise_product_stock_check",
+                                                  1,
+                                                );
+                                                setisStrictCheckWareHouseWiseProductStock(
+                                                  1,
+                                                );
+                                              }
                                             }}
                                           />
                                         </div>
@@ -6302,6 +6315,11 @@ const CreateCompanyView = ({
                                             type="checkbox"
                                             name="is_strict_wharehouse_wise_product_stock_check"
                                             className="form-check-input"
+                                            disabled={
+                                              Number(
+                                                values.is_strict_check_product_stock,
+                                              ) !== 2
+                                            }
                                             checked={
                                               Number(
                                                 values.is_strict_wharehouse_wise_product_stock_check,
