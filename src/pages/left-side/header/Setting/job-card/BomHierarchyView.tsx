@@ -38,7 +38,7 @@ const KIND = {
   raw: { accent: "#10b981", soft: "#ecfdf5", label: "Raw material" },
 } as const;
 
-const CSS = `
+export const CSS = `
 .bh-tree, .bh-tree ul { display: flex; justify-content: center; margin: 0; padding: 0; list-style: none; }
 .bh-tree ul { padding-top: 26px; position: relative; }
 .bh-tree li { position: relative; display: flex; flex-direction: column; align-items: center; padding: 26px 8px 0; }

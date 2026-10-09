@@ -496,6 +496,35 @@ export type SubJobCardQtyBasis =
   | "available"
   | "available_minus_reserved";
 
+export interface ISubJobCardTreeNode {
+  job_id: number;
+  is_current: boolean; // the job card being viewed
+  product_name: string;
+  product_code: string;
+  unit: string;
+  qty: number;
+  produced_qty: number;
+  pending_qty: number;
+  is_done: boolean;
+  children: ISubJobCardTreeNode[];
+}
+
+// The sub job card tree this job card belongs to (top card + all sub cards).
+export const fetchSubJobCardTree = async (
+  jobCardId: number,
+): Promise<ISubJobCardTreeNode | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/tree", {
+      a_application_login_id: uuid(),
+      id: jobCardId,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) return data.data?.tree || null;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 export interface IPlannedSubJobCard {
   product_id: number;
   product_name: string;

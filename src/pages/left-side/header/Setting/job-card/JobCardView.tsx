@@ -4,6 +4,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
+import { ENABLE_CREATE_ALL_SUB_JOB_CARDS } from "../../../../../helpers/AppConstants";
 import {
   fetchJobCardDetail,
   saveJobCard,
@@ -24,6 +25,7 @@ import {
 import ItemDetailSection from "./sections/ItemDetailSection";
 import ItemSelectSection from "./sections/ItemSelectSection";
 import RequiredMaterialSection from "./sections/RequiredMaterialSection";
+import SubJobCardTree from "./sections/SubJobCardTree";
 
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -95,7 +97,8 @@ const JobCardView = ({
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
-  const [createAllSubs, setCreateAllSubs] = useState(true);
+  // Only ever true when the build enables the feature (see AppConstants).
+  const [createAllSubs, setCreateAllSubs] = useState(ENABLE_CREATE_ALL_SUB_JOB_CARDS);
   const [confirmPlan, setConfirmPlan] = useState<IPlannedSubJobCard[] | null>(null);
   const [qtyBasis, setQtyBasis] = useState<SubJobCardQtyBasis>("available_minus_reserved");
 
@@ -577,7 +580,7 @@ const JobCardView = ({
               </div>
             </div>
           )}
-          {activeTab === "select" && !isEditMode && (
+          {ENABLE_CREATE_ALL_SUB_JOB_CARDS && activeTab === "select" && !isEditMode && (
             <label
               className="d-flex align-items-center gap-2 mt-3"
               style={{ fontSize: "0.82rem", maxWidth: 560, margin: "0 auto" }}
@@ -713,6 +716,12 @@ const JobCardView = ({
                 printing={printing}
                 onPrintBom={handlePrintBom}
               />
+              {(jobCardId ?? editJobCardId) ? (
+                <SubJobCardTree
+                  jobCardId={(jobCardId ?? editJobCardId) as number}
+                  refreshKey={bomProcesses}
+                />
+              ) : null}
               <div
                 className="d-flex align-items-center gap-2 mb-2"
                 style={{ fontSize: "0.72rem", fontWeight: 700, color: "#6b7280", letterSpacing: "0.05em" }}
