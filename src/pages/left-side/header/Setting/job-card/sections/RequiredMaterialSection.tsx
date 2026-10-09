@@ -271,7 +271,11 @@ const MaterialTable = ({
                       onGeneratePO(m.material_id, m.material_name)
                     }
                     onGenerateSubJobCard={
-                      m.has_own_bom
+                      // Hide when nothing is pending, or an open sub job
+                      // card for this parent is already producing it.
+                      m.has_own_bom &&
+                      pendingOf(m) > 0 &&
+                      !(m.incoming_by || []).some((r) => r.is_sub_job_card)
                         ? () =>
                             onGenerateSubJobCard(
                               m.material_id,
@@ -458,7 +462,7 @@ const RequiredMaterialSection = ({
   onGeneratePO,
   onGenerateSubJobCard,
 }: IProps) => {
-  const [deductReserved, setDeductReserved] = useState(false);
+  const [deductReserved, setDeductReserved] = useState(true);
 
   if (loading) {
     return (

@@ -7,6 +7,10 @@ import { useEscapeKey } from "../../../../../common/SharedFunction";
 import {
   fetchJobCardDetail,
   saveJobCard,
+  createAllSubJobCards,
+  IPlannedSubJobCard,
+  previewSubJobCards,
+  SubJobCardQtyBasis,
   updateJobCard,
 } from "./JobCardController";
 import {
@@ -91,6 +95,9 @@ const JobCardView = ({
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
+  const [createAllSubs, setCreateAllSubs] = useState(true);
+  const [confirmPlan, setConfirmPlan] = useState<IPlannedSubJobCard[] | null>(null);
+  const [qtyBasis, setQtyBasis] = useState<SubJobCardQtyBasis>("available_minus_reserved");
 
   useEscapeKey(onHide);
 
@@ -157,6 +164,8 @@ const JobCardView = ({
 
   // ── Load job card (save first, then fetch details) ──
 
+  // Asks for confirmation first when sub job cards would also be created,
+  // listing them; with none to create (or the box unticked) it just creates.
   const handleLoad = async () => {
     if (!productQty || Number(productQty) <= 0) return;
 
@@ -165,6 +174,43 @@ const JobCardView = ({
     if (!itemId) return;
     if (mode === "order" && (!selectedCustomer || !selectedOrder)) return;
     if (mode === "customer" && !selectedCustomer) return;
+
+    if (createAllSubs) {
+      const planned = await loadPreview(qtyBasis);
+      if (planned === null) return;
+      if (planned.length > 0) {
+        setConfirmPlan(planned);
+        return;
+      }
+    }
+    await createJobCard();
+  };
+
+  // Sub job cards this job card would create, for a qty basis (nothing is
+  // created); also used when the basis is changed inside the confirmation.
+  const loadPreview = async (basis: SubJobCardQtyBasis) => {
+    const itemId = mode === "order" ? selectedOrderItem : selectedProduct;
+    if (!itemId) return null;
+    setSaving(true);
+    const planned = await previewSubJobCards(
+      JOB_CARD_TYPE[mode],
+      itemId,
+      Number(productQty),
+      basis,
+    );
+    setSaving(false);
+    return planned;
+  };
+
+  const handleBasisChange = async (basis: SubJobCardQtyBasis) => {
+    setQtyBasis(basis);
+    const planned = await loadPreview(basis);
+    if (planned) setConfirmPlan(planned);
+  };
+
+  const createJobCard = async () => {
+    const itemId = mode === "order" ? selectedOrderItem : selectedProduct;
+    if (!itemId) return;
 
     const createdId = await saveJobCard(
       JOB_CARD_TYPE[mode],
@@ -175,6 +221,14 @@ const JobCardView = ({
       setSaving,
     );
     if (!createdId) return;
+
+    // Make every sub job card under it too (same chain as "Generate Sub Job
+    // Card", for all levels at once), before the list and details load.
+    if (createAllSubs) {
+      setSaving(true);
+      await createAllSubJobCards(createdId, qtyBasis);
+      setSaving(false);
+    }
 
     // Job card row now exists — refresh the list behind the modal.
     onComplete?.();
@@ -234,7 +288,8 @@ const JobCardView = ({
   ) => {
     const parentId = jobCardId ?? editJobCardId ?? null;
     if (onGenerateSubJobCardProp && parentId) {
-      onHide();
+      // Parent closes this view itself once the sub job card is created, so
+      // a failed create leaves the user where they are.
       onGenerateSubJobCardProp(id, name, parentId, pendingQty);
     }
   };
@@ -428,6 +483,112 @@ const JobCardView = ({
               onProductQtyChange={setProductQty}
               onLoad={handleLoad}
             />
+          )}
+          {confirmPlan && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 1200,
+                background: "rgba(0,0,0,0.45)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={() => setConfirmPlan(null)}
+            >
+              <div
+                className="bg-white rounded-3 p-4"
+                style={{ width: 720, maxWidth: "94vw", maxHeight: "85vh", overflowY: "auto" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h6 className="mb-2">Create job card with sub job cards?</h6>
+                <div className="mb-2" style={{ fontSize: "0.8rem" }}>
+                  <div className="fw-semibold mb-1">Sub job card qty is based on</div>
+                  {(
+                    [
+                      ["available_minus_reserved", "Available - reserved by other open job cards (default)"],
+                      ["available", "Available stock"],
+                      ["required", "Required qty (ignore stock)"],
+                    ] as [SubJobCardQtyBasis, string][]
+                  ).map(([value, label]) => (
+                    <label key={value} className="d-flex align-items-center gap-2 mb-1" style={{ cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="subJobQtyBasis"
+                        checked={qtyBasis === value}
+                        disabled={saving}
+                        onChange={() => handleBasisChange(value)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <p className="mb-2" style={{ fontSize: "0.82rem" }}>
+                  This creates 1 job card and {confirmPlan.filter((p) => !p.covered).length} sub job card
+                  {confirmPlan.filter((p) => !p.covered).length === 1 ? "" : "s"}:
+                </p>
+                <table className="table table-sm table-bordered mb-0" style={{ fontSize: "0.78rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8f9fa" }}>
+                      <th>Product</th>
+                      <th className="text-end">Required</th>
+                      <th className="text-end">Available</th>
+                      <th className="text-end">Reserved</th>
+                      <th className="text-end">To make</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confirmPlan.map((p, i) => {
+                      const u = p.unit ? ` ${p.unit}` : "";
+                      const n = (v: number) => Number(v.toFixed(2));
+                      return (
+                        <tr key={i} style={p.covered ? { color: "#6b7280" } : undefined}>
+                          <td style={{ paddingLeft: 8 + (p.level - 1) * 14 }}>{p.product_name}</td>
+                          <td className="text-end">{n(p.required_qty)}{u}</td>
+                          <td className="text-end">{n(p.available_qty)}</td>
+                          <td className="text-end">{n(p.reserved_qty)}</td>
+                          <td className="text-end fw-semibold">
+                            {p.covered ? (
+                              <span style={{ color: "#15803d" }}>covered by stock</span>
+                            ) : (
+                              `${n(p.qty)}${u}`
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="d-flex justify-content-end gap-2 mt-3">
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => setConfirmPlan(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-sm btn-success"
+                    onClick={() => {
+                      setConfirmPlan(null);
+                      createJobCard();
+                    }}
+                  >
+                    Create all
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === "select" && !isEditMode && (
+            <label
+              className="d-flex align-items-center gap-2 mt-3"
+              style={{ fontSize: "0.82rem", maxWidth: 560, margin: "0 auto" }}
+            >
+              <input
+                type="checkbox"
+                checked={createAllSubs}
+                onChange={(e) => setCreateAllSubs(e.target.checked)}
+              />
+              Also create all sub job cards (every level of the BOM)
+            </label>
           )}
 
           {/* ── SELECT TAB (edit mode) — show job card summary + editable qty ── */}

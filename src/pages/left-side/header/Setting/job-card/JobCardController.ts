@@ -460,6 +460,79 @@ export const createSubJobCard = async (
   }
 };
 
+// Creates the whole sub job card tree under a job card: every material that is
+// ticked "requires sub job card" and has its own BOM, level by level.
+// Returns how many were created (0 if none were needed), or null on failure.
+export const createAllSubJobCards = async (
+  parentJobCardId: number,
+  qtyBasis: SubJobCardQtyBasis = "available_minus_reserved",
+): Promise<number | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/create-all", {
+      a_application_login_id: uuid(),
+      parent_job_card_id: parentJobCardId,
+      qty_basis: qtyBasis,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      const count = data.data?.created?.length || 0;
+      if (count) toast.success(data.ack_msg || `${count} sub job cards created.`);
+      return count;
+    }
+    toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  }
+};
+
+// How much each sub job card produces:
+//  required                 - the full qty the parent needs
+//  available                - required minus the stock on hand
+//  available_minus_reserved - required minus (stock - what other open job
+//                             cards still need); the default
+export type SubJobCardQtyBasis =
+  | "required"
+  | "available"
+  | "available_minus_reserved";
+
+export interface IPlannedSubJobCard {
+  product_id: number;
+  product_name: string;
+  unit: string;
+  qty: number; // qty the sub job card would produce (0 when covered)
+  level: number;
+  required_qty: number;
+  available_qty: number;
+  reserved_qty: number;
+  covered: boolean; // stock covers it, so no sub job card is made
+}
+
+// Which sub job cards creating this job card would make (nothing is created).
+export const previewSubJobCards = async (
+  jobCardType: number,
+  itemId: number,
+  productQty: number,
+  qtyBasis: SubJobCardQtyBasis = "available_minus_reserved",
+): Promise<IPlannedSubJobCard[] | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/create-all", {
+      a_application_login_id: uuid(),
+      preview: true,
+      job_card_type: jobCardType,
+      item_id: itemId,
+      product_qty: productQty,
+      qty_basis: qtyBasis,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) return data.data?.planned || [];
+    toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  }
+};
+
 // ─── BOM Print ────────────────────────────────────────────────────────────────
 
 export const printBomDetail = async (orderItemId: number): Promise<boolean> => {
