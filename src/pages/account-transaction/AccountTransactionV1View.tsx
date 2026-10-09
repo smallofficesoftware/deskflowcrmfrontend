@@ -167,10 +167,19 @@ const AccountTransactionV1 = () => {
         }
         return { ...tx, balance: running };
     });
-    const fromDate = rowsWithBalance.length > 0
-        ? fmtTitleDate(rowsWithBalance[0].s_timestemp || rowsWithBalance[0].payment_date_time)
-        : "";
-    const toDate = fmtTitleDate(new Date().toISOString());
+    // The header shows the period that was searched (startDate/endDate in the
+    // link, YYYY-MM-DD). Only without a range does it fall back to the first
+    // entry's date and today.
+    const fmtRangeDate = (d?: string) => {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || "");
+        return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+    };
+    const fromDate =
+        fmtRangeDate(startDate) ||
+        (rowsWithBalance.length > 0
+            ? fmtTitleDate(rowsWithBalance[0].s_timestemp || rowsWithBalance[0].payment_date_time)
+            : "");
+    const toDate = fmtRangeDate(endDate) || fmtTitleDate(new Date().toISOString());
     if (loading) return <p className="text-center">Loading...</p>;
 
     const openPrintSetting = () => {
@@ -341,12 +350,10 @@ td, th {
                             </tr>
                         </thead>
                         <tbody className="table-data">
-                            {startDate && (
-                                <tr style={{ background: "#f8f9fa" }}>
-                                    <td colSpan={5}><strong>Opening Balance</strong></td>
-                                    <td className="text-end"><strong>{formatBalance(openingBalance, currencySymbol)}</strong></td>
-                                </tr>
-                            )}
+                            <tr style={{ background: "#f8f9fa" }}>
+                                <td colSpan={5}><strong>Opening Balance</strong></td>
+                                <td className="text-end"><strong>{formatBalance(openingBalance, currencySymbol)}</strong></td>
+                            </tr>
                             {rowsWithBalance.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="text-center py-3">No transactions found</td>
