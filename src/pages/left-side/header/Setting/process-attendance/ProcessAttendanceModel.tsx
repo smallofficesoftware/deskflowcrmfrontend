@@ -8,14 +8,18 @@ import {
   runProcessSubStep,
 } from "./ProcessAttendanceController";
 import {
-  FIRST_OF_MONTH,
   formatDate,
   INITIAL_SUB_STEPS,
-  ISO_TODAY,
   ISubStep,
   sameMonth,
   Step,
 } from "./Processattendancetypes";
+import {
+  clampToLastProcessable,
+  getDefaultFromDate,
+  getYesterdayIso,
+  TODAY_NOT_ALLOWED_MESSAGE,
+} from "./processAttendanceDates";
 import Step1DateRange from "./steps/Step1daterange";
 import Step2MisPunch from "./steps/Step2mispunch";
 import Step3Processing from "./steps/Step3employeelist";
@@ -58,8 +62,8 @@ const ProcessAttendanceModel = ({
   const [step, setStep] = useState<Step>(1);
 
   // ── Step 1 ──
-  const [fromDate, setFromDate] = useState(FIRST_OF_MONTH);
-  const [toDate, setToDate] = useState(ISO_TODAY);
+  const [fromDate, setFromDate] = useState(getDefaultFromDate());
+  const [toDate, setToDate] = useState(getYesterdayIso());
   const [dateError, setDateError] = useState("");
 
   // ── Step 2 ──
@@ -81,7 +85,8 @@ const ProcessAttendanceModel = ({
     );
 
     setFromDate(formatDateForInput(firstDate));
-    setToDate(formatDateForInput(lastDate));
+    // The month's last day is today or later for the current month: stop at yesterday.
+    setToDate(clampToLastProcessable(formatDateForInput(lastDate)));
   }, [selectedMonth, selectedYear, show]);
 
   // Reset on open
@@ -103,6 +108,10 @@ const ProcessAttendanceModel = ({
   const validateDates = () => {
     if (!fromDate || !toDate) {
       setDateError("Both dates are required.");
+      return false;
+    }
+    if (fromDate > getYesterdayIso() || toDate > getYesterdayIso()) {
+      setDateError(TODAY_NOT_ALLOWED_MESSAGE);
       return false;
     }
     if (!sameMonth(fromDate, toDate)) {

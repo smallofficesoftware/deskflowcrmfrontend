@@ -14,6 +14,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -122,6 +123,7 @@ const TeamSalesOrderDataReportsView = ({
     useState<string>("");
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(50);
   const [actionType, setActionType] = useState<string>("");
@@ -304,7 +306,10 @@ const TeamSalesOrderDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadOrders = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
 
@@ -330,6 +335,7 @@ const TeamSalesOrderDataReportsView = ({
       setTotalRecords(data?.total || 0);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -337,6 +343,7 @@ const TeamSalesOrderDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadOrders);
 
   const handleRefresh = async () => {
     setPage(0);
@@ -1122,6 +1129,8 @@ const TeamSalesOrderDataReportsView = ({
             scrollable
             scrollHeight="80vh"
             paginator
+            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Total Records: {totalRecords}"
             lazy
             first={page * rows}
             rows={rows}

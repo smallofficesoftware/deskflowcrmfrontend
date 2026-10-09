@@ -93,6 +93,7 @@ const snapshotOf = (fields: IFormBuilderField[], form: IFormBuilderForm | null) 
     title: form?.title || "",
     description: form?.description || "",
     related_module: form?.related_module || null,
+    category: form?.category || null,
     restrict: form?.restrict_to_assigned_team ? 1 : 0,
     settings: form?.settings_json || null,
   });
@@ -210,6 +211,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
         title: f.title,
         description: f.description,
         related_module: f.related_module,
+        category: f.category ?? null,
         restrict_to_assigned_team: f.restrict_to_assigned_team,
         schema_json: flds,
         settings: f.settings_json ? parseSettings(f.settings_json) : null,

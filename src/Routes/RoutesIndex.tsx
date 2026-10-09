@@ -309,6 +309,10 @@ const RoutesIndex = () => {
               path="/Reports/:MobileToken/:getID/:MobileFlag"
               element={<NewReportModel />}
             />
+            <Route
+              path="/Reports/:MobileToken/:getID/:MobileFlag/:slug"
+              element={<NewReportModel />}
+            />
             {/* <Route path="/ContactLocations/:MobileToken/:getID/:MobileFlag" element={<ContactLocationModel />} />
             <Route path="/ContactLocations" element={<ContactLocationModel />} /> */}
             {/* <Route path="/fullScreenReport" element={<TeamPerformanceReports/>}></Route> */}

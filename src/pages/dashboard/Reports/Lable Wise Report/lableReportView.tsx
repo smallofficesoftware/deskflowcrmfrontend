@@ -737,6 +737,8 @@ const AlllableReport = ({
           scrollable
           scrollHeight="65vh"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           rows={lazyState.rows}
           first={lazyState.first}
           onPage={onPage}

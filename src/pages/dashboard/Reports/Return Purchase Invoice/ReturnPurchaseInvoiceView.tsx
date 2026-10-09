@@ -16,6 +16,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -146,6 +147,7 @@ const TeamReturnPurchaseDataReportsView = ({
 
   const dt = useRef<DataTable<any[]>>(null);
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(100);
   const [showProductDetails, setShowProductDetails] = useState(false);
@@ -471,7 +473,10 @@ const TeamReturnPurchaseDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadInvoices = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -503,6 +508,7 @@ const TeamReturnPurchaseDataReportsView = ({
       setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -510,6 +516,7 @@ const TeamReturnPurchaseDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadInvoices);
 
   const handleRefresh = async () => {
     setPage(0);
@@ -1703,6 +1710,8 @@ const TeamReturnPurchaseDataReportsView = ({
               scrollable
               scrollHeight="flex"
               paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
               lazy
               first={page * rows}
               rows={rows}

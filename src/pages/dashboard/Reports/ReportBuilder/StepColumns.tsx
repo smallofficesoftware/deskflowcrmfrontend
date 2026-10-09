@@ -121,7 +121,7 @@ const StepColumns: React.FC<StepColumnsProps> = ({ selectedModel, metrics, advan
     return <p className="text-muted" style={{ fontSize: 13 }}>Pick a data source on Step 1 first.</p>;
   }
 
-  const baseColumns = selectedModel.columns.filter((col) => matchesSearch(col.label));
+  const baseColumns = selectedModel.columns.filter((col) => !col.filterOnly && matchesSearch(col.label));
   const basePickedCount = selectedModel.columns.filter((col) => store.columns.some((c) => c.column === col.key)).length;
 
   return (

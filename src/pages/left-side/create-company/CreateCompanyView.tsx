@@ -24,6 +24,7 @@ import {
 import ContactInsertApiDoc from "../../../components/company/ContactInsertApiDoc";
 import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
+import AccountTransactionCartSettings from "../new-create-company/AccountTransactionCartSettings";
 import ImageCropperToolModel from "../../../components/model/ImageCroperToolModel";
 import OtpConfirmationModal from "../../../components/model/OtpConfirmationModal";
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
@@ -6174,6 +6175,9 @@ const CreateCompanyView = ({
                                             }}
                                           />
                                         </div>
+                                        <AccountTransactionCartSettings
+                                          companyId={companyToEdit?.id}
+                                        />
                                         <div className="form-check form-switch">
                                           <label htmlFor="view_inquiry_form_in_contact">
                                             Display Inquiry Form in Contact

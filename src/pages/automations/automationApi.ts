@@ -38,6 +38,21 @@ export const createFromTemplate = (key: string) => post<{ item?: { id: number; v
 
 export const getCatalog = () => post<{ item: ICatalog }>("catalog");
 export const getUsage = () => post<{ item: IUsage }>("usage");
+export interface IRecordField {
+  path: string;
+  label: string;
+  type?: string;
+  custom?: boolean;
+  // Reference only (a key inside each array item), not a copyable variable.
+  info?: boolean;
+}
+export interface IRecordFieldGroup {
+  key: string;
+  label: string;
+  fields: IRecordField[];
+}
+export const getRecordFields = (record_type: string) =>
+  post<{ item: { record_type: string; groups: IRecordFieldGroup[] } }>("record-fields", { record_type });
 
 export const listFlows = () => post<{ item: IFlowSummary[] }>("flows/list");
 export const getFlow = (id: number) => post<{ item: IFlowDetail }>("flows/get", { id });

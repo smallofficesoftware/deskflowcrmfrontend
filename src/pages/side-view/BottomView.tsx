@@ -12,6 +12,7 @@ import AccountDebitReport from "../dashboard/Reports/Account Debit Report/Accoun
 import AccountOutstandingReports from "../dashboard/Reports/Account Outstanding/AccountOutstandingReportsVIew";
 import AdjustmentTypeGridView from "../dashboard/Reports/Adjustment Type Grid View/AdjustmentTypeGridView";
 import AllAccountReports from "../dashboard/Reports/All Account Report/AllAccountReportsVIew";
+import CartPaymentReportView from "../dashboard/Reports/Cart Payment Report/CartPaymentReportView";
 import AllAreasReport from "../dashboard/Reports/All Areas Report/AllAreasReport";
 import AllCallReportsView from "../dashboard/Reports/All Call Report/AllCallReportView";
 import AllCitiesReport from "../dashboard/Reports/All Cities Report/AllCitiesReport";
@@ -114,7 +115,6 @@ const BottomView = ({
   setAppliedReportType,
   onReportClick,
   isEmbed,
-  onEmbedBack,
   formSubmissionsDeepLinkId,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
@@ -278,33 +278,6 @@ const BottomView = ({
 
         {activeView === "forms_home" && (
           <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} />
-        )}
-
-        {isEmbed && appliedReportType && (
-          <div
-            onClick={onEmbedBack}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              cursor: "pointer",
-              width: "fit-content",
-              marginBottom: "10px",
-              fontWeight: 600,
-              color: "rgb(245, 134, 52)",
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="20px"
-              viewBox="0 -960 960 960"
-              width="20px"
-              fill="rgb(245, 134, 52)"
-            >
-              <path d="M400-80 0-480l400-400 71 71-329 329 329 329-71 71Z" />
-            </svg>
-            Back
-          </div>
         )}
 
         {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (
@@ -544,6 +517,9 @@ const BottomView = ({
         )}
         {appliedReportType === "allaccount_report" && (
           <AllAccountReports MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
+        )}
+        {appliedReportType === "cart_payment_report" && (
+          <CartPaymentReportView MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "account_credit_report" && (
           <AccountCreaditReport MobileFlag={isEmbed ? "1" : undefined} credit_debit_flag={1} onHide={handleonHide} />

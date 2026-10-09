@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { axiosInstance } from "../../../../services/axiosInstance";
 import "./SalarySlip.css";
 import { useCompanyStore } from "../../../../store/company/useCompanyStore";
+import SalarySlipToolbar from "./SalarySlipToolbar";
 // TODO: point this at your real axiosInstance file/path.
 
 /* ----------------------------- Types ----------------------------- */
@@ -185,6 +186,8 @@ interface SalaryDetailApiRow {
 
 interface SalaryDetailApiResponse {
   salary: Record<string, SalaryDetailApiRow>; // keyed by employee id
+  /** Company signature as an embedded data URL, null when none is set */
+  company_sign?: string | null;
 }
 
 /** ASSUMED endpoint/shape - adjust the URL + response.data mapping once
@@ -286,12 +289,14 @@ interface SingleSalaryTableProps {
   monthYear: string;
   record: SalarySlipRecord;
   companyInfo: any;
+  companySign?: string | null;
 }
 
 const SingleEmployeeSalaryTable: React.FC<SingleSalaryTableProps> = ({
   monthYear,
   record,
   companyInfo,
+  companySign,
 }) => {
   // Earnings column, in display order. "overtime" is the only conditional one here.
   const earningItems: LineItem[] = [
@@ -474,7 +479,15 @@ const SingleEmployeeSalaryTable: React.FC<SingleSalaryTableProps> = ({
           </tr>
           <tr>
             <td className="signSpaceCell" colSpan={2}></td>
-            <td className="signSpaceCell" colSpan={2}></td>
+            <td className="signSpaceCell" colSpan={2} style={{ textAlign: "center" }}>
+              {companySign && (
+                <img
+                  src={companySign}
+                  alt="Employer's signature"
+                  style={{ maxHeight: 44, maxWidth: "100%", objectFit: "contain" }}
+                />
+              )}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -517,6 +530,7 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
   const resolvedMonthYear = monthYear ?? formatFullMonthYear(month, year);
 
   const [fetchedRows, setFetchedRows] = useState<SalarySlipRecord[]>([]);
+  const [companySign, setCompanySign] = useState<string | null>(null);
   const [loading, setLoading] = useState(!usingExplicitData);
   const [error, setError] = useState<string | null>(null);
 
@@ -551,7 +565,10 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
           ),
         );
 
-        if (!cancelled) setFetchedRows(rows);
+        if (!cancelled) {
+          setFetchedRows(rows);
+          setCompanySign(salaryDetail.company_sign ?? null);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -618,6 +635,10 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
                 `}
       </style>
 
+      {rows.length > 0 && (
+        <SalarySlipToolbar employeeIds={employeeIds} month={month} year={year} />
+      )}
+
       {rows.length > 0 ? (
         rows.map((record, index) => (
           <div
@@ -640,6 +661,7 @@ const SalaryRegisterMonthlySlip: React.FC<SalarySlipTableProps> = ({
               monthYear={resolvedMonthYear}
               record={record}
               companyInfo={companyInfo}
+              companySign={companySign}
             />
           </div>
         ))

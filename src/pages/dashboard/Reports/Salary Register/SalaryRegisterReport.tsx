@@ -26,6 +26,7 @@ import {
   useColumnPreferences,
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
+import { downloadSalarySlipPdfFromServer } from "./salarySlipServerPdf";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
   fetchSalaryRegister,
@@ -919,6 +920,27 @@ const SalaryRegisterReport = ({
     const myWindow = window.open(supportURL, "_blank");
   };
 
+  const [downloadingSlipPdf, setDownloadingSlipPdf] = useState(false);
+
+  // Salary slip PDF for the ticked employees, downloaded without leaving the report.
+  const handleDownloadSalarySlipPdf = async () => {
+    if (downloadingSlipPdf) return;
+    setDownloadingSlipPdf(true);
+    const loadingToast = toast.loading("Preparing salary slip PDF...");
+    try {
+      const result = await downloadSalarySlipPdfFromServer(
+        selectedSalariesIds,
+        effectiveMonthYear.month,
+        effectiveMonthYear.year,
+      );
+      toast.dismiss(loadingToast);
+      if (result.ok) toast.success("Salary slip PDF downloaded.");
+      else toast.error(result.message || "Failed to download the salary slip PDF.");
+    } finally {
+      setDownloadingSlipPdf(false);
+    }
+  };
+
   if (error) {
     return (
       <div>
@@ -1139,6 +1161,25 @@ const SalaryRegisterReport = ({
                 <i className="pi pi-print" style={{ marginRight: "4px" }} />
                 Salary Register Slip
               </li>
+              <li
+                className="listItem text-start"
+                role="button"
+                onClick={() => {
+                  setIsExportDropdownOpen(false);
+
+                  if (salaries.length === 0) return;
+
+                  if (selectedSalariesIds.length <= 0) {
+                    toast.info("Please Select Salaries To Download Salary Slip PDF.");
+                    return;
+                  }
+
+                  handleDownloadSalarySlipPdf();
+                }}
+              >
+                <i className="pi pi-file-pdf" style={{ marginRight: "4px" }} />
+                {downloadingSlipPdf ? "Preparing PDF..." : "Salary Slip PDF"}
+              </li>
             </ul>
               </>
             )}
@@ -1197,6 +1238,8 @@ const SalaryRegisterReport = ({
           filterDisplay="row"
           dataKey="id"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           first={lazyState.first}
           rows={lazyState.rows}
           onPage={onPageChange}

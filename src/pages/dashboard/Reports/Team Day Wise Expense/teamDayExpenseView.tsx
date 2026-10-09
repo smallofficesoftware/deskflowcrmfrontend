@@ -12,6 +12,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
@@ -135,6 +136,7 @@ const AllTeamExpense = ({
   const [refreshReport, setRefreshReport] = useState(false);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[]>();
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [selectReportType, setSelectReportType] = useState("");
@@ -440,7 +442,10 @@ const AllTeamExpense = ({
   // `dataArray` client-side (PrimeReact's own non-lazy paginator) instead
   // of re-fetching an identical response per page.
   const loadExpenseData = async () => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer();
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -461,11 +466,13 @@ const AllTeamExpense = ({
       setSourceReport(newData);
     } catch (e) {
       console.error(e);
+      queuedLoad.runQueued();
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadExpenseData);
 
   const handleRefresh = async () => {
     loadExpenseData();
@@ -988,6 +995,8 @@ const AllTeamExpense = ({
           filterDisplay="row"
           dataKey="username"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           rows={50}
           rowsPerPageOptions={[25, 50, 100, 200]}
           onSort={onSort}

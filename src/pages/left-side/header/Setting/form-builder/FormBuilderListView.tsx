@@ -1,6 +1,6 @@
 import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, listTemplates, IFormBuilderForm, IStarterTemplate, ICompanyTemplate, TemplateChoice } from "./FormBuilderController";
 import FormBuilderEditorView from "./FormBuilderEditorView";
@@ -28,6 +28,7 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
   // Also supports /SideView?view=forms&submissions_form_id=<id> (Submit
   // Form menu items and similar navigate here directly with a query param).
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryDeepLinkFormId = searchParams.get("submissions_form_id");
   const initialSubmissionsId = deepLinkFormId ?? (queryDeepLinkFormId ? Number(queryDeepLinkFormId) : null);
 
@@ -168,7 +169,7 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
     return <FormSchedulesView formId={schedulingId} formTitle={forms.find((f) => f.id === schedulingId)?.title || "Form"} onClose={() => setSchedulingId(null)} />;
   }
   if (viewingSubmissionsId != null) {
-    return <FormSubmissionsListView formId={viewingSubmissionsId} onClose={() => setViewingSubmissionsId(null)} />;
+    return <FormSubmissionsListView formId={viewingSubmissionsId} onClose={() => { setViewingSubmissionsId(null); navigate("/SideView/report/custom_forms"); }} />;
   }
 
   return (
@@ -277,9 +278,11 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
                 <button className="btn btn-sm fb-btn-outline-primary me-1" onClick={() => setEditingId(f.id)}>
                   Edit
                 </button>
-                <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => setViewingSubmissionsId(f.id)}>
-                  Submissions
-                </button>
+                {f.published_schema_json ? (
+                  <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => navigate(`/SideView/report/form_submissions_${f.id}`)}>
+                    Submissions
+                  </button>
+                ) : null}
                 {f.published_schema_json ? (
                   <>
                     <button className="btn btn-sm btn-outline-secondary me-1" title="Bring in old records from an Excel sheet" onClick={() => setImportingId(f.id)}>

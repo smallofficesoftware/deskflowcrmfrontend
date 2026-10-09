@@ -12,6 +12,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
@@ -88,6 +89,7 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
   const dt = useRef<DataTable<ITargetIncentiveItem[]>>(null);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(50);
 
@@ -187,7 +189,10 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
 
   const loadData = async (offset: number, limit: number) => {
     if (!canViewReport) return;
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -210,8 +215,10 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
+      queuedLoad.runQueued();
     }
   };
+  queuedLoad.setRunner(loadData);
 
   const handleRefresh = async () => {
     setPage(0);
@@ -772,6 +779,8 @@ const TargetIncentiveReport: React.FC<ITargetIncentiveReportProps> = ({
           scrollable
           scrollHeight="65vh"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={page * rows}
           rows={rows}

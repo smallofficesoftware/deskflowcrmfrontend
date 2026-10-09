@@ -11,6 +11,7 @@ import {
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
@@ -235,6 +236,7 @@ const TeamPerformanceReports = ({
   const [error, setError] = useState<string | null>(null);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[]>();
 
   const canShare = useCheckUserPermission(
     PAGE_ID.TEAMPERFORMANCE_REPORT,
@@ -415,7 +417,10 @@ const TeamPerformanceReports = ({
   // instead of a hand-rolled filter/sort pass re-fetching an identical
   // response per page.
   const loadTeamPerformance = async () => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer();
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -435,11 +440,13 @@ const TeamPerformanceReports = ({
       );
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadTeamPerformance);
 
   const handleRefresh = async () => {
     loadTeamPerformance();
@@ -1226,6 +1233,8 @@ const TeamPerformanceReports = ({
           filterDisplay="row"
           dataKey="username"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           rows={50}
           rowsPerPageOptions={[25, 50, 100, 200]}
           scrollHeight="80vh"

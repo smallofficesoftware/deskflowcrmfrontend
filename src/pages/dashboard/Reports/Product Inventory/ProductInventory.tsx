@@ -916,6 +916,8 @@ const ProductInventoryReport = ({
           scrollHeight="flex"
           loading={loading}
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={lazyState.first}
           rows={lazyState.rows}

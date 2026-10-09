@@ -7,6 +7,7 @@ import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDr
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
 import { DOCUMENT_DESIGNER_FEATURE_KEYS } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
+import AccountTransactionCartSettings from "./AccountTransactionCartSettings";
 import {
   createCompany,
   fetchCountryApiForCompany,
@@ -385,6 +386,7 @@ const NewModuleSettings = ({
                         </div>
                       ))}
                     </div>
+                    <AccountTransactionCartSettings companyId={companyToEdit?.id} />
                     <div className="form-check form-switch">
                       <label htmlFor="view_inquiry_form_in_contact">
                         Display Inquiry Form in Contact Creation

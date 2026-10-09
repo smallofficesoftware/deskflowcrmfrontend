@@ -145,6 +145,9 @@ const AllcontactReport = ({
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const [isModalExcelVisible, setIsModalExcelVisible] =
     useState<boolean>(false);
+  // "Import Updated Data": update existing contacts from an edited sheet.
+  const [isModalExcelUpdateVisible, setIsModalExcelUpdateVisible] =
+    useState<boolean>(false);
   const [refreshContact, setRefreshContact] = useState(false);
   const [isArchivState, setIsArchivState] = useState<boolean>(false);
   const [showFindDuplicatesModal, setShowFindDuplicatesModal] = useState(false);
@@ -1044,6 +1047,20 @@ const AllcontactReport = ({
     setRefreshContact(true);
   };
 
+  const handleUpdateFromImport = () => {
+    setIsExportDropdownOpen(false);
+    if (canImport) {
+      setIsModalExcelUpdateVisible(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleConfirmUpdateExcel = async () => {
+    setIsModalExcelUpdateVisible(false);
+    setRefreshContact(true);
+  };
+
   if (error) {
     return (
       <div>
@@ -1414,6 +1431,18 @@ const AllcontactReport = ({
               <li
                 className="listItem"
                 role="button"
+                style={{ whiteSpace: "normal" }}
+                onClick={handleUpdateFromImport}
+              >
+                <i
+                  className="pi pi-file-import"
+                  style={{ marginRight: "4px" }}
+                />
+                Bulk Update Contacts
+              </li>
+              <li
+                className="listItem"
+                role="button"
                 onClick={() => {
                   showArchiveContacts();
                 }}
@@ -1492,6 +1521,8 @@ const AllcontactReport = ({
           className="custom-centered-table"
           scrollHeight="flex"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={lazyState.first}
           rows={lazyState.rows}
@@ -1659,6 +1690,19 @@ const AllcontactReport = ({
           btn2="Import"
           sampleLocation="sampleContact.xlsx"
           potions={1}
+        />
+      )}
+      {isModalExcelUpdateVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelUpdateVisible}
+          onHide={() => setIsModalExcelUpdateVisible(false)}
+          handleSubmit={() => handleConfirmUpdateExcel()}
+          title={"Bulk Update Contacts"}
+          message={"Please Import excel as per the downloaded contact sheet"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation=""
+          potions={9}
         />
       )}
       {showFindDuplicatesModal && (

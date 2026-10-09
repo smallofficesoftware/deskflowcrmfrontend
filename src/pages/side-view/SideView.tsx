@@ -905,6 +905,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Account");
       setAppliedReportType(name);
       return;
+    } else if (canViewAllAccountTransition && name === "cart_payment_report") {
+      setActiveView("Account");
+      setAppliedReportType(name);
+      return;
     } else if (
       canViewAllAccountTransition &&
       name === "account_credit_report"
@@ -1475,11 +1479,16 @@ const SideView = ({ profileDetail }: IProp) => {
   const openReport = (name: string) =>
     navigate(`/SideView/report/${name}${isEmbed ? "?embed=1" : ""}`);
 
-  const handleEmbedBackToReports = () => {
-    setActiveView("reports_home");
-    setAppliedReportType("");
-    navigate("/SideView?view=reports&embed=1");
-  };
+  // Direct /SideView/report/:slug load: activeView defaults to "dashboard"
+  // (Insights) and the deep-link effect can't open the report until the
+  // onLoad call fills `permissions`. Show a placeholder instead of flashing
+  // Insights meanwhile. The ref check covers the one render between
+  // permissions arriving and the effect applying the report.
+  const waitingForReportDeepLink =
+    !!reportSlug &&
+    (!permissions ||
+      permissions.length === 0 ||
+      openedReportSlugRef.current === null);
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -1532,19 +1541,34 @@ const SideView = ({ profileDetail }: IProp) => {
                     <MiddleView />
                 </div> */}
         <div>
-          <BottomView
-            activeView={activeView}
-            reportName={reportName}
-            appliedReportType={appliedReportType}
-            // onCloseReport={handleCloseReport}
-            reportType={reportType}
-            setActiveView={setActiveView}
-            setAppliedReportType={setAppliedReportType}
-            onReportClick={openReport}
-            isEmbed={isEmbed}
-            onEmbedBack={handleEmbedBackToReports}
-            formSubmissionsDeepLinkId={formSubmissionsDeepLinkId}
-          />
+          {waitingForReportDeepLink ? (
+            <div
+              style={{
+                height: isEmbed ? "100vh" : "90vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#F5F5F5",
+                color: "rgb(245, 134, 52)",
+                fontWeight: 600,
+              }}
+            >
+              Loading report...
+            </div>
+          ) : (
+            <BottomView
+              activeView={activeView}
+              reportName={reportName}
+              appliedReportType={appliedReportType}
+              // onCloseReport={handleCloseReport}
+              reportType={reportType}
+              setActiveView={setActiveView}
+              setAppliedReportType={setAppliedReportType}
+              onReportClick={openReport}
+              isEmbed={isEmbed}
+              formSubmissionsDeepLinkId={formSubmissionsDeepLinkId}
+            />
+          )}
         </div>
         {!isEmbed && (
           <TaskStickyIcon

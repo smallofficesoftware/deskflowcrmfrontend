@@ -16,6 +16,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -144,6 +145,7 @@ const TeamDispatchDataReportsView = ({
     useState<string>("");
   const [showProductDetails, setShowProductDetails] = useState(false);
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(100);
   const [isOrderShow, setIsOrderShow] = useState(false);
@@ -463,7 +465,10 @@ const TeamDispatchDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadDispatches = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -495,6 +500,7 @@ const TeamDispatchDataReportsView = ({
       setTotalRecords(data?.total || 0);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -502,6 +508,7 @@ const TeamDispatchDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadDispatches);
 
   const handleRefresh = async () => {
     setPage(0);
@@ -1468,6 +1475,8 @@ const TeamDispatchDataReportsView = ({
               scrollable
               scrollHeight="80vh"
               paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
               lazy
               first={page * rows}
               rows={rows}

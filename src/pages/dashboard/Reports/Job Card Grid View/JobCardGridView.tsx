@@ -841,6 +841,8 @@ const JobCardGridView = ({ onHide }: IProps) => {
         <DataTable
           value={jobCardList}
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           rows={50}
           rowsPerPageOptions={[25, 50, 100, 200]}
           loading={loading}

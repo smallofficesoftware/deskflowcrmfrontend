@@ -174,7 +174,8 @@ const Setting = ({
   // enforced again server-side.
   const isCompanyOwnerForReportBuilder = appContext?.companyFlag === 1;
   const canViewReportBuilder = useCheckUserPermission(PAGE_ID.REPORT_BUILDER, PERMISSION_TYPE.VIEW);
-  const showReportBuilderMenu = isCompanyOwnerForReportBuilder || canViewReportBuilder;
+  // Rights only — the company owner does not bypass this menu entry.
+  const showReportBuilderMenu = canViewReportBuilder;
   function openReportBuilder() {
     if (showReportBuilderMenu) {
       // Report Builder lives in /SideView's Settings panel now (no
@@ -191,7 +192,8 @@ const Setting = ({
   // same useCheckUserPermission hook Report Builder's own entry above uses.
   // Owner still bypasses server-side regardless of any rights row.
   const canViewDashboardBuilder = useCheckUserPermission(PAGE_ID.DASHBOARD_BUILDER, PERMISSION_TYPE.VIEW);
-  const showDashboardBuilderMenu = isCompanyOwnerForReportBuilder || canViewDashboardBuilder;
+  // Rights only — the company owner does not bypass this menu entry.
+  const showDashboardBuilderMenu = canViewDashboardBuilder;
   function openDashboardBuilder() {
     if (showDashboardBuilderMenu) {
       navigate("/dashboard-builder");
@@ -698,6 +700,7 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
+                  {canViewDocumentDesigner && (
                   <div className="block ps-3" onClick={openDocumentDesigner}>
                     <div className="icon-Box">
                       <button className="icons-setings">
@@ -726,6 +729,7 @@ const Setting = ({
                       </div>
                     </div>
                   </div>
+                  )}
                   {showReportBuilderMenu && (
                     <div className="block ps-3" onClick={openReportBuilder}>
                       <div className="icon-Box">
