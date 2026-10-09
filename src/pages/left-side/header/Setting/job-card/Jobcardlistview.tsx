@@ -169,6 +169,14 @@ const JobCardListView = ({ show, onHide }: IProps) => {
     PERMISSION_TYPE.VIEW,
   );
   const canAdd = useCheckUserPermission(PAGE_ID.JOB_CARD, PERMISSION_TYPE.ADD);
+  const canViewProduction = useCheckUserPermission(
+    PAGE_ID.PRODUCTION,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canEdit = useCheckUserPermission(
+    PAGE_ID.JOB_CARD,
+    PERMISSION_TYPE.EDIT,
+  );
   const canDelete = useCheckUserPermission(
     PAGE_ID.JOB_CARD,
     PERMISSION_TYPE.DELETE,
@@ -336,6 +344,10 @@ const JobCardListView = ({ show, onHide }: IProps) => {
   };
 
   const handleOpenJobCardEdit = (item: IJobCardListItem) => {
+    if (!canEdit) {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+      return;
+    }
     setSelectedJobCardId(item.id);
     setSelectedJobCardProdQty(item.product_qty ?? 0);
     setOpenDropdownId(null);
@@ -596,11 +608,8 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                   // style={{ backgroundColor: "rgb(255, 125, 18)" }}
                   className="icons text-white"
                   title="New Job Card"
-                  onClick={() =>
-                    canAdd
-                      ? setShowJobCard(true)
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-                  }
+                  style={{ display: canAdd ? undefined : "none" }}
+                  onClick={() => setShowJobCard(true)}
                 >
                   <span title="Create Product" className="text-white">
                     <svg
@@ -934,6 +943,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           setOpenDropdownId(null);
                                         }}
                                         style={{
+                                          display: canEdit ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                         }}
@@ -958,6 +968,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           setOpenDropdownId(null);
                                         }}
                                         style={{
+                                          display: canViewProduction ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                         }}
@@ -984,6 +995,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1011,6 +1023,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1038,6 +1051,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1050,6 +1064,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canViewLabel ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1067,6 +1082,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canViewStatus ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1086,6 +1102,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canAddAssignTeamMember ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1114,6 +1131,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canDelete ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",

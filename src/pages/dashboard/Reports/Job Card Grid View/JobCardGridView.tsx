@@ -192,6 +192,14 @@ const JobCardGridView = ({ onHide }: IProps) => {
     PAGE_ID.JOB_CARD,
     PERMISSION_TYPE.ADD,
   );
+  const canViewProduction = useCheckUserPermission(
+    PAGE_ID.PRODUCTION,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canEdit = useCheckUserPermission(
+    PAGE_ID.JOB_CARD,
+    PERMISSION_TYPE.EDIT,
+  );
   const canDelete = useCheckUserPermission(
     PAGE_ID.JOB_CARD,
     PERMISSION_TYPE.DELETE,
@@ -376,6 +384,10 @@ const JobCardGridView = ({ onHide }: IProps) => {
   };
 
   const handleOpenJobCardEdit = (item: IJobCardListItem) => {
+    if (!canEdit) {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+      return;
+    }
     setSelectedJobCardId(item.id);
     setSelectedJobCardProdQty(item.product_qty ?? 0);
     op.current?.hide();
@@ -779,13 +791,12 @@ const JobCardGridView = ({ onHide }: IProps) => {
             <Button
               icon="pi pi-plus"
               className="report_button"
-              style={{ backgroundColor: "rgb(245, 134, 52)" }}
+              style={{
+                backgroundColor: "rgb(245, 134, 52)",
+                display: canAdd ? undefined : "none",
+              }}
               rounded
-              onClick={() =>
-                canAdd
-                  ? setShowJobCard(true)
-                  : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-              }
+              onClick={() => setShowJobCard(true)}
               tooltip="New Job Card"
               tooltipOptions={{
                 position: "top",
@@ -878,7 +889,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
           <ul className="list-unstyled m-0 p-0" id="dropLeft">
             <li
               className="listItem"
-              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+              style={{ display: canEdit ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -898,7 +909,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
               </svg>{" "}
               Edit Job Card
             </li>
-            <li className="listItem" style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+            <li className="listItem" style={{ display: canViewProduction ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -909,7 +920,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             >
               ⚙️ Production Entry
             </li>
-            <li className="listItem" style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+            <li className="listItem" style={{ display: canPrint ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -924,7 +935,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             >
               🖨️ Print Job Card
             </li>
-            <li className="listItem" style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+            <li className="listItem" style={{ display: canPrint ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -941,7 +952,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             </li>
             <li
               className="listItem"
-              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+              style={{ display: canPrint ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -958,7 +969,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             </li>
             <li
               className="listItem"
-              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+              style={{ display: canViewLabel ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -971,7 +982,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             </li>
             <li
               className="listItem"
-              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+              style={{ display: canViewStatus ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -987,7 +998,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             </li>
             <li
               className="listItem"
-              style={{ padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+              style={{ display: canAddAssignTeamMember ? undefined : "none", padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -998,7 +1009,7 @@ const JobCardGridView = ({ onHide }: IProps) => {
             >
               Assign Team Member
             </li>
-            <li className="listItem" style={{ color: "red", fontWeight: 600, padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
+            <li className="listItem" style={{ display: canDelete ? undefined : "none", color: "red", fontWeight: 600, padding: "5px 10px", cursor: "pointer", fontSize: "12px" }}
               role="button"
               onClick={(e) => {
                 e.stopPropagation();
