@@ -337,6 +337,58 @@ export const fetchJobCardDetail = async (
   }
 };
 
+// ─── Download a print as a PDF (server-made, same file the mobile app gets) ───
+
+// Asks the server for a PDF, then saves it to the user's computer. Falls back
+// to opening the PDF in a new tab if the browser will not let the page read it.
+const downloadServerPdf = async (
+  endpoint: string,
+  body: Record<string, unknown>,
+  setBusy: TReactSetState<boolean>,
+) => {
+  setBusy(true);
+  try {
+    const { data } = await axiosInstance.post(endpoint, {
+      a_application_login_id: uuid(),
+      ...body,
+    });
+    const url: string = data?.data?.fileLinkPath || "";
+    if (data?.ack !== DEFAULT_STATUS_CODE_SUCCESS || !url) {
+      toast.error(data?.ack_msg || "Could not create the PDF.");
+      return;
+    }
+    const name = `${data?.data?.title || "Document"}.pdf`;
+    try {
+      const blob = await (await fetch(url)).blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      window.open(url, "_blank");
+    }
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  } finally {
+    setBusy(false);
+  }
+};
+
+// kind: "jobCard" | "master" | "requiredMaterial" (the three job card prints)
+export const downloadJobCardPdf = (
+  jobId: number,
+  kind: "jobCard" | "master" | "requiredMaterial",
+  setBusy: TReactSetState<boolean>,
+) => downloadServerPdf("job-card/pdf", { id: jobId, kind }, setBusy);
+
+export const downloadProductionEntryPdf = (
+  entryId: number,
+  setBusy: TReactSetState<boolean>,
+) => downloadServerPdf("job-card/production-entry/pdf", { id: entryId }, setBusy);
+
 // ─── Save Job Card ────────────────────────────────────────────────────────────
 
 export const saveJobCard = async (

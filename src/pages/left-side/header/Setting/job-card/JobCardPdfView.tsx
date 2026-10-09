@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
-import { fetchJobCardDetail } from "./JobCardController";
+import { downloadJobCardPdf, fetchJobCardDetail } from "./JobCardController";
 import { IContactDetail, IItemDetail } from "./JobCardTypes";
 import JobCardPrint from "./print-templates/JobCardPrint";
 
@@ -15,6 +15,7 @@ const JobCardPdfView = () => {
   );
   const [itemDetail, setItemDetail] = useState<IItemDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,12 +71,23 @@ const JobCardPdfView = () => {
           ← Back
         </button>
         <h5 className="mb-0">Job Card Print Preview</h5>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => handlePrint()}
-        >
-          🖨️ Print Now
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-primary btn-sm"
+            disabled={downloading}
+            onClick={() =>
+              downloadJobCardPdf(Number(id), "jobCard", setDownloading)
+            }
+          >
+            {downloading ? "Preparing…" : "⬇ Download PDF"}
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => handlePrint()}
+          >
+            🖨️ Print Now
+          </button>
+        </div>
       </div>
 
       <div
