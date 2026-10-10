@@ -27,6 +27,10 @@ export const DOCUMENT_DESIGNER_FEATURE_KEYS: { key: string; label: string }[] = 
   { key: "contactAddress_document_designer", label: "Contact Address" },
   { key: "contactEnvelope_document_designer", label: "Contact Envelope" },
   { key: "taskDueList_document_designer", label: "Task Due List" },
+  { key: "jobCard_document_designer", label: "Job Card" },
+  { key: "jobCardMaster_document_designer", label: "Job Card Master Report" },
+  { key: "requiredMaterial_document_designer", label: "Required Material" },
+  { key: "productionEntryReceipt_document_designer", label: "Production Entry Receipt" },
 ];
 
 export const documentDesignerFeatureKeyForDocType = (docType: string): string =>

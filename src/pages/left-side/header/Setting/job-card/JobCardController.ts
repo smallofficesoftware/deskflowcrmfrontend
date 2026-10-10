@@ -389,6 +389,38 @@ export const downloadProductionEntryPdf = (
   setBusy: TReactSetState<boolean>,
 ) => downloadServerPdf("job-card/production-entry/pdf", { id: entryId }, setBusy);
 
+// ticket #2212: "Print Now" when the company's Document Designer flag is on
+// for this job-card kind - opens the server-generated PDF in a new tab and
+// triggers the browser print dialog on it, same pattern as Profile.tsx's
+// generateAndPrintContactPdf. Only called when the caller has already
+// confirmed the flag is on; the fixed JobCardPrint/JobCardFullPrint DOM print
+// stays the default otherwise.
+export const generateAndPrintJobCardPdf = async (
+  jobId: number,
+  kind: "jobCard" | "master" | "requiredMaterial",
+) => {
+  try {
+    const { data } = await axiosInstance.post("job-card/pdf", {
+      a_application_login_id: uuid(),
+      id: jobId,
+      kind,
+    });
+    const url: string = data?.data?.fileLinkPath || "";
+    if (data?.ack !== DEFAULT_STATUS_CODE_SUCCESS || !url) {
+      toast.error(data?.ack_msg || "Could not create the PDF.");
+      return;
+    }
+    const blob = await (await fetch(url)).blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const pdfWindow = window.open(blobUrl, "_blank");
+    if (pdfWindow) {
+      pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+    }
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
 // ─── Save Job Card ────────────────────────────────────────────────────────────
 
 export const saveJobCard = async (
