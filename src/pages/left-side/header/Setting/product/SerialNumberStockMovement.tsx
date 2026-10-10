@@ -20,6 +20,8 @@ import {
   fetchApiStockMovementSerialNumberwise,
   fetchwrehouse,
   IProductStockMovement,
+  ISerialNumberTaskHistory,
+  ISerialNumberVisitHistory,
   productProductTypesList,
 } from "./ProductController";
 
@@ -58,6 +60,12 @@ const SerialNumberStockMovement = ({
   >([]);
   const [closingQty, setClosingQty] = useState(0);
   const [openQty, setOpenQty] = useState(0);
+  const [taskHistory, setTaskHistory] = useState<ISerialNumberTaskHistory[]>(
+    [],
+  );
+  const [visitHistory, setVisitHistory] = useState<
+    ISerialNumberVisitHistory[]
+  >([]);
 
   const [serialNumber, setSerialNumber] = useState<string>("");
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -150,6 +158,8 @@ const SerialNumberStockMovement = ({
         selectedWarehouseIds,
         setIsInnerActive,
         setIsOuterActive,
+        setTaskHistory,
+        setVisitHistory,
       );
     } catch (error) {
       console.error(error);
@@ -625,6 +635,99 @@ const SerialNumberStockMovement = ({
                 </div>
               </div>
             </div>
+
+            {/* Task / Support Ticket history for this exact serial number
+                (task_managements.serial_number) - separate from the order
+                movement table above, only populated for companies using
+                the newer serial-no-on-Task feature. */}
+            {taskHistory.length > 0 && (
+              <div className="m-title-2 col-12 mt-3">
+                <div className="head">
+                  <h6 className="mb-2">Task / Support Ticket History</h6>
+                  <div className="source-of-type-list-grid-block">
+                    <table className="table table-hover" border={0}>
+                      <thead>
+                        <tr>
+                          <th>Title</th>
+                          <th>Type</th>
+                          <th className="text-start">Contact Name</th>
+                          <th>From Date</th>
+                          <th>Completed Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {taskHistory.map((item) => (
+                          <tr key={item.id}>
+                            <td className="text-start">{item.task_title}</td>
+                            <td className="text-start">
+                              {item.is_support_ticket
+                                ? "Support Ticket"
+                                : "Task"}
+                            </td>
+                            <td className="text-start">
+                              {item.contact_name}
+                            </td>
+                            <td className="text-start">
+                              {item.task_fromdate
+                                ? formatDate(item.task_fromdate)
+                                : ""}
+                            </td>
+                            <td className="text-start">
+                              {item.completed_date
+                                ? formatDate(item.completed_date)
+                                : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Visit history for this exact serial number
+                (visits.serial_number) - same companion data as the task
+                history table above. */}
+            {visitHistory.length > 0 && (
+              <div className="m-title-2 col-12 mt-3">
+                <div className="head">
+                  <h6 className="mb-2">Visit History</h6>
+                  <div className="source-of-type-list-grid-block">
+                    <table className="table table-hover" border={0}>
+                      <thead>
+                        <tr>
+                          <th>Remark</th>
+                          <th className="text-start">Contact Name</th>
+                          <th>Start Date</th>
+                          <th>End Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visitHistory.map((item) => (
+                          <tr key={item.id}>
+                            <td className="text-start">{item.remark}</td>
+                            <td className="text-start">
+                              {item.contact_name}
+                            </td>
+                            <td className="text-start">
+                              {item.start_date
+                                ? formatDate(item.start_date)
+                                : ""}
+                            </td>
+                            <td className="text-start">
+                              {item.end_date
+                                ? formatDate(item.end_date)
+                                : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

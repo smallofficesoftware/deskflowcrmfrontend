@@ -66,6 +66,24 @@ export interface IProductStockMovement {
   inner_qty_unit: string;
   to_customer_name: string;
 }
+// Task/Support Ticket or Visit filled in against this exact serial number
+// (task_managements.serial_number / visits.serial_number) - returned
+// alongside the order movements by get-serial-number-stock.
+export interface ISerialNumberTaskHistory {
+  id: number;
+  task_title: string;
+  is_support_ticket: number;
+  contact_name: string;
+  task_fromdate: string;
+  completed_date: string | null;
+}
+export interface ISerialNumberVisitHistory {
+  id: number;
+  remark: string;
+  contact_name: string;
+  start_date: string;
+  end_date: string | null;
+}
 export interface IProductCreate {
   product_name: string;
   product_alias: string;
@@ -574,6 +592,8 @@ export const fetchApiStockMovementSerialNumberwise = async (
   warehouseIds: string = "",
   setIsInnerActive: any,
   setIsOuterActive: any,
+  setTaskHistory?: TReactSetState<ISerialNumberTaskHistory[]>,
+  setVisitHistory?: TReactSetState<ISerialNumberVisitHistory[]>,
 ) => {
   const getUUID = localStorage.getItem("UUID");
 
@@ -602,12 +622,19 @@ export const fetchApiStockMovementSerialNumberwise = async (
 
       const value = response.data.data.company_unit_classification;
       innerOutSelection(value, setIsInnerActive, setIsOuterActive);
+
+      setTaskHistory?.(response.data.data.task_history || []);
+      setVisitHistory?.(response.data.data.visit_history || []);
     } else {
       setProductStockMovement([]);
+      setTaskHistory?.([]);
+      setVisitHistory?.([]);
       toast.error(response.data.ack_msg || "No data found");
     }
   } catch (error: any) {
     setProductStockMovement([]);
+    setTaskHistory?.([]);
+    setVisitHistory?.([]);
     toast.error(error?.message || "Something went wrong");
   }
 };
