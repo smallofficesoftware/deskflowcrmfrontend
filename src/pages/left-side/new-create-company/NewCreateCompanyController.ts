@@ -130,6 +130,7 @@ export interface ICreateCompany {
   incoming_port: string;
   in_order_image_view: number;
   watermark_in_print: number;
+  is_grouped_number_format: number;
   is_contact_validation: number;
   view_inquiry_form_in_contact: number;
   same_product_multiple_in_cart: number;
@@ -211,6 +212,7 @@ export const createCompanyInitialValues = (
   additionalValues: {
     in_order_image_view?: number;
     watermark_in_print?: number;
+    is_grouped_number_format?: number;
     is_contact_validation?: number;
     is_strict_check_product_stock?: number;
     is_strict_wharehouse_wise_product_stock_check?: number;
@@ -328,6 +330,10 @@ export const createCompanyInitialValues = (
     companyToEdit?.watermark_in_print ||
     additionalValues.watermark_in_print ||
     1,
+  is_grouped_number_format:
+    companyToEdit?.is_grouped_number_format ||
+    additionalValues.is_grouped_number_format ||
+    0,
   is_contact_validation:
     companyToEdit?.is_contact_validation ||
     additionalValues.is_contact_validation ||
@@ -1051,6 +1057,7 @@ export const updateModuleSettings = async (
     company_id: companyId.id,
     in_order_image_view: values.in_order_image_view,
     watermark_in_print: values.watermark_in_print,
+    is_grouped_number_format: values.is_grouped_number_format,
     is_contact_validation: values.is_contact_validation,
     is_strict_check_product_stock: values.is_strict_check_product_stock,
     is_strict_wharehouse_wise_product_stock_check:
