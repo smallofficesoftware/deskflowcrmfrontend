@@ -391,6 +391,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [dynamicTCSRate, setDynamicTCSRate] = useState<string | number>(
     DEFAULT_TCS,
   );
+  // Editable "name on quotation/bill" (ticket #1168) - defaults to the
+  // selected contact's name (see the useEffect that seeds it below) but can
+  // be overridden before saving; empty means "use the contact's name" so
+  // picking a different contact after typing something doesn't stick a
+  // stale override onto the new contact.
+  const [toCustomerNameOverride, setToCustomerNameOverride] =
+    useState<string>("");
   const [showapproveModel, setShowapproveModel] = useState(false);
   const [approveData, setApproveData] = useState<{
     checkedOptions: string[] | undefined;
@@ -4716,7 +4723,10 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             shipping_address: contactDataForPayload?.shipping_address,
             to_customer_id: contactDataForPayload?.id,
             to_customer_company_name: contactDataForPayload?.company_name,
-            to_customer_name: contactDataForPayload?.person_name,
+            // Prefer the user's typed override (ticket #1168) over the
+            // contact's own name.
+            to_customer_name:
+              toCustomerNameOverride || contactDataForPayload?.person_name,
             to_customer_phone: contactDataForPayload?.mobile_number,
             to_customer_email: contactDataForPayload?.email_id,
             to_customer_gst_number: contactDataForPayload?.gst_number,
@@ -4733,7 +4743,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             shipping_address: Contact?.shipping_address,
             to_customer_id: contact_id,
             to_customer_company_name: Contact?.company_name,
-            to_customer_name: Contact?.person_name,
+            // Prefer the user's typed override (ticket #1168) over the
+            // contact's own name.
+            to_customer_name: toCustomerNameOverride || Contact?.person_name,
             to_customer_phone: Contact?.mobile_number,
             to_customer_email: Contact?.email_id,
             to_customer_gst_number: Contact?.gst_number,
@@ -6089,6 +6101,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     ? Contact?.to_customer_name
     : Contact?.company_name;
 
+  // Reset the editable name override whenever the selected contact (or
+  // create/edit mode) changes, so a typed override doesn't stick onto a
+  // different contact - ticket #1168, mirrors contact_name's own derivation.
+  useEffect(() => {
+    setToCustomerNameOverride("");
+  }, [Contact?.id, orderId]);
+
   const formatDateForInput = (localDateString: string) => {
     if (!localDateString) return "";
 
@@ -7112,7 +7131,27 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                         display: "inline-block",
                       }}
                     >
-                      {company_contact_name} ({contact_name}){" "}
+                      {company_contact_name} (
+                      <input
+                        type="text"
+                        value={toCustomerNameOverride || contact_name || ""}
+                        onChange={(e) =>
+                          setToCustomerNameOverride(e.target.value)
+                        }
+                        title="Name printed on the quotation/bill"
+                        style={{
+                          display: "inline-block",
+                          width: "160px",
+                          fontSize: "14px",
+                          fontWeight: "inherit",
+                          fontFamily: "inherit",
+                          border: "none",
+                          borderBottom: "1px dashed #999",
+                          background: "transparent",
+                          padding: 0,
+                        }}
+                      />
+                      ){" "}
                       {cartnumber && (
                         <span
                           style={{ fontSize: "14px", fontWeight: "normal" }}
