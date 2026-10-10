@@ -74,6 +74,10 @@ const SUPPORTED_DOC_TYPES = [
   { id: "contactEnvelope", label: "Contact Envelope" },
   { id: "employeeAccountStatement", label: "Team Account Statement" },
   { id: "employeeAccountTransaction", label: "Team Account Transaction" },
+  { id: "jobCard", label: "Job Card" },
+  { id: "jobCardMaster", label: "Job Card Master Report" },
+  { id: "requiredMaterial", label: "Required Material" },
+  { id: "productionEntryReceipt", label: "Production Entry Receipt" },
 ];
 // Page-size toolbar presets, in mm (pdfme's basePdf unit) — A4/A5 portrait.
 // "Custom" reveals two number inputs instead of a fixed width/height.
@@ -125,6 +129,15 @@ const PREVIEW_STEPS_BY_DOC_TYPE: Record<string, PreviewStepKind[]> = {
   contactEnvelope: ["contact"],
   shippingLabel: ["order"],
   taskDueList: [],
+  // Job card documents are single-record like contact/account docs, but there's
+  // no record-picker step kind for them yet (would need a "pick a job card"
+  // step + previewDocumentTemplate() support, ticket #2212 didn't add either) -
+  // same no-picker fallback as taskDueList: the canvas previews against the
+  // builder's own placeholder sample data instead of a real job card.
+  jobCard: [],
+  jobCardMaster: [],
+  requiredMaterial: [],
+  productionEntryReceipt: [],
 };
 const previewStepsFor = (docType: string): PreviewStepKind[] =>
   CART_SHAPED_DOC_TYPES.has(docType) ? ["order"] : PREVIEW_STEPS_BY_DOC_TYPE[docType] || [];
