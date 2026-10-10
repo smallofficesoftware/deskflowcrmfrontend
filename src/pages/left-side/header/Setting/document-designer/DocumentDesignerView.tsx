@@ -325,7 +325,7 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
   };
 };
 
-// Column-toggle checkboxes (HSN/Discount/CGST/SGST/IGST/Image) merged into
+// Column-toggle checkboxes (HSN/Discount/Serial/CGST/SGST/IGST/Image) merged into
 // the itemsTable field's OWN pdfme sidebar panel, instead of a generic
 // always-visible toolbar row — these values are conceptually properties of
 // that one field. The actual toggle logic (applyColumnToggle, unchanged)
@@ -339,7 +339,7 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
 const columnToggleBridge = {
   current: (_columnOptions: Record<string, boolean>, _changeSchemas: any, _schemaId: string) => {},
 };
-const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "cgst", "sgst", "igst", "image"];
+const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "cgst", "sgst", "igst", "image"];
 
 // Vanilla-DOM propPanel widget — pdfme's own `select` plugin extends `text`'s
 // propPanel with a custom widget the exact same way (addOptions), confirmed
