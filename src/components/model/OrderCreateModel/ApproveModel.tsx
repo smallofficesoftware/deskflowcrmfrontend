@@ -518,13 +518,13 @@ const ApproveModel = ({
       return;
     }
 
-    // Miracle needs flgcd (Cash/Debit) and, for cash, the cash/bank ledger as acc.
+    // With Miracle sync on, both Transaction Mode (flgcd) and the Miracle ledger are required.
     if (isFeatureEnabled && isMiracleVoucherType) {
       if (orderType != 6 && orderType != 7 && !selectedTrasactionMode) {
         toast.error("Please select Transaction Mode");
         return;
       }
-      if (Number(selectedTrasactionMode) === 1 &&!selectedMiracleLedger?.value) {
+      if (!selectedMiracleLedger?.value) {
         toast.error("Please select Account Ledger From Miracle");
         return;
       }
