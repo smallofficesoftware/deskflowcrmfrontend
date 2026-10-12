@@ -75,7 +75,10 @@ const StepSource: React.FC<StepSourceProps> = ({ registry, plugins, loadingRegis
     // Anything the registry has that isn't in a named group above — keeps
     // a newly-added table reachable instead of silently missing from the
     // picker until this mapping is updated.
-    { title: "Other", keys: registry.map((m) => m.key).filter((k) => !groupedKeys.has(k)) },
+    // Published Form Builder forms ("form:<id>" keys from the backend's
+    // formModelResolver) get their own group instead of landing in "Other".
+    { title: "Forms", keys: registry.map((m) => m.key).filter((k) => k.startsWith("form:")) },
+    { title: "Other", keys: registry.map((m) => m.key).filter((k) => !groupedKeys.has(k) && !k.startsWith("form:")) },
   ]
     .map((g) => ({ title: g.title, items: g.keys.map(byKey).filter((m): m is IModelRegistryEntry => !!m && (!q || m.label.toLowerCase().includes(q))) }))
     .filter((g) => g.items.length > 0);
