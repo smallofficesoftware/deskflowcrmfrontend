@@ -29,7 +29,7 @@ import {
 } from "./JobCardController";
 import { IJobCardListItem } from "./JobCardTypes";
 import JobCardView from "./JobCardView";
-import RawMaterialProcessStatusReportView from "./RawMaterialProcessStatusReportView";
+import BomHierarchyView from "./BomHierarchyView";
 import ProductionEntryListModel from "./ProductionEntryListModel";
 import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
 import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
@@ -106,20 +106,30 @@ const JobCardListView = ({ show, onHide }: IProps) => {
     setShowPOModalFromJobCard(true);
   };
 
-  const [creatingSubJobCard, setCreatingSubJobCard] = useState(false);
+  const [, setCreatingSubJobCard] = useState(false);
+  const creatingSubJobCardRef = useRef(false);
   const handleGenerateSubJobCardFromJobCard = async (
     materialId: number,
     _materialName: string,
     parentJobCardId: number,
     pendingQty: number,
   ) => {
-    const newId = await createSubJobCard(
-      parentJobCardId,
-      materialId,
-      pendingQty,
-      setCreatingSubJobCard,
-    );
+    // Ref (not state) so a fast double click can't slip past before re-render.
+    if (creatingSubJobCardRef.current || !(pendingQty > 0)) return;
+    creatingSubJobCardRef.current = true;
+    let newId: number | null = null;
+    try {
+      newId = await createSubJobCard(
+        parentJobCardId,
+        materialId,
+        pendingQty,
+        setCreatingSubJobCard,
+      );
+    } finally {
+      creatingSubJobCardRef.current = false;
+    }
     if (newId) {
+      setShowJobCard(false);
       setSelectedJobCardId(newId);
       setSelectedJobCardProdQty(pendingQty);
       setShowEditJobCard(true);
@@ -169,6 +179,14 @@ const JobCardListView = ({ show, onHide }: IProps) => {
     PERMISSION_TYPE.VIEW,
   );
   const canAdd = useCheckUserPermission(PAGE_ID.JOB_CARD, PERMISSION_TYPE.ADD);
+  const canViewProduction = useCheckUserPermission(
+    PAGE_ID.PRODUCTION,
+    PERMISSION_TYPE.VIEW,
+  );
+  const canEdit = useCheckUserPermission(
+    PAGE_ID.JOB_CARD,
+    PERMISSION_TYPE.EDIT,
+  );
   const canDelete = useCheckUserPermission(
     PAGE_ID.JOB_CARD,
     PERMISSION_TYPE.DELETE,
@@ -336,6 +354,10 @@ const JobCardListView = ({ show, onHide }: IProps) => {
   };
 
   const handleOpenJobCardEdit = (item: IJobCardListItem) => {
+    if (!canEdit) {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+      return;
+    }
     setSelectedJobCardId(item.id);
     setSelectedJobCardProdQty(item.product_qty ?? 0);
     setOpenDropdownId(null);
@@ -596,11 +618,8 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                   // style={{ backgroundColor: "rgb(255, 125, 18)" }}
                   className="icons text-white"
                   title="New Job Card"
-                  onClick={() =>
-                    canAdd
-                      ? setShowJobCard(true)
-                      : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION)
-                  }
+                  style={{ display: canAdd ? undefined : "none" }}
+                  onClick={() => setShowJobCard(true)}
                 >
                   <span title="Create Product" className="text-white">
                     <svg
@@ -615,11 +634,11 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                   </span>
                 </button>
 
-                {/* Raw Material Process Status report (ticket #2575) */}
+                {/* BOM hierarchy chart + total material requirement */}
                 <button
                   className="icons"
                   onClick={() => setShowRawMaterialReport(true)}
-                  title="Raw Material Process Status"
+                  title="BOM Hierarchy"
                 >
                   <i className="pi pi-sitemap" style={{ fontSize: "20px" }} />
                 </button>
@@ -934,6 +953,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           setOpenDropdownId(null);
                                         }}
                                         style={{
+                                          display: canEdit ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                         }}
@@ -958,6 +978,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           setOpenDropdownId(null);
                                         }}
                                         style={{
+                                          display: canViewProduction ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                         }}
@@ -984,6 +1005,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1011,6 +1033,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1038,6 +1061,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canPrint ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1050,6 +1074,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canViewLabel ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1067,6 +1092,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canViewStatus ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1086,6 +1112,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                         className="listItem"
                                         role="button"
                                         style={{
+                                          display: canAddAssignTeamMember ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1114,6 +1141,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                                           }
                                         }}
                                         style={{
+                                          display: canDelete ? undefined : "none",
                                           padding: "8px 12px",
                                           cursor: "pointer",
                                           borderTop: "1px solid #f8f9fa",
@@ -1232,7 +1260,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
             >
               &times;
             </span>
-            <RawMaterialProcessStatusReportView />
+            <BomHierarchyView />
           </div>
         </div>
       )}
@@ -1251,6 +1279,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
       {showEditJobCard && (
         <JobCardView
+          key={selectedJobCardId ?? 0}
           show={showEditJobCard}
           onHide={() => setShowEditJobCard(false)}
           onComplete={handleRefresh}

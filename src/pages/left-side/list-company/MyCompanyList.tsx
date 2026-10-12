@@ -156,7 +156,7 @@ const MyCompanyList = ({
       };
 
       try {
-        const res = await axiosInstance.post("my-team", requestData, {
+        const res = await axiosInstance.post("my-team-company-list", requestData, {
           headers: {
             Authorization: `${token}`,
             "x-tenant-id": `${GetID}`,

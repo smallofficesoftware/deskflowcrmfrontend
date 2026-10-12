@@ -55,6 +55,10 @@ const BomDetailsView = ({
 
 
   const handleSubmit = async () => {
+    if (!(Number(formData.qty) > 0)) {
+      toast.error("Please enter a BOM quantity greater than 0");
+      return;
+    }
 
     if (formData.bom_document) {
       const allowedTypes = [

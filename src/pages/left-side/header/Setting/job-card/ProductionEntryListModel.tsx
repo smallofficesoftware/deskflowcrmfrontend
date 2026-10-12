@@ -63,6 +63,10 @@ const ProductionEntryListModel = ({
     PAGE_ID.PRODUCTION,
     PERMISSION_TYPE.ADD,
   );
+  const canDelete = useCheckUserPermission(
+    PAGE_ID.PRODUCTION,
+    PERMISSION_TYPE.DELETE,
+  );
 
   useEscapeKey(onHide);
 
@@ -218,6 +222,7 @@ const ProductionEntryListModel = ({
             <button
               className="btn btn-sm text-white"
               style={{
+                display: canAdd ? undefined : "none",
                 background: "linear-gradient(135deg,#198754,#15803d)",
                 minWidth: 180,
                 fontSize: "0.82rem",
@@ -299,7 +304,7 @@ const ProductionEntryListModel = ({
                             background: "#fee2e2",
                             color: "#b91c1c",
                             fontSize: "0.85rem",
-                            display: "flex",
+                            display: canDelete ? "flex" : "none",
                             alignItems: "center",
                           }}
                           title="Delete Production Entry"

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
-import { fetchJobCardDetail } from "./JobCardController";
+import { downloadJobCardPdf, fetchJobCardDetail } from "./JobCardController";
 import { IContactDetail, IItemDetail, IBomProcess } from "./JobCardTypes";
 import RequiredMaterialPrint from "./print-templates/RequiredMaterialPrint";
 
@@ -16,6 +16,7 @@ const RequiredMaterialPdfView = () => {
   const [itemDetail, setItemDetail] = useState<IItemDetail | null>(null);
   const [bomProcesses, setBomProcesses] = useState<IBomProcess[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,12 +71,23 @@ const RequiredMaterialPdfView = () => {
           ← Back
         </button>
         <h5 className="mb-0">Required Material Print Preview</h5>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => handlePrint()}
-        >
-          🖨️ Print Now
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-primary btn-sm"
+            disabled={downloading}
+            onClick={() =>
+              downloadJobCardPdf(Number(id), "requiredMaterial", setDownloading)
+            }
+          >
+            {downloading ? "Preparing…" : "⬇ Download PDF"}
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => handlePrint()}
+          >
+            🖨️ Print Now
+          </button>
+        </div>
       </div>
 
       <div
