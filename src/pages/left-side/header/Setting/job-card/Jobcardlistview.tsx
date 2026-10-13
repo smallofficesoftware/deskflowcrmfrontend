@@ -29,7 +29,7 @@ import {
 } from "./JobCardController";
 import { IJobCardListItem } from "./JobCardTypes";
 import JobCardView from "./JobCardView";
-import RawMaterialProcessStatusReportView from "./RawMaterialProcessStatusReportView";
+import BomHierarchyView from "./BomHierarchyView";
 import ProductionEntryListModel from "./ProductionEntryListModel";
 import OrderCreateModal from "../../../../../components/model/OrderCreateModel/OrderCreateModal";
 import StockAdjustmentModel from "../stock-adjustment/StockAdjustmentModel";
@@ -106,20 +106,30 @@ const JobCardListView = ({ show, onHide }: IProps) => {
     setShowPOModalFromJobCard(true);
   };
 
-  const [creatingSubJobCard, setCreatingSubJobCard] = useState(false);
+  const [, setCreatingSubJobCard] = useState(false);
+  const creatingSubJobCardRef = useRef(false);
   const handleGenerateSubJobCardFromJobCard = async (
     materialId: number,
     _materialName: string,
     parentJobCardId: number,
     pendingQty: number,
   ) => {
-    const newId = await createSubJobCard(
-      parentJobCardId,
-      materialId,
-      pendingQty,
-      setCreatingSubJobCard,
-    );
+    // Ref (not state) so a fast double click can't slip past before re-render.
+    if (creatingSubJobCardRef.current || !(pendingQty > 0)) return;
+    creatingSubJobCardRef.current = true;
+    let newId: number | null = null;
+    try {
+      newId = await createSubJobCard(
+        parentJobCardId,
+        materialId,
+        pendingQty,
+        setCreatingSubJobCard,
+      );
+    } finally {
+      creatingSubJobCardRef.current = false;
+    }
     if (newId) {
+      setShowJobCard(false);
       setSelectedJobCardId(newId);
       setSelectedJobCardProdQty(pendingQty);
       setShowEditJobCard(true);
@@ -624,11 +634,11 @@ const JobCardListView = ({ show, onHide }: IProps) => {
                   </span>
                 </button>
 
-                {/* Raw Material Process Status report (ticket #2575) */}
+                {/* BOM hierarchy chart + total material requirement */}
                 <button
                   className="icons"
                   onClick={() => setShowRawMaterialReport(true)}
-                  title="Raw Material Process Status"
+                  title="BOM Hierarchy"
                 >
                   <i className="pi pi-sitemap" style={{ fontSize: "20px" }} />
                 </button>
@@ -1250,7 +1260,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
             >
               &times;
             </span>
-            <RawMaterialProcessStatusReportView />
+            <BomHierarchyView />
           </div>
         </div>
       )}
@@ -1269,6 +1279,7 @@ const JobCardListView = ({ show, onHide }: IProps) => {
 
       {showEditJobCard && (
         <JobCardView
+          key={selectedJobCardId ?? 0}
           show={showEditJobCard}
           onHide={() => setShowEditJobCard(false)}
           onComplete={handleRefresh}

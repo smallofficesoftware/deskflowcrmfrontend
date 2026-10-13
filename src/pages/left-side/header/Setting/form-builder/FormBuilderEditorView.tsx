@@ -421,7 +421,17 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
     const list = fieldsRef.current;
     const i = list.findIndex((f) => f.id === id);
     if (i < 0) return;
-    const next = list.filter((f) => f.id !== id);
+    const removedKey = list[i].key;
+    // A Customer field's "fill these fields" map points at other fields by key;
+    // drop any entry aimed at the deleted field so publish doesn't fail on it.
+    const next = list
+      .filter((f) => f.id !== id)
+      .map((f) => {
+        if (f.type !== "customer-lookup" || !f.lookup_map) return f;
+        const entries = Object.entries(f.lookup_map);
+        const kept = entries.filter(([, targetKey]) => targetKey !== removedKey);
+        return kept.length === entries.length ? f : { ...f, lookup_map: Object.fromEntries(kept) };
+      });
     setFields(next);
     if (selectedId === id) setSelectedId(next[i]?.id ?? next[i - 1]?.id ?? null);
   };
