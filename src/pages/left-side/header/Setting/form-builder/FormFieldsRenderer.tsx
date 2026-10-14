@@ -36,6 +36,8 @@ interface Props {
   onFile: (key: string, file: File | null) => void;
   onRepeaterFile: (repeaterKey: string, rowIndex: number, subKey: string, file: File | null) => void;
   fetchReferenceOptions: (master: string, parentId?: number) => Promise<{ id: number; label: string }[]>;
+  // Public form only: product rate/unit/code lookup that needs no login.
+  fetchProductFill?: (productId: number) => Promise<Record<string, any> | null>;
 }
 
 // A date / datetime field this user may not change (plan C2): "never
@@ -68,6 +70,7 @@ const FormFieldsRenderer: React.FC<Props> = ({
   onFile,
   onRepeaterFile,
   fetchReferenceOptions,
+  fetchProductFill,
 }) => {
   // Format-preset (plan O1) messages raised on blur; submit-time errors from
   // the parent view (`errors`) take precedence.
@@ -202,6 +205,7 @@ const FormFieldsRenderer: React.FC<Props> = ({
                   outerVisible={visibleAll}
                   formId={formId}
                   fetchReferenceOptions={fetchReferenceOptions}
+                  fetchProductFill={fetchProductFill}
                 />
               );
             }

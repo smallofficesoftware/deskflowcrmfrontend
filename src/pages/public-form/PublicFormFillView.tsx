@@ -330,6 +330,14 @@ const PublicFormFillView: React.FC = () => {
           const { data } = await publicClient.post("public-form/reference-options", { qrCode, shareToken, master, parentId });
           return data?.data?.item || [];
         }}
+        fetchProductFill={async (productId) => {
+          try {
+            const { data } = await publicClient.post("public-form/product-fill-values", { qrCode, shareToken, productId });
+            return data?.ack === 1 ? data?.data?.item || null : null;
+          } catch {
+            return null;
+          }
+        }}
       />
 
       {/* Sticks to the bottom of the screen on phones (FillResponsiveStyles). */}

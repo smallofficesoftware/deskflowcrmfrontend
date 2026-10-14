@@ -21,12 +21,14 @@ interface Props {
   // Needed only for a product column (plan N5): the form being filled and the option lookup.
   formId?: number;
   fetchReferenceOptions?: (master: string, parentId?: number) => Promise<{ id: number; label: string }[]>;
+  // Public form only: rate/unit/code lookup that needs no login (see ProductCellSelect).
+  fetchProductFill?: (productId: number) => Promise<Record<string, any> | null>;
 }
 
 // Repeater sub-fields are capped at 1 level deep (plan §1) — every column
 // here is a scalar or file type, never another repeater. The one reference
 // allowed is a product column (plan N5) for quotation-style line items.
-const RepeaterFieldInput: React.FC<Props> = ({ field, rows, onChange, onFile, errors, disabled, computedRows, outerFields, outerAnswers, outerVisible, formId, fetchReferenceOptions }) => {
+const RepeaterFieldInput: React.FC<Props> = ({ field, rows, onChange, onFile, errors, disabled, computedRows, outerFields, outerAnswers, outerVisible, formId, fetchReferenceOptions, fetchProductFill }) => {
   const columns = field.columns || [];
 
   const updateCell = (rowIndex: number, key: string, value: any) => {
@@ -96,6 +98,7 @@ const RepeaterFieldInput: React.FC<Props> = ({ field, rows, onChange, onFile, er
                           disabled={disabled}
                           formId={formId}
                           fetchOptions={fetchReferenceOptions}
+                          fetchFillValues={fetchProductFill}
                           onChange={(v) => updateCell(rowIndex, col.key, v)}
                           onFill={(values) => patchCells(rowIndex, values)}
                         />
