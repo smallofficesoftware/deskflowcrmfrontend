@@ -399,6 +399,8 @@ const AllTaskReportsView = ({
     const [startDate, endDate] = getCurrentMonthDateRange();
     const updatedFilters = {
       ...data,
+      checkedOptions: data?.checkedOptionsLabel || [],
+      labelwiseContactShowAndOrNot: data?.labelAndOr ?? 0,
       startSearchDate: data?.startSearchDate || startDate,
       endSearchDate: data?.endSearchDate || endDate,
       selectedDateArray: [
@@ -1075,6 +1077,40 @@ const AllTaskReportsView = ({
     }
 
     defs.push(
+      {
+        key: "label_name",
+        label: "Label",
+        header: "Label",
+        width: "160px",
+        body: (rowData) => {
+          const names = rowData.label_name
+            ? String(rowData.label_name).split(",").map((n) => n.trim())
+            : [];
+          const colors = rowData.label_color
+            ? String(rowData.label_color).split(",").map((c) => c.trim())
+            : [];
+          if (names.length === 0) return "-";
+          return (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+              {names.map((name, index) => (
+                <span
+                  key={index}
+                  className="badge"
+                  style={{
+                    backgroundColor: colors[index] || "#eeeeee",
+                    padding: "2px 6px",
+                    borderRadius: "8px",
+                    fontSize: "10px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
       {
         key: "category_name",
         label: "Category",
