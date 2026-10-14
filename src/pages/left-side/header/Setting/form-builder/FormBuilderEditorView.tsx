@@ -733,8 +733,8 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
           <i className="pi pi-cog" /> Form settings
         </button>
         {onClose ? (
-          <button type="button" className="btn btn-sm btn-link" onClick={handleClose}>
-            Close
+          <button type="button" className="btn btn-sm btn-outline-secondary" title="Close the editor and go back to the forms list" onClick={handleClose}>
+            <i className="pi pi-times" /> Close
           </button>
         ) : null}
         <button type="button" className="btn btn-sm btn-outline-secondary" disabled={saveState.kind === "saving"} onClick={saveNow}>
@@ -794,7 +794,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
                   <div className="fb-panel-title">
                     <i className="pi pi-cog" /> Form settings
                     <div className="fb-spacer" style={{ flex: 1 }} />
-                    <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setRightPanel("field")} aria-label="Close form settings">
+                    <button type="button" className="btn btn-sm btn-outline-secondary py-0 px-2" onClick={() => setRightPanel("field")} aria-label="Close form settings" title="Close form settings">
                       <i className="pi pi-times" />
                     </button>
                   </div>

@@ -116,6 +116,7 @@ const BottomView = ({
   onReportClick,
   isEmbed,
   formSubmissionsDeepLinkId,
+  formEditDeepLinkId,
 }: any) => {
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
@@ -277,7 +278,7 @@ const BottomView = ({
         )}
 
         {activeView === "forms_home" && (
-          <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} />
+          <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} editDeepLinkId={formEditDeepLinkId} />
         )}
 
         {typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:") && (

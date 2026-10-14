@@ -1,11 +1,19 @@
+import "primeicons/primeicons.css";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
+import { Button } from "primereact/button";
+import { Modal } from "react-bootstrap";
+import { Column } from "primereact/column";
+import { DataTable } from "primereact/datatable";
 import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, listTemplates, IFormBuilderForm, IStarterTemplate, ICompanyTemplate, TemplateChoice } from "./FormBuilderController";
+import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, listTemplates, IFormBuilderForm, ICompanyTemplate, TemplateChoice } from "./FormBuilderController";
 import FormBuilderEditorView from "./FormBuilderEditorView";
 import FormSubmissionsListView from "./FormSubmissionsListView";
 import FormBuilderBrandStyles from "./formBuilderBrandStyles";
+import RowActionPopup, { IRowAction } from "./RowActionPopup";
 import InternalFormFillView from "../../../../forms-internal-fill/InternalFormFillView";
 import ImportEntriesView from "./import/ImportEntriesView";
 import FormSchedulesView from "./schedules/FormSchedulesView";
@@ -22,9 +30,12 @@ interface Props {
   // (reportsMenuData.tsx's "form_submissions_<id>" entries) - jumps
   // straight to that form's Submissions grid, no picker step.
   deepLinkFormId?: number | null;
+  // Set when landing on /SideView/report/form_edit_<id> - opens that form
+  // straight in the editor (each form's Edit has its own URL).
+  editDeepLinkId?: number | null;
 }
 
-const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
+const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }) => {
   // Also supports /SideView?view=forms&submissions_form_id=<id> (Submit
   // Form menu items and similar navigate here directly with a query param).
   const [searchParams] = useSearchParams();
@@ -34,18 +45,32 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
 
   const [forms, setForms] = useState<IFormBuilderForm[]>([]);
   const [newTitle, setNewTitle] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(editDeepLinkId ?? null);
+  // The URL drives the editor: landing on / leaving form_edit_<id> opens / closes it.
+  useEffect(() => {
+    setEditingId(editDeepLinkId ?? null);
+  }, [editDeepLinkId]);
   const [viewingSubmissionsId, setViewingSubmissionsId] = useState<number | null>(initialSubmissionsId);
   // Fill a form now (optionally the due day of a recurring schedule), import from Excel, recurring setup (plan Q).
   const [filling, setFilling] = useState<{ formId: number; scheduleEntryId?: number; draftId?: number } | null>(null);
+  // Grid (Contact Book style): searchText is what is typed, search what is applied (Enter / search button).
+  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const applySearch = () => {
+    setSearch(searchText.trim());
+    setFirst(0);
+  };
+  const [first, setFirst] = useState(0);
+  const [pageRows, setPageRows] = useState(25);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [schedulingId, setSchedulingId] = useState<number | null>(null);
   const [dueRefresh, setDueRefresh] = useState(0);
 
-  // Starter forms and saved templates for "New form" (plan L1).
-  const [starters, setStarters] = useState<IStarterTemplate[]>([]);
+  // The company's saved templates for "New form" (plan L1). The built-in
+  // starter forms are not offered anymore.
   const [companyTemplates, setCompanyTemplates] = useState<ICompanyTemplate[]>([]);
-  const [templateChoice, setTemplateChoice] = useState(""); // "" = blank, "b:<key>" or "c:<id>"
+  const [templateChoice, setTemplateChoice] = useState(""); // "" = blank, or "c:<id>"
 
   // Switching between "Custom Forms" and a per-form sidebar row while
   // already on this screen (activeView stays "forms_home" either way, so
@@ -65,7 +90,6 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
   useEffect(() => {
     listTemplates().then((res) => {
       if (res?.ack === 1) {
-        setStarters(res.data?.builtin || []);
         setCompanyTemplates(res.data?.company || []);
       }
     });
@@ -77,23 +101,86 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
-    const template: TemplateChoice | undefined = templateChoice.startsWith("b:")
-      ? { source: "builtin", key: templateChoice.slice(2) }
-      : templateChoice.startsWith("c:")
-        ? { source: "company", id: Number(templateChoice.slice(2)) }
-        : undefined;
+    const template: TemplateChoice | undefined = templateChoice.startsWith("c:")
+      ? { source: "company", id: Number(templateChoice.slice(2)) }
+      : undefined;
     const res = await createForm({ title: newTitle.trim(), template });
     if (res?.ack === 1) {
       toast.success("Form created");
+      setShowCreate(false);
       setNewTitle("");
       setTemplateChoice("");
       await reload();
       setEditingId(res.data.item.id);
+      navigate(`/SideView/report/form_edit_${res.data.item.id}`);
     }
   };
 
+  // Body cells centered under the (centered) headers, and vertically in the row.
+  const cellCenter: React.CSSProperties = { textAlign: "center", verticalAlign: "middle" };
+
+  const copyLink = (f: IFormBuilderForm) => {
+    const url = publicFormUrl(f);
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Link copied"),
+      () => toast.error("Could not copy — copy it from the address shown"),
+    );
+  };
+
+  // What the row's cog popup offers; published-only ones are hidden on a draft.
+  const formActions = (f: IFormBuilderForm): IRowAction[] => {
+    const published = !!f.published_schema_json;
+    return [
+      { label: "Fill", hidden: !published, onClick: () => setFilling({ formId: f.id }) },
+      {
+        label: "Edit",
+        onClick: () => {
+          setEditingId(f.id);
+          navigate(`/SideView/report/form_edit_${f.id}`);
+        },
+      },
+      { label: "Submissions", hidden: !published, onClick: () => navigate(`/SideView/report/form_submissions_${f.id}`) },
+      { label: "Import", hidden: !published, title: "Bring in old records from an Excel sheet", onClick: () => setImportingId(f.id) },
+      { label: "Recurring", hidden: !published, title: "Ask people to fill this form daily, weekly or monthly", onClick: () => setSchedulingId(f.id) },
+      {
+        label: "Duplicate",
+        onClick: async () => {
+          const res = await duplicateForm(f.id);
+          if (res?.ack === 1) {
+            toast.success("Duplicated");
+            reload();
+          }
+        },
+      },
+      {
+        label: "Delete",
+        danger: true,
+        onClick: async () => {
+          if (!window.confirm(`Delete "${f.title}"?`)) return;
+          const res = await deleteForm(f.id);
+          if (res?.ack === 1) {
+            toast.success("Deleted");
+            reload();
+          }
+        },
+      },
+    ];
+  };
+
+  const filteredForms = forms.filter((f) => !search.trim() || (f.title || "").toLowerCase().includes(search.trim().toLowerCase()));
+
   if (editingId != null) {
-    return <FormBuilderEditorView formId={editingId} onClose={() => { setEditingId(null); reload(); }} />;
+    return (
+      <FormBuilderEditorView
+        formId={editingId}
+        onClose={() => {
+          setEditingId(null);
+          reload();
+          navigate("/SideView/report/custom_forms");
+        }}
+      />
+    );
   }
   if (filling) {
     const form = forms.find((f) => f.id === filling.formId);
@@ -176,153 +263,174 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId }) => {
     <div className="p-3">
       <FormBuilderBrandStyles />
       <BetaFeatureNotice />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>Custom Forms</h4>
+      {/* Header like Contact Book: title on the left; search, search button and
+          the orange round "+" (create) on the right. */}
+      <div className="d-flex justify-content-between align-items-center flex-wrap mb-3" style={{ gap: 8 }}>
+        <h3 className="mb-0">Custom Forms</h3>
+        <div className="d-flex gap-2 align-items-center fb-grid-toolbar" style={{ position: "relative" }}>
+          {/* Search and + are the same size, with the same icon size. */}
+          <style>{`
+            .fb-grid-toolbar .report_button { width: 2.5rem; height: 2.5rem; padding: 0; }
+            .fb-grid-toolbar .report_button .p-button-icon { font-size: 1rem; }
+          `}</style>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Search Anything in This Report"
+            style={{ width: 300, height: "2.5rem", margin: 0 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") applySearch();
+            }}
+          />
+          {search ? (
+            <span
+              className="clear-icon"
+              onClick={() => {
+                setSearchText("");
+                setSearch("");
+                setFirst(0);
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+              </svg>
+            </span>
+          ) : null}
+          <Button
+            icon="pi pi-search"
+            className="report_button"
+            style={{ backgroundColor: "#4C4C4C" }}
+            rounded
+            onClick={applySearch}
+            tooltip="Search"
+            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+          />
+          <Button
+            icon="pi pi-plus"
+            className="report_button"
+            style={{ backgroundColor: "rgb(245, 134, 52)" }}
+            rounded
+            onClick={() => setShowCreate(true)}
+            tooltip="Create Form"
+            tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+          />
+        </div>
       </div>
 
-      <div className="row mb-3">
-        <div className="col-12 col-md-4 mb-2">
-          <label className="pb-1 form_label d-block small" htmlFor="fb-new-template">
-            Start from
+      <Modal show={showCreate} onHide={() => setShowCreate(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Create Form</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <label className="pb-1 form_label d-block small" htmlFor="fb-new-title">
+            Form title
           </label>
-          <select id="fb-new-template" className="form-control" value={templateChoice} onChange={(e) => {
-            setTemplateChoice(e.target.value);
-            // A starter form suggests its own name when the box is still empty.
-            const chosen = starters.find((t) => `b:${t.key}` === e.target.value) || companyTemplates.find((t) => `c:${t.id}` === e.target.value);
-            if (chosen && !newTitle.trim()) setNewTitle(chosen.title);
-          }}>
-            <option value="">A blank form</option>
-            {starters.length ? (
-              <optgroup label="Starter forms">
-                {starters.map((t) => (
-                  <option key={t.key} value={`b:${t.key}`}>
-                    {t.title} ({t.field_count} fields)
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {companyTemplates.length ? (
-              <optgroup label="Your saved templates">
-                {companyTemplates.map((t) => (
-                  <option key={t.id} value={`c:${t.id}`}>
-                    {t.title} ({t.field_count} fields)
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-          </select>
-          {templateChoice ? (
-            <small className="text-muted d-block mt-1">
-              {(starters.find((t) => `b:${t.key}` === templateChoice) || companyTemplates.find((t) => `c:${t.id}` === templateChoice))?.description}
-            </small>
+          <input
+            id="fb-new-title"
+            className="form-control"
+            placeholder="New form title"
+            autoFocus
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreate();
+            }}
+          />
+          {/* Only worth showing once the company has saved a form as a template. */}
+          {companyTemplates.length ? (
+            <div className="mt-3">
+              <label className="pb-1 form_label d-block small" htmlFor="fb-new-template">
+                Start from
+              </label>
+              <select
+                id="fb-new-template"
+                className="form-control"
+                value={templateChoice}
+                onChange={(e) => {
+                  setTemplateChoice(e.target.value);
+                  // A saved template suggests its own name when the box is still empty.
+                  const chosen = companyTemplates.find((t) => `c:${t.id}` === e.target.value);
+                  if (chosen && !newTitle.trim()) setNewTitle(chosen.title);
+                }}
+              >
+                <option value="">A blank form</option>
+                <optgroup label="Your saved templates">
+                  {companyTemplates.map((t) => (
+                    <option key={t.id} value={`c:${t.id}`}>
+                      {t.title} ({t.field_count} fields)
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              {templateChoice ? (
+                <small className="text-muted d-block mt-1">
+                  {companyTemplates.find((t) => `c:${t.id}` === templateChoice)?.description}
+                </small>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-        <div className="col-12 col-md-4">
-          <label className="pb-1 form_label d-block small">&nbsp;</label>
-          <div className="input-group">
-            <input className="form-control" placeholder="New form title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-            <button className="btn btn-sm fb-btn-primary" onClick={handleCreate}>
-              + Create Form
-            </button>
-          </div>
-        </div>
-      </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowCreate(false)}>
+            Cancel
+          </button>
+          <button className="btn btn-sm fb-btn-primary" disabled={!newTitle.trim()} onClick={handleCreate}>
+            Create Form
+          </button>
+        </Modal.Footer>
+      </Modal>
 
       <MyDraftsPanel refreshKey={dueRefresh} onContinue={(d) => setFilling({ formId: d.form_id, draftId: d.id })} />
       <DueFormsPanel refreshKey={dueRefresh} onFill={(item) => setFilling({ formId: item.form_id, scheduleEntryId: item.id })} />
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Public Link</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {forms.map((f) => (
-            <tr key={f.id}>
-              <td>{f.title}</td>
-              <td>
-                {f.published_schema_json ? <span className="badge bg-success">Published</span> : <span className="badge bg-secondary">Draft</span>}
-                {f.has_unpublished_changes ? <span className="badge bg-warning ms-1">Unpublished changes</span> : null}
-              </td>
-              <td>
-                {f.allow_public_submission && publicFormUrl(f) ? (
-                  <button
-                    type="button"
-                    className="btn btn-sm fb-btn-outline-primary"
-                    title={publicFormUrl(f) || ""}
-                    onClick={() => {
-                      const url = publicFormUrl(f);
-                      if (!url) return;
-                      navigator.clipboard.writeText(url).then(
-                        () => toast.success("Link copied"),
-                        () => toast.error("Could not copy — copy it from the address shown"),
-                      );
-                    }}
-                  >
-                    Copy Link
-                  </button>
-                ) : (
-                  <span className="text-muted">Off</span>
-                )}
-              </td>
-              <td>
-                {f.published_schema_json ? (
-                  <button className="btn btn-sm fb-btn-primary me-1" onClick={() => setFilling({ formId: f.id })}>
-                    Fill
-                  </button>
-                ) : null}
-                <button className="btn btn-sm fb-btn-outline-primary me-1" onClick={() => setEditingId(f.id)}>
-                  Edit
-                </button>
-                {f.published_schema_json ? (
-                  <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => navigate(`/SideView/report/form_submissions_${f.id}`)}>
-                    Submissions
-                  </button>
-                ) : null}
-                {f.published_schema_json ? (
-                  <>
-                    <button className="btn btn-sm btn-outline-secondary me-1" title="Bring in old records from an Excel sheet" onClick={() => setImportingId(f.id)}>
-                      Import
-                    </button>
-                    <button className="btn btn-sm btn-outline-secondary me-1" title="Ask people to fill this form daily, weekly or monthly" onClick={() => setSchedulingId(f.id)}>
-                      Recurring
-                    </button>
-                  </>
-                ) : null}
-                <button
-                  className="btn btn-sm btn-outline-secondary me-1"
-                  onClick={async () => {
-                    const res = await duplicateForm(f.id);
-                    if (res?.ack === 1) {
-                      toast.success("Duplicated");
-                      reload();
-                    }
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={async () => {
-                    if (!window.confirm(`Delete "${f.title}"?`)) return;
-                    const res = await deleteForm(f.id);
-                    if (res?.ack === 1) {
-                      toast.success("Deleted");
-                      reload();
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Same grid as Contact Book: search toolbar, sortable PrimeReact DataTable,
+          paginator, and a row cog popup holding the actions. */}
+      <DataTable
+        value={filteredForms}
+        dataKey="id"
+        className="custom-centered-table"
+        paginator
+        first={first}
+        rows={pageRows}
+        onPage={(e) => {
+          setFirst(e.first);
+          setPageRows(e.rows);
+        }}
+        rowsPerPageOptions={[25, 50, 100, 200]}
+        sortMode="single"
+        removableSort
+        emptyMessage={search.trim() ? "No forms match your search" : "No forms yet"}
+      >
+        <Column header="Action" style={{ width: "5rem" }} bodyStyle={cellCenter} body={(f: IFormBuilderForm) => <RowActionPopup actions={formActions(f)} />} />
+        <Column field="title" header="Title" sortable bodyStyle={cellCenter} />
+        <Column
+          header="Status"
+          sortable
+          sortField="published_schema_json"
+          bodyStyle={cellCenter}
+          body={(f: IFormBuilderForm) => (
+            <>
+              {f.published_schema_json ? <span className="badge bg-success">Published</span> : <span className="badge bg-secondary">Draft</span>}
+              {f.has_unpublished_changes ? <span className="badge bg-warning ms-1">Unpublished changes</span> : null}
+            </>
+          )}
+        />
+        <Column
+          header="Public Link"
+          bodyStyle={cellCenter}
+          body={(f: IFormBuilderForm) =>
+            f.allow_public_submission && publicFormUrl(f) ? (
+              <button type="button" className="btn btn-sm fb-btn-outline-primary" title={publicFormUrl(f) || ""} onClick={() => copyLink(f)}>
+                Copy Link
+              </button>
+            ) : (
+              <span className="text-muted">Off</span>
+            )
+          }
+        />
+      </DataTable>
     </div>
   );
 };

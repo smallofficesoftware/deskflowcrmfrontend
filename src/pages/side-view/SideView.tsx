@@ -110,6 +110,8 @@ const SideView = ({ profileDetail }: IProp) => {
   // Which form's Submissions grid to open directly when landing on
   // forms_home via a per-form sidebar row (see handleSingleReportShow).
   const [formSubmissionsDeepLinkId, setFormSubmissionsDeepLinkId] = useState<number | null>(null);
+  // /SideView/report/form_edit_<id> - opens that form straight in the editor.
+  const [formEditDeepLinkId, setFormEditDeepLinkId] = useState<number | null>(null);
 
   // Keep activeView in sync with the URL for the Insights/Smart Reports/
   // Forms sidebar buttons (browser back/forward, or landing directly on
@@ -701,13 +703,14 @@ const SideView = ({ profileDetail }: IProp) => {
       );
       return;
     }
-    if (name === "custom_forms" || name.startsWith("form_submissions_")) {
+    if (name === "custom_forms" || name.startsWith("form_submissions_") || name.startsWith("form_edit_")) {
       // Each published form gets its own sidebar row (SideBarView.tsx,
       // value "form_submissions_<id>"), landing on FormBuilderListView with
       // that form's Submissions grid open directly - no picker step.
       setFormSubmissionsDeepLinkId(
         name.startsWith("form_submissions_") ? Number(name.slice("form_submissions_".length)) : null,
       );
+      setFormEditDeepLinkId(name.startsWith("form_edit_") ? Number(name.slice("form_edit_".length)) : null);
       // No permission gate, deliberately — matches the tile itself
       // (reportsMenuData.tsx) having no pageId, since this is meant to
       // behave like a static nav item, not a permission-gated report.
@@ -1567,6 +1570,7 @@ const SideView = ({ profileDetail }: IProp) => {
               onReportClick={openReport}
               isEmbed={isEmbed}
               formSubmissionsDeepLinkId={formSubmissionsDeepLinkId}
+              formEditDeepLinkId={formEditDeepLinkId}
             />
           )}
         </div>
