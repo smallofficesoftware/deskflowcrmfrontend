@@ -34,7 +34,8 @@ import FormBuilderBrandStyles from "./formBuilderBrandStyles";
 import FormFillModal from "./FormFillModal";
 import SensitiveValueCell from "./SensitiveValueCell";
 import SubmissionDetailView from "./SubmissionDetailView";
-import { entryNumberOf, listCellText, listFieldsOf } from "./listCells";
+import { entryNumberOf, fileCountOf, isAttachmentType, listCellText, listFieldsOf } from "./listCells";
+import AttachmentsPopup from "./AttachmentsPopup";
 import { STATUS_LABELS } from "./approval";
 import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
 
@@ -325,6 +326,8 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const [search, setSearch] = useState("");
   const [auditFor, setAuditFor] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  // Which entry's attachments (one field) the paperclip cell is showing.
+  const [attachmentsFor, setAttachmentsFor] = useState<{ submissionId: number; fieldKey: string; fieldLabel: string } | null>(null);
   const [filling, setFilling] = useState(false);
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
@@ -568,6 +571,24 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
       );
     }
     const field = shownListFields.find((f) => f.key === key);
+    // Attachment fields: the paperclip count opens that entry's files.
+    if (field && isAttachmentType(field.type)) {
+      const count = fileCountOf(field, row);
+      if (!count || restricted?.masked?.includes(key)) return "";
+      return (
+        <button
+          type="button"
+          className="btn btn-sm btn-link p-0"
+          title={`View ${count} attachment${count === 1 ? "" : "s"}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setAttachmentsFor({ submissionId: row.id, fieldKey: field.key, fieldLabel: field.label });
+          }}
+        >
+          📎 {count}
+        </button>
+      );
+    }
     if (field) return restricted?.masked?.includes(key) ? "••••" : listCellText(field, row);
     return null;
   };
@@ -896,6 +917,15 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         }}
       />
 
+      {attachmentsFor ? (
+        <AttachmentsPopup
+          formId={formId}
+          submissionId={attachmentsFor.submissionId}
+          fieldKey={attachmentsFor.fieldKey}
+          fieldLabel={attachmentsFor.fieldLabel}
+          onClose={() => setAttachmentsFor(null)}
+        />
+      ) : null}
       {openId != null ? (
         <SubmissionDetailView
           formId={formId}

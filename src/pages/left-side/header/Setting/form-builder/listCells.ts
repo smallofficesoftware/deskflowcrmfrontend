@@ -34,9 +34,22 @@ const LISTABLE_TYPES = new Set([
   "percentage",
   "location",
   "barcode",
+  // Attachments: no single value, the column shows how many files the entry has
+  // ("📎 2", from the row's _file_counts) and opens them on click.
+  "file",
+  "image",
+  "signature",
 ]);
 
 export const isListableType = (type: string) => LISTABLE_TYPES.has(type);
+
+// File / Image / Signature fields - shown in the list as a paperclip count.
+export const isAttachmentType = (type: string) => type === "file" || type === "image" || type === "signature";
+
+// How many files this entry has on that field (0 when none, or hidden from this user).
+export function fileCountOf(field: Pick<IFormBuilderField, "key">, row: Record<string, any>): number {
+  return Number(row?._file_counts?.[field.key]) || 0;
+}
 
 // The Auto Number is on the list unless the builder switched it off; every
 // other field is only there when the builder ticked "Show in the entries list".
@@ -64,6 +77,10 @@ const formatDate = (v: any) => {
 
 // One cell's text.
 export function listCellText(field: IFormBuilderField, row: Record<string, any>): string {
+  if (isAttachmentType(field.type)) {
+    const count = fileCountOf(field, row);
+    return count > 0 ? `📎 ${count}` : "";
+  }
   const value = row[field.key];
   if (field.type === "reference" || field.type === "user" || field.type === "customer-lookup") {
     return row._reference_labels?.[field.key] ?? "";
