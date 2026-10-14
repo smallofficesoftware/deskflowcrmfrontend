@@ -282,13 +282,14 @@ function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: 
 }
 
 // "statementTable" -> "Statement Table", "noDataText" -> "No Data Text"
-// "Add Field" also offers the company's Cart and Contact custom fields from
-// the data dictionary; their option values carry this prefix so they can't
-// collide with a default field's name. Product custom fields are per line
-// item (no single document-level value), so they are not offered as a text
-// field - they need an items-table column instead.
+// "Add Field" also offers the company's Cart, Contact and Product custom
+// fields from the data dictionary; their option values carry this prefix so
+// they can't collide with a default field's name. Cart/Contact ones become a
+// text field; Product ones are per line item, so they become a column of the
+// items table instead (columnOptions.customColumns).
 const CUSTOM_FIELD_PREFIX = "custom:";
-const CUSTOM_FIELD_GROUPS = ["Cart Custom Field", "Contact Custom Field"];
+const PRODUCT_CUSTOM_FIELD_GROUP = "Product Custom Field";
+const CUSTOM_FIELD_GROUPS = ["Cart Custom Field", "Contact Custom Field", PRODUCT_CUSTOM_FIELD_GROUP];
 
 const humanizeFieldName = (name: string): string =>
   name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
@@ -1028,9 +1029,59 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // dictionary) as a plain text field reading "<Title>: {{key}}". The token is
   // resolved at print time from the same inputs the dictionary keys feed, so
   // no per-field binding is needed. Styled from the first default text field.
+  // Product custom field -> a column of the items table. The column list lives
+  // in itemsTable.columnOptions.customColumns ([{ key, label }]); the backend
+  // rebuild (applyOptionsToDraft -> tableColumns.js) turns it into head/content/
+  // widths, same as the HSN/Discount toggles. Picking one that is already a
+  // column removes it.
+  const handleAddProductCustomColumn = async (entry: { key: string; label: string }) => {
+    if (!currentTemplateId || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const table = (template.schemas?.[0] || []).find((f: any) => f?.name === "itemsTable");
+    if (!table) {
+      toast.error("Add the Items Table first - product custom fields are columns of it.");
+      return;
+    }
+    const currentOptions: Record<string, any> = table.columnOptions || {};
+    const current: { key: string; label: string }[] = Array.isArray(currentOptions.customColumns)
+      ? currentOptions.customColumns
+      : [];
+    const exists = current.some((c) => c.key === entry.key);
+    const customColumns = exists
+      ? current.filter((c) => c.key !== entry.key)
+      : [...current, { key: entry.key, label: entry.label }];
+
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, {
+      columnOptions: { ...currentOptions, customColumns },
+    });
+    if (!updated) return;
+    const freshTable = (updated.schemas?.[0] || []).find((f: any) => f.name === "itemsTable");
+    if (!freshTable) return;
+    const schemas = (template.schemas || [[]]).map((page: any[]) =>
+      (page || []).map((f: any) =>
+        f?.name === "itemsTable"
+          ? {
+              ...f,
+              head: freshTable.head,
+              content: freshTable.content,
+              headWidthPercentages: freshTable.headWidthPercentages,
+              columnStyles: freshTable.columnStyles,
+              columnOptions: freshTable.columnOptions,
+            }
+          : f,
+      ),
+    );
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
+    toast.success(exists ? `Removed column "${entry.label}"` : `Added column "${entry.label}"`);
+  };
+
   const handleAddCustomField = (key: string) => {
     const entry = dictionary.find((d) => d.key === key);
     if (!entry || !designerRef.current) return;
+    if (entry.group === PRODUCT_CUSTOM_FIELD_GROUP) {
+      handleAddProductCustomColumn(entry);
+      return;
+    }
     const template = designerRef.current.getTemplate();
     const taken = new Set<string>();
     (template.schemas || []).forEach((page: any[]) =>
@@ -1445,7 +1496,16 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // backend rebuild treats whatever it receives as the complete desired
     // set, so a partial patch here would silently drop other already-on
     // columns.
-    const updated = await applyOptionsToDraft(currentTemplateId, docType, { columnOptions });
+    // The toggles only know the boolean keys; keep the Product Custom Field
+    // columns added from the Add Field dropdown, or toggling HSN would drop them.
+    const liveTable = (designerRef.current?.getTemplate()?.schemas?.[0] || []).find(
+      (f: any) => f?.name === "itemsTable",
+    );
+    const liveCustomColumns = (liveTable?.columnOptions as Record<string, any> | undefined)?.customColumns;
+    const fullColumnOptions: Record<string, any> = Array.isArray(liveCustomColumns) && liveCustomColumns.length
+      ? { ...columnOptions, customColumns: liveCustomColumns }
+      : columnOptions;
+    const updated = await applyOptionsToDraft(currentTemplateId, docType, { columnOptions: fullColumnOptions });
     if (!updated) return;
     const freshTable = (updated.schemas?.[0] || []).find((f: any) => f.name === "itemsTable");
     if (!freshTable) return;
