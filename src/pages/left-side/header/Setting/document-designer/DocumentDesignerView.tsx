@@ -282,6 +282,14 @@ function scaleTemplateInPlace(template: any, targetWidth: number, targetHeight: 
 }
 
 // "statementTable" -> "Statement Table", "noDataText" -> "No Data Text"
+// "Add Field" also offers the company's Cart and Contact custom fields from
+// the data dictionary; their option values carry this prefix so they can't
+// collide with a default field's name. Product custom fields are per line
+// item (no single document-level value), so they are not offered as a text
+// field - they need an items-table column instead.
+const CUSTOM_FIELD_PREFIX = "custom:";
+const CUSTOM_FIELD_GROUPS = ["Cart Custom Field", "Contact Custom Field"];
+
 const humanizeFieldName = (name: string): string =>
   name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
 
@@ -602,6 +610,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     })();
   }, [docType]);
   setFieldSettingsDictionary(dictionary);
+
+  const customFieldAddOptions = dictionary
+    .filter((d) => CUSTOM_FIELD_GROUPS.includes(d.group))
+    .map((d) => ({ value: `${CUSTOM_FIELD_PREFIX}${d.key}`, label: `${d.group}: ${d.label}` }));
 
   // Refresh the "Add Field" catalog whenever the doc_type changes.
   useEffect(() => {
@@ -1012,6 +1024,41 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     }
   };
 
+  // Adds a custom field (Cart / Contact / Product custom field from the data
+  // dictionary) as a plain text field reading "<Title>: {{key}}". The token is
+  // resolved at print time from the same inputs the dictionary keys feed, so
+  // no per-field binding is needed. Styled from the first default text field.
+  const handleAddCustomField = (key: string) => {
+    const entry = dictionary.find((d) => d.key === key);
+    if (!entry || !designerRef.current) return;
+    const template = designerRef.current.getTemplate();
+    const taken = new Set<string>();
+    (template.schemas || []).forEach((page: any[]) =>
+      (page || []).forEach((f: any) => f?.name && taken.add(f.name)),
+    );
+    let name = `custom_${key}`;
+    for (let n = 2; taken.has(name); n += 1) name = `custom_${key}_${n}`;
+
+    const baseText = defaultFields.find((f) => f.type === "text");
+    const base = baseText ? JSON.parse(JSON.stringify(baseText)) : { type: "text", fontSize: 11 };
+    delete base.dataSource;
+    const alreadyAdded = Array.from(taken).filter((t) => t.startsWith("custom_")).length;
+    const copy = {
+      ...base,
+      name,
+      type: "text",
+      content: `${entry.label}: {{${key}}}`,
+      readOnly: false,
+      position: { x: 10, y: 10 + alreadyAdded * 8 },
+      width: 90,
+      height: 8,
+    };
+    const schemas = (template.schemas || [[]]).map((p: any[]) => [...(p || [])]);
+    schemas[0] = [...(schemas[0] || []), copy];
+    designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
+    toast.success(`Added "${entry.label}"`);
+  };
+
   // Inserts the picked default field (data table, header rows, ...) onto the
   // canvas verbatim — name/columns/styles/position from the code default,
   // which the generic palette can't reproduce. Blocked if a field with that
@@ -1019,6 +1066,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // canvas edit.
   const handleAddField = () => {
     if (!requireEdit() || !currentTemplateId || !designerRef.current || !addFieldName) return;
+    if (addFieldName.startsWith(CUSTOM_FIELD_PREFIX)) {
+      handleAddCustomField(addFieldName.slice(CUSTOM_FIELD_PREFIX.length));
+      return;
+    }
     const fieldDef = defaultFields.find((f) => f.name === addFieldName);
     if (!fieldDef) return;
     const template = designerRef.current.getTemplate();
@@ -1736,21 +1787,26 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         </button>
         <div style={{ width: 210 }} title="Re-add a built-in field (e.g. the data table) that was deleted, or add an opt-in extra field, with its correct name and columns">
           <CustomSearchDropdown
-            options={defaultFields.map((f) => ({
-              value: f.name,
-              label: `${humanizeFieldName(f.name)} (${f.type})`,
-            }))}
+            options={[
+              ...defaultFields.map((f) => ({
+                value: f.name,
+                label: `${humanizeFieldName(f.name)} (${f.type})`,
+              })),
+              ...customFieldAddOptions,
+            ]}
             value={
               addFieldName
                 ? {
                     value: addFieldName,
-                    label: `${humanizeFieldName(addFieldName)} (${defaultFields.find((f) => f.name === addFieldName)?.type ?? ""})`,
+                    label: addFieldName.startsWith(CUSTOM_FIELD_PREFIX)
+                      ? customFieldAddOptions.find((o) => o.value === addFieldName)?.label ?? addFieldName
+                      : `${humanizeFieldName(addFieldName)} (${defaultFields.find((f) => f.name === addFieldName)?.type ?? ""})`,
                   }
                 : null
             }
             onChange={(option) => setAddFieldName(option?.value ?? "")}
-            isDisabled={!currentTemplateId || !defaultFields.length ? "disabled" : false}
-            placeholder={defaultFields.length ? "Add Field…" : "No fields available"}
+            isDisabled={!currentTemplateId || !(defaultFields.length || customFieldAddOptions.length) ? "disabled" : false}
+            placeholder={defaultFields.length || customFieldAddOptions.length ? "Add Field…" : "No fields available"}
           />
         </div>
         <button
