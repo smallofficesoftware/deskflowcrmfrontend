@@ -485,15 +485,3 @@ export const getImportColumns = (form_id: number) => post("form-builder/import/c
 export const runImport = (form_id: number, rows: { row_number: number; cells: Record<string, any> }[], dry_run: boolean, batch_label?: string) =>
   post("form-builder/import/run", { form_id, rows, dry_run, batch_label });
 
-// ---------- Save and continue later (plan M7) ----------
-
-export interface IDraftSummary {
-  id: number;
-  form_id: number;
-  form_title: string;
-  updated_date_time: string;
-}
-export const saveDraft = (form_id: number, answers: Record<string, any>, id?: number) => post("form-builder/drafts/save", { form_id, answers, id });
-export const listMyDrafts = () => post("form-builder/drafts/list", {}, { quiet: true });
-export const getDraft = (id: number) => post("form-builder/drafts/get", { id });
-export const deleteDraft = (id: number) => post("form-builder/drafts/delete", { id });

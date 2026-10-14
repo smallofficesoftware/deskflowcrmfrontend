@@ -11,7 +11,6 @@ import { localizeFields, secondLanguageName } from "../left-side/header/Setting/
 import {
   getForm,
   createSubmission,
-  getDraft,
   getReferenceOptions,
   IFormBuilderField,
   IRestricted,
@@ -22,9 +21,6 @@ interface Props {
   onSubmitted?: (submissionId: number) => void;
   // The due day of a recurring form this fill answers (plan Q1); without it, today's due entry is used.
   scheduleEntryId?: number;
-  // A saved draft to carry on with (plan M7).
-  draftId?: number;
-  onDraftSaved?: () => void;
   // Opened from a record's "Submit Form" menu item: the record is already
   // chosen, so the related-record picker is hidden.
   presetRelatedRecordId?: number;
@@ -34,7 +30,7 @@ interface Props {
 // ReferenceFieldInput.tsx with PublicFormFillView.tsx (plan §7); only the
 // data-fetching layer (authenticated axiosInstance vs. anonymous public
 // client) and the related-record picker's presence differ.
-const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, draftId, onDraftSaved, presetRelatedRecordId }) => {
+const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, presetRelatedRecordId }) => {
   const [fields, setFields] = useState<IFormBuilderField[]>([]);
   const [title, setTitle] = useState("");
   const [relatedModule, setRelatedModule] = useState<string | null>(null);
@@ -50,7 +46,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   // Second language (plan M8): the form's translated labels, only shown once switched on.
   const [languageName, setLanguageName] = useState<string | null>(null);
   const [showSecondLanguage, setShowSecondLanguage] = useState(false);
@@ -74,11 +69,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
           // This screen only creates new submissions, so defaults
           // ("Default to today", default values) always apply here.
           const initial = buildInitialAnswers(list);
-          // Carrying on with a draft: what was typed comes back over the defaults.
-          if (draftId) {
-            const draft = await getDraft(draftId);
-            if (draft?.ack === 1) Object.assign(initial, draft.data.item.answers || {});
-          }
           setAnswers(initial);
         } catch {
           setFields([]);
@@ -129,7 +119,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
     const extra: Record<string, any> = {};
     if (relatedModule && relatedRecordId) extra.related_record_id = relatedRecordId;
     if (scheduleEntryId) extra.schedule_entry_id = scheduleEntryId;
-    if (currentDraftId) extra.draft_id = currentDraftId;
     const res = await createSubmission(formId, answers, files, extra);
     setSubmitting(false);
     if (res?.ack === 1) {
@@ -137,7 +126,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
       onSubmitted?.(res.data?.item?.id);
       setAnswers(buildInitialAnswers(fields));
       setFiles([]);
-      setCurrentDraftId(undefined);
     } else if (res?.ack_msg) {
       setErrors({ _form: res.ack_msg });
     }

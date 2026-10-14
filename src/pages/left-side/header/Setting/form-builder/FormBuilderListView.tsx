@@ -18,7 +18,6 @@ import InternalFormFillView from "../../../../forms-internal-fill/InternalFormFi
 import ImportEntriesView from "./import/ImportEntriesView";
 import FormSchedulesView from "./schedules/FormSchedulesView";
 import DueFormsPanel from "./schedules/DueFormsPanel";
-import MyDraftsPanel from "./drafts/MyDraftsPanel";
 
 // Reached via reportsMenuData.tsx's "Custom Forms" tile (Forms category,
 // same tier as CRM/HRMS/Production) -> BottomView.tsx's forms_home branch.
@@ -52,7 +51,7 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
   }, [editDeepLinkId]);
   const [viewingSubmissionsId, setViewingSubmissionsId] = useState<number | null>(initialSubmissionsId);
   // Fill a form now (optionally the due day of a recurring schedule), import from Excel, recurring setup (plan Q).
-  const [filling, setFilling] = useState<{ formId: number; scheduleEntryId?: number; draftId?: number } | null>(null);
+  const [filling, setFilling] = useState<{ formId: number; scheduleEntryId?: number } | null>(null);
   // Grid (Contact Book style): searchText is what is typed, search what is applied (Enter / search button).
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
@@ -218,14 +217,12 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
             <InternalFormFillView
               formId={filling.formId}
               scheduleEntryId={filling.scheduleEntryId}
-              draftId={filling.draftId}
-              onDraftSaved={() => setDueRefresh((n) => n + 1)}
               onSubmitted={() => {
                 // A due day is done once filled — go back to the list, which reloads what is still due.
                 setDueRefresh((n) => n + 1);
-                if (filling.scheduleEntryId || filling.draftId) setFilling(null);
+                if (filling.scheduleEntryId) setFilling(null);
               }}
-              key={`${form?.id}-${filling.scheduleEntryId || 0}-${filling.draftId || 0}`}
+              key={`${form?.id}-${filling.scheduleEntryId || 0}`}
             />
           </div>
         </div>
@@ -332,7 +329,6 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
         </Modal.Footer>
       </Modal>
 
-      <MyDraftsPanel refreshKey={dueRefresh} onContinue={(d) => setFilling({ formId: d.form_id, draftId: d.id })} />
       <DueFormsPanel refreshKey={dueRefresh} onFill={(item) => setFilling({ formId: item.form_id, scheduleEntryId: item.id })} />
 
       {/* Same grid as Contact Book: search toolbar, sortable PrimeReact DataTable,
