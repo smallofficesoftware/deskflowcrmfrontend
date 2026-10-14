@@ -12,7 +12,6 @@ import {
   getForm,
   createSubmission,
   getDraft,
-  saveDraft,
   getReferenceOptions,
   IFormBuilderField,
   IRestricted,
@@ -51,7 +50,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [savingDraft, setSavingDraft] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   // Second language (plan M8): the form's translated labels, only shown once switched on.
   const [languageName, setLanguageName] = useState<string | null>(null);
@@ -145,20 +143,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
     }
   };
 
-  // "Save and continue later" (plan M7): keeps what is typed so far — nothing is
-  // checked and no number is given until the form is really submitted.
-  const handleSaveDraft = async () => {
-    setSavingDraft(true);
-    const res = await saveDraft(formId, answers, currentDraftId);
-    setSavingDraft(false);
-    if (res?.ack === 1) {
-      setCurrentDraftId(res.data.item.id);
-      toast.success("Draft saved — carry on later from \"My drafts\"");
-      onDraftSaved?.();
-    }
-  };
-  const hasUnsavedKinds = fields.some((f) => f.type === "file" || f.type === "image" || f.type === "signature" || (f as any).format_preset === "aadhaar");
-
   if (loading) return <div className="p-3">Loading...</div>;
 
   return (
@@ -196,15 +180,10 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
         }}
       />
 
-      {hasUnsavedKinds ? <small className="text-muted d-block mt-2">A saved draft keeps what you typed, but not photos, files, signatures or Aadhaar numbers — add those when you finish.</small> : null}
-
       {/* Sticks to the bottom of the screen on phones (FillResponsiveStyles). */}
       <div className="fb-submit-bar">
         <button type="button" className="btn fb-btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
           {submitting ? "Submitting..." : "Submit"}
-        </button>
-        <button type="button" className="btn btn-outline-secondary mt-3 ms-2" disabled={savingDraft || submitting} onClick={handleSaveDraft}>
-          {savingDraft ? "Saving..." : "Save draft"}
         </button>
       </div>
     </div>
