@@ -811,7 +811,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
                       form={form}
                       onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}
                     />
-                    <h6 className="mt-4 mb-2">Print and templates</h6>
+                    <h6 className="mt-4 mb-2">Print</h6>
                     <FormPrintPanel
                       form={form}
                       onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}
