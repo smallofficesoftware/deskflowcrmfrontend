@@ -7,6 +7,7 @@ import { DEFAULT_MESSAGE_ERROR_PERMISSION } from '../../../helpers/AppConstants'
 import { PAGE_ID, PERMISSION_TYPE } from '../../../helpers/AppEnum';
 import useCheckUserPermission from '../../../hooks/useCheckUserPermission';
 import { IOrder, orderTypesList } from '../../../pages/right-side/list-order/ListOrderController';
+import { downloadMiracleInvoicePdf } from '../../../pages/right-side/list-order/MiracleInvoicePdfController';
 import { fetchCompanyApi, ICompany } from '../../left-side/list-company/ListCompanyController';
 
 interface OrderActionDropdownProps {
@@ -89,6 +90,7 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
     const [noDataFound, setNoDataFound] = useState(false);
     const [companyJoinOrCreate, setCompanyJoinOrCreate] = useState();
     const [loading, setLoading] = useState(false);
+    const [miracleInvoiceLoading, setMiracleInvoiceLoading] = useState(false);
 
 
     const canAddQuo = useCheckUserPermission(
@@ -781,6 +783,35 @@ const OrderActionDropdown: React.FC<OrderActionDropdownProps> = ({
                         }
                     >
                         {syncLoading ? "Syncing.." : "Sync Miracle"}
+                    </li>
+                ) : (
+                    <span></span>
+                )}
+
+                {isFeatureEnabled &&
+                    (item.type === 3 ||
+                        item.type === 4 ||
+                        item.type === 6 ||
+                        item.type === 7) &&
+                    item.cart_number ? (
+                    <li
+                        style={{
+                            height: "auto",
+                            color: miracleInvoiceLoading ? "#E21F26" : "",
+                        }}
+                        className="listItem-report"
+                        role="button"
+                        onClick={() => {
+                            if (!miracleInvoiceLoading) {
+                                downloadMiracleInvoicePdf(
+                                    item.id,
+                                    setMiracleInvoiceLoading,
+                                    item.cart_number,
+                                );
+                            }
+                        }}
+                    >
+                        {miracleInvoiceLoading ? "Downloading.." : "Download Miracle Invoice"}
                     </li>
                 ) : (
                     <span></span>

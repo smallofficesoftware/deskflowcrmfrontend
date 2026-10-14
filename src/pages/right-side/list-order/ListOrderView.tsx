@@ -70,6 +70,7 @@ import {
   syncMiracleInvoice,
   updateStageStatusForOrderRadioButton,
 } from "./ListOrderController";
+import { downloadMiracleInvoicePdf } from "./MiracleInvoicePdfController";
 
 let TRANSACTION_MODE: any = {
   "1": "Cash Memo",
@@ -113,6 +114,7 @@ const ListOrderView = ({
   const dropdownRef = useRef<Record<number, HTMLUListElement | null>>({});
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [miracleInvoiceLoading, setMiracleInvoiceLoading] = useState(false);
   const [dynamicViewFormate, setDynamicViewFormate] = useState(1);
   const [isWhatsAppCloudLoading, setIsWhatsAppCloudLoading] = useState(false);
 
@@ -3186,6 +3188,37 @@ const ListOrderView = ({
                               }
                             >
                               {syncLoading ? "Syncing.." : "Sync Miracle"}
+                            </li>
+                          ) : (
+                            <span></span>
+                          )}
+
+                          {isFeatureEnabled &&
+                            (item.type === 3 ||
+                              item.type === 4 ||
+                              item.type === 6 ||
+                              item.type === 7) &&
+                            item.cart_number ? (
+                            <li
+                              style={{
+                                height: "auto",
+                                color: miracleInvoiceLoading ? "#E21F26" : "",
+                              }}
+                              className="listItem"
+                              role="button"
+                              onClick={() => {
+                                if (!miracleInvoiceLoading) {
+                                  downloadMiracleInvoicePdf(
+                                    item.id,
+                                    setMiracleInvoiceLoading,
+                                    item.cart_number,
+                                  );
+                                }
+                              }}
+                            >
+                              {miracleInvoiceLoading
+                                ? "Downloading.."
+                                : "Download Miracle Invoice"}
                             </li>
                           ) : (
                             <span></span>
