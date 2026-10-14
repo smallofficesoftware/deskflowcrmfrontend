@@ -360,6 +360,23 @@ const NewModuleSettings = ({
                         }}
                       />
                     </div>
+                    <div className="form-check form-switch">
+                      <label htmlFor="is_grouped_number_format">
+                        Use Grouped Number Format On Print (1,50,000.00)
+                      </label>
+                      <Field
+                        type="checkbox"
+                        name="is_grouped_number_format"
+                        className="form-check-input"
+                        checked={values.is_grouped_number_format === 1}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setFieldValue(
+                            "is_grouped_number_format",
+                            e.target.checked ? 1 : 0,
+                          );
+                        }}
+                      />
+                    </div>
                     <div className="mt-2 mb-2">
                       <div className="form-check form-switch">
                         <label htmlFor="document_designer_select_all">
