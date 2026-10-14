@@ -9,7 +9,7 @@ import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, listTemplates, IFormBuilderForm, ICompanyTemplate, TemplateChoice } from "./FormBuilderController";
+import { listForms, createForm, deleteForm, duplicateForm, publicFormUrl, IFormBuilderForm } from "./FormBuilderController";
 import FormBuilderEditorView from "./FormBuilderEditorView";
 import FormSubmissionsListView from "./FormSubmissionsListView";
 import FormBuilderBrandStyles from "./formBuilderBrandStyles";
@@ -67,11 +67,6 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
   const [schedulingId, setSchedulingId] = useState<number | null>(null);
   const [dueRefresh, setDueRefresh] = useState(0);
 
-  // The company's saved templates for "New form" (plan L1). The built-in
-  // starter forms are not offered anymore.
-  const [companyTemplates, setCompanyTemplates] = useState<ICompanyTemplate[]>([]);
-  const [templateChoice, setTemplateChoice] = useState(""); // "" = blank, or "c:<id>"
-
   // Switching between "Custom Forms" and a per-form sidebar row while
   // already on this screen (activeView stays "forms_home" either way, so
   // BottomView keeps this same component instance mounted) only changes
@@ -88,28 +83,16 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
   };
 
   useEffect(() => {
-    listTemplates().then((res) => {
-      if (res?.ack === 1) {
-        setCompanyTemplates(res.data?.company || []);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
     reload();
   }, []);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
-    const template: TemplateChoice | undefined = templateChoice.startsWith("c:")
-      ? { source: "company", id: Number(templateChoice.slice(2)) }
-      : undefined;
-    const res = await createForm({ title: newTitle.trim(), template });
+    const res = await createForm({ title: newTitle.trim() });
     if (res?.ack === 1) {
       toast.success("Form created");
       setShowCreate(false);
       setNewTitle("");
-      setTemplateChoice("");
       await reload();
       setEditingId(res.data.item.id);
       navigate(`/SideView/report/form_edit_${res.data.item.id}`);
@@ -338,39 +321,6 @@ const FormBuilderListView: React.FC<Props> = ({ deepLinkFormId, editDeepLinkId }
               if (e.key === "Enter") handleCreate();
             }}
           />
-          {/* Only worth showing once the company has saved a form as a template. */}
-          {companyTemplates.length ? (
-            <div className="mt-3">
-              <label className="pb-1 form_label d-block small" htmlFor="fb-new-template">
-                Start from
-              </label>
-              <select
-                id="fb-new-template"
-                className="form-control"
-                value={templateChoice}
-                onChange={(e) => {
-                  setTemplateChoice(e.target.value);
-                  // A saved template suggests its own name when the box is still empty.
-                  const chosen = companyTemplates.find((t) => `c:${t.id}` === e.target.value);
-                  if (chosen && !newTitle.trim()) setNewTitle(chosen.title);
-                }}
-              >
-                <option value="">A blank form</option>
-                <optgroup label="Your saved templates">
-                  {companyTemplates.map((t) => (
-                    <option key={t.id} value={`c:${t.id}`}>
-                      {t.title} ({t.field_count} fields)
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              {templateChoice ? (
-                <small className="text-muted d-block mt-1">
-                  {companyTemplates.find((t) => `c:${t.id}` === templateChoice)?.description}
-                </small>
-              ) : null}
-            </div>
-          ) : null}
         </Modal.Body>
         <Modal.Footer>
           <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowCreate(false)}>

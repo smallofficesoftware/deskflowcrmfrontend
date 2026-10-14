@@ -275,22 +275,7 @@ async function post(path: string, body: Record<string, any>, opts: { quiet?: boo
 
 export const listForms = (body: Record<string, any> = {}) => post("form-builder/list", body);
 export const getForm = (id: number) => post("form-builder/get", { id });
-export interface IStarterTemplate {
-  key: string;
-  title: string;
-  description: string;
-  category: string | null;
-  field_count: number;
-}
-export interface ICompanyTemplate {
-  id: number;
-  title: string;
-  description: string;
-  field_count: number;
-}
-export type TemplateChoice = { source: "builtin"; key: string } | { source: "company"; id: number };
-
-export const createForm = (body: { title: string; description?: string; related_module?: string; category?: string; template?: TemplateChoice }) =>
+export const createForm = (body: { title: string; description?: string; related_module?: string; category?: string }) =>
   post("form-builder/create", body);
 export const updateDraftForm = (body: { id: number; [key: string]: any }) => post("form-builder/update", body);
 // Same call for the editor's autosave — no toasts; failures come back as
@@ -427,12 +412,6 @@ export const exportBlankFormPdf = (form_id: number) => post("form-builder/export
 // Approve or send back an entry at its current approval stage.
 export const stageAction = (form_id: number, id: number, action: "approve" | "send_back", comment?: string) =>
   post("form-builder/submissions/stage-action", { form_id, id, action, comment });
-
-// Starter forms and saved templates (plan L1-L3).
-export const listTemplates = () => post("form-builder/templates/list", {});
-export const saveTemplateFromForm = (form_id: number, title: string, description?: string) =>
-  post("form-builder/templates/save-from-form", { form_id, title, description });
-export const deleteTemplate = (id: number) => post("form-builder/templates/delete", { id });
 
 // Every entry on its own page(s) in one PDF (plan K4).
 export const exportSubmissionsPagesPdf = (form_id: number, filters?: any) =>
