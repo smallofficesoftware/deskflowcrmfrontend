@@ -1029,6 +1029,21 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // dictionary) as a plain text field reading "<Title>: {{key}}". The token is
   // resolved at print time from the same inputs the dictionary keys feed, so
   // no per-field binding is needed. Styled from the first default text field.
+  // The page the user is looking at (pdfme's own page cursor), so an added
+  // field lands there and not always on page 1. Falls back to the page-number
+  // box above the canvas, then page 1; clamped to the pages that exist.
+  const currentPageIndexOf = (template: any): number => {
+    let index = targetPageNumber - 1;
+    try {
+      const cursor = designerRef.current?.getPageCursor?.();
+      if (typeof cursor === "number" && Number.isFinite(cursor)) index = cursor;
+    } catch {
+      // keep the page-number fallback
+    }
+    const last = Math.max((template?.schemas?.length || 1) - 1, 0);
+    return Math.min(Math.max(index, 0), last);
+  };
+
   // Product custom field -> a column of the items table. The column list lives
   // in itemsTable.columnOptions.customColumns ([{ key, label }]); the backend
   // rebuild (applyOptionsToDraft -> tableColumns.js) turns it into head/content/
@@ -1105,9 +1120,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       height: 8,
     };
     const schemas = (template.schemas || [[]]).map((p: any[]) => [...(p || [])]);
-    schemas[0] = [...(schemas[0] || []), copy];
+    const pageIndex = currentPageIndexOf(template);
+    schemas[pageIndex] = [...(schemas[pageIndex] || []), copy];
     designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
-    toast.success(`Added "${entry.label}"`);
+    toast.success(`Added "${entry.label}" to page ${pageIndex + 1}`);
   };
 
   // Inserts the picked default field (data table, header rows, ...) onto the
@@ -1142,9 +1158,10 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       if (copy.position) copy.position = { x: (copy.position.x || 0) + 5, y: (copy.position.y || 0) + 5 };
     }
     const schemas = (template.schemas || [[]]).map((p: any[]) => [...(p || [])]);
-    schemas[0] = [...(schemas[0] || []), copy];
+    const pageIndex = currentPageIndexOf(template);
+    schemas[pageIndex] = [...(schemas[pageIndex] || []), copy];
     designerRef.current.updateTemplate(injectRealCompanyHeaderData({ ...template, schemas }, companyData));
-    toast.success(`Added "${copy.name}"`);
+    toast.success(`Added "${copy.name}" to page ${pageIndex + 1}`);
   };
 
   const handleSaveDraft = async () => {
