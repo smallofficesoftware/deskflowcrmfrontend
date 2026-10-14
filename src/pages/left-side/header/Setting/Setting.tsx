@@ -438,6 +438,15 @@ const Setting = ({
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   }
+  // Flow Builder (the Automations module) used to be a card inside the Workflow
+  // Automation page; it keeps that page's permission.
+  function openFlowBuilder() {
+    if (canViewWorkflowAutomation) {
+      window.open(`${window.location.origin}/Automations`, "_blank");
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
   function openJopCard() {
     jobCard();
   }
@@ -2183,6 +2192,26 @@ const Setting = ({
                         <h4 title="Work Flow Automation">
                           Workflow Automation
                         </h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="block ps-3" onClick={openFlowBuilder}>
+                    <div className="icon-Box">
+                      <button className="icons-setings">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="24px"
+                          viewBox="0 0 24 24"
+                          width="24px"
+                          fill="currentColor"
+                        >
+                          <path d="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="h-text">
+                      <div className="head">
+                        <h4 title="Flow Builder">Flow Builder</h4>
                       </div>
                     </div>
                   </div>
