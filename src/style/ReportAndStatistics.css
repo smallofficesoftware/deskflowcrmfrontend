@@ -19,6 +19,11 @@
 .report_card {
   /* overflow: auto; */
   background-color: #ffffff;
+  /* Many reports set the card to height: 90vh, but the page header/filters sit
+     above it, so the card's bottom - and the grid's horizontal scrollbar with
+     it - fell below the visible screen (ticket #2682). Cap it to what is left
+     of the viewport so the horizontal scrollbar stays on screen. */
+  max-height: calc(100vh - 150px);
 }
 
 /* Table styling */
