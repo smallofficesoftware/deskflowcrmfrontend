@@ -291,6 +291,10 @@ const CUSTOM_FIELD_PREFIX = "custom:";
 const PRODUCT_CUSTOM_FIELD_GROUP = "Product Custom Field";
 const CUSTOM_FIELD_GROUPS = ["Cart Custom Field", "Contact Custom Field", PRODUCT_CUSTOM_FIELD_GROUP];
 
+// The invoice items table, on whichever page it sits.
+const findItemsTable = (template: any): any =>
+  ((template?.schemas as any[][]) || []).flat().find((f: any) => f?.name === "itemsTable");
+
 const humanizeFieldName = (name: string): string =>
   name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
 
@@ -1052,7 +1056,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   const handleAddProductCustomColumn = async (entry: { key: string; label: string }) => {
     if (!currentTemplateId || !designerRef.current) return;
     const template = designerRef.current.getTemplate();
-    const table = (template.schemas?.[0] || []).find((f: any) => f?.name === "itemsTable");
+    const table = findItemsTable(template);
     if (!table) {
       toast.error("Add the Items Table first - product custom fields are columns of it.");
       return;
@@ -1070,7 +1074,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
       columnOptions: { ...currentOptions, customColumns },
     });
     if (!updated) return;
-    const freshTable = (updated.schemas?.[0] || []).find((f: any) => f.name === "itemsTable");
+    const freshTable = findItemsTable(updated);
     if (!freshTable) return;
     const schemas = (template.schemas || [[]]).map((page: any[]) =>
       (page || []).map((f: any) =>
@@ -1515,16 +1519,14 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     // columns.
     // The toggles only know the boolean keys; keep the Product Custom Field
     // columns added from the Add Field dropdown, or toggling HSN would drop them.
-    const liveTable = (designerRef.current?.getTemplate()?.schemas?.[0] || []).find(
-      (f: any) => f?.name === "itemsTable",
-    );
+    const liveTable = findItemsTable(designerRef.current?.getTemplate());
     const liveCustomColumns = (liveTable?.columnOptions as Record<string, any> | undefined)?.customColumns;
     const fullColumnOptions: Record<string, any> = Array.isArray(liveCustomColumns) && liveCustomColumns.length
       ? { ...columnOptions, customColumns: liveCustomColumns }
       : columnOptions;
     const updated = await applyOptionsToDraft(currentTemplateId, docType, { columnOptions: fullColumnOptions });
     if (!updated) return;
-    const freshTable = (updated.schemas?.[0] || []).find((f: any) => f.name === "itemsTable");
+    const freshTable = findItemsTable(updated);
     if (!freshTable) return;
     changeSchemas([
       { key: "head", value: freshTable.head, schemaId },
