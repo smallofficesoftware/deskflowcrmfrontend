@@ -6357,6 +6357,31 @@ const CreateCompanyView = ({
                                       <div className="col-4 col-md-4">
                                         <div className="form-group">
                                           <label
+                                            htmlFor="is_grouped_number_format"
+                                            className="mb-1 form_label"
+                                          >
+                                            Number Format On Print
+                                          </label>
+                                          <Field
+                                            as="select"
+                                            id="is_grouped_number_format"
+                                            name="is_grouped_number_format"
+                                            className="form-control"
+                                            value={Number(values.is_grouped_number_format) || 0}
+                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                                              setFieldValue("is_grouped_number_format", Number(e.target.value))
+                                            }
+                                          >
+                                            <option value={0}>Plain (150000.00)</option>
+                                            <option value={1}>Indian (1,50,000.00)</option>
+                                            <option value={2}>International / US (150,000.00)</option>
+                                            <option value={3}>European (150.000,00)</option>
+                                          </Field>
+                                        </div>
+                                      </div>
+                                      <div className="col-4 col-md-4">
+                                        <div className="form-group">
+                                          <label
                                             htmlFor="order_qty_unit"
                                             className="mb-1 form_label"
                                           >

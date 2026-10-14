@@ -168,6 +168,8 @@ export interface ICreateCompany {
   banner_img_two: string;
   is_strict_check_product_stock: number;
   is_strict_wharehouse_wise_product_stock_check: number;
+  // Digit grouping of amounts on print: 0 plain, 1 Indian, 2 International, 3 European.
+  is_grouped_number_format: number;
   quotation_packing_charge_title: string;
   quotation_transport_charge_title: string;
   quotation_tcs_title: string;
@@ -260,6 +262,7 @@ export const createCompanyInitialValues = (
     is_contact_validation?: number;
     is_strict_check_product_stock?: number;
     is_strict_wharehouse_wise_product_stock_check?: number;
+    is_grouped_number_format?: number;
     view_inquiry_form_in_contact?: number;
     same_product_multiple_in_cart?: number;
   } = {},
@@ -395,6 +398,10 @@ export const createCompanyInitialValues = (
     companyToEdit?.is_strict_wharehouse_wise_product_stock_check ||
     additionalValues.is_strict_wharehouse_wise_product_stock_check ||
     1,
+  is_grouped_number_format:
+    Number(companyToEdit?.is_grouped_number_format) ||
+    Number(additionalValues.is_grouped_number_format) ||
+    0,
   view_inquiry_form_in_contact:
     companyToEdit?.view_inquiry_form_in_contact ||
     additionalValues.view_inquiry_form_in_contact ||
@@ -793,6 +800,7 @@ export const updateCompany = async (
       is_strict_check_product_stock: values.is_strict_check_product_stock,
       is_strict_wharehouse_wise_product_stock_check:
         values.is_strict_wharehouse_wise_product_stock_check,
+      is_grouped_number_format: values.is_grouped_number_format,
       view_inquiry_form_in_contact: values.view_inquiry_form_in_contact,
       same_product_multiple_in_cart: values.same_product_multiple_in_cart,
       is_email_verified: toCheckIsmailVerify,
@@ -990,6 +998,10 @@ export const updateCompany = async (
   formData.append(
     "is_strict_wharehouse_wise_product_stock_check",
     values.is_strict_wharehouse_wise_product_stock_check.toString(),
+  );
+  formData.append(
+    "is_grouped_number_format",
+    String(values.is_grouped_number_format ?? 0),
   );
   if (values.view_inquiry_form_in_contact) {
     formData.append(

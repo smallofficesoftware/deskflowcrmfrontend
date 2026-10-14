@@ -360,22 +360,25 @@ const NewModuleSettings = ({
                         }}
                       />
                     </div>
-                    <div className="form-check form-switch">
-                      <label htmlFor="is_grouped_number_format">
-                        Use Grouped Number Format On Print (1,50,000.00)
+                    <div className="form-group mb-2">
+                      <label htmlFor="is_grouped_number_format" className="mb-1 form_label">
+                        Number Format On Print
                       </label>
                       <Field
-                        type="checkbox"
+                        as="select"
+                        id="is_grouped_number_format"
                         name="is_grouped_number_format"
-                        className="form-check-input"
-                        checked={values.is_grouped_number_format === 1}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          setFieldValue(
-                            "is_grouped_number_format",
-                            e.target.checked ? 1 : 0,
-                          );
-                        }}
-                      />
+                        className="form-control"
+                        value={Number(values.is_grouped_number_format) || 0}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                          setFieldValue("is_grouped_number_format", Number(e.target.value))
+                        }
+                      >
+                        <option value={0}>Plain (150000.00)</option>
+                        <option value={1}>Indian (1,50,000.00)</option>
+                        <option value={2}>International / US (150,000.00)</option>
+                        <option value={3}>European (150.000,00)</option>
+                      </Field>
                     </div>
                     <div className="mt-2 mb-2">
                       <div className="form-check form-switch">
