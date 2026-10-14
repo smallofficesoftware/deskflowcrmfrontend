@@ -152,6 +152,10 @@ export interface IFormBuilderField {
   filterable?: boolean;
   unique?: boolean;
   visible_to?: "internal" | "public" | "both";
+  // Per-person access (replaces the older "Who sees this field" + restriction
+  // dropdowns): a person not listed, or without see, does not get the field;
+  // see without edit is read-only. user_id is an a_application_login_id.
+  user_access?: { user_id: number; see: boolean; edit: boolean }[];
   width?: "full" | "half" | "third";
   options?: string[];
   default?: any;
