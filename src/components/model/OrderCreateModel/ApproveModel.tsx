@@ -524,7 +524,7 @@ const ApproveModel = ({
         toast.error("Please select Transaction Mode");
         return;
       }
-      if (!selectedMiracleLedger?.value) {
+      if (orderType != 9 && !selectedMiracleLedger?.value) {
         toast.error("Please select Account Ledger From Miracle");
         return;
       }
@@ -714,7 +714,7 @@ const ApproveModel = ({
                   </select>
                 </div>
               )}
-              {isFeatureEnabled && isMiracleVoucherType && (
+              {isFeatureEnabled && isMiracleVoucherType && orderType != 9 && (
                   <div>
                     <div
                       style={{
