@@ -1,65 +1,70 @@
+import { Suspense, lazy } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { AppProvider } from "../common/AppContext";
 import NotFound from "../components/NotFound";
-import InstructionView from "../pages/instruction/InstructionView";
-import PdfView from "../pages/order-pdf-view/PdfView";
-import OrderPrintViewV2 from "../pages/order-print-view/OrderPrintViewV2";
-import ContactUs from "../pages/privacy-policy/ContactUs";
-import PrivacyPolicy from "../pages/privacy-policy/PrivacyPolicy";
-import Index from "../pages/public/Index";
-import ActivationCodeView from "../pages/public/activation-code/ActivationCodeView";
-import ShortcutkeyView from "../pages/short-cut-Key/Short_cut_key";
-// import Voice from "../pages/voice/Main";
-import CompanyVsReferralCode from "../pages/CompanyVsReferral/CompanyVsReferralCode";
-import Connection from "../pages/Connection/Connection";
-import AccountPrintView1 from "../pages/account-print-view/AccountPrintView1";
-import CronSetting from "../pages/cron-settings/cronSetting";
-import OrderPrintViewV1 from "../pages/order-print-view/OrderPrintViewV1";
-import OrderPrintViewV3 from "../pages/order-print-view/OrderPrintViewV3";
-import OrderPrintViewV4 from "../pages/order-print-view/OrderPrintViewV4";
-import OrderPrintViewV5 from "../pages/order-print-view/OrderPrintViewV5";
-import PendingPrintViewV1 from "../pages/order-print-view/PendingPrintViewV1";
-import CreateContactUsingQR from "../pages/public/create-contact";
-import CompanyQRCodeCard from "../pages/qr-view";
-import VideoTutorial from "../pages/video Tutorial/VideoTutorial";
-import Google from "../pages/voice/Google";
-import NewReportModel from "../components/model/NewReportModel";
-import AccountTransactionV1 from "../pages/account-transaction/AccountTransactionV1View";
-// import TeamPerformanceReports from "../pages/dashboard/Reports/TeamPerformanceReports"
 import LogoutComponent from "../components/LogoutComponent";
-import ContactAddressEnvelopePrintView from "../pages/contact-address-print/ContactAddressEnvelopePrintView";
-import ContactAddressPrintView1 from "../pages/contact-address-print/ContactAddressPrintView1";
-import CustomerSupportView from "../pages/customer-support/CustomerSupportView";
-import ReviewsView from "../pages/reviews/ReviewsView";
-import ProcessAttendanceMonthlySlip from "../pages/dashboard/Reports/Process Attendance Report/ProcessAttendanceMonthlySlip";
-import SalaryRegisterMonthlySlip from "../pages/dashboard/Reports/Salary Register/SalaryRegisterMonthlySlip";
-import EmployeeAccountPrintView1 from "../pages/employee-account-print-view/EmployeeAccountPrintView1";
-import EmpAccountTransactionV1 from "../pages/employee-account-transaction/EmpAccountTransactionV1View";
-import BomPdfView from "../pages/left-side/header/Setting/product/bom-master/BomPdfView";
-import StockAdjustmentPrintView from "../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView";
-import DocumentDesignerView from "../pages/left-side/header/Setting/document-designer/DocumentDesignerView";
-import PublicFormFillView from "../pages/public-form/PublicFormFillView";
-import DashboardListView from "../pages/dashboard/DashboardBuilder/DashboardListView";
-import DashboardCanvasView from "../pages/dashboard/DashboardBuilder/DashboardCanvasView";
-import DesignerPageDataSourceView from "../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView";
-import CustomFieldDesignerPageEditorView from "../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView";
-import ProductPageDesignerEditorView from "../pages/left-side/header/Setting/product/ProductPageDesignerEditorView";
-import OnlineStore from "../pages/online-store";
-import SupportTicket from "../pages/online-store/store-support-ticket/SupportTicketView";
-import ShippingAddressPrint from "../pages/order-print-view/ShippingAddressPrint";
-import RegistrationView from "../pages/public/resternation/RegistrationView";
-import SideView from "../pages/side-view/SideView";
-import AutomationsShell from "../pages/automations/AutomationsShell";
-import JobCardPdfView from "../pages/left-side/header/Setting/job-card/JobCardPdfView";
-import ProductionEntryPdfView from "../pages/left-side/header/Setting/job-card/ProductionEntryPdfView";
-import JobCardFullPdfView from "../pages/left-side/header/Setting/job-card/JobCardFullPdfView";
-import RequiredMaterialPdfView from "../pages/left-side/header/Setting/job-card/RequiredMaterialPdfView";
+
+// Every route is code-split so a print/PDF/public URL does not download the
+// whole CRM app (and its heavy libs: pdfme, charts, xyflow, ...) up front.
+const InstructionView = lazy(() => import("../pages/instruction/InstructionView"));
+const PdfView = lazy(() => import("../pages/order-pdf-view/PdfView"));
+const OrderPrintViewV2 = lazy(() => import("../pages/order-print-view/OrderPrintViewV2"));
+const ContactUs = lazy(() => import("../pages/privacy-policy/ContactUs"));
+const PrivacyPolicy = lazy(() => import("../pages/privacy-policy/PrivacyPolicy"));
+const Index = lazy(() => import("../pages/public/Index"));
+const ActivationCodeView = lazy(() => import("../pages/public/activation-code/ActivationCodeView"));
+const ShortcutkeyView = lazy(() => import("../pages/short-cut-Key/Short_cut_key"));
+// import Voice from "../pages/voice/Main";
+const CompanyVsReferralCode = lazy(() => import("../pages/CompanyVsReferral/CompanyVsReferralCode"));
+const Connection = lazy(() => import("../pages/Connection/Connection"));
+const AccountPrintView1 = lazy(() => import("../pages/account-print-view/AccountPrintView1"));
+const CronSetting = lazy(() => import("../pages/cron-settings/cronSetting"));
+const OrderPrintViewV1 = lazy(() => import("../pages/order-print-view/OrderPrintViewV1"));
+const OrderPrintViewV3 = lazy(() => import("../pages/order-print-view/OrderPrintViewV3"));
+const OrderPrintViewV4 = lazy(() => import("../pages/order-print-view/OrderPrintViewV4"));
+const OrderPrintViewV5 = lazy(() => import("../pages/order-print-view/OrderPrintViewV5"));
+const PendingPrintViewV1 = lazy(() => import("../pages/order-print-view/PendingPrintViewV1"));
+const CreateContactUsingQR = lazy(() => import("../pages/public/create-contact"));
+const CompanyQRCodeCard = lazy(() => import("../pages/qr-view"));
+const VideoTutorial = lazy(() => import("../pages/video Tutorial/VideoTutorial"));
+const Google = lazy(() => import("../pages/voice/Google"));
+const NewReportModel = lazy(() => import("../components/model/NewReportModel"));
+const AccountTransactionV1 = lazy(() => import("../pages/account-transaction/AccountTransactionV1View"));
+// import TeamPerformanceReports from "../pages/dashboard/Reports/TeamPerformanceReports"
+const ContactAddressEnvelopePrintView = lazy(() => import("../pages/contact-address-print/ContactAddressEnvelopePrintView"));
+const ContactAddressPrintView1 = lazy(() => import("../pages/contact-address-print/ContactAddressPrintView1"));
+const CustomerSupportView = lazy(() => import("../pages/customer-support/CustomerSupportView"));
+const ReviewsView = lazy(() => import("../pages/reviews/ReviewsView"));
+const ProcessAttendanceMonthlySlip = lazy(() => import("../pages/dashboard/Reports/Process Attendance Report/ProcessAttendanceMonthlySlip"));
+const SalaryRegisterMonthlySlip = lazy(() => import("../pages/dashboard/Reports/Salary Register/SalaryRegisterMonthlySlip"));
+const EmployeeAccountPrintView1 = lazy(() => import("../pages/employee-account-print-view/EmployeeAccountPrintView1"));
+const EmpAccountTransactionV1 = lazy(() => import("../pages/employee-account-transaction/EmpAccountTransactionV1View"));
+const BomPdfView = lazy(() => import("../pages/left-side/header/Setting/product/bom-master/BomPdfView"));
+const StockAdjustmentPrintView = lazy(() => import("../pages/left-side/header/Setting/stock-adjustment/stock-product/StockAdjustmentPrintView"));
+const DocumentDesignerView = lazy(() => import("../pages/left-side/header/Setting/document-designer/DocumentDesignerView"));
+const PublicFormFillView = lazy(() => import("../pages/public-form/PublicFormFillView"));
+const DashboardListView = lazy(() => import("../pages/dashboard/DashboardBuilder/DashboardListView"));
+const DashboardCanvasView = lazy(() => import("../pages/dashboard/DashboardBuilder/DashboardCanvasView"));
+const DesignerPageDataSourceView = lazy(() => import("../pages/left-side/header/Setting/custom-inquiry-from/DesignerPageDataSourceView"));
+const CustomFieldDesignerPageEditorView = lazy(() => import("../pages/left-side/header/Setting/custom-inquiry-from/CustomFieldDesignerPageEditorView"));
+const ProductPageDesignerEditorView = lazy(() => import("../pages/left-side/header/Setting/product/ProductPageDesignerEditorView"));
+const OnlineStore = lazy(() => import("../pages/online-store"));
+const SupportTicket = lazy(() => import("../pages/online-store/store-support-ticket/SupportTicketView"));
+const ShippingAddressPrint = lazy(() => import("../pages/order-print-view/ShippingAddressPrint"));
+const RegistrationView = lazy(() => import("../pages/public/resternation/RegistrationView"));
+const SideView = lazy(() => import("../pages/side-view/SideView"));
+const AutomationsShell = lazy(() => import("../pages/automations/AutomationsShell"));
+const JobCardPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/JobCardPdfView"));
+const ProductionEntryPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/ProductionEntryPdfView"));
+const JobCardFullPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/JobCardFullPdfView"));
+const RequiredMaterialPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/RequiredMaterialPdfView"));
 
 const RoutesIndex = () => {
   return (
     <>
       <AppProvider>
         <Router>
+          <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/connection" element={<Connection />} />
@@ -318,6 +323,7 @@ const RoutesIndex = () => {
             {/* <Route path="/fullScreenReport" element={<TeamPerformanceReports/>}></Route> */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </Router>
       </AppProvider>
     </>
