@@ -43,7 +43,27 @@ import {
 } from "../../../left-side/LeftSideController";
 import RightView from "../../../right-side/RightView";
 import { fetchAllcontact, IAllcontact } from "./allContactReportController";
+import ColumnFilterInput from "../../../../components/ColumnFilterInput";
 import ReportHelpButton from "../../../../components/ReportHelpButton";
+
+// Column filters the server applies to the whole result (mirrors
+// column_filters in allContactReportServices.js). Other columns - cart
+// columns and custom fields - still filter the loaded page only.
+const SERVER_FILTER_KEYS = [
+  "person_name",
+  "mobile_number",
+  "company_name",
+  "address",
+  "source_name",
+  "status_name",
+  "lable_name",
+  "country_name",
+  "state_name",
+  "city_name",
+  "area_name",
+  "created_by",
+  "assigned_to",
+];
 
 interface LazyTableState {
   first: number;
@@ -144,6 +164,9 @@ const AllcontactReport = ({
     useState<boolean>(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const [isModalExcelVisible, setIsModalExcelVisible] =
+    useState<boolean>(false);
+  // "Import Updated Data": update existing contacts from an edited sheet.
+  const [isModalExcelUpdateVisible, setIsModalExcelUpdateVisible] =
     useState<boolean>(false);
   const [refreshContact, setRefreshContact] = useState(false);
   const [isArchivState, setIsArchivState] = useState<boolean>(false);
@@ -347,6 +370,33 @@ const AllcontactReport = ({
       address: { value: null, matchMode: "contains" },
     },
   });
+  // Typed text of every column filter box. Enter in any box applies all of
+  // them at once, so a box emptied earlier is picked up without its own Enter.
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
+
+  const applyColumnFilters = () => {
+    setLazyState((prev) => {
+      const nextFilters: DataTableFilterMeta = {};
+      Object.entries(prev.filters).forEach(([key, meta]) => {
+        const typed = (draftFilters[key] ?? "").trim();
+        nextFilters[key] = { ...(meta as any), value: typed || null };
+      });
+      return { ...prev, first: 0, page: 0, filters: nextFilters };
+    });
+  };
+
+  const serverColumnFilters = useMemo(() => {
+    const out: Record<string, string> = {};
+    SERVER_FILTER_KEYS.forEach((key) => {
+      const meta: any = lazyState.filters[key];
+      const value = meta && "value" in meta ? meta.value : null;
+      if (value !== null && value !== undefined && String(value).trim() !== "") {
+        out[key] = String(value).trim();
+      }
+    });
+    return out;
+  }, [lazyState.filters]);
+
   const [error, setError] = useState<string | null>(null);
   const [showCartColumns, setShowCartColumns] = useState({
     cart_number: false,
@@ -432,6 +482,7 @@ const AllcontactReport = ({
     setSelectOrderType: filters.selectedOrderListId,
     leadAgingBucket: filters.leadAgingBucket,
     leadAgingActivityTypes: filters.leadAgingActivityTypes,
+    columnFilters: serverColumnFilters,
   });
 
   useEffect(() => {
@@ -478,6 +529,7 @@ const AllcontactReport = ({
           filters.leadAgingActivityTypes,
           setTotalRecords,
           filters.labelAndOr,
+          serverColumnFilters,
         );
 
         setCustomers(newData);
@@ -511,6 +563,7 @@ const AllcontactReport = ({
       filters.assignedByMultiTeamMember,
       filters.createdByMultiTeamMember,
       filters.labelAndOr,
+      serverColumnFilters,
     ],
   );
 
@@ -909,46 +962,6 @@ const AllcontactReport = ({
     }));
   };
 
-  const onFilter = (event: DataTableFilterEvent) => {
-    const activeField = Object.keys(event.filters).find((key) => {
-      const filter = event.filters[key];
-
-      if ("value" in filter) {
-        return filter.value !== null && filter.value !== "";
-      }
-
-      if ("constraints" in filter) {
-        return (
-          filter.constraints?.some((c) => c.value !== null && c.value !== "") ??
-          false
-        );
-      }
-
-      return false;
-    });
-
-    const newFilters: DataTableFilterMeta = { ...event.filters };
-    Object.keys(newFilters).forEach((key) => {
-      const filter = newFilters[key];
-
-      if (key !== activeField) {
-        if ("value" in filter) {
-          filter.value = null;
-        }
-
-        if ("constraints" in filter) {
-          filter.constraints.forEach((c) => (c.value = null));
-        }
-      }
-    });
-
-    setLazyState((prev) => ({
-      ...prev,
-      first: 0,
-      filters: newFilters,
-    }));
-  };
-
   const onSelectionChange = (event: { value: IAllcontact[] }) => {
     setSelectedCustomers(event.value);
   };
@@ -1041,6 +1054,20 @@ const AllcontactReport = ({
 
   const handleConfirmImportExcel = async () => {
     setIsModalExcelVisible(false);
+    setRefreshContact(true);
+  };
+
+  const handleUpdateFromImport = () => {
+    setIsExportDropdownOpen(false);
+    if (canImport) {
+      setIsModalExcelUpdateVisible(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleConfirmUpdateExcel = async () => {
+    setIsModalExcelUpdateVisible(false);
     setRefreshContact(true);
   };
 
@@ -1318,6 +1345,7 @@ const AllcontactReport = ({
                   leadAgingBucket: filters.leadAgingBucket,
                   leadAgingActivityTypes: filters.leadAgingActivityTypes,
                   labelwiseContactShowAndOrNot: filters.labelAndOr,
+                  columnFilters: serverColumnFilters,
                 }}
                 columns={visibleColumns}
                 fileName="All_Contacts_Report"
@@ -1362,6 +1390,7 @@ const AllcontactReport = ({
                   leadAgingBucket: filters.leadAgingBucket,
                   leadAgingActivityTypes: filters.leadAgingActivityTypes,
                   labelwiseContactShowAndOrNot: filters.labelAndOr,
+                  columnFilters: serverColumnFilters,
                 }}
                 columns={visibleColumns}
                 fileName="All_Contacts_Report"
@@ -1410,6 +1439,18 @@ const AllcontactReport = ({
                   style={{ marginRight: "4px" }}
                 />
                 Import Contact
+              </li>
+              <li
+                className="listItem"
+                role="button"
+                style={{ whiteSpace: "normal" }}
+                onClick={handleUpdateFromImport}
+              >
+                <i
+                  className="pi pi-file-import"
+                  style={{ marginRight: "4px" }}
+                />
+                Bulk Update Contacts
               </li>
               <li
                 className="listItem"
@@ -1492,6 +1533,8 @@ const AllcontactReport = ({
           className="custom-centered-table"
           scrollHeight="flex"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={lazyState.first}
           rows={lazyState.rows}
@@ -1504,8 +1547,6 @@ const AllcontactReport = ({
           sortField={lazyState.sortField ?? undefined}
           sortOrder={lazyState.sortOrder}
           sortMode="single"
-          onFilter={onFilter}
-          filters={lazyState.filters}
           loading={loading}
           selection={selectedCustomers}
           onSelectionChange={onSelectionChange}
@@ -1572,8 +1613,15 @@ const AllcontactReport = ({
               sortable
               filter
               filterField={col.key}
-              filterPlaceholder="Search"
-              filterMatchMode={col.filterMatchMode || "contains"}
+              showFilterMenu={false}
+              showClearButton={false}
+              filterElement={
+                <ColumnFilterInput
+                  value={draftFilters[col.key] ?? ""}
+                  onChange={(v) => setDraftFilters((prev) => ({ ...prev, [col.key]: v }))}
+                  onEnter={applyColumnFilters}
+                />
+              }
               headerStyle={{
                 width: col.width || "150px",
                 position: "sticky",
@@ -1659,6 +1707,19 @@ const AllcontactReport = ({
           btn2="Import"
           sampleLocation="sampleContact.xlsx"
           potions={1}
+        />
+      )}
+      {isModalExcelUpdateVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelUpdateVisible}
+          onHide={() => setIsModalExcelUpdateVisible(false)}
+          handleSubmit={() => handleConfirmUpdateExcel()}
+          title={"Bulk Update Contacts"}
+          message={"Please Import excel as per the downloaded contact sheet"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation=""
+          potions={9}
         />
       )}
       {showFindDuplicatesModal && (

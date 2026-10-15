@@ -14,6 +14,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
@@ -106,6 +107,7 @@ const ExpenseDetailedReport = ({
   const [companyTeamLists, setCompanyTeamLists] = useState<ICompanyTeam[]>([]);
 
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -341,7 +343,10 @@ const ExpenseDetailedReport = ({
 
   const loadMoreData = async (offset: number, limit: number) => {
     if (!canView) return;
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -370,11 +375,13 @@ const ExpenseDetailedReport = ({
       setGrandTotals(sums ?? null);
     } catch (e) {
       console.error(e);
+      queuedLoad.runQueued();
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadMoreData);
 
   const handleRefresh = async () => {
     loadMoreData(lazyState.first, lazyState.rows);
@@ -1093,6 +1100,8 @@ const ExpenseDetailedReport = ({
                 filterDisplay="row"
                 dataKey="id"
                 paginator
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                currentPageReportTemplate="Total Records: {totalRecords}"
                 first={lazyState.first}
                 rows={lazyState.rows}
                 totalRecords={totalRecords}

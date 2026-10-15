@@ -11,8 +11,6 @@ import { localizeFields, secondLanguageName } from "../left-side/header/Setting/
 import {
   getForm,
   createSubmission,
-  getDraft,
-  saveDraft,
   getReferenceOptions,
   IFormBuilderField,
   IRestricted,
@@ -23,9 +21,6 @@ interface Props {
   onSubmitted?: (submissionId: number) => void;
   // The due day of a recurring form this fill answers (plan Q1); without it, today's due entry is used.
   scheduleEntryId?: number;
-  // A saved draft to carry on with (plan M7).
-  draftId?: number;
-  onDraftSaved?: () => void;
   // Opened from a record's "Submit Form" menu item: the record is already
   // chosen, so the related-record picker is hidden.
   presetRelatedRecordId?: number;
@@ -35,7 +30,7 @@ interface Props {
 // ReferenceFieldInput.tsx with PublicFormFillView.tsx (plan §7); only the
 // data-fetching layer (authenticated axiosInstance vs. anonymous public
 // client) and the related-record picker's presence differ.
-const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, draftId, onDraftSaved, presetRelatedRecordId }) => {
+const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, presetRelatedRecordId }) => {
   const [fields, setFields] = useState<IFormBuilderField[]>([]);
   const [title, setTitle] = useState("");
   const [relatedModule, setRelatedModule] = useState<string | null>(null);
@@ -51,8 +46,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   // Second language (plan M8): the form's translated labels, only shown once switched on.
   const [languageName, setLanguageName] = useState<string | null>(null);
   const [showSecondLanguage, setShowSecondLanguage] = useState(false);
@@ -76,11 +69,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
           // This screen only creates new submissions, so defaults
           // ("Default to today", default values) always apply here.
           const initial = buildInitialAnswers(list);
-          // Carrying on with a draft: what was typed comes back over the defaults.
-          if (draftId) {
-            const draft = await getDraft(draftId);
-            if (draft?.ack === 1) Object.assign(initial, draft.data.item.answers || {});
-          }
           setAnswers(initial);
         } catch {
           setFields([]);
@@ -131,7 +119,6 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
     const extra: Record<string, any> = {};
     if (relatedModule && relatedRecordId) extra.related_record_id = relatedRecordId;
     if (scheduleEntryId) extra.schedule_entry_id = scheduleEntryId;
-    if (currentDraftId) extra.draft_id = currentDraftId;
     const res = await createSubmission(formId, answers, files, extra);
     setSubmitting(false);
     if (res?.ack === 1) {
@@ -139,25 +126,10 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
       onSubmitted?.(res.data?.item?.id);
       setAnswers(buildInitialAnswers(fields));
       setFiles([]);
-      setCurrentDraftId(undefined);
     } else if (res?.ack_msg) {
       setErrors({ _form: res.ack_msg });
     }
   };
-
-  // "Save and continue later" (plan M7): keeps what is typed so far — nothing is
-  // checked and no number is given until the form is really submitted.
-  const handleSaveDraft = async () => {
-    setSavingDraft(true);
-    const res = await saveDraft(formId, answers, currentDraftId);
-    setSavingDraft(false);
-    if (res?.ack === 1) {
-      setCurrentDraftId(res.data.item.id);
-      toast.success("Draft saved — carry on later from \"My drafts\"");
-      onDraftSaved?.();
-    }
-  };
-  const hasUnsavedKinds = fields.some((f) => f.type === "file" || f.type === "image" || f.type === "signature" || (f as any).format_preset === "aadhaar");
 
   if (loading) return <div className="p-3">Loading...</div>;
 
@@ -196,15 +168,10 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
         }}
       />
 
-      {hasUnsavedKinds ? <small className="text-muted d-block mt-2">A saved draft keeps what you typed, but not photos, files, signatures or Aadhaar numbers — add those when you finish.</small> : null}
-
       {/* Sticks to the bottom of the screen on phones (FillResponsiveStyles). */}
       <div className="fb-submit-bar">
         <button type="button" className="btn fb-btn-primary mt-3" disabled={submitting} onClick={handleSubmit}>
           {submitting ? "Submitting..." : "Submit"}
-        </button>
-        <button type="button" className="btn btn-outline-secondary mt-3 ms-2" disabled={savingDraft || submitting} onClick={handleSaveDraft}>
-          {savingDraft ? "Saving..." : "Save draft"}
         </button>
       </div>
     </div>

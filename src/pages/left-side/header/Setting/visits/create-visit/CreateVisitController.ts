@@ -100,6 +100,8 @@ export const createProductInitialValues = (
   visit_status: VisitToEdit?.visit_status || 1,
   contact_id: VisitToEdit?.contactId || "",
   person_name: VisitToEdit?.contactName || "",
+  serial_number: VisitToEdit?.serial_number || "",
+  is_serial_required: false,
   status_remark: VisitToEdit?.status_remark || "",
   a_application_login_id:
     VisitToEdit?.a_application_login_id || localStorage.getItem("UUID") || "",

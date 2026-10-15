@@ -143,6 +143,12 @@ const MiracleConfigurationsView = ({
   // Active Tab state
   const [activeTab, setActiveTab] = useState<"general" | "sync" | "webhook">("general");
 
+  // Company code (qr_code) that forms the inbound webhook URL
+  const [webhookCompanyCode, setWebhookCompanyCode] = useState<string>("");
+  const webhookUrl = webhookCompanyCode
+    ? `${axiosInstance.defaults.baseURL}/webhookmiracle/${webhookCompanyCode}`
+    : "";
+
   // Track if configuration details exist in DB
   const [hasSavedConfig, setHasSavedConfig] = useState<boolean>(false);
 
@@ -169,6 +175,7 @@ const MiracleConfigurationsView = ({
 
       if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
         const item = response.data.data?.item;
+        setWebhookCompanyCode(item?.webhook_company_code || "");
         const isConfigured = Boolean(
           item && (item.client_id || item.api_key || item.Year || item.baseurl || item.CompanyName || item.BranchName)
         );
@@ -1190,6 +1197,48 @@ const MiracleConfigurationsView = ({
                         }}
                       />
                     </div>
+                  </div>
+
+                  {/* Webhook URL to configure in Miracle */}
+                  <div className="mb-3">
+                    <label
+                      className="form-label mb-1 text-dark fw-medium"
+                      style={{ fontSize: "0.85rem" }}
+                    >
+                      Webhook URL
+                    </label>
+                    <div style={{ display: "flex", width: "100%", height: "31px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={webhookUrl}
+                        className="form-control form-control-sm"
+                        style={{
+                          borderTopRightRadius: "0",
+                          borderBottomRightRadius: "0",
+                          height: "100%",
+                          flex: 1,
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm"
+                        style={{
+                          borderTopLeftRadius: "0",
+                          borderBottomLeftRadius: "0",
+                          borderLeft: "none",
+                          height: "100%",
+                          width: "70px",
+                          fontSize: "0.75rem",
+                        }}
+                        onClick={() => copyToClipboard(webhookUrl)}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <small className="text-muted d-block mt-1" style={{ fontSize: "0.72rem" }}>
+                      Paste this URL in Miracle ERP as the webhook endpoint (POST).
+                    </small>
                   </div>
 
                   <p className="text-muted mb-3" style={{ fontSize: "0.74rem" }}>

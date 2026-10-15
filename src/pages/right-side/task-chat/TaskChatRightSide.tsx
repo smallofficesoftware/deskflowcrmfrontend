@@ -328,6 +328,14 @@ const TaskChatRightSide = ({
     fetchCompany(setTitle);
   }, [setTitle]);
 
+  // A message being edited belongs to the ticket it was opened in. Switching to
+  // another ticket must not carry its text (and the message id it would update)
+  // into that ticket's editor (ticket #2632).
+  useEffect(() => {
+    setEditorContentToEdit("");
+    setEditorContentToEditId(0);
+  }, [signleDataTask?.id]);
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });

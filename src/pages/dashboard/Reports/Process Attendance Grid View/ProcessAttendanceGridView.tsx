@@ -10,7 +10,7 @@ import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstan
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { fetchProcessAttendanceApi, IProcessAttendanceView } from "../../../left-side/header/Setting/process-attendance/ProcessAttendanceController";
-import SalaryProcessModel from "../../../left-side/header/Setting/salary-process/SalaryProcessModel";
+import ProcessAttendanceModel from "../../../left-side/header/Setting/process-attendance/ProcessAttendanceModel";
 
 const months: any = {
     1: "January",
@@ -281,6 +281,8 @@ const ProcessAttendanceGridView = ({
                         emptyMessage="No data found"
                         filterDisplay="row"
                         paginator
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                        currentPageReportTemplate="Total Records: {totalRecords}"
                     rows={50}
                     rowsPerPageOptions={[25, 50, 100, 200]}
                         filters={filters}
@@ -380,7 +382,7 @@ const ProcessAttendanceGridView = ({
                     </OverlayPanel>
                 </div>
                 {showProcessAttendance && (
-                    <SalaryProcessModel
+                    <ProcessAttendanceModel
                         show={showProcessAttendance}
                         onHide={() => {
                             setShowProcessAttendance(false);

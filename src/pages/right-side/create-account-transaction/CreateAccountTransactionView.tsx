@@ -9,6 +9,7 @@ import {
 } from "../../../helpers/AppConstants";
 import { TReactSetState } from "../../../helpers/AppType";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
+import CartLinkField from "./CartLinkField";
 import { IAccountTransaction } from "../list-account-transaction/ListAccounTransactionController";
 import { syncMiracleAccountEntry } from "../list-account-transaction/ListAccounTransactionController";
 import {
@@ -241,6 +242,10 @@ const CreateAccountTransactionView = ({
                             />
                           </div>
                         </div>
+                        <CartLinkField
+                          contact_id={contact_id}
+                          transactionId={accountTransactionItem?.id}
+                        />
                         {isFeatureEnabled && (
                           <div className="col-6 col-md-6 ">
                             <div className="form-group">

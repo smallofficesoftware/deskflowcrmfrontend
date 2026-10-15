@@ -330,6 +330,8 @@ const AllCountriesReport = ({ onHide }: IAllCountriesReport) => {
             >
                 <DataTable
                     paginator
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                    currentPageReportTemplate="Total Records: {totalRecords}"
                     rows={50}
                     rowsPerPageOptions={[25, 50, 100, 200]}
                     value={countriesList}

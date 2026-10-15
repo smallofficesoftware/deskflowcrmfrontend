@@ -74,6 +74,8 @@ export interface IAccountTransaction {
   a_application_login_name: any;
   approve_by_a_application_login_name: any;
   payment_type_name: any;
+  cart_number?: string | null;
+  cart_type_name?: string | null;
 }
 
 export type TUpdateAccountTransactions = (

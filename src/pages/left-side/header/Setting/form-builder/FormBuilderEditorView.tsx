@@ -421,7 +421,17 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
     const list = fieldsRef.current;
     const i = list.findIndex((f) => f.id === id);
     if (i < 0) return;
-    const next = list.filter((f) => f.id !== id);
+    const removedKey = list[i].key;
+    // A Customer field's "fill these fields" map points at other fields by key;
+    // drop any entry aimed at the deleted field so publish doesn't fail on it.
+    const next = list
+      .filter((f) => f.id !== id)
+      .map((f) => {
+        if (f.type !== "customer-lookup" || !f.lookup_map) return f;
+        const entries = Object.entries(f.lookup_map);
+        const kept = entries.filter(([, targetKey]) => targetKey !== removedKey);
+        return kept.length === entries.length ? f : { ...f, lookup_map: Object.fromEntries(kept) };
+      });
     setFields(next);
     if (selectedId === id) setSelectedId(next[i]?.id ?? next[i - 1]?.id ?? null);
   };
@@ -723,8 +733,8 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
           <i className="pi pi-cog" /> Form settings
         </button>
         {onClose ? (
-          <button type="button" className="btn btn-sm btn-link" onClick={handleClose}>
-            Close
+          <button type="button" className="btn btn-sm btn-outline-secondary" title="Close the editor and go back to the forms list" onClick={handleClose}>
+            <i className="pi pi-times" /> Close
           </button>
         ) : null}
         <button type="button" className="btn btn-sm btn-outline-secondary" disabled={saveState.kind === "saving"} onClick={saveNow}>
@@ -784,7 +794,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
                   <div className="fb-panel-title">
                     <i className="pi pi-cog" /> Form settings
                     <div className="fb-spacer" style={{ flex: 1 }} />
-                    <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setRightPanel("field")} aria-label="Close form settings">
+                    <button type="button" className="btn btn-sm btn-outline-secondary py-0 px-2" onClick={() => setRightPanel("field")} aria-label="Close form settings" title="Close form settings">
                       <i className="pi pi-times" />
                     </button>
                   </div>
@@ -801,7 +811,7 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
                       form={form}
                       onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}
                     />
-                    <h6 className="mt-4 mb-2">Print and templates</h6>
+                    <h6 className="mt-4 mb-2">Print</h6>
                     <FormPrintPanel
                       form={form}
                       onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}

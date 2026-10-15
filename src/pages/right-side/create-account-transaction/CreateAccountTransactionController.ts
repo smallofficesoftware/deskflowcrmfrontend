@@ -29,7 +29,52 @@ export const paymentModeList = [
   { id: "-1", mode_name: "Other" },
   { id: "-2", mode_name: "Kasar Account" },
 ];
+export interface ILinkableCart {
+  id: number;
+  type: number;
+  cart_type_name: string;
+  cart_number: string;
+  cart_date: string;
+  grand_total: number;
+  paid_amount: number;
+  available_amount: number;
+}
+
+export interface ICartLinkSettings {
+  bill_to_bill: boolean;
+  block_overpayment: boolean;
+}
+
+export const fetchLinkableCarts = async (
+  contact_id: number,
+  type: string | number,
+  setCarts: TReactSetState<ILinkableCart[]>,
+  setSettings: TReactSetState<ICartLinkSettings>,
+  excludeTransactionId?: number,
+) => {
+  try {
+    const { data } = await axiosInstance.post("accountTransactionLinkableCarts", {
+      a_application_login_id: localStorage.getItem("UUID"),
+      contact_masters_id: contact_id,
+      type,
+      exclude_transaction_id: excludeTransactionId,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      setCarts(data.data.carts);
+      setSettings({
+        bill_to_bill: !!data.data.bill_to_bill,
+        block_overpayment: !!data.data.block_overpayment,
+      });
+    } else {
+      setCarts([]);
+    }
+  } catch (error: any) {
+    setCarts([]);
+  }
+};
+
 export interface ICreateAccountTransaction {
+  cart_id: number | string;
   type: string;
   miracle_account_ledger: string;
   mode: string;
@@ -78,6 +123,10 @@ export const createAccountTransactionInitialValues = (
     ? formatRemark(accountTransactionToEdit.remark)
     : "",
   auto_reverse_entry: 0,
+  cart_id:
+    accountTransactionToEdit?.reference_table === "carts"
+      ? accountTransactionToEdit.reference_id || ""
+      : "",
 });
 
 export const createAccountTransactionValidationSchema = () =>
@@ -120,6 +169,7 @@ export const createAccountTransaction = async (
       remark: values.remark,
       payment_date_time: convertPaymentDateTimeDate,
       auto_reverse_entry: values.auto_reverse_entry,
+      cart_id: values.cart_id || undefined,
     };
 
     const { data } = await axiosInstance.post(
@@ -175,9 +225,41 @@ export const updateAccountTransaction = async (
     };
     const getUUID = localStorage.getItem("UUID");
 
+    // Validate the cart link (bill to bill / over-payment) against the new
+    // type + amount before anything is saved.
+    const { data: checkRes } = await axiosInstance.post(
+      "accountTransactionSetCartLink",
+      {
+        a_application_login_id: getUUID,
+        id: accountTransactionItemId,
+        cart_id: values.cart_id || null,
+        type: values.type,
+        amount: values.amount,
+        validate_only: true,
+      },
+    );
+    if (checkRes.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+      toast.error(checkRes.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      return { success: false };
+    }
+
     const { data } = await axiosInstance.post("commonUpdate", requestData);
     if (data.code === 200) {
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        // Cart link is validated server-side against the just-saved type.
+        const { data: linkRes } = await axiosInstance.post(
+          "accountTransactionSetCartLink",
+          {
+            a_application_login_id: getUUID,
+            id: accountTransactionItemId,
+            cart_id: values.cart_id || null,
+          },
+        );
+        if (linkRes.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+          toast.error(linkRes.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          setRefreshTransactions(true);
+          return { success: false };
+        }
         toast.success(data.ack_msg);
         setRefreshTransactions(true);
         onHide();

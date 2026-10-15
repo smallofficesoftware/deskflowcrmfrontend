@@ -16,6 +16,7 @@ import {
   getCustomFieldDatavalues,
 } from "../../../../../../common/SharedFunction";
 import FormikCustomSearchDropdown from "../../../../../../components/FormikCustomSearchDropdown";
+import SerialProductFields from "../../../../../../components/SerialProductFields";
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
 import { TEXTAREA_TEXT_LENGTH } from "../../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../../helpers/AppEnum";
@@ -119,6 +120,12 @@ const CreateVisitView = ({
     isSubmittingRef.current = true;
     try {
       setSubmitting(true);
+      if (values.is_serial_required && !String(values.serial_number || "").trim()) {
+        setFieldError("serial_number", "Serial number is required for this product");
+        toast.error("Serial number is required for this product");
+        setSubmitting(false);
+        return;
+      }
       const requiredCustomFields = customFormList.filter(
         (f) =>
           f.form_type === 3 &&
@@ -242,6 +249,7 @@ const CreateVisitView = ({
       // }
       formData.append("visit_type_id", values.visit_type_id?.toString() || "");
       formData.append("remark", values.remark || "");
+      formData.append("serial_number", values.serial_number || "");
       formData.append(
         "a_application_login_id",
         values.a_application_login_id?.toString() || "",
@@ -1190,6 +1198,12 @@ const CreateVisitView = ({
                                 className="field-error text-danger"
                               />
                             </div>
+                          </div>
+                        )}
+
+                        {createEditFlag === "createEdit" && (
+                          <div className="col-12 col-md-6">
+                            <SerialProductFields requiredOnSave={false} />
                           </div>
                         )}
 

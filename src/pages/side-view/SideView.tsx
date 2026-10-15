@@ -110,6 +110,8 @@ const SideView = ({ profileDetail }: IProp) => {
   // Which form's Submissions grid to open directly when landing on
   // forms_home via a per-form sidebar row (see handleSingleReportShow).
   const [formSubmissionsDeepLinkId, setFormSubmissionsDeepLinkId] = useState<number | null>(null);
+  // /SideView/report/form_edit_<id> - opens that form straight in the editor.
+  const [formEditDeepLinkId, setFormEditDeepLinkId] = useState<number | null>(null);
 
   // Keep activeView in sync with the URL for the Insights/Smart Reports/
   // Forms sidebar buttons (browser back/forward, or landing directly on
@@ -701,13 +703,14 @@ const SideView = ({ profileDetail }: IProp) => {
       );
       return;
     }
-    if (name === "custom_forms" || name.startsWith("form_submissions_")) {
+    if (name === "custom_forms" || name.startsWith("form_submissions_") || name.startsWith("form_edit_")) {
       // Each published form gets its own sidebar row (SideBarView.tsx,
       // value "form_submissions_<id>"), landing on FormBuilderListView with
       // that form's Submissions grid open directly - no picker step.
       setFormSubmissionsDeepLinkId(
         name.startsWith("form_submissions_") ? Number(name.slice("form_submissions_".length)) : null,
       );
+      setFormEditDeepLinkId(name.startsWith("form_edit_") ? Number(name.slice("form_edit_".length)) : null);
       // No permission gate, deliberately — matches the tile itself
       // (reportsMenuData.tsx) having no pageId, since this is meant to
       // behave like a static nav item, not a permission-gated report.
@@ -902,6 +905,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewAllAccountTransition && name === "allaccount_report") {
+      setActiveView("Account");
+      setAppliedReportType(name);
+      return;
+    } else if (canViewAllAccountTransition && name === "cart_payment_report") {
       setActiveView("Account");
       setAppliedReportType(name);
       return;
@@ -1475,11 +1482,16 @@ const SideView = ({ profileDetail }: IProp) => {
   const openReport = (name: string) =>
     navigate(`/SideView/report/${name}${isEmbed ? "?embed=1" : ""}`);
 
-  const handleEmbedBackToReports = () => {
-    setActiveView("reports_home");
-    setAppliedReportType("");
-    navigate("/SideView?view=reports&embed=1");
-  };
+  // Direct /SideView/report/:slug load: activeView defaults to "dashboard"
+  // (Insights) and the deep-link effect can't open the report until the
+  // onLoad call fills `permissions`. Show a placeholder instead of flashing
+  // Insights meanwhile. The ref check covers the one render between
+  // permissions arriving and the effect applying the report.
+  const waitingForReportDeepLink =
+    !!reportSlug &&
+    (!permissions ||
+      permissions.length === 0 ||
+      openedReportSlugRef.current === null);
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -1532,19 +1544,35 @@ const SideView = ({ profileDetail }: IProp) => {
                     <MiddleView />
                 </div> */}
         <div>
-          <BottomView
-            activeView={activeView}
-            reportName={reportName}
-            appliedReportType={appliedReportType}
-            // onCloseReport={handleCloseReport}
-            reportType={reportType}
-            setActiveView={setActiveView}
-            setAppliedReportType={setAppliedReportType}
-            onReportClick={openReport}
-            isEmbed={isEmbed}
-            onEmbedBack={handleEmbedBackToReports}
-            formSubmissionsDeepLinkId={formSubmissionsDeepLinkId}
-          />
+          {waitingForReportDeepLink ? (
+            <div
+              style={{
+                height: isEmbed ? "100vh" : "90vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#F5F5F5",
+                color: "rgb(245, 134, 52)",
+                fontWeight: 600,
+              }}
+            >
+              Loading report...
+            </div>
+          ) : (
+            <BottomView
+              activeView={activeView}
+              reportName={reportName}
+              appliedReportType={appliedReportType}
+              // onCloseReport={handleCloseReport}
+              reportType={reportType}
+              setActiveView={setActiveView}
+              setAppliedReportType={setAppliedReportType}
+              onReportClick={openReport}
+              isEmbed={isEmbed}
+              formSubmissionsDeepLinkId={formSubmissionsDeepLinkId}
+              formEditDeepLinkId={formEditDeepLinkId}
+            />
+          )}
         </div>
         {!isEmbed && (
           <TaskStickyIcon

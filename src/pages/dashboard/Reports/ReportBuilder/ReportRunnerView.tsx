@@ -786,6 +786,8 @@ const ReportRunnerView: React.FC<ReportRunnerViewProps> = ({ definitionId, onHid
             className="custom-centered-table"
             scrollHeight="flex"
             paginator
+            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Total Records: {totalRecords}"
             lazy
             first={page * pageSize}
             rows={pageSize}

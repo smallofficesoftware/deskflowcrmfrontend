@@ -31,6 +31,8 @@ export interface ITaskCreate {
   is_notification_sand_wp?: number;
   is_notification_sand_email?: number;
   reference_contact?: number | string;
+  serial_number?: string;
+  is_serial_required?: boolean;
   task_status: number | undefined,
   column_number_1: number | string;
   column_number_2: number | string;
@@ -168,6 +170,8 @@ export const createTaskInitialValues = (
       is_notification_sand_wp: 0,
       is_notification_sand_email: 0,
       reference_contact: "",
+      serial_number: "",
+      is_serial_required: false,
       task_status: 0,
       column_number_1: "",
       column_number_2: "",
@@ -298,6 +302,8 @@ export const createTaskInitialValues = (
     is_notification_sand_email:
       parseInt(String(productToEdit.is_notification_sand_email)) || 0,
     reference_contact: productToEdit.reference_contact || "",
+    serial_number: productToEdit.serial_number || "",
+    is_serial_required: false,
     task_status: parseInt(String(productToEdit.task_priority)) || 0,
     column_number_1: productToEdit?.column_number_1 || "",
     column_number_2: productToEdit?.column_number_2 || "",
@@ -495,6 +501,7 @@ export const updateTarget = async (
     expenseTypeInput.reference_contact?.toString() || "",
   );
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "");
+  formData.append("serial_number", expenseTypeInput.serial_number || "");
 
   // if (customFormList && customFormList.length > 0) {
   //   customFormList.forEach((field) => {
@@ -862,6 +869,7 @@ export const createTask = async (
   );
   formData.append("a_application_login_id", getUUID || "");
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "0");
+  formData.append("serial_number", expenseTypeInput.serial_number || "");
 
   const ATTACHMENT_COLUMNS = [
     "task_column_attechments_1",

@@ -360,6 +360,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         description: "Every debit and credit transaction on your accounts.",
       },
       {
+        label: "Cart Payment Report",
+        value: "cart_payment_report",
+        pageId: PAGE_ID.ALLACCOUNTTRANSCTION_REPORT,
+        icon: "receipt",
+        description: "Invoices and orders with received/paid and pending amounts, based on linked transactions.",
+      },
+      {
         label: "Receivable",
         value: "Receivable",
         pageId: PAGE_ID.ACCOUNTOUTSTANDING_REPORT,

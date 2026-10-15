@@ -7,6 +7,7 @@ import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDr
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
 import { DOCUMENT_DESIGNER_FEATURE_KEYS } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
+import AccountTransactionCartSettings from "./AccountTransactionCartSettings";
 import {
   createCompany,
   fetchCountryApiForCompany,
@@ -359,6 +360,26 @@ const NewModuleSettings = ({
                         }}
                       />
                     </div>
+                    <div className="form-group mb-2">
+                      <label htmlFor="is_grouped_number_format" className="mb-1 form_label">
+                        Number Format On Print
+                      </label>
+                      <Field
+                        as="select"
+                        id="is_grouped_number_format"
+                        name="is_grouped_number_format"
+                        className="form-control"
+                        value={Number(values.is_grouped_number_format) || 0}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                          setFieldValue("is_grouped_number_format", Number(e.target.value))
+                        }
+                      >
+                        <option value={0}>Plain (150000.00)</option>
+                        <option value={1}>Indian (1,50,000.00)</option>
+                        <option value={2}>International / US (150,000.00)</option>
+                        <option value={3}>European (150.000,00)</option>
+                      </Field>
+                    </div>
                     <div className="mt-2 mb-2">
                       <div className="form-check form-switch">
                         <label htmlFor="document_designer_select_all">
@@ -385,6 +406,7 @@ const NewModuleSettings = ({
                         </div>
                       ))}
                     </div>
+                    <AccountTransactionCartSettings companyId={companyToEdit?.id} />
                     <div className="form-check form-switch">
                       <label htmlFor="view_inquiry_form_in_contact">
                         Display Inquiry Form in Contact Creation
@@ -461,6 +483,16 @@ const NewModuleSettings = ({
 
                           setFieldValue("is_strict_check_product_stock", value);
                           setisStrictCheckProductStock(value);
+
+                          // Warehouse wise only means something while the strict
+                          // check is on, so turning that off turns this off too.
+                          if (value !== 2) {
+                            setFieldValue(
+                              "is_strict_wharehouse_wise_product_stock_check",
+                              1,
+                            );
+                            setisStrictCheckWareHouseWiseProductStock(1);
+                          }
                         }}
                       />
                     </div>
@@ -474,6 +506,9 @@ const NewModuleSettings = ({
                         type="checkbox"
                         name="is_strict_wharehouse_wise_product_stock_check"
                         className="form-check-input"
+                        disabled={
+                          Number(values.is_strict_check_product_stock) !== 2
+                        }
                         checked={
                           Number(
                             values.is_strict_wharehouse_wise_product_stock_check,

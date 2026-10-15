@@ -9,10 +9,11 @@ import { setUrlParams } from "../../services/axiosInstance";
 // one report-rendering implementation instead of two drifting copies.
 const NewReportModel = (): null => {
   const navigate = useNavigate();
-  const { MobileToken, getID } = useParams<{
+  const { MobileToken, getID, slug } = useParams<{
     MobileToken: string;
     getID: string;
     MobileFlag: string;
+    slug?: string;
   }>();
 
   useEffect(() => {
@@ -22,8 +23,16 @@ const NewReportModel = (): null => {
     localStorage.setItem("UUID", getID);
     setUrlParams({ MobileToken, getID });
 
-    navigate("/SideView?view=reports&embed=1", { replace: true });
-  }, [MobileToken, getID, navigate]);
+    // Optional trailing :slug opens that report directly (same slug values as
+    // reportsMenuData, e.g. Salary_register_Report); without it, land on the
+    // reports tile list.
+    navigate(
+      slug
+        ? `/SideView/report/${encodeURIComponent(slug)}?embed=1`
+        : "/SideView?view=reports&embed=1",
+      { replace: true },
+    );
+  }, [MobileToken, getID, slug, navigate]);
 
   return null;
 };

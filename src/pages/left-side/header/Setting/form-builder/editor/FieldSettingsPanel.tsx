@@ -9,6 +9,7 @@ import QuestionTableSettings from "./QuestionTableSettings";
 import CalculationSettings, { referenceChoices } from "./CalculationSettings";
 import CustomListsManager from "./CustomListsManager";
 import CustomerLookupSettings from "./CustomerLookupSettings";
+import FieldAccessEditor from "./FieldAccessEditor";
 import { useCustomLists } from "./useCustomLists";
 import { isListableType } from "../listCells";
 import { fieldStageId, IApprovalStage } from "../approval";
@@ -619,24 +620,13 @@ const FieldSettingsPanel: React.FC<Props> = ({
 
       {(!layoutOnly && isListableType(field.type)) || (field.type !== "user" && field.type !== "customer-lookup") || (isSection && stages.length > 0) ? (
         <Group title="Where it appears" defaultOpen={false}>
-          {field.type !== "user" && field.type !== "customer-lookup" ? (
-            <div className="form-group">
-              <label className="pb-2 form_label d-block" htmlFor={`${fid}-visible-to`}>
-                Who sees this field
-              </label>
-              <select
-                id={`${fid}-visible-to`}
-                className="form-control"
-                value={field.visible_to === "internal" ? "internal" : "both"}
-                onChange={(e) => onPatch({ visible_to: e.target.value as "internal" | "both" })}
-              >
-                <option value="both">Everyone — staff form and public link</option>
-                <option value="internal">Staff only — never shown on the public link</option>
-              </select>
-            </div>
-          ) : (
-            <small className="text-muted d-block mb-2">This field is only ever shown to staff, never on a public link.</small>
-          )}
+          <FieldAccessEditor
+            field={field}
+            fid={fid}
+            staffOnlyType={field.type === "user" || field.type === "customer-lookup"}
+            layoutOnly={layoutOnly}
+            onPatch={(patch) => onPatch(patch)}
+          />
           {stages.length > 0 && (!layoutOnly || isSection) ? (
             <div className="form-group">
               <label className="pb-2 form_label d-block" htmlFor={`${fid}-stage`}>
@@ -655,27 +645,6 @@ const FieldSettingsPanel: React.FC<Props> = ({
                 ))}
               </select>
               <small className="text-muted d-block">Only the people at that stage can fill or change this field.</small>
-            </div>
-          ) : null}
-          {!layoutOnly ? (
-            <div className="form-group">
-              <label className="pb-2 form_label d-block" htmlFor={`${fid}-restriction`}>
-                People without the “See restricted fields” permission
-              </label>
-              <select
-                id={`${fid}-restriction`}
-                className="form-control"
-                value={field.restriction || "none"}
-                onChange={(e) => onPatch({ restriction: e.target.value as "none" | "readonly" | "mask" | "hide" })}
-              >
-                <option value="none">Can see and change it (no restriction)</option>
-                <option value="readonly">Can see it but not change it</option>
-                <option value="mask">See •••• instead of the answer</option>
-                <option value="hide">Don't see the field at all</option>
-              </select>
-              {field.restriction && field.restriction !== "none" ? (
-                <small className="text-muted d-block">Choose who has that permission under Form settings → Permissions. A restricted field is never asked on a public link.</small>
-              ) : null}
             </div>
           ) : null}
           {isListableType(field.type) ? (

@@ -152,6 +152,10 @@ export interface IFormBuilderField {
   filterable?: boolean;
   unique?: boolean;
   visible_to?: "internal" | "public" | "both";
+  // Per-person access (replaces the older "Who sees this field" + restriction
+  // dropdowns): a person not listed, or without see, does not get the field;
+  // see without edit is read-only. user_id is an a_application_login_id.
+  user_access?: { user_id: number; see: boolean; edit: boolean }[];
   width?: "full" | "half" | "third";
   options?: string[];
   default?: any;
@@ -271,22 +275,7 @@ async function post(path: string, body: Record<string, any>, opts: { quiet?: boo
 
 export const listForms = (body: Record<string, any> = {}) => post("form-builder/list", body);
 export const getForm = (id: number) => post("form-builder/get", { id });
-export interface IStarterTemplate {
-  key: string;
-  title: string;
-  description: string;
-  category: string | null;
-  field_count: number;
-}
-export interface ICompanyTemplate {
-  id: number;
-  title: string;
-  description: string;
-  field_count: number;
-}
-export type TemplateChoice = { source: "builtin"; key: string } | { source: "company"; id: number };
-
-export const createForm = (body: { title: string; description?: string; related_module?: string; category?: string; template?: TemplateChoice }) =>
+export const createForm = (body: { title: string; description?: string; related_module?: string; category?: string }) =>
   post("form-builder/create", body);
 export const updateDraftForm = (body: { id: number; [key: string]: any }) => post("form-builder/update", body);
 // Same call for the editor's autosave — no toasts; failures come back as
@@ -311,7 +300,7 @@ export const listPublishedFormsForFilling = () => post("form-builder/published/l
 
 // ---------- Submissions ----------
 
-export const listSubmissions = (form_id: number, opts: { filters?: any; search?: string; limit?: number; offset?: number } = {}) =>
+export const listSubmissions = (form_id: number, opts: { filters?: any; column_filters?: Record<string, string>; search?: string; limit?: number; offset?: number } = {}) =>
   post("form-builder/submissions/list", { form_id, ...opts });
 export const getSubmission = (form_id: number, id: number) => post("form-builder/submissions/get", { form_id, id });
 export const deleteSubmission = (form_id: number, id: number) => post("form-builder/submissions/delete", { form_id, id });
@@ -424,12 +413,6 @@ export const exportBlankFormPdf = (form_id: number) => post("form-builder/export
 export const stageAction = (form_id: number, id: number, action: "approve" | "send_back", comment?: string) =>
   post("form-builder/submissions/stage-action", { form_id, id, action, comment });
 
-// Starter forms and saved templates (plan L1-L3).
-export const listTemplates = () => post("form-builder/templates/list", {});
-export const saveTemplateFromForm = (form_id: number, title: string, description?: string) =>
-  post("form-builder/templates/save-from-form", { form_id, title, description });
-export const deleteTemplate = (id: number) => post("form-builder/templates/delete", { id });
-
 // Every entry on its own page(s) in one PDF (plan K4).
 export const exportSubmissionsPagesPdf = (form_id: number, filters?: any) =>
   post("form-builder/submissions/export-bulk-pdf", { form_id, filters, layout: "pages" });
@@ -502,15 +485,3 @@ export const getImportColumns = (form_id: number) => post("form-builder/import/c
 export const runImport = (form_id: number, rows: { row_number: number; cells: Record<string, any> }[], dry_run: boolean, batch_label?: string) =>
   post("form-builder/import/run", { form_id, rows, dry_run, batch_label });
 
-// ---------- Save and continue later (plan M7) ----------
-
-export interface IDraftSummary {
-  id: number;
-  form_id: number;
-  form_title: string;
-  updated_date_time: string;
-}
-export const saveDraft = (form_id: number, answers: Record<string, any>, id?: number) => post("form-builder/drafts/save", { form_id, answers, id });
-export const listMyDrafts = () => post("form-builder/drafts/list", {}, { quiet: true });
-export const getDraft = (id: number) => post("form-builder/drafts/get", { id });
-export const deleteDraft = (id: number) => post("form-builder/drafts/delete", { id });

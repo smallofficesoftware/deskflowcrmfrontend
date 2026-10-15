@@ -2,6 +2,7 @@ import { Button, Form } from "react-bootstrap";
 import { ICatalog, IFlowNode } from "../automationTypes";
 import FieldEditor from "./FieldEditor";
 import FieldListPanel from "./FieldListPanel";
+import TeamMemberSelect from "./TeamMemberSelect";
 
 interface IFlowMeta {
   name: string;
@@ -115,12 +116,11 @@ const SettingsPanel = ({ catalog, selectedNode, flowMeta, onFlowMetaChange, onNo
         />
       </Form.Group>
       <Form.Group className="mb-3">
-        <Form.Label className="small fw-semibold">Run as (team member ID)</Form.Label>
-        <Form.Control
-          size="sm"
-          type="number"
+        <Form.Label className="small fw-semibold">Run as</Form.Label>
+        <TeamMemberSelect
           value={flowMeta.run_as_user_id}
-          onChange={(e) => onFlowMetaChange({ run_as_user_id: e.target.value === "" ? "" : Number(e.target.value) })}
+          onChange={(v) => onFlowMetaChange({ run_as_user_id: v })}
+          emptyLabel="Automation creator (default)"
         />
         <div className="text-muted" style={{ fontSize: 11 }}>Used for records this automation creates, and as the default sender.</div>
       </Form.Group>

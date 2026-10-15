@@ -337,6 +337,90 @@ export const fetchJobCardDetail = async (
   }
 };
 
+// ─── Download a print as a PDF (server-made, same file the mobile app gets) ───
+
+// Asks the server for a PDF, then saves it to the user's computer. Falls back
+// to opening the PDF in a new tab if the browser will not let the page read it.
+const downloadServerPdf = async (
+  endpoint: string,
+  body: Record<string, unknown>,
+  setBusy: TReactSetState<boolean>,
+) => {
+  setBusy(true);
+  try {
+    const { data } = await axiosInstance.post(endpoint, {
+      a_application_login_id: uuid(),
+      ...body,
+    });
+    const url: string = data?.data?.fileLinkPath || "";
+    if (data?.ack !== DEFAULT_STATUS_CODE_SUCCESS || !url) {
+      toast.error(data?.ack_msg || "Could not create the PDF.");
+      return;
+    }
+    const name = `${data?.data?.title || "Document"}.pdf`;
+    try {
+      const blob = await (await fetch(url)).blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      window.open(url, "_blank");
+    }
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  } finally {
+    setBusy(false);
+  }
+};
+
+// kind: "jobCard" | "master" | "requiredMaterial" (the three job card prints)
+export const downloadJobCardPdf = (
+  jobId: number,
+  kind: "jobCard" | "master" | "requiredMaterial",
+  setBusy: TReactSetState<boolean>,
+) => downloadServerPdf("job-card/pdf", { id: jobId, kind }, setBusy);
+
+export const downloadProductionEntryPdf = (
+  entryId: number,
+  setBusy: TReactSetState<boolean>,
+) => downloadServerPdf("job-card/production-entry/pdf", { id: entryId }, setBusy);
+
+// ticket #2212: "Print Now" when the company's Document Designer flag is on
+// for this job-card kind - opens the server-generated PDF in a new tab and
+// triggers the browser print dialog on it, same pattern as Profile.tsx's
+// generateAndPrintContactPdf. Only called when the caller has already
+// confirmed the flag is on; the fixed JobCardPrint/JobCardFullPrint DOM print
+// stays the default otherwise.
+export const generateAndPrintJobCardPdf = async (
+  jobId: number,
+  kind: "jobCard" | "master" | "requiredMaterial",
+) => {
+  try {
+    const { data } = await axiosInstance.post("job-card/pdf", {
+      a_application_login_id: uuid(),
+      id: jobId,
+      kind,
+    });
+    const url: string = data?.data?.fileLinkPath || "";
+    if (data?.ack !== DEFAULT_STATUS_CODE_SUCCESS || !url) {
+      toast.error(data?.ack_msg || "Could not create the PDF.");
+      return;
+    }
+    const blob = await (await fetch(url)).blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const pdfWindow = window.open(blobUrl, "_blank");
+    if (pdfWindow) {
+      pdfWindow.onload = () => setTimeout(() => pdfWindow.print(), 500);
+    }
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+};
+
 // ─── Save Job Card ────────────────────────────────────────────────────────────
 
 export const saveJobCard = async (
@@ -405,6 +489,108 @@ export const createSubJobCard = async (
     return null;
   } finally {
     setLoading(false);
+  }
+};
+
+// Creates the whole sub job card tree under a job card: every material that is
+// ticked "requires sub job card" and has its own BOM, level by level.
+// Returns how many were created (0 if none were needed), or null on failure.
+export const createAllSubJobCards = async (
+  parentJobCardId: number,
+  qtyBasis: SubJobCardQtyBasis = "available_minus_reserved",
+): Promise<number | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/create-all", {
+      a_application_login_id: uuid(),
+      parent_job_card_id: parentJobCardId,
+      qty_basis: qtyBasis,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+      const count = data.data?.created?.length || 0;
+      if (count) toast.success(data.ack_msg || `${count} sub job cards created.`);
+      return count;
+    }
+    toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  }
+};
+
+// How much each sub job card produces:
+//  required                 - the full qty the parent needs
+//  available                - required minus the stock on hand
+//  available_minus_reserved - required minus (stock - what other open job
+//                             cards still need); the default
+export type SubJobCardQtyBasis =
+  | "required"
+  | "available"
+  | "available_minus_reserved";
+
+export interface ISubJobCardTreeNode {
+  job_id: number;
+  is_current: boolean; // the job card being viewed
+  product_name: string;
+  product_code: string;
+  unit: string;
+  qty: number;
+  produced_qty: number;
+  pending_qty: number;
+  is_done: boolean;
+  children: ISubJobCardTreeNode[];
+}
+
+// The sub job card tree this job card belongs to (top card + all sub cards).
+export const fetchSubJobCardTree = async (
+  jobCardId: number,
+): Promise<ISubJobCardTreeNode | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/tree", {
+      a_application_login_id: uuid(),
+      id: jobCardId,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) return data.data?.tree || null;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export interface IPlannedSubJobCard {
+  product_id: number;
+  product_name: string;
+  unit: string;
+  qty: number; // qty the sub job card would produce (0 when covered)
+  level: number;
+  required_qty: number;
+  available_qty: number;
+  reserved_qty: number;
+  covered: boolean; // stock covers it, so no sub job card is made
+}
+
+// Which sub job cards creating this job card would make (nothing is created).
+export const previewSubJobCards = async (
+  jobCardType: number,
+  itemId: number,
+  productQty: number,
+  qtyBasis: SubJobCardQtyBasis = "available_minus_reserved",
+): Promise<IPlannedSubJobCard[] | null> => {
+  try {
+    const { data } = await axiosInstance.post("job-card/sub-job-card/create-all", {
+      a_application_login_id: uuid(),
+      preview: true,
+      job_card_type: jobCardType,
+      item_id: itemId,
+      product_qty: productQty,
+      qty_basis: qtyBasis,
+    });
+    if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) return data.data?.planned || [];
+    toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
+  } catch (e: any) {
+    toast.error(e?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    return null;
   }
 };
 

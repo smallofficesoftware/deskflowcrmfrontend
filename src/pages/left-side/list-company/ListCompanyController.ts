@@ -201,7 +201,7 @@ export const fetchCompanyTeamApi = async (
     searchTerm: searchTerm,
   };
   try {
-    const data = await axiosInstance.post("my-team", requestData, {
+    const data = await axiosInstance.post("my-team-company-list", requestData, {
       headers: {
         Authorization: `${token}`,
         "x-tenant-id": `${GetID}`,

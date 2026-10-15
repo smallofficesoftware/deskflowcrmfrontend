@@ -8,7 +8,7 @@ const BetaFeatureNotice = () => (
     <span>
       <strong>Beta:</strong> This feature is currently in beta. If you face any
       issue, please raise a ticket. Support will be limited and the data shown
-      may be incorrect.
+      may be incorrect. This feature is free until 01-01-2027.
     </span>
   </div>
 );

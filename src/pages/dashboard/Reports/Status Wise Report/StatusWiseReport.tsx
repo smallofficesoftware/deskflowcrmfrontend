@@ -591,6 +591,8 @@ const StatusWiseReport = ({
                 removableSort
                 sortMode="single"
                 paginator={rows.length > 25}
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                currentPageReportTemplate="Total Records: {totalRecords}"
                 rows={25}
                 rowsPerPageOptions={[25, 50, 100]}
                 tableStyle={{ minWidth: "400px" }}

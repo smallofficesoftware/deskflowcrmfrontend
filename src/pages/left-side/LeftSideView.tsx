@@ -805,6 +805,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
 
   const [isModalExcelVisible, setIsModalExcelVisible] =
     useState<boolean>(false);
+  // "Import Updated Data For Contact": update existing contacts from an edited sheet.
+  const [isModalExcelUpdateVisible, setIsModalExcelUpdateVisible] =
+    useState<boolean>(false);
   const [isModalMap, setIsModalMap] = useState<boolean>(false);
 
   const [isModalFilterVisible, setIsModalFilterVisible] =
@@ -1077,6 +1080,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
 
   //escape to close import contact pop up;
   useEscapeKey(() => setIsModalExcelVisible(false));
+  useEscapeKey(() => setIsModalExcelUpdateVisible(false));
   useEscapeKey(() => setIsCloseConfirmation(false));
   useEscapeKey(() => setshowDashBoard(false));
   useEscapeKey(() => setshowAichat(false));
@@ -2408,6 +2412,11 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     setRefreshContact(true);
   };
 
+  const handleConfirmUpdateExcel = async () => {
+    setIsModalExcelUpdateVisible(false);
+    setRefreshContact(true);
+  };
+
   const columns = [
     "ID",
     "Contact Person",
@@ -2496,6 +2505,14 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const handleAddFromImport = () => {
     if (canImport) {
       setIsModalExcelVisible(true);
+    } else {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  };
+
+  const handleUpdateFromImport = () => {
+    if (canImport) {
+      setIsModalExcelUpdateVisible(true);
     } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
@@ -4080,6 +4097,14 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                               onClick={handleAddFromImport}
                             >
                               <i className="bi bi-file-earmark-arrow-up me-2"></i> Import Contact
+                            </li>
+                            <li
+                              className="listItem"
+                              role="button"
+                              style={{ whiteSpace: "normal" }}
+                              onClick={handleUpdateFromImport}
+                            >
+                              <i className="bi bi-file-earmark-spreadsheet me-2"></i> Bulk Update Contacts
                             </li>
                             <li
                               className="listItem"
@@ -5713,6 +5738,19 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
           btn2="Import"
           sampleLocation="sampleContact.xlsx"
           potions={1}
+        />
+      )}
+      {isModalExcelUpdateVisible && (
+        <ImportExcelForContactModal
+          show={isModalExcelUpdateVisible}
+          onHide={() => setIsModalExcelUpdateVisible(false)}
+          handleSubmit={() => handleConfirmUpdateExcel()}
+          title={"Bulk Update Contacts"}
+          message={"Please Import excel as per the downloaded contact sheet"}
+          btn1="Cancel"
+          btn2="Import"
+          sampleLocation=""
+          potions={9}
         />
       )}
       {isModalMap && (

@@ -245,6 +245,8 @@ const PaymentTypeReport = ({ onHide }: IPaymentTypeReport) => {
             <div className="report_card" style={{ height: "90vh", display: "flex", flexDirection: "column" }}>
                 <DataTable
                     paginator
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                    currentPageReportTemplate="Total Records: {totalRecords}"
                     rows={50}
                     rowsPerPageOptions={[25, 50, 100, 200]}
                     value={paymentTypeList}

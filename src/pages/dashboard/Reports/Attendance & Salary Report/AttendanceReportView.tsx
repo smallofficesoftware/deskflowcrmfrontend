@@ -1034,6 +1034,8 @@ const TeamAttendanceReportsView = ({
           filterDisplay="row"
           dataKey="username"
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           first={lazyState.first}
           rows={lazyState.rows}
           onPage={onPageChange}

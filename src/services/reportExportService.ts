@@ -1,5 +1,6 @@
 import { saveAs } from "file-saver";
 import { axiosInstance } from "./axiosInstance";
+import { toExportColumns } from "./exportColumns";
 
 export interface ExportColumn {
   key: string;
@@ -94,7 +95,7 @@ export const exportReportExcel = async ({
   const response = await axiosInstance.post("/reports/export-excel", {
     reportType,
     filters: { ...filters, a_application_login_id: getUUID },
-    columns,
+    columns: toExportColumns(columns),
     rows,
     footer,
   });
@@ -130,7 +131,7 @@ export const exportReportPdf = async ({
   const response = await axiosInstance.post("/reports/export-pdf", {
     reportType,
     filters: { ...filters, a_application_login_id: getUUID },
-    columns,
+    columns: toExportColumns(columns),
     rows,
     footer,
   });

@@ -1813,6 +1813,14 @@ const ListAccountTransactionView = ({
                                           <SafeHtml htmlContent={item.remark} />
                                         </b>
                                       )}
+                                      {item.cart_number && (
+                                        // Linked cart (invoice number) highlighted like the remark.
+                                        <div>
+                                          <b style={{ color: " #000066" }}>
+                                            {item.cart_type_name} {item.cart_number}
+                                          </b>
+                                        </div>
+                                      )}
                                     </h4>
                                   </div>
                                 </div>
@@ -2275,6 +2283,14 @@ const ListAccountTransactionView = ({
                                         <b style={{ color: " #000066" }}>
                                           <SafeHtml htmlContent={item.remark} />
                                         </b>
+                                      )}
+                                      {item.cart_number && (
+                                        // Linked cart (invoice number) highlighted like the remark.
+                                        <div>
+                                          <b style={{ color: " #000066" }}>
+                                            {item.cart_type_name} {item.cart_number}
+                                          </b>
+                                        </div>
                                       )}
                                     </h4>
                                   </div>

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import noImage from "../../../../assets/images/no_image.jpeg";
@@ -226,6 +226,33 @@ const Setting = ({
 
   const { platformType } = useWhatsappPlatformStore();
 
+  // Settings search: filters the menu rows (and hides section headings with
+  // no match) by toggling display on the rendered list, so every existing row
+  // and its permission gating stays untouched.
+  const [settingsSearch, setSettingsSearch] = useState("");
+  const settingsListRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list = settingsListRef.current;
+    if (!list) return;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const q = norm(settingsSearch);
+    list.querySelectorAll<HTMLElement>(":scope > div").forEach((section) => {
+      const rows = section.querySelectorAll<HTMLElement>(".block");
+      if (!rows.length) return; // profile box, search box
+      const heading = norm(section.querySelector("h6")?.textContent || "");
+      const headingMatch = !!q && heading.includes(q);
+      let anyVisible = false;
+      rows.forEach((row) => {
+        const title = norm(row.querySelector("h4")?.textContent || "");
+        const show = !q || headingMatch || title.includes(q);
+        row.style.display = show ? "" : "none";
+        if (show) anyVisible = true;
+      });
+      section.style.display = anyVisible ? "" : "none";
+    });
+  });
+
   useEffect(() => {
     switch (searchTermFromRightSide) {
       case "Profile":
@@ -408,6 +435,15 @@ const Setting = ({
       workFlowAutomation();
     } else {
       setShowOpenWorkFlow(false);
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+    }
+  }
+  // Flow Builder (the Automations module) used to be a card inside the Workflow
+  // Automation page; it keeps that page's permission.
+  function openFlowBuilder() {
+    if (canViewWorkflowAutomation) {
+      window.open(`${window.location.origin}/Automations`, "_blank");
+    } else {
       toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
     }
   }
@@ -605,7 +641,7 @@ const Setting = ({
                   <h2>Settings</h2>
                 </div>
               </div>
-              <div className="chats-settings">
+              <div className="chats-settings" ref={settingsListRef}>
                 <div
                   className="top"
                   onClick={openProfile}
@@ -637,6 +673,16 @@ const Setting = ({
                       )}
                     </div>
                   </div>
+                </div>
+                <div className="px-3 pt-2">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Search settings"
+                    value={settingsSearch}
+                    onChange={(e) => setSettingsSearch(e.target.value)}
+                    style={{ background: "#f3f4f6", borderRadius: 8 }}
+                  />
                 </div>
                 <div>
                   <h6
@@ -2146,6 +2192,26 @@ const Setting = ({
                         <h4 title="Work Flow Automation">
                           Workflow Automation
                         </h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="block ps-3" onClick={openFlowBuilder}>
+                    <div className="icon-Box">
+                      <button className="icons-setings">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="24px"
+                          viewBox="0 0 24 24"
+                          width="24px"
+                          fill="currentColor"
+                        >
+                          <path d="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="h-text">
+                      <div className="head">
+                        <h4 title="Flow Builder">Flow Builder</h4>
                       </div>
                     </div>
                   </div>

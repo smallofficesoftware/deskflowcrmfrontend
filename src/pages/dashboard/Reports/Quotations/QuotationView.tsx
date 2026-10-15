@@ -12,6 +12,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { DateObject } from "react-multi-date-picker";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
@@ -37,6 +38,7 @@ import { fetchOrderByIdApi, syncMiracleInvoice } from "../../../right-side/list-
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
+import ColumnFilterInput from "../../../../components/ColumnFilterInput";
 import {
   fetchCartReport,
   fetchQuotationPdfmeTemplates,
@@ -132,6 +134,7 @@ const TeamQuotationDataReportsView = ({
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] =
     useState<string>("");
   const isFetchingRef = useRef(false);
+  const queuedLoad = useQueuedLoad<[number, number]>();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(50);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -490,7 +493,10 @@ const TeamQuotationDataReportsView = ({
   }, [dataArray, lazyState.filters, lazyState.sortField, lazyState.sortOrder]);
 
   const loadQuotations = async (offset: number, limit: number) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      queuedLoad.defer(offset, limit);
+      return;
+    }
 
     isFetchingRef.current = true;
     setLoading(true);
@@ -512,6 +518,7 @@ const TeamQuotationDataReportsView = ({
         filters.selectedProductId,
         filters.selectedCategoryId,
         filters.selectedApproveStatus,
+        serverColumnFilters,
       );
 
       setCustomers(data?.items || []);
@@ -520,6 +527,7 @@ const TeamQuotationDataReportsView = ({
       setGrandTotals(data?.grandTotals ?? null);
     } catch (err) {
       console.error(err);
+      queuedLoad.runQueued();
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -527,6 +535,62 @@ const TeamQuotationDataReportsView = ({
       isFetchingRef.current = false;
     }
   };
+  queuedLoad.setRunner(loadQuotations);
+
+  // Typed text of every column filter box. Enter in any box applies all of
+  // them at once, so a box emptied earlier is picked up without its own Enter.
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
+
+  const applyColumnFilters = () => {
+    setLazyState((prev) => {
+      const nextFilters: DataTableFilterMeta = {};
+      Object.entries(prev.filters).forEach(([key, meta]) => {
+        const typed = (draftFilters[key] ?? "").trim();
+        nextFilters[key] = { ...(meta as any), value: typed || null };
+      });
+      return { ...prev, filters: nextFilters };
+    });
+  };
+
+  // Columns the server filters across the whole result (mirrors
+  // column_filters in teamAllCartsReportServices.js). Date columns still
+  // filter the loaded page only.
+  const serverColumnFilters = useMemo(() => {
+    const serverKeys = new Set<string>([
+      "cart_number",
+      "username",
+      "cart_status",
+      "to_customer_name",
+      "grand_total",
+      ...uniqueCustomFields.map((f: any) => f.fieldName),
+    ]);
+    const out: Record<string, string> = {};
+    Object.entries(lazyState.filters).forEach(([key, meta]: [string, any]) => {
+      const value = meta && "value" in meta ? meta.value : null;
+      if (
+        serverKeys.has(key) &&
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+      ) {
+        out[key] = String(value).trim();
+      }
+    });
+    return out;
+  }, [lazyState.filters, uniqueCustomFields]);
+  const serverColumnFiltersKey = JSON.stringify(serverColumnFilters);
+
+  // A server-side column filter changed (Enter pressed): reload from page 1.
+  const skipFirstColumnFilterLoad = useRef(true);
+  useEffect(() => {
+    if (skipFirstColumnFilterLoad.current) {
+      skipFirstColumnFilterLoad.current = false;
+      return;
+    }
+    setPage(0);
+    loadQuotations(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverColumnFiltersKey]);
 
   const handleRefresh = async () => {
     setPage(0);
@@ -1635,6 +1699,8 @@ const TeamQuotationDataReportsView = ({
               className="custom-centered-table"
               scrollHeight="80vh"
               paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
               lazy
               first={page * rows}
               rows={rows}
@@ -1643,8 +1709,6 @@ const TeamQuotationDataReportsView = ({
               rowsPerPageOptions={[25, 50, 100, 200]}
               // dataKey="id"
               filterDisplay="row"
-              // onFilter={onFilter}
-              filters={lazyState.filters}
               // onSort={onSort}
               sortField={lazyState.sortField ?? undefined}
               sortOrder={lazyState.sortOrder ?? undefined}
@@ -1723,8 +1787,17 @@ const TeamQuotationDataReportsView = ({
                   sortable={col.sortableCol !== false}
                   filter={col.filterCol !== false}
                   filterField={col.key}
-                  filterPlaceholder="Search"
-                  filterMatchMode={col.filterMatchMode || "contains"}
+                  showFilterMenu={false}
+                  showClearButton={false}
+                  filterElement={
+                    <ColumnFilterInput
+                      value={draftFilters[col.key] ?? ""}
+                      onChange={(v) =>
+                        setDraftFilters((prev) => ({ ...prev, [col.key]: v }))
+                      }
+                      onEnter={applyColumnFilters}
+                    />
+                  }
                   headerClassName={col.headerClassName}
                   headerStyle={{
                     width: col.width || "150px",

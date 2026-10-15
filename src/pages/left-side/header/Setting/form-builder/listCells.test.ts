@@ -11,10 +11,19 @@ describe("which fields get a list column", () => {
     expect(isShownInList(f({ key: "name", type: "text" }))).toBe(false);
     expect(isShownInList(f({ key: "name", type: "text", show_in_list: true }))).toBe(true);
   });
-  test("layout, repeater, files and question tables never get a column", () => {
-    ["section-header", "instruction", "repeater", "file", "signature", "image", "question-table"].forEach((type) => {
+  test("layout, repeater and question tables never get a column", () => {
+    ["section-header", "instruction", "repeater", "question-table"].forEach((type) => {
       expect(isShownInList(f({ key: "x", type, show_in_list: true }))).toBe(false);
     });
+  });
+  test("files, images and signatures get a paperclip count column when ticked", () => {
+    ["file", "image", "signature"].forEach((type) => {
+      expect(isShownInList(f({ key: "x", type, show_in_list: true }))).toBe(true);
+      expect(isShownInList(f({ key: "x", type }))).toBe(false);
+    });
+    expect(listCellText(f({ key: "doc", type: "file" }), { _file_counts: { doc: 2 } })).toBe("📎 2");
+    expect(listCellText(f({ key: "doc", type: "file" }), { _file_counts: {} })).toBe("");
+    expect(listCellText(f({ key: "doc", type: "image" }), {})).toBe("");
   });
   test("a full-number Aadhaar field is left to its own Show / Hide column", () => {
     expect(isShownInList(f({ key: "a", type: "text", format_preset: "aadhaar", sensitive_storage: "encrypted", show_in_list: true }))).toBe(false);

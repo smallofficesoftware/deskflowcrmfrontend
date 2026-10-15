@@ -24,6 +24,7 @@ import {
 import ContactInsertApiDoc from "../../../components/company/ContactInsertApiDoc";
 import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
+import AccountTransactionCartSettings from "../new-create-company/AccountTransactionCartSettings";
 import ImageCropperToolModel from "../../../components/model/ImageCroperToolModel";
 import OtpConfirmationModal from "../../../components/model/OtpConfirmationModal";
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
@@ -6174,6 +6175,9 @@ const CreateCompanyView = ({
                                             }}
                                           />
                                         </div>
+                                        <AccountTransactionCartSettings
+                                          companyId={companyToEdit?.id}
+                                        />
                                         <div className="form-check form-switch">
                                           <label htmlFor="view_inquiry_form_in_contact">
                                             Display Inquiry Form in Contact
@@ -6285,6 +6289,19 @@ const CreateCompanyView = ({
                                               setisStrictCheckProductStock(
                                                 value,
                                               );
+
+                                              // Warehouse wise only means something
+                                              // while the strict check is on, so
+                                              // turning that off turns this off too.
+                                              if (value !== 2) {
+                                                setFieldValue(
+                                                  "is_strict_wharehouse_wise_product_stock_check",
+                                                  1,
+                                                );
+                                                setisStrictCheckWareHouseWiseProductStock(
+                                                  1,
+                                                );
+                                              }
                                             }}
                                           />
                                         </div>
@@ -6298,6 +6315,11 @@ const CreateCompanyView = ({
                                             type="checkbox"
                                             name="is_strict_wharehouse_wise_product_stock_check"
                                             className="form-check-input"
+                                            disabled={
+                                              Number(
+                                                values.is_strict_check_product_stock,
+                                              ) !== 2
+                                            }
                                             checked={
                                               Number(
                                                 values.is_strict_wharehouse_wise_product_stock_check,
@@ -6330,6 +6352,31 @@ const CreateCompanyView = ({
                                               );
                                             }}
                                           />
+                                        </div>
+                                      </div>
+                                      <div className="col-4 col-md-4">
+                                        <div className="form-group">
+                                          <label
+                                            htmlFor="is_grouped_number_format"
+                                            className="mb-1 form_label"
+                                          >
+                                            Number Format On Print
+                                          </label>
+                                          <Field
+                                            as="select"
+                                            id="is_grouped_number_format"
+                                            name="is_grouped_number_format"
+                                            className="form-control"
+                                            value={Number(values.is_grouped_number_format) || 0}
+                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                                              setFieldValue("is_grouped_number_format", Number(e.target.value))
+                                            }
+                                          >
+                                            <option value={0}>Plain (150000.00)</option>
+                                            <option value={1}>Indian (1,50,000.00)</option>
+                                            <option value={2}>International / US (150,000.00)</option>
+                                            <option value={3}>European (150.000,00)</option>
+                                          </Field>
                                         </div>
                                       </div>
                                       <div className="col-4 col-md-4">

@@ -494,6 +494,9 @@ const ApproveModel = ({
     }
   }, [seriesDropdownData, defaultSeriesValue]);
 
+  // Voucher types synced to Miracle with an `acc` (quotation .. dispatch challan).
+  const isMiracleVoucherType = Number(orderType) >= 1 && Number(orderType) <= 9;
+
   const handleSubmits = () => {
     const checkedOptions = Object.entries(selectedOptions)
       .filter(([key, value]) => value === true)
@@ -513,6 +516,18 @@ const ApproveModel = ({
     if (selectedOptions.opt5 && selectedDropdown == null) {
       toast.error("Please Select Template");
       return;
+    }
+
+    // With Miracle sync ticked, both Transaction Mode (flgcd) and the Miracle ledger are required.
+    if (isFeatureEnabled && selectedOptions.opt6 && isMiracleVoucherType) {
+      if (orderType != 6 && orderType != 7 && !selectedTrasactionMode) {
+        toast.error("Please select Transaction Mode");
+        return;
+      }
+      if (orderType != 9 && !selectedMiracleLedger?.value) {
+        toast.error("Please select Account Ledger From Miracle");
+        return;
+      }
     }
 
     setButtonloding(true);
@@ -699,11 +714,7 @@ const ApproveModel = ({
                   </select>
                 </div>
               )}
-              {isFeatureEnabled &&
-                (orderType == 3 ||
-                  orderType == 4 ||
-                  orderType == 6 ||
-                  orderType == 7) && (
+              {isFeatureEnabled && isMiracleVoucherType && orderType != 9 && (
                   <div>
                     <div
                       style={{

@@ -12,6 +12,10 @@ interface Props {
   disabled?: boolean;
   formId?: number;
   fetchOptions: (master: string, parentId?: number) => Promise<Option[]>;
+  // Looks up the picked product's rate / unit / code. Only the public form
+  // passes this (no login, so it can't use the signed-in form-builder call);
+  // without it the signed-in getProductFillValues(formId, ...) is used.
+  fetchFillValues?: (productId: number) => Promise<Record<string, any> | null>;
   onChange: (value: number | null) => void;
   // Copy the product's rate / unit / code into sibling cells of this row
   // (plan N5) — still editable afterwards.
@@ -23,7 +27,7 @@ interface Props {
 // so a quotation-style line item can look up its own price. A bare <select>
 // (no label — the table header already names the column), unlike the
 // top-level Reference field.
-const ProductCellSelect: React.FC<Props> = ({ column, value, disabled, formId, fetchOptions, onChange, onFill }) => {
+const ProductCellSelect: React.FC<Props> = ({ column, value, disabled, formId, fetchOptions, fetchFillValues, onChange, onFill }) => {
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,10 +46,17 @@ const ProductCellSelect: React.FC<Props> = ({ column, value, disabled, formId, f
 
   const pick = async (id: number | null) => {
     onChange(id);
-    if (!id || !formId || !column.product_fill_map) return;
-    const res = await getProductFillValues(formId, id);
-    if (res?.ack !== 1 || !res.data?.item) return;
-    const product = res.data.item;
+    if (!id || !column.product_fill_map) return;
+    let product: Record<string, any> | null = null;
+    if (fetchFillValues) {
+      product = await fetchFillValues(id);
+    } else {
+      if (!formId) return;
+      const res = await getProductFillValues(formId, id);
+      if (res?.ack !== 1 || !res.data?.item) return;
+      product = res.data.item;
+    }
+    if (!product) return;
     const values: Record<string, string> = {};
     Object.entries(column.product_fill_map).forEach(([productColumn, targetKey]) => {
       if (targetKey && product[productColumn] != null) values[targetKey as string] = String(product[productColumn]);

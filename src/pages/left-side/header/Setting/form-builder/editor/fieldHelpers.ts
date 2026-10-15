@@ -1,4 +1,5 @@
 import { fieldTypeOptions, IFormBuilderField, IFormBuilderForm } from "../FormBuilderController";
+import { isListableType } from "../listCells";
 
 // ---------- Internal field name ("key") generation (plan A3) ----------
 // Lowercase a-z0-9_, starts with a letter, max 60 chars, unique in the form.
@@ -140,6 +141,11 @@ export function newField(type: string, taken: Set<string>): IFormBuilderField {
     visible_to: "both",
   };
   if (isChoiceType(type)) field.options = ["Option 1", "Option 2"];
+  // A new answer shows as a column in the entries list by default (the
+  // builder can untick it). Only types that have a single readable value;
+  // Auto Number is already on unless switched off. Existing saved fields have
+  // no value here and keep behaving as before.
+  if (type !== "auto-number" && isListableType(type)) field.show_in_list = true;
   if (type === "repeater") {
     const colKey = uniqueKey(keyFromLabel("Item"), new Set([...Array.from(taken), key]));
     field.columns = [{ id: newFieldId(), key: colKey, type: "text", label: "Item" }];

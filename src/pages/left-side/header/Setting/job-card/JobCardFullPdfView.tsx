@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
+import { axiosInstance } from "../../../../../services/axiosInstance";
 import {
+  downloadJobCardPdf,
   fetchJobCardDetail,
   fetchProductionEntryList,
+  generateAndPrintJobCardPdf,
 } from "./JobCardController";
 import {
   IBomProcess,
@@ -27,6 +30,10 @@ const JobCardFullPdfView = () => {
     IProductionEntryListItem[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  // ticket #2212: same Document Designer opt-in as JobCardPdfView, flag key
+  // for this kind is "jobCardMaster_document_designer".
+  const [designerOn, setDesignerOn] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,16 +54,31 @@ const JobCardFullPdfView = () => {
       setLoading(false);
     };
     loadData();
+
+    const companyMastersId = localStorage.getItem("COMPANY_ID");
+    if (companyMastersId) {
+      axiosInstance
+        .post("get-feature-flag", {
+          company_masters_id: companyMastersId,
+          feature_key: "jobCardMaster_document_designer",
+        })
+        .then(({ data }) =>
+          setDesignerOn(data?.ack === 1 && !!data.data.item.is_enabled),
+        )
+        .catch(() => setDesignerOn(false));
+    }
   }, [id]);
 
-  const handlePrint = useReactToPrint({
+  const domPrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `JobCard_MasterReport_${id}`,
   });
+  const handlePrint = () =>
+    designerOn ? generateAndPrintJobCardPdf(Number(id), "master") : domPrint();
 
   useEffect(() => {
     if (!loading && itemDetail) setTimeout(handlePrint, 500);
-  }, [loading, itemDetail]);
+  }, [loading, itemDetail, designerOn]);
 
   if (loading)
     return <div className="text-center p-5">Loading Print Data...</div>;
@@ -85,12 +107,23 @@ const JobCardFullPdfView = () => {
           ← Back
         </button>
         <h5 className="mb-0">Master Report Preview</h5>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => handlePrint()}
-        >
-          🖨️ Print Now
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-primary btn-sm"
+            disabled={downloading}
+            onClick={() =>
+              downloadJobCardPdf(Number(id), "master", setDownloading)
+            }
+          >
+            {downloading ? "Preparing…" : "⬇ Download PDF"}
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => handlePrint()}
+          >
+            🖨️ Print Now
+          </button>
+        </div>
       </div>
 
       <div

@@ -87,6 +87,38 @@ const ColumnsButton = ({
 }: ColumnsButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Where the panel sits, in viewport coordinates. Anchoring it to the button's
+  // right edge pushed it off the left of a phone screen when the button is near
+  // the left (ticket #2609), so it is clamped to the visible width instead.
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
+  const PANEL_WIDTH = 220;
+  const SCREEN_MARGIN = 8;
+
+  const placePanel = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(PANEL_WIDTH, window.innerWidth - SCREEN_MARGIN * 2);
+    const left = Math.min(
+      Math.max(rect.right - width, SCREEN_MARGIN),
+      window.innerWidth - width - SCREEN_MARGIN,
+    );
+    setPanelPos({ top: rect.bottom + 6, left });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    placePanel();
+    window.addEventListener("resize", placePanel);
+    window.addEventListener("scroll", placePanel, true);
+    return () => {
+      window.removeEventListener("resize", placePanel);
+      window.removeEventListener("scroll", placePanel, true);
+    };
+  }, [isOpen]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -138,12 +170,12 @@ const ColumnsButton = ({
       {isOpen && (
         <div
           style={{
-            position: "absolute",
-            right: 0,
-            top: "40px",
+            position: "fixed",
+            left: panelPos.left,
+            top: panelPos.top,
             zIndex: 1000,
-            width: "220px",
-            maxHeight: "320px",
+            width: `min(${PANEL_WIDTH}px, calc(100vw - ${SCREEN_MARGIN * 2}px))`,
+            maxHeight: `min(320px, calc(100vh - ${panelPos.top + SCREEN_MARGIN}px))`,
             overflowY: "auto",
             background: "#fff",
             borderRadius: "8px",

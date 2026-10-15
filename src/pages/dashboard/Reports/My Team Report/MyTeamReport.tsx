@@ -372,7 +372,9 @@ const MyTeamReport = ({
 
     const actionBodyTemplate = useCallback((rowData: ICompanyTeam) => {
         const isMe = rowData.id === a_application_login_id;
-        const isReporting = rowData.reporting_member === a_application_login_id;
+        const isReporting =
+          !!rowData.reporting_member &&
+          Number(rowData.reporting_member) === Number(a_application_login_id);
 
         return (
             <div className="gap-2" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -662,6 +664,8 @@ const MyTeamReport = ({
                         >
                             <DataTable
                     paginator
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                    currentPageReportTemplate="Total Records: {totalRecords}"
                     rows={50}
                     rowsPerPageOptions={[25, 50, 100, 200]}
                                 value={displayedTeamList}

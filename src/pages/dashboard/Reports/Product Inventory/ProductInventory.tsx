@@ -102,6 +102,7 @@ const ProductInventoryReport = ({
   >([]);
   const [error, setError] = useState<string | null>(null);
   const fetchingRef = useRef(false);
+  const requestSeqRef = useRef(0);
   const dt = useRef<DataTable<IProductInventory[]>>(null);
 
   const [globalSearchText, setGlobalSearchText] = useState<string>("");
@@ -243,7 +244,11 @@ const ProductInventoryReport = ({
   ]);
 
   const loadMoreData = async (offset: number, limit: number) => {
-    if (fetchingRef.current) return;
+    // A newer load always wins. It used to return here while an earlier load was
+    // still running, so a filter applied during that time was silently dropped and
+    // the old unfiltered list stayed on screen under the new filter chips. Now every
+    // load runs, and only the latest one may write its result.
+    const requestId = ++requestSeqRef.current;
     fetchingRef.current = true;
     setLoading(true);
 
@@ -262,6 +267,9 @@ const ProductInventoryReport = ({
         filters.selectedStockTypeId,
       );
 
+      // A newer load started while this one was running: its result is the one to show.
+      if (requestId !== requestSeqRef.current) return;
+
       if (!result) {
         setCustomers([]);
         setTotalRecords(0);
@@ -278,11 +286,14 @@ const ProductInventoryReport = ({
       );
       setTotalRecords(total_count);
     } catch (err: any) {
-      setError(err?.message || "Failed to fetch inventory data");
+      if (requestId === requestSeqRef.current) setError(err?.message || "Failed to fetch inventory data");
       console.error("API error:", err);
     } finally {
-      fetchingRef.current = false;
-      setLoading(false);
+      // Only the latest load switches the spinner off.
+      if (requestId === requestSeqRef.current) {
+        fetchingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -916,6 +927,8 @@ const ProductInventoryReport = ({
           scrollHeight="flex"
           loading={loading}
           paginator
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+          currentPageReportTemplate="Total Records: {totalRecords}"
           lazy
           first={lazyState.first}
           rows={lazyState.rows}
@@ -1030,8 +1043,11 @@ const ProductInventoryReport = ({
           pageId={1}
           initialFilterData={{
             ...filters.filterData,
-            category: filters.selectedCategoryId,
-            product: filters.selectedProductId,
+            // The filter modal looks the category / product up by id, but the stored
+            // filter holds the { value, label } option - passing the object matched
+            // nothing, so reopening the filter showed every dropdown empty.
+            category: filters.selectedCategoryId?.value ?? filters.selectedCategoryId,
+            product: filters.selectedProductId?.value ?? filters.selectedProductId,
             contactId: filters.selectedContactId,
             productId: filters.selectedProductSearchId,
             orderlistselect: filters.selectedOrderListId,

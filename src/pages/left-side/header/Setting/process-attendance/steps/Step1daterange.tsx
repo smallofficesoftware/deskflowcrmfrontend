@@ -1,5 +1,6 @@
 import React from "react";
-import { formatDate, ISO_TODAY, sameMonth } from "../Processattendancetypes";
+import { formatDate, sameMonth } from "../Processattendancetypes";
+import { getYesterdayIso } from "../processAttendanceDates";
 
 interface IProps {
   fromDate: string;
@@ -23,7 +24,7 @@ const Step1DateRange = ({
   <div>
     <p className="text-muted mb-3" style={{ fontSize: "0.82rem" }}>
       Select a date range within the <strong>same month</strong> to process
-      attendance.
+      attendance. Today cannot be processed, only dates up to yesterday.
     </p>
 
     <div className="row g-3">
@@ -38,7 +39,7 @@ const Step1DateRange = ({
           type="date"
           className={`form-control form-control-sm${dateError ? " is-invalid" : ""}`}
           value={fromDate}
-          max={ISO_TODAY}
+          max={getYesterdayIso()}
           onChange={(e) => onFromChange(e.target.value)}
         />
       </div>
@@ -53,7 +54,7 @@ const Step1DateRange = ({
           type="date"
           className={`form-control form-control-sm${dateError ? " is-invalid" : ""}`}
           value={toDate}
-          max={ISO_TODAY}
+          max={getYesterdayIso()}
           onChange={(e) => onToChange(e.target.value)}
         />
       </div>

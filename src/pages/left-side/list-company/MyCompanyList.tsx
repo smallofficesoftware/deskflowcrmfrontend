@@ -156,7 +156,7 @@ const MyCompanyList = ({
       };
 
       try {
-        const res = await axiosInstance.post("my-team", requestData, {
+        const res = await axiosInstance.post("my-team-company-list", requestData, {
           headers: {
             Authorization: `${token}`,
             "x-tenant-id": `${GetID}`,
@@ -592,8 +592,10 @@ const MyCompanyList = ({
             <div className="chats" style={{ overflowY: "unset" }}>
               {companyTeamLists.map((item) => {
                 const currentStatus = teamAttendanceStatus[item.id] ?? 2;
-                const isMe = item.id === a_application_login_id;
-                const isReporting = item.reporting_member === a_application_login_id;
+                const isMe = Number(item.id) === Number(a_application_login_id);
+                const isReporting =
+                  !!item.reporting_member &&
+                  Number(item.reporting_member) === Number(a_application_login_id);
                 const createdTime = item.created_date_time ? convertDateTimeFormat(item.created_date_time).date : "";
 
                 return (
