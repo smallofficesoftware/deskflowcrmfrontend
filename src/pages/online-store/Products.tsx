@@ -10,6 +10,7 @@ import {
 } from "../../helpers/AppConstants";
 import { axiosInstance } from "../../services/axiosInstance";
 import { Product, useOnlineStore } from "../../store/onlineStore/useOnlineStore";
+import { useToast } from "./Toast";
 
 interface ProductsProps {
     qrCode: string;
@@ -17,6 +18,7 @@ interface ProductsProps {
 
 
 const Products = ({ qrCode }: ProductsProps) => {
+    const cartToast = useToast();
     const {
         products,
         setProducts,
@@ -29,6 +31,17 @@ const Products = ({ qrCode }: ProductsProps) => {
         addToCart,
         customerData,
     } = useOnlineStore();
+
+    // Add to cart and tell the customer it happened (there was no feedback,
+    // especially on mobile where the cart button is out of sight).
+    const handleAddToCart = (product: Product) => {
+        addToCart(product);
+        cartToast.show({
+            message: `${product.product_name} added to cart`,
+            variant: "success",
+            duration: 2000,
+        });
+    };
 
     const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
     const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
@@ -391,7 +404,7 @@ const Products = ({ qrCode }: ProductsProps) => {
                                                     style={{ backgroundColor: "#f58634" }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        addToCart(product)
+                                                        handleAddToCart(product)
                                                     }}
                                                 >
                                                     <i className="bi bi-cart-plus"></i>
@@ -614,7 +627,7 @@ const Products = ({ qrCode }: ProductsProps) => {
                                         className="btn btn-primary rounded-pill px-4"
                                         style={{ backgroundColor: "#f58634" }}
                                         onClick={() => {
-                                            addToCart(selectedProduct);
+                                            handleAddToCart(selectedProduct);
                                             closeProductModal();
                                         }}
                                     >
