@@ -1281,6 +1281,18 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       }));
 
       setWarehouseOptions(options);
+
+      // Reopening the filter: the applied warehouse ids come in as a prop but
+      // were never put back into the dropdown, so it always showed empty.
+      const appliedIds = String(selectedWarehouseIds ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      if (appliedIds.length > 0) {
+        setSelectedWarehouses(
+          options.filter((o: any) => appliedIds.includes(String(o.value))),
+        );
+      }
     } catch (error) {
       setWarehouseOptions([]);
     } finally {
