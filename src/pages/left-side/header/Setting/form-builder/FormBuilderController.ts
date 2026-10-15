@@ -300,7 +300,7 @@ export const listPublishedFormsForFilling = () => post("form-builder/published/l
 
 // ---------- Submissions ----------
 
-export const listSubmissions = (form_id: number, opts: { filters?: any; search?: string; limit?: number; offset?: number } = {}) =>
+export const listSubmissions = (form_id: number, opts: { filters?: any; column_filters?: Record<string, string>; search?: string; limit?: number; offset?: number } = {}) =>
   post("form-builder/submissions/list", { form_id, ...opts });
 export const getSubmission = (form_id: number, id: number) => post("form-builder/submissions/get", { form_id, id });
 export const deleteSubmission = (form_id: number, id: number) => post("form-builder/submissions/delete", { form_id, id });
