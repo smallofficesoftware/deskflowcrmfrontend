@@ -403,6 +403,7 @@ export const fetchCartReport = async (
   selectedProduct?: string | null,
   selectedCategory?: string | null,
   selectedApproveStatus?: string | null,
+  columnFilters?: Record<string, string>,
 ) => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -432,6 +433,8 @@ export const fetchCartReport = async (
     selectedProduct: selectedProduct,
     selectedCategory: selectedCategory,
     selectedApproveStatus: selectedApproveStatus || undefined,
+    // Per-column grid filters, applied on Enter (contains match, server side).
+    column_filters: columnFilters,
   };
 
   try {
