@@ -518,8 +518,8 @@ const ApproveModel = ({
       return;
     }
 
-    // With Miracle sync on, both Transaction Mode (flgcd) and the Miracle ledger are required.
-    if (isFeatureEnabled && isMiracleVoucherType) {
+    // With Miracle sync ticked, both Transaction Mode (flgcd) and the Miracle ledger are required.
+    if (isFeatureEnabled && selectedOptions.opt6 && isMiracleVoucherType) {
       if (orderType != 6 && orderType != 7 && !selectedTrasactionMode) {
         toast.error("Please select Transaction Mode");
         return;
