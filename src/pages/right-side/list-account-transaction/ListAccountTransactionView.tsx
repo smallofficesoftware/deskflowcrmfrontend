@@ -1814,8 +1814,11 @@ const ListAccountTransactionView = ({
                                         </b>
                                       )}
                                       {item.cart_number && (
-                                        <div className="small text-muted">
-                                          {item.cart_type_name} {item.cart_number}
+                                        // Linked cart (invoice number) highlighted like the remark.
+                                        <div>
+                                          <b style={{ color: " #000066" }}>
+                                            {item.cart_type_name} {item.cart_number}
+                                          </b>
                                         </div>
                                       )}
                                     </h4>
@@ -2282,8 +2285,11 @@ const ListAccountTransactionView = ({
                                         </b>
                                       )}
                                       {item.cart_number && (
-                                        <div className="small text-muted">
-                                          {item.cart_type_name} {item.cart_number}
+                                        // Linked cart (invoice number) highlighted like the remark.
+                                        <div>
+                                          <b style={{ color: " #000066" }}>
+                                            {item.cart_type_name} {item.cart_number}
+                                          </b>
                                         </div>
                                       )}
                                     </h4>

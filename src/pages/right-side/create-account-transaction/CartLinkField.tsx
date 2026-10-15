@@ -49,13 +49,17 @@ const CartLinkField = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAutoReverse]);
 
+  // What was already settled on the cart: "Received" for a Credit (Receipt),
+  // "Paid" for a Debit (Payment). The old "Available" balance went negative
+  // once a cart was over-settled and confused users.
+  const settledWord = String(values.type) === "1" ? "Received" : "Paid";
   const options = useMemo(
     () =>
       carts.map((c) => ({
         value: c.id,
-        label: `${c.cart_type_name} ${c.cart_number || `#${c.id}`} | Total ${c.grand_total} | Available ${c.available_amount}`,
+        label: `${c.cart_type_name} ${c.cart_number || `#${c.id}`} | Total ${c.grand_total} | ${settledWord} ${c.paid_amount}`,
       })),
-    [carts],
+    [carts, settledWord],
   );
 
   return (
