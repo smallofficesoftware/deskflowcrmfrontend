@@ -566,12 +566,15 @@ const TeamDispatchDataReportsView = ({
       const filter = newFilters[key];
 
       if (key !== activeField) {
+        // Copy instead of mutating: the objects are shared with PrimeReact's
+        // event/state, and in-place nulling can wipe the value being typed.
         if (isSimpleFilter(filter)) {
-          filter.value = null;
-        }
-
-        if (isOperatorFilter(filter)) {
-          filter.constraints.forEach((c) => (c.value = null));
+          newFilters[key] = { ...filter, value: null };
+        } else if (isOperatorFilter(filter)) {
+          newFilters[key] = {
+            ...filter,
+            constraints: filter.constraints.map((c) => ({ ...c, value: null })),
+          };
         }
       }
     });
