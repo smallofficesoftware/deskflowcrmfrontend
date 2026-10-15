@@ -33,7 +33,8 @@ import { IOption } from "../../../helpers/AppInterface";
 import { TReactSetState } from "../../../helpers/AppType";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
-import CreateContactView from "../../left-side/create-contact/CreateContactView";
+import { lazyView } from "../../../common/lazyView";
+const CreateContactView = lazyView(() => import("../../left-side/create-contact/CreateContactView"));
 import {
   fetchCompanyApi,
   ICompanyView,

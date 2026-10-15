@@ -15,7 +15,7 @@ import {
   fetchApiTask,
   ITaskView,
 } from "../../../pages/left-side/header/Setting/taskList/TaskListController";
-import { FilterParams } from "../../../pages/left-side/header/Setting/taskList/TaskListView";
+import type { FilterParams } from "../../../pages/left-side/header/Setting/taskList/TaskListView";
 import CreateTaskView from "../../../pages/right-side/create-task/CreateTaskView";
 import { axiosInstance } from "../../../services/axiosInstance";
 import CheckBoxFilterModal from "../CheckBoxFilterModal";
