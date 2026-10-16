@@ -311,7 +311,10 @@ const ContactKanbanBoard: React.FC<KanbanBoardModal> = ({
                         capturedTotal = total;
                         tryResolve();
                     },
-                    undefined,
+                    // isArchive: 0 = live contacts only. Left undefined it
+                    // dropped the filter, so archived contacts inflated the
+                    // column totals (and cards) vs the app and the list view.
+                    0,
                     filters.selectedActiveId,
                     filters.selectedDays,
                     filters.assignedByMultiTeamMember,
