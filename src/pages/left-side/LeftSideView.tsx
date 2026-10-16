@@ -29,12 +29,6 @@ import ConfirmationModal from "../../components/model/ConfirmationModal";
 import { lazyView } from "../../common/lazyView";
 import RadioButtonModal from "../../components/model/RadioButtonModal";
 import { useStageChange } from "../../components/model/StageFormModal/useStageChange";
-// Heavy / on-demand screens and modals below are code-split with lazyView.
-const ContactKanbanBoard = lazyView(() => import("../../components/model/ContactKanbanBoard"));
-const ContactLocationModel = lazyView(() => import("../../components/model/ContactLocationModel"));
-const ImportExcelForContactModal = lazyView(() => import("../../components/model/ImportExcelForContactModal"));
-const OrderCreateModal = lazyView(() => import("../../components/model/OrderCreateModel/OrderCreateModal"));
-const WorkFlowModel = lazyView(() => import("../../components/model/workflowConformatioModel/workFlowModelView"));
 import ReviewDialog from "../../components/review/ReviewDialog";
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
@@ -62,14 +56,11 @@ import useMiracleFlagStore from "../../store/miracle/useMiracleFlagStore";
 import { useReviewStore } from "../../store/review/useReviewStore";
 import { useFeatureFlagStore } from "../../store/supportTicket/useSupportTicketFlag";
 import useWhatsappPlatformStore from "../../store/whatsapp/useWhatsappPlateformFlagStore";
-const NewDashboardView = lazyView(() => import("../dashboard/new-dashboard/NewDashboardView"));
-const Visitsview = lazyView(() => import("../left-side/header/Setting/visits/VisitView"));
 import { useTaskCategoryStore } from "../public/UseTaskCategoryStore";
 import LoginView from "../public/login/LoginView";
 import { IUserInfo } from "../public/otp-verification/OTPVerificationController";
 import RightView from "../right-side/RightView";
 import { fetchReminderCount } from "../right-side/RightViewController";
-const ListInquiryView = lazyView(() => import("../right-side/list-inquiry/ListInquiryView"));
 import {
   archiveUnArchiveContactApi,
   deleteContactApi,
@@ -95,6 +86,15 @@ import { ISourceOfTypes } from "./header/Setting/source-of-types/SourceOfTypesCo
 import { IStageStatusView } from "./header/Setting/stage-status/StageStatusController";
 import { fetchDepartmentsApi } from "./list-company/EditTeamMemberController";
 
+// Heavy / on-demand screens and modals below are code-split with lazyView.
+const ContactKanbanBoard = lazyView(() => import("../../components/model/ContactKanbanBoard"));
+const ContactLocationModel = lazyView(() => import("../../components/model/ContactLocationModel"));
+const ImportExcelForContactModal = lazyView(() => import("../../components/model/ImportExcelForContactModal"));
+const OrderCreateModal = lazyView(() => import("../../components/model/OrderCreateModel/OrderCreateModal"));
+const WorkFlowModel = lazyView(() => import("../../components/model/workflowConformatioModel/workFlowModelView"));
+const NewDashboardView = lazyView(() => import("../dashboard/new-dashboard/NewDashboardView"));
+const Visitsview = lazyView(() => import("../left-side/header/Setting/visits/VisitView"));
+const ListInquiryView = lazyView(() => import("../right-side/list-inquiry/ListInquiryView"));
 const ListNoteView = lazyView(() => import("./Personal-Notes/NoteView"));
 const CampaignModal = lazyView(() => import("./campaigns/CreateCampaignModel"));
 const CreateContactView = lazyView(() => import("./create-contact/CreateContactView"));

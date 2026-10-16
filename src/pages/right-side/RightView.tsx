@@ -62,7 +62,6 @@ import CheckBoxModal from "../../components/model/CheckBoxModal";
 import EventLogs from "../../components/model/EventLogModel/EventLogsModel";
 import ExploreNearbyModal from "../../components/model/ExploreNearbyModel";
 import { lazyView } from "../../common/lazyView";
-const OrderCreateModal = lazyView(() => import("../../components/model/OrderCreateModel/OrderCreateModal"));
 import RadioButtonModal from "../../components/model/RadioButtonModal";
 import { useStageChange } from "../../components/model/StageFormModal/useStageChange";
 import ReminderModal from "../../components/model/ReminderModal";
@@ -87,7 +86,6 @@ import AiModelView from "../aimodel/AiModelView";
 import DashboardView from "../dashboard/DashboardView";
 import { fetchLabelApi } from "../left-side/header/Setting/label/LabelController";
 import { ITaskView } from "../left-side/header/Setting/taskList/TaskListController";
-const Visitsview = lazyView(() => import("../left-side/header/Setting/visits/VisitView"));
 import { fetchDepartmentsApi } from "../left-side/list-company/EditTeamMemberController";
 import {
   fetchCompanyApi,
@@ -102,7 +100,6 @@ import TaskChatRightSide from "./task-chat/TaskChatRightSide";
 import CreateTaskView from "./create-task/CreateTaskView";
 import EmailSendView from "./EmailSend/EmailSendView";
 import ListAccountTransactionView from "./list-account-transaction/ListAccountTransactionView";
-const ListInquiryView = lazyView(() => import("./list-inquiry/ListInquiryView"));
 import ListOrderView from "./list-order/ListOrderView";
 import {
   createReminder,
@@ -127,6 +124,11 @@ import {
   TMessagesByDate,
   viewAttendanceStatus,
 } from "./RightViewController";
+
+const OrderCreateModal = lazyView(() => import("../../components/model/OrderCreateModel/OrderCreateModal"));
+const Visitsview = lazyView(() => import("../left-side/header/Setting/visits/VisitView"));
+const ListInquiryView = lazyView(() => import("./list-inquiry/ListInquiryView"));
+
 interface IPropRightView {
   openCreateContact: () => void;
   closeCreateContact: () => void;

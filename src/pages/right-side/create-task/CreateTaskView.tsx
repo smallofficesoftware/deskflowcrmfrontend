@@ -34,7 +34,6 @@ import { TReactSetState } from "../../../helpers/AppType";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
 import { lazyView } from "../../../common/lazyView";
-const CreateContactView = lazyView(() => import("../../left-side/create-contact/CreateContactView"));
 import {
   fetchCompanyApi,
   ICompanyView,
@@ -57,6 +56,8 @@ import {
   taskTypesList,
   updateTarget,
 } from "./CreateTaskController";
+
+const CreateContactView = lazyView(() => import("../../left-side/create-contact/CreateContactView"));
 
 interface IPropsCreateTarget {
   show: boolean;
