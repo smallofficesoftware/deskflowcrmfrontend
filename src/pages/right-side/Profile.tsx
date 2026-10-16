@@ -10,10 +10,11 @@ import { axiosInstance } from "../../services/axiosInstance";
 import { IUserList } from "../left-side/LeftSideController";
 import { fetchCustomInqFromApiForContact } from "../left-side/create-contact/CreateContactController";
 import { lazyView } from "../../common/lazyView";
-const CreateContactView = lazyView(() => import("../left-side/create-contact/CreateContactView"));
 import { fetchTemplatesForDocType } from "../order-print-view/orderPrintController";
 import { deleteMessages } from "./RightViewController";
 import { ICustomFromList } from "./create-inquiry/CreateInquiryController";
+
+const CreateContactView = lazyView(() => import("../left-side/create-contact/CreateContactView"));
 
 interface IPropsProfile {
   isProfile: boolean;
