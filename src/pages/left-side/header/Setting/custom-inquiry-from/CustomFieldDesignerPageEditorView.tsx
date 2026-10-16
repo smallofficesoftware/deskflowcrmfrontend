@@ -18,10 +18,8 @@ import {
   getDataDictionary,
   getDocumentTemplate,
   publishDocumentTemplate,
-  setPinRequiredHandler,
   updateDocumentTemplateDraft,
 } from "../document-designer/DocumentDesignerController";
-import { verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 
 // Dedicated editor for the "Document Designer Page" custom field type
 // (data_type 14) — reached ONLY from DesignerPageDataSourceView.tsx's "Open
@@ -178,38 +176,6 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const askConfirm = (message: string, onConfirm: () => void) => {
     setConfirmDialog({ message, onConfirm });
-  };
-
-  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js) for the
-  // createDocumentTemplate/publishDocumentTemplate/applyOptionsToDraft calls
-  // above — those go through DocumentDesignerController.ts's postGated,
-  // which only re-prompts+retries a 403 "PIN verification required" if a
-  // pinRequiredHandler is registered. DocumentDesignerView.tsx registers one;
-  // this page (reached from the custom-field data-source flow, not that
-  // view) never did, so a PIN-gated company just saw a raw "PIN verification
-  // required" toast with no way to actually enter the PIN. Same PromptModal,
-  // same verifyReportPin, as DocumentDesignerView.tsx's fallback path.
-  const [showPinModal, setShowPinModal] = useState(false);
-  const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
-  useEffect(() => {
-    setPinRequiredHandler(() => {
-      setShowPinModal(true);
-      return new Promise<boolean>((resolve) => {
-        pinResolveRef.current = resolve;
-      });
-    });
-    return () => setPinRequiredHandler(null);
-  }, []);
-  const handlePinSubmit = async (pin: string) => {
-    const ok = await verifyReportPin(pin);
-    setShowPinModal(false);
-    pinResolveRef.current?.(ok);
-    pinResolveRef.current = null;
-  };
-  const handlePinCancel = () => {
-    setShowPinModal(false);
-    pinResolveRef.current?.(false);
-    pinResolveRef.current = null;
   };
 
   const { targetPageNumber, setTargetPageNumber, addPageBefore, addPageAfter, removeCurrentPage } = usePageManipulation(
@@ -448,14 +414,6 @@ const CustomFieldDesignerPageEditorView: React.FC = () => {
         }}
         title={promptDialog?.title || ""}
         defaultValue={promptDialog?.defaultValue}
-      />
-
-      <PromptModal
-        show={showPinModal}
-        onHide={handlePinCancel}
-        onSubmit={handlePinSubmit}
-        title="Owner PIN required"
-        message="This action needs the shared build PIN (same PIN as Report Builder)."
       />
 
       {loading && (

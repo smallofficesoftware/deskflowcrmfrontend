@@ -11,12 +11,13 @@ import {
 import { useTheme } from "../../../components/ThemeContext";
 import ConfirmationModal from "../../../components/model/ConfirmationModal";
 import EventLogs from "../../../components/model/EventLogModel/EventLogsModel";
-import OrderCreateModal from "../../../components/model/OrderCreateModel/OrderCreateModal";
+import { lazyView } from "../../../common/lazyView";
+const OrderCreateModal = lazyView(() => import("../../../components/model/OrderCreateModel/OrderCreateModal"));
 import PrintSettingModal from "../../../components/model/PrintSettingModal";
 import RadioButtonModal from "../../../components/model/RadioButtonModal";
 import ReminderModal from "../../../components/model/ReminderModal";
 import { whatsappTemplateCloudeSend } from "../../../components/model/whatsapp_template_sender/WhatsappTemplateSenderController";
-import WorkFlowModel from "../../../components/model/workflowConformatioModel/workFlowModelView";
+const WorkFlowModel = lazyView(() => import("../../../components/model/workflowConformatioModel/workFlowModelView"));
 import {
   DEFAULT_MESSAGE_ERROR_PERMISSION,
   DEFAULT_MESSAGE_FOR_UNDER_DEVELOPMENT,
