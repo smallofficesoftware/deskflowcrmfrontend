@@ -135,6 +135,15 @@ const ColumnRow: React.FC<{
           ) : null}
         </div>
       ) : null}
+      <label className="small d-block ps-2 mb-1">
+        <input
+          type="checkbox"
+          className="me-1"
+          checked={col.visible_to === "internal"}
+          onChange={(e) => onPatch({ visible_to: e.target.checked ? "internal" : undefined })}
+        />
+        Staff only (not shown on the public link)
+      </label>
       {col.type === "reference" ? <ProductFillMap col={col} siblings={siblings} onPatch={onPatch} /> : null}
       {col.type === "dropdown" ? <ColumnOptionsEditor col={col} onPatch={onPatch} /> : null}
       {col.type === "calculation" ? <FormulaBox id={`fb-colformula-${col.id}`} value={col.formula || ""} choices={choices} onChange={onFormula} /> : null}
