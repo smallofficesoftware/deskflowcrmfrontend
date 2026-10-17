@@ -423,6 +423,13 @@ export const VARIABLE_DEFINITIONS: VariableConfig[] = [
         params: ["orderId"],
         valueField: "voucher_number",
       },
+      {
+        // account transaction: its voucher number (an old entry without one: # id)
+        module: "account_transaction",
+        endpoint: "acc-wvfetch/:acc_id",
+        params: ["acc_id"],
+        valueField: "voucher_number",
+      },
     ],
   },
   {
