@@ -84,6 +84,8 @@ export interface ICreateAccountTransaction {
   auto_reverse_entry: number;
   sr_by_prifix: string;
   entered_series_number: string;
+  reverse_sr_by_prifix: string;
+  reverse_entered_series_number: string;
 }
 
 const formatDateTimeLocal = (dateTime: string | undefined): string => {
@@ -127,6 +129,8 @@ export const createAccountTransactionInitialValues = (
   auto_reverse_entry: 0,
   sr_by_prifix: "",
   entered_series_number: "",
+  reverse_sr_by_prifix: "",
+  reverse_entered_series_number: "",
   cart_id:
     accountTransactionToEdit?.reference_table === "carts"
       ? accountTransactionToEdit.reference_id || ""
@@ -176,6 +180,13 @@ export const createAccountTransaction = async (
       cart_id: values.cart_id || undefined,
       sr_by_prifix: values.sr_by_prifix || undefined,
       entered_series_number: values.entered_series_number || undefined,
+      ...(Number(values.auto_reverse_entry) === 1
+        ? {
+            reverse_sr_by_prifix: values.reverse_sr_by_prifix || undefined,
+            reverse_entered_series_number:
+              values.reverse_entered_series_number || undefined,
+          }
+        : {}),
     };
 
     const { data } = await axiosInstance.post(
