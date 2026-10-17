@@ -57,6 +57,14 @@ const InvoiceEntrySeriesBlock = ({ companyId }: IPropsInvoiceEntrySeriesBlock) =
 
   return (
     <div className="col-12 mt-4">
+      <hr style={{ borderTop: "2px solid #f58634", opacity: 1, margin: "8px 0 16px" }} />
+      <div
+        className="d-flex align-items-center mb-3"
+        style={{ gap: "10px", color: "#f58634", fontWeight: 600, letterSpacing: "0.5px" }}
+      >
+        <span style={{ flex: "0 0 auto" }}>ACCOUNT TRANSACTION</span>
+        <span style={{ flex: "1 1 auto", borderTop: "1px solid #f5863466" }} />
+      </div>
       <div style={{ padding: "15px", background: "#f9f9f9", borderRadius: "8px", border: "1px solid #ddd" }}>
         <h5>Invoice Account Entry Series</h5>
         <p className="mb-2">

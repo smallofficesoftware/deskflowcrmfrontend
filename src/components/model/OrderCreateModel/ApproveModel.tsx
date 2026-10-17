@@ -51,6 +51,7 @@ const ApproveModel = ({
   defaultCustomSeriesValue,
   transaction_mode,
   miracle_account_legder,
+  advanceSeriesInfo,
 }: {
   show: boolean;
   onHide: () => void;
@@ -62,6 +63,8 @@ const ApproveModel = ({
     customSeriesDate?: DateObject,
     selectedTrasactionMode?: string,
     selectedMiracleLedger?: string,
+    advanceSeriesPrefix?: string,
+    advanceVoucherNumber?: string,
   ) => void;
   title: string;
   message?: string;
@@ -97,6 +100,9 @@ const ApproveModel = ({
   defaultCustomSeriesValue?: ICustomSeriesValue;
   transaction_mode?: string;
   miracle_account_legder?: string;
+  // Series of the payment mode chosen for the advance payment: asked here (a picker
+  // for several series, a typed number for a manual-entry mode) only when the cart has an advance.
+  advanceSeriesInfo?: { prefixes: string[]; manual: boolean; hasAdvance: boolean };
 }) => {
   const { darkMode } = useTheme();
   const modalThemeClass = darkMode ? "modal-light-1" : "modal-light-1";
@@ -140,6 +146,20 @@ const ApproveModel = ({
       : undefined,
   );
   const [srNumberGenerateFlag, setSrNumberGenerateFlag] = useState<number>();
+  const [advanceSeriesPrefix, setAdvanceSeriesPrefix] = useState<string>("");
+  const [advanceVoucherNumber, setAdvanceVoucherNumber] = useState<string>("");
+  const advancePrefixes = advanceSeriesInfo?.prefixes ?? [];
+  const showAdvanceManual = !!advanceSeriesInfo?.hasAdvance && !!advanceSeriesInfo?.manual;
+  const showAdvancePicker =
+    !!advanceSeriesInfo?.hasAdvance &&
+    !advanceSeriesInfo?.manual &&
+    advancePrefixes.length > 1;
+
+  // Starts on the payment mode's first series
+  useEffect(() => {
+    setAdvanceSeriesPrefix(advancePrefixes[0] || "");
+    setAdvanceVoucherNumber("");
+  }, [advancePrefixes.join(",")]);
   const selectDropdown = dropdownData.map((WeeklyDays: any) => ({
     value: WeeklyDays.id,
     label: WeeklyDays.name,
@@ -530,6 +550,11 @@ const ApproveModel = ({
       }
     }
 
+    if (showAdvanceManual && !advanceVoucherNumber.trim()) {
+      toast.error("Please enter the advance payment voucher number");
+      return;
+    }
+
     setButtonloding(true);
 
     handleSubmit(
@@ -540,6 +565,8 @@ const ApproveModel = ({
       customSeriesDate,
       selectedTrasactionMode,
       selectedMiracleLedger?.value || "",
+      showAdvancePicker ? advanceSeriesPrefix : "",
+      showAdvanceManual ? advanceVoucherNumber.trim() : "",
     );
   };
 
@@ -712,6 +739,54 @@ const ApproveModel = ({
                       Debit Memo
                     </option>
                   </select>
+                </div>
+              )}
+              {showAdvancePicker && (
+                <div>
+                  <div
+                    style={{
+                      marginBottom: "8px",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#333",
+                    }}
+                  >
+                    Advance Payment Series
+                  </div>
+                  <select
+                    id="advance_series_prefix"
+                    className="form-control"
+                    value={advanceSeriesPrefix}
+                    onChange={(e) => setAdvanceSeriesPrefix(e.target.value)}
+                  >
+                    {advancePrefixes.map((prefix) => (
+                      <option key={prefix} value={prefix}>
+                        {prefix}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {showAdvanceManual && (
+                <div>
+                  <div
+                    style={{
+                      marginBottom: "8px",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#333",
+                    }}
+                  >
+                    Advance Payment Voucher No.
+                  </div>
+                  <input
+                    id="advance_voucher_number"
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter voucher number"
+                    value={advanceVoucherNumber}
+                    onChange={(e) => setAdvanceVoucherNumber(e.target.value)}
+                  />
                 </div>
               )}
               {isFeatureEnabled && isMiracleVoucherType && orderType != 9 && (

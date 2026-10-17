@@ -134,6 +134,10 @@ interface UploadedFileWithOrder {
 interface PaymentMode {
   id: string | number;
   payment_type_name: string;
+  credit_series_prefix?: string | null;
+  credit_sr_manual?: number | null;
+  debit_series_prefix?: string | null;
+  debit_sr_manual?: number | null;
   // ... other fields if needed
 }
 const OrderCreateModal: React.FC<IOrderCreateModal> = ({
@@ -417,6 +421,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     selectedMiracleLedger: "",
   });
   const isApproveSubmittingRef = useRef(false);
+  // Series (or typed voucher number) chosen in the Approve dialog for the advance
+  // payment entry; read when the approve request body is built.
+  const advanceSeriesChoiceRef = useRef({ prefix: "", voucherNumber: "" });
   const [conversionType, setConversionType] = useState("");
   const [buttonLoading, setButtonloding] = useState(false);
   const [isEditPageUrlModalOpen, setIsEditPageUrlModalOpen] = useState(false);
@@ -3741,6 +3748,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
       return {};
     } catch (error: any) {
+      // Only a form-validation error has `inner`; any other failure while checking the
+      // cart used to throw again here, so Approve did nothing and showed no message.
+      if (!Array.isArray(error?.inner)) {
+        console.error("validateCartItemsAndFields failed:", error);
+        return {
+          form: error?.message
+            ? `Could not check the form: ${error.message}`
+            : "Could not check the form. Please check the products and try again.",
+        };
+      }
       const errors: Record<string, string> = {};
       error.inner.forEach((err: any) => {
         const path = err.path.includes("cartCustomFields")
@@ -4329,6 +4346,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0];
       toast.error(firstError);
+      setButtonloding(false);
       return;
     }
 
@@ -4704,6 +4722,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         new_srNumber: srNumber,
@@ -4790,6 +4810,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         ...productCustomFormFieldValues[index],
@@ -4830,6 +4852,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         ...productCustomFormFieldValues[index],
@@ -6475,6 +6499,35 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       })),
     [paymentTypeList],
   );
+
+  // Series of the chosen payment mode for the advance payment entry (credit side
+  // for sales order / invoice / purchase return, debit side for the others); the
+  // Approve dialog asks for it only when there is a choice or a typed number.
+  const advanceSeriesInfo = useMemo(() => {
+    const paymentMode = paymentTypeList.find(
+      (mode: PaymentMode) => String(mode.id) === String(selectedPaymentMode),
+    );
+    const side = [2, 3, 7].includes(
+      Number(newOrderShowNumAfterConversion || isOrderShowNum),
+    )
+      ? "credit"
+      : "debit";
+    const prefixes = String(paymentMode?.[`${side}_series_prefix`] ?? "")
+      .split(",")
+      .map((prefix) => prefix.trim())
+      .filter(Boolean);
+    return {
+      prefixes,
+      manual: Number(paymentMode?.[`${side}_sr_manual`]) === 1,
+      hasAdvance: Number(advancePayment) > 0,
+    };
+  }, [
+    paymentTypeList,
+    selectedPaymentMode,
+    advancePayment,
+    newOrderShowNumAfterConversion,
+    isOrderShowNum,
+  ]);
 
   const handlePaymentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedPaymentMode(e.target.value);
@@ -12202,7 +12255,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             customSeriesDate,
             selectedTrasactionMode,
             selectedMiracleLedger,
+            advanceSeriesPrefix,
+            advanceVoucherNumber,
           ) => {
+            advanceSeriesChoiceRef.current = {
+              prefix: advanceSeriesPrefix || "",
+              voucherNumber: advanceVoucherNumber || "",
+            };
             setApproveData({
               checkedOptions,
               dropdownValue,
@@ -12220,6 +12279,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           showTaskTemplateFor={dynamicStartWorkflow}
           orderType={Number(newOrderShowNumAfterConversion || isOrderShowNum)}
           showOrderId={cartId}
+          advanceSeriesInfo={advanceSeriesInfo}
           defaultSeriesValue={
             orderById?.cart?.sr_by_prifix || orderbyidList?.cart?.sr_by_prifix
           }

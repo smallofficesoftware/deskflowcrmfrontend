@@ -568,6 +568,17 @@ const AllAccountReports = ({
   const baseColumnDefs: AccountColumnDef[] = useMemo(
     () => [
       {
+        key: "voucher_number",
+        label: "Voucher No.",
+        header: (
+          <span>
+            Voucher <br /> No.
+          </span>
+        ),
+        // an entry made before voucher numbers shows its id
+        body: (rowData) => rowData.voucher_number || `#${rowData.id}`,
+      },
+      {
         key: "acc_series",
         label: "ID",
         header: "ID",
@@ -715,6 +726,8 @@ const AllAccountReports = ({
         if (mobile) parts.push(mobile);
         return parts.length > 0 ? parts.join(" - ") : "-";
       }
+      case "voucher_number":
+        return txn.voucher_number || `#${txn.id}`;
       case "amount":
         return (
           txn.amountwithcurrency ||
