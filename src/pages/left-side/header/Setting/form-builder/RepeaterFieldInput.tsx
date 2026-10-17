@@ -3,6 +3,7 @@ import { IFormBuilderField } from "./FormBuilderController";
 import { FIELD_TYPE_REGISTRY } from "./fieldTypes";
 import { evaluateVisibility } from "./conditions";
 import ProductCellSelect from "./ProductCellSelect";
+import RepeaterDropdownCell from "./RepeaterDropdownCell";
 
 interface Props {
   field: IFormBuilderField; // type === "repeater"
@@ -102,6 +103,13 @@ const RepeaterFieldInput: React.FC<Props> = ({ field, rows, onChange, onFile, er
                           onChange={(v) => updateCell(rowIndex, col.key, v)}
                           onFill={(values) => patchCells(rowIndex, values)}
                         />
+                      </td>
+                    );
+                  }
+                  if (col.type === "dropdown") {
+                    return (
+                      <td key={col.key} data-label={col.label}>
+                        <RepeaterDropdownCell column={col} value={row[col.key]} disabled={disabled} onChange={(v) => updateCell(rowIndex, col.key, v)} />
                       </td>
                     );
                   }

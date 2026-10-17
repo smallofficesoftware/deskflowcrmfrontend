@@ -6,6 +6,7 @@ import { IFormBuilderField } from "../FormBuilderController";
 import { keyFromLabel, newFieldId, REPEATER_COLUMN_TYPES, typeLabel, uniqueKey } from "./fieldHelpers";
 import { FormulaBox } from "./CalculationSettings";
 import ConditionEditor from "./ConditionEditor";
+import ColumnOptionsEditor from "./ColumnOptionsEditor";
 
 interface Props {
   columns: IFormBuilderField[];
@@ -135,6 +136,7 @@ const ColumnRow: React.FC<{
         </div>
       ) : null}
       {col.type === "reference" ? <ProductFillMap col={col} siblings={siblings} onPatch={onPatch} /> : null}
+      {col.type === "dropdown" ? <ColumnOptionsEditor col={col} onPatch={onPatch} /> : null}
       {col.type === "calculation" ? <FormulaBox id={`fb-colformula-${col.id}`} value={col.formula || ""} choices={choices} onChange={onFormula} /> : null}
     </div>
   );
@@ -168,7 +170,13 @@ const RepeaterColumnsEditor: React.FC<Props> = ({ columns, onChange, otherKeys, 
     onChange(
       columns.map((c, j) =>
         j === i
-          ? { ...c, type, ...(type === "calculation" && c.formula === undefined ? { formula: "", decimals: 2 } : {}), ...(type === "reference" ? { master: "product" } : {}) }
+          ? {
+              ...c,
+              type,
+              ...(type === "calculation" && c.formula === undefined ? { formula: "", decimals: 2 } : {}),
+              ...(type === "reference" ? { master: "product" } : {}),
+              ...(type === "dropdown" && !(c.options || []).length ? { options: ["Option 1", "Option 2"] } : {}),
+            }
           : c,
       ),
     );

@@ -69,7 +69,7 @@ export const normOption = (o: string) => o.trim().toLowerCase();
 // Types a repeater column may use: RepeaterFieldInput renders a plain text /
 // number box or a file input per cell, and sub-repeaters/references are not
 // allowed (plan §1, 1 level deep).
-export const REPEATER_COLUMN_TYPES = ["text", "number", "phone", "email", "url", "calculation", "file", "image", "reference"];
+export const REPEATER_COLUMN_TYPES = ["text", "dropdown", "number", "phone", "email", "url", "calculation", "file", "image", "reference"];
 
 export const typeLabel = (t: string) => fieldTypeOptions.find((o) => o.id === t)?.label || t;
 
@@ -225,6 +225,12 @@ export function findFieldProblem(fields: IFormBuilderField[], publishedKeys: Set
         if (!colName) return `Every column in "${name}" needs a name`;
         const colProblem = checkKey(c.key, `${name} → ${colName}`);
         if (colProblem) return colProblem;
+        if (c.type === "dropdown") {
+          const colOpts = c.options || [];
+          if (!colOpts.length) return `Add at least one choice to the "${colName}" column of "${name}"`;
+          if (colOpts.some((o) => !o.trim())) return `The "${colName}" column of "${name}" has an empty choice — fill it in or remove it`;
+          if (new Set(colOpts.map(normOption)).size !== colOpts.length) return `The "${colName}" column of "${name}" has the same choice twice — remove one`;
+        }
       }
     }
   }
