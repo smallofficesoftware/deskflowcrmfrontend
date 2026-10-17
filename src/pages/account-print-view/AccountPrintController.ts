@@ -72,6 +72,7 @@ interface IAccount {
     approve_by_a_application_login_id: number;
     approve_date_time: string;
     payment_type_name: string;
+    voucher_number?: string;
     customer_name: {
       person_name: string;
       company_name: string;

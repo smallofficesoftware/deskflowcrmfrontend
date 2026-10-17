@@ -78,6 +78,7 @@ interface IAccount {
     approve_by_a_application_login_id: number;
     approve_date_time: string;
     payment_type_name: string;
+    voucher_number?: string;
     customer_name: {
       person_name: string;
       company_name: string;
@@ -399,10 +400,12 @@ const AccountPrintView1 = () => {
                     {/* Transaction ID */}
                     <tr>
                       <td style={{ width: "48%", verticalAlign: "top", padding: "4px 6px 4px 0", fontWeight: "bold" }}>
-                        Transaction ID:
+                        {accountTransactions.item[0].voucher_number ? "Voucher No.:" : "Transaction ID:"}
                       </td>
                       <td style={{ width: "52%", textAlign: "right", verticalAlign: "top", padding: "4px 0" }}>
-                        <span className="bolde-style"># {accountTransactions.item[0].id}</span>
+                        <span className="bolde-style">
+                          {accountTransactions.item[0].voucher_number || `# ${accountTransactions.item[0].id}`}
+                        </span>
                       </td>
                     </tr>
 

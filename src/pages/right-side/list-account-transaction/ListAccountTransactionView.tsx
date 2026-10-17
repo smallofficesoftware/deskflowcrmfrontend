@@ -1772,7 +1772,7 @@ const ListAccountTransactionView = ({
                                       <span
                                         className={`${checkboxesVisible ? "ms-4" : ""}`}
                                       >
-                                        {"#" + item.id}
+                                        {item.voucher_number || "#" + item.id}
                                       </span>
                                       <br />
                                     </h4>
@@ -2214,7 +2214,7 @@ const ListAccountTransactionView = ({
                                       <span
                                         className={`${checkboxesVisible ? "ms-3" : ""}`}
                                       >
-                                        {"#" + item.id}
+                                        {item.voucher_number || "#" + item.id}
                                       </span>
                                       <br />
                                     </h4>
