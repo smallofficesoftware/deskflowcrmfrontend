@@ -5,6 +5,7 @@ import { BIG_TEXT_LENGTH, DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../.
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { TOnChangeInput, TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
+import PaymentTypeSeriesFields, { defaultSeriesForMode, EMPTY_PAYMENT_TYPE_SERIES, IPaymentTypeSeries } from "./PaymentTypeSeriesFields";
 import { createPaymentType, IPaymentTypeView, TRANSACTION_MODES, updatePaymentType } from "./PaymentTypeController";
 
 interface IPropsCreatePaymentType {
@@ -28,14 +29,28 @@ const CreatePaymentTypeView = ({ show,
     const [typeHexColorInput, setTypeHexColorInput] = useState<string | undefined>("#999999");
     const [typeError, setTypeError] = useState("");
     const [transactionMode, setTransactionMode] = useState<number>(0);
+    const [series, setSeries] = useState<IPaymentTypeSeries>(EMPTY_PAYMENT_TYPE_SERIES);
 
     useEffect(() => {
         if (productToEdit) {
             setTypeInput(productToEdit.payment_type_name);
             setTypeHexColorInput(productToEdit.payment_color);
             setTransactionMode(productToEdit.transaction_type);
+            setSeries({
+                credit_series_prefix: productToEdit.credit_series_prefix ?? "",
+                credit_series_pattern: productToEdit.credit_series_pattern ?? "",
+                credit_sr_manual: productToEdit.credit_sr_manual ?? 0,
+                debit_series_prefix: productToEdit.debit_series_prefix ?? "",
+                debit_series_pattern: productToEdit.debit_series_pattern ?? "",
+                debit_sr_manual: productToEdit.debit_sr_manual ?? 0,
+            });
         }
     }, []);
+
+    // A new payment type starts on the Bank / Cash default series
+    useEffect(() => {
+        if (!productToEdit) setSeries(defaultSeriesForMode(transactionMode));
+    }, [transactionMode]);
 
     const canAdd = useCheckUserPermission(
         PAGE_ID.PAYMENT_TYPE,
@@ -71,11 +86,13 @@ const CreatePaymentTypeView = ({ show,
                     {
                         payment_type_name: typeInput,
                         payment_color: typeHexColorInput,
-                        transaction_type: transactionMode
+                        transaction_type: transactionMode,
+                        ...series
                     },
                     productToEdit.id,
                     setLoading,
-                    clearForm
+                    clearForm,
+                    productToEdit.payment_type_name
                 );
             } else {
                 if (!canAdd) {
@@ -86,7 +103,8 @@ const CreatePaymentTypeView = ({ show,
                     {
                         payment_type_name: typeInput,
                         payment_color: typeHexColorInput,
-                        transaction_type: transactionMode
+                        transaction_type: transactionMode,
+                        ...series
                     },
                     setLoading,
                     clearForm
@@ -165,6 +183,7 @@ const CreatePaymentTypeView = ({ show,
                                     ))}
                                 </select>
                             </div>
+                            <PaymentTypeSeriesFields value={series} onChange={setSeries} />
                         </div>
 
                         <div className="col-12 col-12 pt-4 pe-3 d-flex justify-content-end modal-buttons">

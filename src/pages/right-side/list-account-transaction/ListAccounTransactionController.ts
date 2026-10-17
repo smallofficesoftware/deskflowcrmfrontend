@@ -76,6 +76,7 @@ export interface IAccountTransaction {
   payment_type_name: any;
   cart_number?: string | null;
   cart_type_name?: string | null;
+  voucher_number?: string | null;
 }
 
 export type TUpdateAccountTransactions = (

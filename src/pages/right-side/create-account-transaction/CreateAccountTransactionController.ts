@@ -82,6 +82,8 @@ export interface ICreateAccountTransaction {
   payment_date_time: string | Date;
   remark: string;
   auto_reverse_entry: number;
+  sr_by_prifix: string;
+  entered_series_number: string;
 }
 
 const formatDateTimeLocal = (dateTime: string | undefined): string => {
@@ -123,6 +125,8 @@ export const createAccountTransactionInitialValues = (
     ? formatRemark(accountTransactionToEdit.remark)
     : "",
   auto_reverse_entry: 0,
+  sr_by_prifix: "",
+  entered_series_number: "",
   cart_id:
     accountTransactionToEdit?.reference_table === "carts"
       ? accountTransactionToEdit.reference_id || ""
@@ -170,6 +174,8 @@ export const createAccountTransaction = async (
       payment_date_time: convertPaymentDateTimeDate,
       auto_reverse_entry: values.auto_reverse_entry,
       cart_id: values.cart_id || undefined,
+      sr_by_prifix: values.sr_by_prifix || undefined,
+      entered_series_number: values.entered_series_number || undefined,
     };
 
     const { data } = await axiosInstance.post(
@@ -294,7 +300,8 @@ export const fetchCategoryApiForProduct = async (
 
   const requestData = {
     table: "payment_types",
-    columns: "id,payment_type_name",
+    columns:
+      "id,payment_type_name,credit_series_prefix,credit_sr_manual,debit_series_prefix,debit_sr_manual",
     where: ["isDelete=0"],
     request_flag: 0,
     order: `{"id":"DESC"}`,
