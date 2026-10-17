@@ -485,6 +485,17 @@ const AccountCreaditReport = ({
   const baseColumnDefs: AccountColumnDef[] = useMemo(
     () => [
       {
+        key: "voucher_number",
+        label: "Voucher No.",
+        header: (
+          <span>
+            Voucher <br /> No.
+          </span>
+        ),
+        // an entry made before voucher numbers shows its id
+        body: (rowData) => rowData.voucher_number || `#${rowData.id}`,
+      },
+      {
         key: "acc_series",
         label: "ID",
         header: "ID",
@@ -606,6 +617,8 @@ const AccountCreaditReport = ({
       }
       case "typeItem":
         return "Credit";
+      case "voucher_number":
+        return txn.voucher_number || `#${txn.id}`;
       case "amount":
         return (
           txn.amountwithcurrency ||
