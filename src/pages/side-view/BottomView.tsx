@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../helpers/AppConstants";
 import { TReactSetState } from "../../helpers/AppType";
 import { axiosInstance } from "../../services/axiosInstance";
@@ -118,6 +119,7 @@ const BottomView = ({
   formSubmissionsDeepLinkId,
   formEditDeepLinkId,
 }: any) => {
+  const navigate = useNavigate();
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
   const [title, setTitle] = useState<ITitle[]>([]);
@@ -220,8 +222,11 @@ const BottomView = ({
   }, [title]);
 
   const handleonHide = () => {
+    const wasCustomReport = typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:");
     setActiveView("dashboard");
     setAppliedReportType("");
+    // Drop the report's link so refresh / back land on the reports list.
+    if (wasCustomReport) navigate("/SideView?view=reports");
   };
 
   const insightsSideView = true;
@@ -273,6 +278,8 @@ const BottomView = ({
             onCustomReportClick={(id: number) => {
               setActiveView("custom_report");
               setAppliedReportType(`custom_report:${id}`);
+              // Per-report link: /SideView?view=reports&customReportId=<id> survives refresh.
+              navigate(`/SideView?view=reports&customReportId=${id}`);
             }}
           />
         )}

@@ -1342,7 +1342,10 @@ const SideView = ({ profileDetail }: IProp) => {
   const openedCustomReportIdRef = useRef<string | null>(null);
   useEffect(() => {
     const customReportId = searchParams.get("customReportId");
-    if (!customReportId) return;
+    if (!customReportId) {
+      openedCustomReportIdRef.current = null;
+      return;
+    }
     if (openedCustomReportIdRef.current === customReportId) return;
     openedCustomReportIdRef.current = customReportId;
     setActiveView("custom_report");
