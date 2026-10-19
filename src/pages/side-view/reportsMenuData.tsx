@@ -291,6 +291,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "tune",
         description: "Manual stock quantity adjustments and reasons.",
       },
+      {
+        label: "Warehouse Transfer",
+        value: "WarehouseTransfer_Report",
+        pageId: PAGE_ID.STOCK_ADJUSTMENT,
+        icon: "warehouse",
+        description: "Plus / minus of stock moved between warehouses, by warehouse, product and transfer.",
+      },
     ],
   },
 

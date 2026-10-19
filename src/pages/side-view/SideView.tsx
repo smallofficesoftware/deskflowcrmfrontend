@@ -1047,6 +1047,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Production");
       setAppliedReportType(name);
       return;
+    } else if (canViewStockAdjustment && name === "WarehouseTransfer_Report") {
+      setActiveView("Production");
+      setAppliedReportType(name);
+      return;
     } else if (canViewCustomFormField && name === "CustomFieldForm_Report") {
       setActiveView("Masters");
       setAppliedReportType(name);

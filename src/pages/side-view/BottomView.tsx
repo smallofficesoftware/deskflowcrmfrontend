@@ -65,8 +65,8 @@ import ProcessReport from "../dashboard/Reports/Process Report/ProcessReport";
 import ProductCategoryReport from "../dashboard/Reports/Product Category Report/ProductCategoryReport";
 import ProductGroupReport from "../dashboard/Reports/Product Group Report/ProductGroupReport";
 import ProductInventoryReport from "../dashboard/Reports/Product Inventory/ProductInventory";
-import SerialNumberStockMovement from "../left-side/header/Setting/product/SerialNumberStockMovement";
-import SerialNumberTrace from "../left-side/header/Setting/product/SerialNumberTrace";
+import SerialNumberStockCheckReport from "../dashboard/Reports/Serial Number Stock Check/SerialNumberStockCheckReport";
+import SerialNumberTraceReport from "../dashboard/Reports/Serial Number Trace/SerialNumberTraceReport";
 import ProductPendingView from "../dashboard/Reports/Product Pending/productPendingView";
 import ProductSalesPurchaseReport from "../dashboard/Reports/Product Sales & Purchase/productSalesPurchaseView";
 import ProductUnitReport from "../dashboard/Reports/Product Unit Report/ProductUnitReport";
@@ -89,6 +89,7 @@ import AllSourceReport from "../dashboard/Reports/Source Wise Report/sourceRepor
 import StagesStatusReport from "../dashboard/Reports/Stages And Status Report/StagesStatusReport";
 import StatusWiseReport from "../dashboard/Reports/Status Wise Report/StatusWiseReport";
 import StockAdjustmentReport from "../dashboard/Reports/Stock Adjustment Report/StockAdjustmentReport";
+import WarehouseTransferReport from "../dashboard/Reports/Warehouse Transfer Report/WarehouseTransferReport";
 import TaskCategoryReport from "../dashboard/Reports/Task Category Report/TaskCategoryReport";
 import TaskTemplateReport from "../dashboard/Reports/Task Template Report/TaskTemplateReport";
 import TaxMasterGridView from "../dashboard/Reports/Tax Master Grid View/TaxMasterGridView";
@@ -409,14 +410,16 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "serial_number_stock_check" && (
-          <SerialNumberStockMovement
-            show={true}
+          <SerialNumberStockCheckReport
             onHide={handleonHide}
             MobileFlag={isEmbed ? "1" : undefined}
           />
         )}
         {appliedReportType === "serial_number_trace" && (
-          <SerialNumberTrace show={true} onHide={handleonHide} />
+          <SerialNumberTraceReport
+            onHide={handleonHide}
+            MobileFlag={isEmbed ? "1" : undefined}
+          />
         )}
         {appliedReportType === "My_Team_Report" && (
           <MyTeamReport
@@ -640,6 +643,9 @@ const BottomView = ({
         )}
         {appliedReportType === "StockAdjustment_Report" && (
           <StockAdjustmentReport onHide={handleonHide} />
+        )}
+        {appliedReportType === "WarehouseTransfer_Report" && (
+          <WarehouseTransferReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "CustomFieldForm_Report" && (
           <CustomFieldFormReport onHide={handleonHide} />
