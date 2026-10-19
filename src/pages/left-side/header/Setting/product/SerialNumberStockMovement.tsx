@@ -33,9 +33,13 @@ interface OptionType {
 const SerialNumberStockMovement = ({
   show,
   onHide,
+  MobileFlag,
 }: {
   show: boolean;
   onHide: () => void;
+  // Set when the report is embedded in the mobile app's web view: a stacked,
+  // full-width layout with cards instead of a wide table.
+  MobileFlag?: string;
 }) => {
   const [warehouseList, setWarehouseList] = useState<any[]>([]);
   const [selectedWarehouses, setSelectedWarehouses] = useState<OptionType[]>(
@@ -366,19 +370,29 @@ const SerialNumberStockMovement = ({
       {show && (
         <div>
           <div
-            className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2"
+            className={`d-flex mb-3 gap-2 ${
+              MobileFlag
+                ? "flex-column align-items-stretch"
+                : "align-items-center justify-content-between flex-wrap"
+            }`}
             style={{ paddingLeft: "12px", paddingRight: "12px" }}
           >
             <h3 className="dash-board-text-count" style={{ fontSize: "20px" }}>
               Serial Number Wise Stock Check
             </h3>
-            <div className="d-flex align-items-center gap-2 flex-wrap">
+            <div
+              className={`d-flex gap-2 ${
+                MobileFlag
+                  ? "flex-column align-items-stretch"
+                  : "align-items-center flex-wrap"
+              }`}
+            >
               <div className="d-flex gap-2">
                 <input
                   type="text"
                   className="form-control"
                   placeholder="Enter Serial Number"
-                  style={{ width: "220px" }}
+                  style={MobileFlag ? { flex: 1 } : { width: "220px" }}
                   value={serialNumber}
                   onChange={(e) => setSerialNumber(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -396,7 +410,7 @@ const SerialNumberStockMovement = ({
                   {isSearching ? "Searching..." : "Search"}
                 </button>
               </div>
-              <div style={{ width: "220px" }}>
+              <div style={{ width: MobileFlag ? "100%" : "220px" }}>
                 {warehouseLoading ? (
                   <Skeleton width="100%" height={42} />
                 ) : (
@@ -495,8 +509,127 @@ const SerialNumberStockMovement = ({
             </div>
           </div>
 
+            {/* Phone layout: one card per movement instead of the wide table */}
+            {MobileFlag && (
+              <div style={{ padding: "0 12px 12px" }}>
+                <div
+                  className="d-flex justify-content-between p-2 mb-2"
+                  style={{ backgroundColor: "#dee2e6", fontWeight: 600 }}
+                >
+                  <span>Opening Quantity</span>
+                  <span>{openQty}</span>
+                </div>
+                {productStockMovement.length > 0 ? (
+                  productStockMovement.map((item, index) => {
+                    const isIn =
+                      item.cart_type === 4 ||
+                      item.cart_type === 6 ||
+                      item.cart_type === 8 ||
+                      item.cart_type === 10;
+                    return (
+                      <div
+                        key={index}
+                        className="mb-2 p-2"
+                        style={{
+                          border: "1px solid #dee2e6",
+                          borderRadius: "8px",
+                          backgroundColor: "#fff",
+                        }}
+                      >
+                        <div className="d-flex justify-content-between align-items-start">
+                          <b>
+                            {
+                              productProductTypesList.find(
+                                (t) => Number(t.id) === Number(item.cart_type),
+                              )?.order_type
+                            }
+                          </b>
+                          <small className="text-muted">
+                            {item.cart_date ? formatDate(item.cart_date) : ""}
+                          </small>
+                        </div>
+                        <div>
+                          <span
+                            style={{
+                              color: "#0d6efd",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                            }}
+                            onClick={() => handleOpenOrderModal(item)}
+                          >
+                            {item.cart_number}
+                          </span>
+                          {item.linked_documents?.map((doc) => (
+                            <div key={`${doc.cart_type}-${doc.cart_number}`}>
+                              <small className="text-muted">
+                                {productProductTypesList.find(
+                                  (t) => Number(t.id) === Number(doc.cart_type),
+                                )?.order_type || "Converted"}
+                                : {doc.cart_number}
+                              </small>
+                            </div>
+                          ))}
+                        </div>
+                        {item.to_customer_name && (
+                          <div className="text-muted">
+                            {item.to_customer_name}
+                          </div>
+                        )}
+                        <div
+                          className="d-flex justify-content-between mt-2 pt-2"
+                          style={{ borderTop: "1px solid #eee" }}
+                        >
+                          <span>
+                            Qty <b>{item.item_qty}</b>
+                          </span>
+                          <span
+                            style={{
+                              color: isIn ? "#198754" : "#dc3545",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {isIn ? "In" : "Out"}
+                          </span>
+                          <span>
+                            Value <b>{Number(item.item_total).toFixed(2)}</b>
+                          </span>
+                        </div>
+                        {((isOuterActive && item.item_outer_quantity) ||
+                          (isInnerActive && item.item_inner_quantity)) && (
+                          <small className="text-muted">
+                            {isOuterActive && item.item_outer_quantity
+                              ? `Outer ${item.item_outer_quantity} / ${item.outer_qty_unit}  `
+                              : ""}
+                            {isInnerActive && item.item_inner_quantity
+                              ? `Inner ${item.item_inner_quantity} / ${item.inner_qty_unit}`
+                              : ""}
+                          </small>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4">
+                    {serialNumber
+                      ? "No Records Found."
+                      : "Enter Serial Number and click Search"}
+                  </div>
+                )}
+                <div
+                  className="d-flex justify-content-between p-2 mt-2"
+                  style={{ backgroundColor: "#dee2e6", fontWeight: 600 }}
+                >
+                  <span>Closing Quantity</span>
+                  <span>{closingQty}</span>
+                </div>
+              </div>
+            )}
+
             {/* Filters */}
-            <div className="m-title-2 col-12">
+            <div
+              className="m-title-2 col-12"
+              style={MobileFlag ? { display: "none" } : undefined}
+            >
               <div className="head">
                 {/* Table */}
                 <div className="source-of-type-list-grid-block">

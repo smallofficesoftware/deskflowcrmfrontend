@@ -409,7 +409,11 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "serial_number_stock_check" && (
-          <SerialNumberStockMovement show={true} onHide={handleonHide} />
+          <SerialNumberStockMovement
+            show={true}
+            onHide={handleonHide}
+            MobileFlag={isEmbed ? "1" : undefined}
+          />
         )}
         {appliedReportType === "serial_number_trace" && (
           <SerialNumberTrace show={true} onHide={handleonHide} />
