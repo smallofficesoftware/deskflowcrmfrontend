@@ -63,6 +63,7 @@ interface IPropsSetting {
   jobCard: () => void;
   TaskTemplate: () => void;
   ProductUnit: () => void;
+  AttributeMaster: () => void;
   warehouse: () => void;
   PaymentType: () => void;
   CompensationAdjustments: () => void;
@@ -119,6 +120,7 @@ const Setting = ({
   jobCard,
   TaskTemplate,
   ProductUnit,
+  AttributeMaster,
   PaymentType,
   CompensationAdjustments,
   HolidayMaster,
@@ -359,6 +361,9 @@ const Setting = ({
   }
   function openProductUnit() {
     ProductUnit();
+  }
+  function openAttributeMaster() {
+    AttributeMaster();
   }
   function openRoutePlanner() {
     routePlanner();
@@ -1560,6 +1565,34 @@ const Setting = ({
                       <div className="head">
                         <h4 title="Unit" aria-label="Unit">
                           Product Unit
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="block ps-3" onClick={openAttributeMaster}>
+                    <div className="icon-Box">
+                      <button className="icons-setings">
+                        <span
+                          data-icon="settings-notifications"
+                          className=""
+                          title="Attribute Master"
+                        >
+                          <svg
+                            height="24px"
+                            viewBox="0 -960 960 960"
+                            width="24px"
+                            fill="currentColor"
+                          >
+                            <path d="m260-520 220-360 220 360H260ZM700-80q-75 0-127.5-52.5T520-260q0-75 52.5-127.5T700-440q75 0 127.5 52.5T880-260q0 75-52.5 127.5T700-80Zm-580-20v-320h320v320H120Zm580-60q42 0 71-29t29-71q0-42-29-71t-71-29q-42 0-71 29t-29 71q0 42 29 71t71 29Zm-500-20h160v-160H200v160Zm202-420h156l-78-126-78 126Zm78 0ZM360-340Zm340 80Z" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                    {/* <!-- Text --> */}
+                    <div className="h-text">
+                      <div className="head">
+                        <h4 title="Attribute Master" aria-label="Attribute Master">
+                          Attribute Master
                         </h4>
                       </div>
                     </div>

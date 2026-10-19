@@ -122,6 +122,7 @@ import PriceListView from "./header/Setting/priceList/PriceListView";
 import ProcessAttendanceView from "./header/Setting/process-attendance/ProcessAttendanceView";
 import ProcessMasterView from "./header/Setting/process-master/ProcessMasterView";
 import UnitMasterView from "./header/Setting/product-unit/UnitMasterView";
+import AttributeMasterView from "./header/Setting/attribute-master/AttributeMasterView";
 import ProductView from "./header/Setting/product/ProductView";
 import ProductgroupView from "./header/Setting/productgroup/ProductgroupView";
 import RoundOffMasterView from "./header/Setting/round of master/RoundOfMasterView";
@@ -876,6 +877,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [showJobCard, setShowJobCard] = useState(false);
   const [showTaskTemplate, setShowTaskTemplate] = useState(false);
   const [showProductUnit, setShowProductUnit] = useState(false);
+  const [showAttributeMaster, setShowAttributeMaster] = useState(false);
   const [selectedButton, setSelectedButton] = useState<string>("all");
   const [showwarehouse, setShowwarehouse] = useState(false);
   const [showPaymentType, setShowPaymentType] = useState(false);
@@ -1134,6 +1136,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     let workStation = false;
     let taskTemplate = false;
     let productUnit = false;
+    let attributeMaster = false;
     let warehouse = false;
     let paymentType = false;
     let compensationAdjustments = false;
@@ -1263,6 +1266,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       case "productUnit":
         productUnit = true;
         break;
+      case "attributeMaster":
+        attributeMaster = true;
+        break;
       case "routePlanner":
         routePlanner = true;
         break;
@@ -1344,6 +1350,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     setShowJobCard(jobcard);
     setShowTaskTemplate(taskTemplate);
     setShowProductUnit(productUnit);
+    setShowAttributeMaster(attributeMaster);
     setShowwarehouse(warehouse);
     setShowPaymentType(paymentType);
     setShowCompensationAdjustments(compensationAdjustments);
@@ -3289,6 +3296,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                     ProcessMaster={() => rightSideVIewProvider("processMaster")}
                     TaskTemplate={() => rightSideVIewProvider("taskTemplate")}
                     ProductUnit={() => rightSideVIewProvider("productUnit")}
+                    AttributeMaster={() =>
+                      rightSideVIewProvider("attributeMaster")
+                    }
                     routePlanner={() => rightSideVIewProvider("routePlanner")}
                     taskManagement={() =>
                       rightSideVIewProvider("task_Management")
@@ -3827,6 +3837,16 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                       isUnitView={showProductUnit}
                       closeUnitView={() => {
                         setShowProductUnit(false);
+                        setshowSetting(true);
+                        setSearchTermFromRightSide("");
+                      }}
+                    />
+                  )}
+                  {showAttributeMaster && (
+                    <AttributeMasterView
+                      isAttributeMasterView={showAttributeMaster}
+                      closeAttributeMasterView={() => {
+                        setShowAttributeMaster(false);
                         setshowSetting(true);
                         setSearchTermFromRightSide("");
                       }}

@@ -95,6 +95,13 @@ const CreateProductView = ({
   const [croppedImageBlob, setCroppedImageBlob] = useState<Blob | null>(null);
   const setFieldValueRef = useRef<(field: string, value: any) => void>();
   const isSubmittingRef = useRef(false);
+  // Set once a brand-new "Has Variants" product is first saved (see handleSubmit) -
+  // lets the rest of this form treat it as already-saved without needing
+  // productToEdit (a prop owned by the caller) to change mid-session.
+  const [createdProductId, setCreatedProductId] = useState<number | undefined>(
+    undefined,
+  );
+  const editId = productToEdit?.id ?? createdProductId;
   const canAddCategory = useCheckUserPermission(
     PAGE_ID.CATEGORY,
     PERMISSION_TYPE.ADD,
@@ -361,26 +368,35 @@ const CreateProductView = ({
         }
       }
 
-      if (productToEdit?.id) {
+      if (editId) {
         const res = await updateProduct(
           formData,
           values1,
           setRefreshProduct,
-          productToEdit?.id,
+          editId,
           onHide,
         );
         if (res?.success && syncButtonClickedRef.current) {
-          await syncMiracleProduct(setIsSyncing, productToEdit.id);
+          await syncMiracleProduct(setIsSyncing, editId);
         }
       } else {
+        // Has Variants + first save: keep the modal open and switch into
+        // edit-mode-in-place (via createdProductId) instead of closing, so
+        // the Variant Attributes section below can render immediately
+        // against the product's new id - no separate reopen step needed.
         const res = await createProduct(
           formData,
           values1,
           setRefreshProduct,
-          onHide,
+          values1.is_variant_parent ? () => {} : onHide,
         );
-        if (res?.success && syncButtonClickedRef.current && res.id) {
-          await syncMiracleProduct(setIsSyncing, res.id);
+        if (res?.success && res.id) {
+          if (values1.is_variant_parent) {
+            setCreatedProductId(res.id);
+          }
+          if (syncButtonClickedRef.current) {
+            await syncMiracleProduct(setIsSyncing, res.id);
+          }
         }
       }
     } finally {
@@ -445,6 +461,7 @@ const CreateProductView = ({
     fetchProductTypeApiForProduct(setProductList);
     fetchProductUnitData(isSetProductUnitList);
     setSelectedGroupId(Number(productToEdit?.product_group_id));
+    if (!show) setCreatedProductId(undefined);
   }, [show]);
 
   useEffect(() => {
@@ -1078,52 +1095,58 @@ const CreateProductView = ({
                             (is_variant_parent=1) - its real, sellable variants are
                             separate product rows created under it, each with its own
                             price/stock/image, and are excluded from this toggle.
-                            Only shown once the product already has an id (Edit) - on
-                            Create there is nothing yet to attach attributes/variants to,
-                            so this stays hidden rather than showing a toggle that only
-                            leads to a "save first" dead end.
+                            Shown on Create too: toggling it on and clicking Save keeps
+                            this modal open and switches into edit-mode-in-place
+                            (editId/createdProductId above) instead of closing, so the
+                            Variant Attributes section below appears right away.
                           */}
-                          {productToEdit?.id && (
-                            <div className="col-12 col-md-4">
-                              <div className="form-group">
-                                <label
-                                  htmlFor="is_variant_parent"
-                                  className="mb-1 form_label"
-                                >
-                                  Product Type
-                                </label>
-                                <Field name="is_variant_parent">
-                                  {({ field, form }: any) => (
-                                    <div className="form-check form-switch">
-                                      <input
-                                        type="checkbox"
-                                        className="form-check-input"
-                                        id="is_variant_parent"
-                                        {...field}
-                                        checked={!!field.value}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                          form.setFieldValue(
-                                            "is_variant_parent",
-                                            e.target.checked ? 1 : 0,
-                                          );
-                                        }}
-                                      />
-                                      <label
-                                        htmlFor="is_variant_parent"
-                                        className="form-check-label ms-2"
-                                      >
-                                        {field.value ? "Has Variants" : "Simple"}
-                                      </label>
-                                    </div>
-                                  )}
-                                </Field>
-                              </div>
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
+                              <label
+                                htmlFor="is_variant_parent"
+                                className="mb-1 form_label"
+                              >
+                                Product Type
+                              </label>
+                              <Field name="is_variant_parent">
+                                {({ field, form }: any) => (
+                                  <div className="form-check form-switch">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id="is_variant_parent"
+                                      {...field}
+                                      checked={!!field.value}
+                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        form.setFieldValue(
+                                          "is_variant_parent",
+                                          e.target.checked ? 1 : 0,
+                                        );
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor="is_variant_parent"
+                                      className="form-check-label ms-2"
+                                    >
+                                      {field.value ? "Has Variants" : "Simple"}
+                                    </label>
+                                  </div>
+                                )}
+                              </Field>
                             </div>
-                          )}
-                          {!!values.is_variant_parent && productToEdit?.id && (
+                          </div>
+                          {!!values.is_variant_parent && editId && (
                             <ProductVariantSection
-                              parentProduct={{ ...values, id: productToEdit.id }}
+                              parentProduct={{ ...values, id: editId }}
                             />
+                          )}
+                          {!!values.is_variant_parent && !editId && (
+                            <div className="col-12">
+                              <p className="text-muted">
+                                Fill in the basic details and click Save - attributes and
+                                variants can be added right here once it's saved.
+                              </p>
+                            </div>
                           )}
                           {isInnerFieldsOn && (
                             <div className="col-12 col-md-3">

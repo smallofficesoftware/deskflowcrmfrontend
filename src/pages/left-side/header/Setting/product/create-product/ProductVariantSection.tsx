@@ -20,11 +20,22 @@ import { IProductView } from "../ProductController";
 export interface IVariantAttributeValue {
   id: number;
   value: string;
+  product_attribute_value_master_id?: number;
 }
 export interface IVariantAttribute {
   id: number;
   attribute_name: string;
+  product_attribute_master_id?: number;
   values: IVariantAttributeValue[];
+}
+interface ICatalogValue {
+  id: number;
+  value: string;
+}
+interface ICatalogAttribute {
+  id: number;
+  attribute_name: string;
+  values: ICatalogValue[];
 }
 export interface IVariantRow {
   id: number;
@@ -41,8 +52,9 @@ interface ProductVariantSectionProps {
 const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }) => {
   const [attributes, setAttributes] = useState<IVariantAttribute[]>([]);
   const [variants, setVariants] = useState<IVariantRow[]>([]);
-  const [newAttributeName, setNewAttributeName] = useState("");
-  const [newValueInputs, setNewValueInputs] = useState<{ [attributeId: number]: string }>({});
+  const [catalog, setCatalog] = useState<ICatalogAttribute[]>([]);
+  const [selectedMasterAttributeId, setSelectedMasterAttributeId] = useState("");
+  const [newValueSelections, setNewValueSelections] = useState<{ [attributeId: number]: string }>({});
   const [showAddVariant, setShowAddVariant] = useState(false);
   const [showGenerateVariants, setShowGenerateVariants] = useState(false);
   const [editingVariant, setEditingVariant] = useState<IVariantRow | null>(null);
@@ -79,10 +91,27 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
     }
   };
 
+  /** The reusable attribute/value catalog (Settings > Attribute Master) - attributes
+   * and values are picked from here instead of being typed fresh per product. */
+  const fetchCatalog = async () => {
+    try {
+      const { data } = await axiosInstance.post("get-attribute-masters", {
+        a_application_login_id: getUUID,
+      });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setCatalog(data.data?.item || []);
+      }
+    } catch {
+      toast.error("Failed to load the attribute catalog");
+    }
+  };
+
   useEffect(() => {
     if (!parentProduct?.id) return;
     setLoading(true);
-    Promise.all([fetchAttributes(), fetchVariants()]).finally(() => setLoading(false));
+    Promise.all([fetchAttributes(), fetchVariants(), fetchCatalog()]).finally(() =>
+      setLoading(false)
+    );
   }, [parentProduct?.id]);
 
   // CreateProductView (reused below to edit a variant's own fields - image, rate, etc.)
@@ -95,15 +124,15 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
   }, [variantRefresh]);
 
   const addAttribute = async () => {
-    if (!newAttributeName.trim()) return;
+    if (!selectedMasterAttributeId) return;
     try {
       const { data } = await axiosInstance.post("create-variant-attribute", {
         a_application_login_id: getUUID,
         parent_product_id: parentProduct.id,
-        attribute_name: newAttributeName.trim(),
+        product_attribute_master_id: Number(selectedMasterAttributeId),
       });
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-        setNewAttributeName("");
+        setSelectedMasterAttributeId("");
         fetchAttributes();
       } else {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -123,16 +152,16 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
   };
 
   const addValue = async (attributeId: number) => {
-    const value = (newValueInputs[attributeId] || "").trim();
-    if (!value) return;
+    const masterValueId = newValueSelections[attributeId];
+    if (!masterValueId) return;
     try {
       const { data } = await axiosInstance.post("create-variant-attribute-value", {
         a_application_login_id: getUUID,
         product_variant_attribute_id: attributeId,
-        value,
+        product_attribute_value_master_id: Number(masterValueId),
       });
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-        setNewValueInputs((prev) => ({ ...prev, [attributeId]: "" }));
+        setNewValueSelections((prev) => ({ ...prev, [attributeId]: "" }));
         fetchAttributes();
       } else {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -153,66 +182,116 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
 
   const hasAnyValue = attributes.some((a) => a.values.length > 0);
 
+  // Catalog attributes not yet added to this product, for the "Add attribute" dropdown.
+  const usedMasterAttributeIds = new Set(
+    attributes.map((a) => a.product_attribute_master_id).filter(Boolean)
+  );
+  const availableMasterAttributes = catalog.filter(
+    (c) => !usedMasterAttributeIds.has(c.id)
+  );
+
   return (
     <div className="col-12">
       <hr />
       <h5 className="mb-3">Variant Attributes</h5>
+      <p className="text-muted small">
+        Attributes and values are managed once in Settings &gt; Attribute Master and picked
+        here, not typed fresh per product.
+      </p>
 
-      {attributes.map((attribute) => (
-        <div key={attribute.id} className="mb-3 d-flex flex-wrap align-items-center gap-2">
-          <strong style={{ minWidth: 100 }}>{attribute.attribute_name}</strong>
-          {attribute.values.map((v) => (
-            <span key={v.id} className="badge bg-light text-dark border">
-              {v.value}{" "}
-              <button
-                type="button"
-                className="btn btn-sm p-0 ms-1 text-danger"
-                style={{ border: "none", background: "none" }}
-                onClick={() => removeValue(v.id)}
-              >
-                &times;
-              </button>
-            </span>
-          ))}
-          <input
-            type="text"
-            className="form-control form-control-sm"
-            style={{ width: 140 }}
-            placeholder="Add value"
-            value={newValueInputs[attribute.id] || ""}
-            onChange={(e) =>
-              setNewValueInputs((prev) => ({ ...prev, [attribute.id]: e.target.value }))
-            }
-            onKeyDown={(e) => e.key === "Enter" && addValue(attribute.id)}
-          />
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => addValue(attribute.id)}
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-danger"
-            onClick={() => removeAttribute(attribute.id)}
-          >
-            Remove attribute
-          </button>
-        </div>
-      ))}
+      {attributes.map((attribute) => {
+        // Catalog values for THIS attribute not yet added to this product, for its
+        // own "Add value" dropdown.
+        const masterAttribute = catalog.find(
+          (c) => c.id === attribute.product_attribute_master_id
+        );
+        const usedMasterValueIds = new Set(
+          attribute.values.map((v) => v.product_attribute_value_master_id).filter(Boolean)
+        );
+        const availableMasterValues = (masterAttribute?.values || []).filter(
+          (v) => !usedMasterValueIds.has(v.id)
+        );
+
+        return (
+          <div key={attribute.id} className="mb-3 d-flex flex-wrap align-items-center gap-2">
+            <strong style={{ minWidth: 100 }}>{attribute.attribute_name}</strong>
+            {attribute.values.map((v) => (
+              <span key={v.id} className="badge bg-light text-dark border">
+                {v.value}{" "}
+                <button
+                  type="button"
+                  className="btn btn-sm p-0 ms-1 text-danger"
+                  style={{ border: "none", background: "none" }}
+                  onClick={() => removeValue(v.id)}
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+            <select
+              className="form-select form-select-sm"
+              style={{ width: 160 }}
+              value={newValueSelections[attribute.id] || ""}
+              onChange={(e) =>
+                setNewValueSelections((prev) => ({ ...prev, [attribute.id]: e.target.value }))
+              }
+              disabled={!availableMasterValues.length}
+            >
+              <option value="">
+                {availableMasterValues.length ? "Pick a value..." : "No more values in catalog"}
+              </option>
+              {availableMasterValues.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.value}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => addValue(attribute.id)}
+              disabled={!newValueSelections[attribute.id]}
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger"
+              onClick={() => removeAttribute(attribute.id)}
+            >
+              Remove attribute
+            </button>
+          </div>
+        );
+      })}
 
       <div className="d-flex align-items-center gap-2 mb-4">
-        <input
-          type="text"
-          className="form-control form-control-sm"
-          style={{ width: 180 }}
-          placeholder="New attribute (e.g. Color)"
-          value={newAttributeName}
-          onChange={(e) => setNewAttributeName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addAttribute()}
-        />
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={addAttribute}>
+        <select
+          className="form-select form-select-sm"
+          style={{ width: 200 }}
+          value={selectedMasterAttributeId}
+          onChange={(e) => setSelectedMasterAttributeId(e.target.value)}
+          disabled={!availableMasterAttributes.length}
+        >
+          <option value="">
+            {availableMasterAttributes.length
+              ? "Pick an attribute..."
+              : catalog.length
+              ? "All catalog attributes already added"
+              : "No attributes in catalog yet"}
+          </option>
+          {availableMasterAttributes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.attribute_name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary"
+          onClick={addAttribute}
+          disabled={!selectedMasterAttributeId}
+        >
           Add attribute
         </button>
       </div>
