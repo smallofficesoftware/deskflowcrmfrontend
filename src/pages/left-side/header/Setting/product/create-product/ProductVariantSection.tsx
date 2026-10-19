@@ -7,6 +7,7 @@ import {
 import { axiosInstance } from "../../../../../../services/axiosInstance";
 import AddVariantModal from "./AddVariantModal";
 import GenerateVariantsModal from "./GenerateVariantsModal";
+import EditVariantAttributesModal from "./EditVariantAttributesModal";
 import CreateProductView from "./CreateProductView";
 import { IProductCreate } from "./CreateProductController";
 import { IProductView } from "../ProductController";
@@ -45,6 +46,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
   const [showAddVariant, setShowAddVariant] = useState(false);
   const [showGenerateVariants, setShowGenerateVariants] = useState(false);
   const [editingVariant, setEditingVariant] = useState<IVariantRow | null>(null);
+  const [editingAttributesVariant, setEditingAttributesVariant] = useState<IVariantRow | null>(null);
   const [variantRefresh, setVariantRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -250,6 +252,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
               <th>Name</th>
               <th>Options</th>
               <th>Rate</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -268,6 +271,21 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                     .join(", ")}
                 </td>
                 <td>{v.rate}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    // Edits attribute selection only - separate from the row click above
+                    // (which opens the full product edit for rate/image/etc) - stop the
+                    // row's own onClick from also firing.
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingAttributesVariant(v);
+                    }}
+                  >
+                    Edit Attributes
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -308,6 +326,19 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
           productToEdit={editingVariant as unknown as IProductView}
           headerName="Edit Variant"
           setRefreshProduct={setVariantRefresh}
+        />
+      )}
+
+      {editingAttributesVariant && (
+        <EditVariantAttributesModal
+          show={!!editingAttributesVariant}
+          onHide={() => setEditingAttributesVariant(null)}
+          variant={editingAttributesVariant}
+          attributes={attributes}
+          onSaved={() => {
+            setEditingAttributesVariant(null);
+            fetchVariants();
+          }}
         />
       )}
     </div>
