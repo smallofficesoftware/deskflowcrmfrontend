@@ -1071,61 +1071,59 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
-                          <div className="col-12 col-md-4">
-                            <div className="form-group">
-                              <label
-                                htmlFor="is_variant_parent"
-                                className="mb-1 form_label"
-                              >
-                                Product Type
-                              </label>
-                              {/*
-                                Multi-variant products
-                                (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
-                                "Has Variants" marks this row as a non-sellable template
-                                (is_variant_parent=1) - its real, sellable variants are
-                                separate product rows created under it, each with its own
-                                price/stock/image, and are excluded from this toggle.
-                              */}
-                              <Field name="is_variant_parent">
-                                {({ field, form }: any) => (
-                                  <div className="form-check form-switch">
-                                    <input
-                                      type="checkbox"
-                                      className="form-check-input"
-                                      id="is_variant_parent"
-                                      {...field}
-                                      checked={!!field.value}
-                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        form.setFieldValue(
-                                          "is_variant_parent",
-                                          e.target.checked ? 1 : 0,
-                                        );
-                                      }}
-                                    />
-                                    <label
-                                      htmlFor="is_variant_parent"
-                                      className="form-check-label ms-2"
-                                    >
-                                      {field.value ? "Has Variants" : "Simple"}
-                                    </label>
-                                  </div>
-                                )}
-                              </Field>
+                          {/*
+                            Multi-variant products
+                            (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
+                            "Has Variants" marks this row as a non-sellable template
+                            (is_variant_parent=1) - its real, sellable variants are
+                            separate product rows created under it, each with its own
+                            price/stock/image, and are excluded from this toggle.
+                            Only shown once the product already has an id (Edit) - on
+                            Create there is nothing yet to attach attributes/variants to,
+                            so this stays hidden rather than showing a toggle that only
+                            leads to a "save first" dead end.
+                          */}
+                          {productToEdit?.id && (
+                            <div className="col-12 col-md-4">
+                              <div className="form-group">
+                                <label
+                                  htmlFor="is_variant_parent"
+                                  className="mb-1 form_label"
+                                >
+                                  Product Type
+                                </label>
+                                <Field name="is_variant_parent">
+                                  {({ field, form }: any) => (
+                                    <div className="form-check form-switch">
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        id="is_variant_parent"
+                                        {...field}
+                                        checked={!!field.value}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                          form.setFieldValue(
+                                            "is_variant_parent",
+                                            e.target.checked ? 1 : 0,
+                                          );
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor="is_variant_parent"
+                                        className="form-check-label ms-2"
+                                      >
+                                        {field.value ? "Has Variants" : "Simple"}
+                                      </label>
+                                    </div>
+                                  )}
+                                </Field>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {!!values.is_variant_parent && productToEdit?.id && (
                             <ProductVariantSection
                               parentProduct={{ ...values, id: productToEdit.id }}
                             />
-                          )}
-                          {!!values.is_variant_parent && !productToEdit?.id && (
-                            <div className="col-12">
-                              <p className="text-muted">
-                                Save this product first, then come back to add attributes
-                                and variants.
-                              </p>
-                            </div>
                           )}
                           {isInnerFieldsOn && (
                             <div className="col-12 col-md-3">
