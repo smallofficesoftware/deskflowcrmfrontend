@@ -108,6 +108,9 @@ export const getItemWiseCurrentStock = async (
       ll: 1000,
       a_application_login_id: getUUID,
       productId: item_ids,
+      // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt) -
+      // a variant "parent" has no real stock of its own.
+      excludeVariantParents: true,
     };
     const data = await axiosInstance.post("product", requestData);
     let item = [];
