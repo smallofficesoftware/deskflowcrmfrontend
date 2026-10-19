@@ -173,6 +173,11 @@ export enum PAGE_ID {
   // 20260915120000-add-serial-number-stock-check-application-page.js
   // (master DB). id 185 = next after CONTACT_MERGE (184).
   SERIAL_NUMBER_STOCK_CHECK = 185,
+  // Serial Number Trace report (full history of one serial). Migration
+  // 20261019120000-add-serial-number-trace-application-page.js (master DB).
+  // id 199 = next after workspaces (198) on demo; re-verify per env (the admin
+  // panel shares a_application_pages and numbers its pages differently).
+  SERIAL_NUMBER_TRACE = 199,
 
   // Add more pages as needed
 }

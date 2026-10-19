@@ -188,7 +188,10 @@ const ReportsTileView = ({ onReportClick, onCustomReportClick }: IProps) => {
         sub.description?.toLowerCase().includes(searchValue.toLowerCase()),
       );
 
-      return matched.length > 0 ? { ...menu, subMenus: matched } : null;
+      // A section with no matching built-in report still shows when a custom
+      // report in it matches the search.
+      if (matched.length === 0 && !(customReportsByCategory[menu.key] || []).length) return null;
+      return { ...menu, subMenus: matched };
     })
     .filter(Boolean) as typeof permissionFilteredMenus;
 

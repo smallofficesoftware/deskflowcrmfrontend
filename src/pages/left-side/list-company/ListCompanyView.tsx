@@ -15,6 +15,7 @@ import PricingTable from "../../public/payment-gateway/PricingTable";
 import CreateCompanyView from "../create-company/CreateCompanyView";
 import NewCreateCompanyView from "../new-create-company/NewCreateCompanyView";
 import ManageWorkspacesModal from "../../../components/model/ManageWorkspacesModal";
+import { switchWorkspace } from "../../../helpers/switchWorkspace";
 import WorkspaceUsageCard from "./WorkspaceUsageCard";
 import {
   companyLeave,
@@ -73,6 +74,9 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
   const [showEditCompany, setShowEditCompany] = useState(false);
   const [showNewEditCompany, setShowNewEditCompany] = useState(false);
   const [showManageWorkspaces, setShowManageWorkspaces] = useState(false);
+  const [switchingCompanyId, setSwitchingCompanyId] = useState<number | null>(
+    null,
+  );
   const [companyIdLeave, setCompanyIdLeave] = useState(0);
 
   const [showRenewPlan, setShowRenewPlan] = useState(false);
@@ -202,6 +206,27 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
       );
     }
   };
+  // The company/workspace the session is on; without a stored id, the main
+  // company (no parent) is the active one.
+  const isActiveCompany = (item: ICompany) => {
+    const activeId = localStorage.getItem("COMPANY_ID");
+    return activeId
+      ? item.id === Number(activeId)
+      : item.parent_company_id === null || item.parent_company_id === undefined;
+  };
+
+  const handleSwitchCompany = async (item: ICompany) => {
+    setSwitchingCompanyId(item.id);
+    const result = await switchWorkspace(item.id);
+    setSwitchingCompanyId(null);
+    if (result.ok) {
+      toast.success(result.message);
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      toast.error(result.message);
+    }
+  };
+
   const toggleDropdownCompany = (id: number) => {
     if (companyDropdownOpen === id) {
       setCompanyDropdownOpen(null);
@@ -709,8 +734,45 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                         </div>
                                       </div>
 
+                                      <div className="d-flex align-items-center ms-2">
+                                        {isActiveCompany(item) ? (
+                                          <span
+                                            className="badge rounded-pill me-2"
+                                            style={{
+                                              backgroundColor: "#e2e8f0",
+                                              color: "#475569",
+                                              fontSize: "10px",
+                                              fontWeight: "600",
+                                            }}
+                                          >
+                                            Current
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm me-2"
+                                            disabled={
+                                              switchingCompanyId === item.id
+                                            }
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSwitchCompany(item);
+                                            }}
+                                            style={{
+                                              border: "1px solid #f58634",
+                                              color: "#f58634",
+                                              fontSize: "12px",
+                                              fontWeight: 600,
+                                              padding: "2px 10px",
+                                            }}
+                                          >
+                                            {switchingCompanyId === item.id
+                                              ? "Switching..."
+                                              : "Switch"}
+                                          </button>
+                                        )}
                                       <button
-                                        className="icon-more btn p-0 border-0 ms-2"
+                                        className="icon-more btn p-0 border-0"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           toggleDropdownCompany(item.id);
@@ -729,6 +791,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                           ></path>
                                         </svg>
                                       </button>
+                                      </div>
                                     </div>
 
                                     {/* Contact & Email */}

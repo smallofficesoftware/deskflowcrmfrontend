@@ -76,6 +76,7 @@ import PrintSettingModal from "../PrintSettingModal";
 import RibbonBanner from "../RibbonBedgetLeftSide/RibbonBannerLeft";
 import { whatsappTemplateCloudeSend } from "../whatsapp_template_sender/WhatsappTemplateSenderController";
 import { startWorkflow } from "../workflowConformatioModel/workFlowModelController";
+import { fetchGSTTaxApi } from "../../../pages/left-side/header/Setting/product/create-product/CreateProductController";
 import ApproveModel from "./ApproveModel";
 import AttachDocumentModel from "./AttachDoument/AttachDocumentModel";
 import {
@@ -134,6 +135,10 @@ interface UploadedFileWithOrder {
 interface PaymentMode {
   id: string | number;
   payment_type_name: string;
+  credit_series_prefix?: string | null;
+  credit_sr_manual?: number | null;
+  debit_series_prefix?: string | null;
+  debit_sr_manual?: number | null;
   // ... other fields if needed
 }
 const OrderCreateModal: React.FC<IOrderCreateModal> = ({
@@ -371,6 +376,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [newOrderShowNumAfterConversion, setnewOrderShowNumAfterConversion] =
     useState<number | undefined>(undefined);
   const [dynamicGstSwitch, setDynamicGstSwitch] = useState<any>();
+  const [gstTaxList, setGstTaxList] = useState<
+    { id: number; value: string; name: string }[]
+  >([]);
+  useEffect(() => {
+    fetchGSTTaxApi(setGstTaxList);
+  }, []);
   const [dynamicTitle, setDynamicTitle] = useState<string>("");
   const [dynamicTitleColour, setDynamicTitleColour] = useState<string>("");
   const [dynamicImageView, setDynamicImageView] = useState<number[]>([]);
@@ -417,6 +428,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     selectedMiracleLedger: "",
   });
   const isApproveSubmittingRef = useRef(false);
+  // Series (or typed voucher number) chosen in the Approve dialog for the advance
+  // payment entry; read when the approve request body is built.
+  const advanceSeriesChoiceRef = useRef({ prefix: "", voucherNumber: "" });
   const [conversionType, setConversionType] = useState("");
   const [buttonLoading, setButtonloding] = useState(false);
   const [isEditPageUrlModalOpen, setIsEditPageUrlModalOpen] = useState(false);
@@ -3741,6 +3755,16 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
 
       return {};
     } catch (error: any) {
+      // Only a form-validation error has `inner`; any other failure while checking the
+      // cart used to throw again here, so Approve did nothing and showed no message.
+      if (!Array.isArray(error?.inner)) {
+        console.error("validateCartItemsAndFields failed:", error);
+        return {
+          form: error?.message
+            ? `Could not check the form: ${error.message}`
+            : "Could not check the form. Please check the products and try again.",
+        };
+      }
       const errors: Record<string, string> = {};
       error.inner.forEach((err: any) => {
         const path = err.path.includes("cartCustomFields")
@@ -3940,19 +3964,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       }),
     );
   };
-  const handleGstChange = (
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = e.target.value;
-
-    if (!/^\d*\.?\d{0,2}$/.test(value)) return;
-
-    if (Number(value) > 100) {
-      toast.error("GST % cannot be more than 100");
-      return;
-    }
-
+  const handleGstSelect = (index: number, value: string) => {
+    const gst = Number(value) || 0;
     setCart((prevCart) =>
       prevCart.map((item, i) => {
         if (i !== index) return item;
@@ -3962,21 +3975,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           discountType === "percentage"
             ? Number(item.item_discount_pct)
             : Number(item.item_discount_pr),
-          Number(value) || 0,
+          gst,
           discountType,
         );
 
-        // raw string kept while typing so "9." and "2.5" work; handleGstBlur turns it back into a number
-        return { ...item, GST: value as unknown as number, net_rate: result.net };
+        return { ...item, GST: gst, net_rate: result.net };
       }),
-    );
-  };
-
-  const handleGstBlur = (index: number) => {
-    setCart((prevCart) =>
-      prevCart.map((item, i) =>
-        i === index ? { ...item, GST: Number(item.GST) || 0 } : item,
-      ),
     );
   };
 
@@ -4329,6 +4333,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0];
       toast.error(firstError);
+      setButtonloding(false);
       return;
     }
 
@@ -4704,6 +4709,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         new_srNumber: srNumber,
@@ -4790,6 +4797,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         ...productCustomFormFieldValues[index],
@@ -4830,6 +4839,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         currency_id: selectedCurrency?.value || defaultCurrency?.value || 0,
         conversion_rate: conversionRate,
         advance_payment: advancePayment,
+        advance_series_prefix: advanceSeriesChoiceRef.current.prefix,
+        advance_entered_series_number: advanceSeriesChoiceRef.current.voucherNumber,
         payment_type: selectedPaymentMode,
         miracle_account_ledger_adv: selectedMiracleLedgerAdv?.value || "",
         ...productCustomFormFieldValues[index],
@@ -6475,6 +6486,35 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       })),
     [paymentTypeList],
   );
+
+  // Series of the chosen payment mode for the advance payment entry (credit side
+  // for sales order / invoice / purchase return, debit side for the others); the
+  // Approve dialog asks for it only when there is a choice or a typed number.
+  const advanceSeriesInfo = useMemo(() => {
+    const paymentMode = paymentTypeList.find(
+      (mode: PaymentMode) => String(mode.id) === String(selectedPaymentMode),
+    );
+    const side = [2, 3, 7].includes(
+      Number(newOrderShowNumAfterConversion || isOrderShowNum),
+    )
+      ? "credit"
+      : "debit";
+    const prefixes = String(paymentMode?.[`${side}_series_prefix`] ?? "")
+      .split(",")
+      .map((prefix) => prefix.trim())
+      .filter(Boolean);
+    return {
+      prefixes,
+      manual: Number(paymentMode?.[`${side}_sr_manual`]) === 1,
+      hasAdvance: Number(advancePayment) > 0,
+    };
+  }, [
+    paymentTypeList,
+    selectedPaymentMode,
+    advancePayment,
+    newOrderShowNumAfterConversion,
+    isOrderShowNum,
+  ]);
 
   const handlePaymentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedPaymentMode(e.target.value);
@@ -9155,22 +9195,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                 ?.getSize(),
                                             }}
                                           >
-                                            <input
-                                              className="form-control"
-                                              type="text"
+                                            <select
+                                              className="form-select"
                                               title="GST %"
-                                              placeholder="GST %"
-                                              value={item.GST}
+                                              value={String(Number(item.GST) || 0)}
                                               onChange={(e) =>
-                                                handleGstChange(index, e)
-                                              }
-                                              onBlur={() =>
-                                                handleGstBlur(index)
+                                                handleGstSelect(index, e.target.value)
                                               }
                                               style={{ textAlign: "right" }}
-                                              onFocus={(e) =>
-                                                e.target.select()
-                                              }
                                               disabled={
                                                 orderTypesNameFind !==
                                                   "Quotation" &&
@@ -9186,7 +9218,27 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                   ? true
                                                   : false
                                               }
-                                            />
+                                            >
+                                              {!gstTaxList.some(
+                                                (t) =>
+                                                  Number(t.value) ===
+                                                  (Number(item.GST) || 0),
+                                              ) && (
+                                                <option
+                                                  value={String(Number(item.GST) || 0)}
+                                                >
+                                                  {Number(item.GST) || 0}%
+                                                </option>
+                                              )}
+                                              {gstTaxList.map((t) => (
+                                                <option
+                                                  key={t.id}
+                                                  value={String(Number(t.value))}
+                                                >
+                                                  {t.name || `${t.value}%`}
+                                                </option>
+                                              ))}
+                                            </select>
                                           </td>
                                           <td
                                             className="text-end"
@@ -12202,7 +12254,13 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             customSeriesDate,
             selectedTrasactionMode,
             selectedMiracleLedger,
+            advanceSeriesPrefix,
+            advanceVoucherNumber,
           ) => {
+            advanceSeriesChoiceRef.current = {
+              prefix: advanceSeriesPrefix || "",
+              voucherNumber: advanceVoucherNumber || "",
+            };
             setApproveData({
               checkedOptions,
               dropdownValue,
@@ -12220,6 +12278,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           showTaskTemplateFor={dynamicStartWorkflow}
           orderType={Number(newOrderShowNumAfterConversion || isOrderShowNum)}
           showOrderId={cartId}
+          advanceSeriesInfo={advanceSeriesInfo}
           defaultSeriesValue={
             orderById?.cart?.sr_by_prifix || orderbyidList?.cart?.sr_by_prifix
           }

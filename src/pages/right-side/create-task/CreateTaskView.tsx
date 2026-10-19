@@ -19,7 +19,7 @@ import {
 } from "../../../common/SharedFunction";
 import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
-import SerialProductFields from "../../../components/SerialProductFields";
+import ProductOrSerialFields from "../../../components/ProductOrSerialFields";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import MultiSelect from "../../../components/MultiSelect";
 import {
@@ -33,7 +33,7 @@ import { IOption } from "../../../helpers/AppInterface";
 import { TReactSetState } from "../../../helpers/AppType";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../services/axiosInstance";
-import CreateContactView from "../../left-side/create-contact/CreateContactView";
+import { lazyView } from "../../../common/lazyView";
 import {
   fetchCompanyApi,
   ICompanyView,
@@ -56,6 +56,8 @@ import {
   taskTypesList,
   updateTarget,
 } from "./CreateTaskController";
+
+const CreateContactView = lazyView(() => import("../../left-side/create-contact/CreateContactView"));
 
 interface IPropsCreateTarget {
   show: boolean;
@@ -1404,7 +1406,7 @@ const CreateTaskView = ({
                                     />
                                   </div>
                                 </div>
-                                <SerialProductFields requiredOnSave={false} />
+                                <ProductOrSerialFields />
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">
                                     <label

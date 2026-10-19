@@ -51,6 +51,7 @@ import {
 } from "../../order-pdf-view/OrderPdfController";
 import { fetchGoogleSheetForFacebook } from "../LeftSideController";
 import CompanyPrifixModal, { ModalField } from "./CompanyPrifixModal";
+import InvoiceEntrySeriesBlock from "./InvoiceEntrySeriesBlock";
 import {
   createCompany,
   createCompanyInitialValues,
@@ -5513,6 +5514,7 @@ const CreateCompanyView = ({
                                   </div> */}
 
                                   <div className="col-12 col-md-3"></div>
+                                  <InvoiceEntrySeriesBlock companyId={companyToEdit?.id} />
                                 </>
                               )}
                               <div className="col-12 border rounded bg-secondary pt-2 pb-2">

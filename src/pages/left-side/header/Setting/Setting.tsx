@@ -143,12 +143,8 @@ const Setting = ({
     PAGE_ID.DOCUMENT_DESIGNER_RIGHTS,
     PERMISSION_TYPE.VIEW,
   );
-  // PIN itself is asked for reactively inside Document Designer (see
-  // DocumentDesignerView.tsx's postGated retry handler) - not gated here,
-  // since not every action there needs it (viewing/listing templates
-  // doesn't) and this used to call a dead-end verify (verifyDocumentManagerPin)
-  // that never satisfied the real gate (requireReportPin), leaving no way
-  // to actually resolve "PIN verification required" once inside the page.
+  // No PIN: Document Designer's author routes are owner-only server-side
+  // (requireCompanyOwner), so nothing is gated here.
   function openDocumentDesigner() {
     if (canViewDocumentDesigner) {
       navigate("/document-designer");

@@ -367,7 +367,7 @@ td, th {
                                         const isDebit = Number(tx.type) === 2;
                                         return (
                                             <tr key={tx.id}>
-                                                <td>#{tx.id}</td>
+                                                <td>{tx.voucher_number || `#${tx.id}`}</td>
                                                 <td>{paymentDate}</td>
                                                 <td className="remark-cell"><span dangerouslySetInnerHTML={{ __html: tx.remark || "" }} /></td>
                                                 {/* <td>{tx.reference_table ? `${tx.reference_table} #${tx.reference_id || ""}` : "-"}</td> */}

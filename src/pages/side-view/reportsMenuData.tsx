@@ -291,6 +291,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "tune",
         description: "Manual stock quantity adjustments and reasons.",
       },
+      {
+        label: "Warehouse Transfer",
+        value: "WarehouseTransfer_Report",
+        pageId: PAGE_ID.STOCK_ADJUSTMENT,
+        icon: "warehouse",
+        description: "Plus / minus of stock moved between warehouses, by warehouse, product and transfer.",
+      },
     ],
   },
 
@@ -478,6 +485,14 @@ export const reportsMenuData: IReportMenuGroup[] = [
         pageId: PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
         icon: "qrCode",
         description: "Track every transaction for a specific serial number.",
+      },
+      {
+        label: "Serial Number Trace",
+        value: "serial_number_trace",
+        pageId: PAGE_ID.SERIAL_NUMBER_TRACE,
+        icon: "qrCode",
+        description:
+          "Full history of a serial number: documents, tasks and visits.",
       },
     ],
   },

@@ -29,6 +29,7 @@ export interface IAccountTransaction {
   contact_companyName?: string;
   amountwithcurrency: string;
   amountwithoutcurrency: string;
+  voucher_number?: string;
 }
 // export const fetchAccountTransactions = async (
 //   setAccountTransactions: TReactSetState<IAccountTransaction[]>,

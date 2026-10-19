@@ -560,29 +560,28 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
         category ? { value: category.id, label: category.category_name } : null,
       );
     }
-    if (
-      productList.length > 0 &&
-      initialFilterData.product &&
-      initialFilterData.category
-    ) {
-      const category = categoryList.find(
-        (c) => c.id === initialFilterData.category,
-      );
+    // A product can be applied with or without a category: without one it is
+    // looked up in the whole product list (it used to be restored only when a
+    // category was also selected, so a product-only filter came back empty).
+    if (productList.length > 0 && initialFilterData.product) {
+      const category = initialFilterData.category
+        ? categoryList.find((c) => c.id === initialFilterData.category)
+        : null;
       if (category) {
         setSelectedCategoryId({
           value: category.id,
           label: category.category_name,
         });
-        const filteredProducts = productList.filter(
-          (p) => p.category_id === category.id,
-        );
-        const product = filteredProducts.find(
-          (p) => p.id === initialFilterData.product,
-        );
-        setSelectedProductId(
-          product ? { value: product.id, label: product.product_name } : null,
-        );
       }
+      const candidates = category
+        ? productList.filter((p) => p.category_id === category.id)
+        : productList;
+      const product = candidates.find(
+        (p) => String(p.id) === String(initialFilterData.product),
+      );
+      setSelectedProductId(
+        product ? { value: product.id, label: product.product_name } : null,
+      );
     }
     if (initialFilterData.active) {
       const active = activeData.find(
@@ -1281,6 +1280,18 @@ const CheckBoxFilterModal: React.FC<CheckBoxModalProps> = ({
       }));
 
       setWarehouseOptions(options);
+
+      // Reopening the filter: the applied warehouse ids come in as a prop but
+      // were never put back into the dropdown, so it always showed empty.
+      const appliedIds = String(selectedWarehouseIds ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      if (appliedIds.length > 0) {
+        setSelectedWarehouses(
+          options.filter((o: any) => appliedIds.includes(String(o.value))),
+        );
+      }
     } catch (error) {
       setWarehouseOptions([]);
     } finally {

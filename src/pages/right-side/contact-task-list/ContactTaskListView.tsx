@@ -439,7 +439,23 @@ const ContactTaskListView = ({
             return;
         }
         await updateLabel(idsToUpdate, checkedOptions, setLoading);
-        setTimeout(() => {
+        if (!selectedLabelId) {
+            // Patch labels in place so the list keeps its scroll position and loaded pages.
+            const updateIds = (Array.isArray(idsToUpdate) ? idsToUpdate : [idsToUpdate]).map(String);
+            const picked = options.filter((o) => checkedOptions.map(String).includes(String(o.id)));
+            setTaskList((prev) =>
+                prev.map((row) =>
+                    updateIds.includes(String(row.id))
+                        ? {
+                            ...row,
+                            label_id: checkedOptions.join(","),
+                            label_name: picked.map((o) => o.lable_name).join(","),
+                            label_color: picked.map((o) => o.color).join(","),
+                        }
+                        : row,
+                ),
+            );
+        } else setTimeout(() => {
             fetchApiTask(
                 setTaskList,
                 setLoading,

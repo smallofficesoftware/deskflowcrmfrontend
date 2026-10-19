@@ -40,6 +40,7 @@ import FormPermissionsPanel from "./editor/FormPermissionsPanel";
 import LanguageSettingsPanel from "./editor/LanguageSettingsPanel";
 import FormPrintPanel from "./editor/FormPrintPanel";
 import FormPublicSettingsPanel from "./editor/FormPublicSettingsPanel";
+import ReportSettingsPanel from "./editor/ReportSettingsPanel";
 import ApprovalStagesPanel from "./editor/ApprovalStagesPanel";
 import { approvalStagesOf, IFormSettings, parseSettings } from "./approval";
 import FormPreview from "./editor/FormPreview";
@@ -814,6 +815,12 @@ const FormBuilderEditorView: React.FC<Props> = ({ formId, onClose }) => {
                     <h6 className="mt-4 mb-2">Print</h6>
                     <FormPrintPanel
                       form={form}
+                      onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}
+                    />
+                    <h6 className="mt-4 mb-2">Reports</h6>
+                    <ReportSettingsPanel
+                      settingsJson={form.settings_json}
+                      fields={fields}
                       onSettingsChange={(next: IFormSettings) => setForm((prev) => (prev ? { ...prev, settings_json: JSON.stringify(next) } : prev))}
                     />
                     <h6 className="mt-4 mb-2">Approval</h6>

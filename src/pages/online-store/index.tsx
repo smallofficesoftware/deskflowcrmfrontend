@@ -1,16 +1,21 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from '../../helpers/AppConstants';
 import { axiosInstance } from '../../services/axiosInstance';
 import { useOnlineStore } from '../../store/onlineStore/useOnlineStore';
-import Carousel from './Carousel';
-import Cart from './Cart';
-import Footer from './Footer';
 import Form from './Form';
-import Header from './Header';
-import Products from './Products';
-import { ToastProvider } from './Toast';
+
+// Store view only renders after the entry form is submitted, so it is
+// split out of the first-screen chunk.
+const Carousel = lazy(() => import('./Carousel'));
+const Cart = lazy(() => import('./Cart'));
+const Footer = lazy(() => import('./Footer'));
+const Header = lazy(() => import('./Header'));
+const Products = lazy(() => import('./Products'));
+const ToastProvider = lazy(() =>
+    import('./Toast').then((m) => ({ default: m.ToastProvider }))
+);
 
 const OnlineStore = () => {
     const { qrCode } = useParams<{ qrCode: string }>();
@@ -103,13 +108,15 @@ const OnlineStore = () => {
     }
     return (
         <div style={{ backgroundColor: "white" }}>
-            <ToastProvider>
-                <Header qrCode={qrCode} />
-                <Carousel />
-                <Products qrCode={qrCode} />
-                <Footer />
-                <Cart qrCode={qrCode} />
-            </ToastProvider>
+            <Suspense fallback={null}>
+                <ToastProvider>
+                    <Header qrCode={qrCode} />
+                    <Carousel />
+                    <Products qrCode={qrCode} />
+                    <Footer />
+                    <Cart qrCode={qrCode} />
+                </ToastProvider>
+            </Suspense>
         </div>
     );
 };

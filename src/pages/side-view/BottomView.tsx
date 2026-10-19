@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../helpers/AppConstants";
 import { TReactSetState } from "../../helpers/AppType";
 import { axiosInstance } from "../../services/axiosInstance";
@@ -64,7 +65,8 @@ import ProcessReport from "../dashboard/Reports/Process Report/ProcessReport";
 import ProductCategoryReport from "../dashboard/Reports/Product Category Report/ProductCategoryReport";
 import ProductGroupReport from "../dashboard/Reports/Product Group Report/ProductGroupReport";
 import ProductInventoryReport from "../dashboard/Reports/Product Inventory/ProductInventory";
-import SerialNumberStockMovement from "../left-side/header/Setting/product/SerialNumberStockMovement";
+import SerialNumberStockCheckReport from "../dashboard/Reports/Serial Number Stock Check/SerialNumberStockCheckReport";
+import SerialNumberTraceReport from "../dashboard/Reports/Serial Number Trace/SerialNumberTraceReport";
 import ProductPendingView from "../dashboard/Reports/Product Pending/productPendingView";
 import ProductSalesPurchaseReport from "../dashboard/Reports/Product Sales & Purchase/productSalesPurchaseView";
 import ProductUnitReport from "../dashboard/Reports/Product Unit Report/ProductUnitReport";
@@ -87,6 +89,7 @@ import AllSourceReport from "../dashboard/Reports/Source Wise Report/sourceRepor
 import StagesStatusReport from "../dashboard/Reports/Stages And Status Report/StagesStatusReport";
 import StatusWiseReport from "../dashboard/Reports/Status Wise Report/StatusWiseReport";
 import StockAdjustmentReport from "../dashboard/Reports/Stock Adjustment Report/StockAdjustmentReport";
+import WarehouseTransferReport from "../dashboard/Reports/Warehouse Transfer Report/WarehouseTransferReport";
 import TaskCategoryReport from "../dashboard/Reports/Task Category Report/TaskCategoryReport";
 import TaskTemplateReport from "../dashboard/Reports/Task Template Report/TaskTemplateReport";
 import TaxMasterGridView from "../dashboard/Reports/Tax Master Grid View/TaxMasterGridView";
@@ -118,6 +121,7 @@ const BottomView = ({
   formSubmissionsDeepLinkId,
   formEditDeepLinkId,
 }: any) => {
+  const navigate = useNavigate();
   const [isCRMDashBoardOpen, setIsCRMDashBoardOpen] = useState(true);
   const [isReportShow, setIsReportShow] = useState(false);
   const [title, setTitle] = useState<ITitle[]>([]);
@@ -220,8 +224,11 @@ const BottomView = ({
   }, [title]);
 
   const handleonHide = () => {
+    const wasCustomReport = typeof appliedReportType === "string" && appliedReportType.startsWith("custom_report:");
     setActiveView("dashboard");
     setAppliedReportType("");
+    // Drop the report's link so refresh / back land on the reports list.
+    if (wasCustomReport) navigate("/SideView?view=reports");
   };
 
   const insightsSideView = true;
@@ -273,6 +280,8 @@ const BottomView = ({
             onCustomReportClick={(id: number) => {
               setActiveView("custom_report");
               setAppliedReportType(`custom_report:${id}`);
+              // Per-report link: /SideView?view=reports&customReportId=<id> survives refresh.
+              navigate(`/SideView?view=reports&customReportId=${id}`);
             }}
           />
         )}
@@ -401,7 +410,16 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "serial_number_stock_check" && (
-          <SerialNumberStockMovement show={true} onHide={handleonHide} />
+          <SerialNumberStockCheckReport
+            onHide={handleonHide}
+            MobileFlag={isEmbed ? "1" : undefined}
+          />
+        )}
+        {appliedReportType === "serial_number_trace" && (
+          <SerialNumberTraceReport
+            onHide={handleonHide}
+            MobileFlag={isEmbed ? "1" : undefined}
+          />
         )}
         {appliedReportType === "My_Team_Report" && (
           <MyTeamReport
@@ -625,6 +643,9 @@ const BottomView = ({
         )}
         {appliedReportType === "StockAdjustment_Report" && (
           <StockAdjustmentReport onHide={handleonHide} />
+        )}
+        {appliedReportType === "WarehouseTransfer_Report" && (
+          <WarehouseTransferReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "CustomFieldForm_Report" && (
           <CustomFieldFormReport onHide={handleonHide} />

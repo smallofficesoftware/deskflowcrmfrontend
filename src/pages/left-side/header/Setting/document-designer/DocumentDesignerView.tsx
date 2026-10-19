@@ -19,7 +19,7 @@ import { axiosInstance } from "../../../../../services/axiosInstance";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import PromptModal from "../../../../../components/model/PromptModal";
-import { previewReportPdf, verifyReportPin } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
+import { previewReportPdf } from "../../../../dashboard/Reports/ReportBuilder/ReportBuilderController";
 import { fetchCompanyKeyApi, ICompany } from "../../../LeftSideController";
 import {
   IDocumentTemplateFull,
@@ -43,7 +43,6 @@ import {
   resetTemplateToSystemDefault,
   restoreTemplateVersion,
   setDefaultDocumentTemplate,
-  setPinRequiredHandler,
 } from "./DocumentDesignerController";
 
 // All 10 cart-shaped doc types templates.js's DOC_TYPES / dataDictionary.js's
@@ -681,47 +680,8 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
     setPromptDialog({ title, onSubmit, defaultValue });
   };
 
-  // Owner+PIN gate (requireReportPin, backend's reportPinAuth.js). Asked
-  // upfront on page open (pinVerified below gates the whole page, same
-  // pattern ReportBuilderView.tsx uses) rather than only when a gated
-  // action is attempted. showPinModal/pinResolveRef stay as a fallback for
-  // the 2h token expiring while the page is still open — postGated
-  // (DocumentDesignerController.ts) can re-prompt right here and retry the
-  // one call, instead of failing outright. Same verifyReportPin
-  // ReportBuilderView.tsx uses — one PIN, either page.
-  // A verified PIN already left a REPORT_PIN_TOKEN in localStorage — trust
-  // it optimistically instead of re-prompting on every mount/reload. A
-  // stale/expired one is already handled by postGated's retry above, not a
-  // new failure mode this introduces.
-  // reportMode is the one exception — dashboardRouter.js's backend routes
-  // dropped requireReportPin entirely (Dashboard no longer needs the owner
-  // PIN at all), so that mode always starts pre-verified. Document
-  // Designer's own routes (document_print_templates) still require it,
-  // unchanged.
-  const [pinVerified, setPinVerified] = useState(() => !!reportMode || !!localStorage.getItem("REPORT_PIN_TOKEN"));
-  const [showPinModal, setShowPinModal] = useState(false);
-  const pinResolveRef = React.useRef<((verified: boolean) => void) | null>(null);
-  useEffect(() => {
-    setPinRequiredHandler(() => {
-      setShowPinModal(true);
-      return new Promise<boolean>((resolve) => {
-        pinResolveRef.current = resolve;
-      });
-    });
-    return () => setPinRequiredHandler(null);
-  }, []);
-  const handlePinSubmit = async (pin: string) => {
-    const ok = await verifyReportPin(pin);
-    setShowPinModal(false);
-    if (ok) setPinVerified(true);
-    pinResolveRef.current?.(ok);
-    pinResolveRef.current = null;
-  };
-  const handlePinCancel = () => {
-    setShowPinModal(false);
-    pinResolveRef.current?.(false);
-    pinResolveRef.current = null;
-  };
+  // No PIN: the backend's document-templates author routes are owner-only
+  // (requireCompanyOwner) and no longer ask for the shared build PIN.
 
   const refreshTemplates = async () => {
     const list = await listDocumentTemplates(docType);
@@ -2419,20 +2379,6 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
         }}
         title={promptDialog?.title || ""}
         defaultValue={promptDialog?.defaultValue}
-      />
-
-      <PromptModal
-        show={!pinVerified || showPinModal}
-        onHide={pinVerified ? handlePinCancel : () => (reportMode ? reportMode.onClose() : navigate(-1))}
-        onSubmit={handlePinSubmit}
-        title="Owner PIN required"
-        message={
-          pinVerified
-            ? "This action needs the shared build PIN (same PIN as Report Builder)."
-            : "Document Designer is an owner-only area. Enter the shared build PIN to continue (same PIN as Report Builder)."
-        }
-        placeholder="PIN"
-        submitLabel="Verify"
       />
 
       {loading && (

@@ -3,12 +3,13 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, type DataTableFilterEvent, type DataTableFilterMeta, type DataTableSortEvent, type SortOrder } from "primereact/datatable";
+import { DataTable, type DataTableSortEvent, type SortOrder } from "primereact/datatable";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
+import ColumnFilterInput from "../../../../../components/ColumnFilterInput";
 import ColumnsButton from "../../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../../components/ExportPdfMenuItem";
@@ -46,6 +47,14 @@ import RadioButtonModal from "../../../../../components/model/RadioButtonModal";
 // status pool with Job Card.
 const FORM_SUBMISSIONS_ORDER_TYPE = 15;
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
+// Field types whose stored value the server can match for a column filter
+// (mirrors COLUMN_FILTER_TYPES in formBuilderSubmissionService.js).
+const COLUMN_FILTER_TYPES = [
+  "text", "textarea", "phone", "email", "url", "auto-number",
+  "number", "currency", "percentage", "calculation", "barcode",
+  "dropdown", "radio", "multi-select", "customer-lookup",
+];
 
 // Portaled to document.body (not the .labelDropLeft in-flow dropdown
 // pattern) - a PrimeReact scrollable DataTable's body wrapper clips/traps
@@ -390,6 +399,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
     const res = await listSubmissions(formId, {
       search: search || undefined,
       filters: buildFilters(),
+      column_filters: serverColumnFilters,
       limit: rowsPerPage,
       offset: firstIndex,
     });
@@ -503,36 +513,58 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   const orderedVisibleKeys = colOrder.filter((k) => !hiddenKeys.has(k));
   const columnDefByKey = new Map(allColumnDefs.map((c) => [c.key, c]));
 
-  // ── Per-column filter row (filterDisplay="row") - same as
-  // allContactReportView.tsx's own DataTable: one active field at a time
-  // (typing in a new column clears any other), client-side over the
-  // currently loaded page only (Contact Book's own onFilter/getFilteredData
-  // never sends these to the server either - only the global search box and
-  // the "Filter Report" modal do). ──
-  const [colFilters, setColFilters] = useState<DataTableFilterMeta>({});
+  // ── Per-column filter row (filterDisplay="row"). A filter is applied when
+  // the user presses Enter in its box, not on every keypress. Field columns
+  // are filtered by the server (all records, paginated correctly); the
+  // built-in columns (Entry / Submitted / By / Approval / Status) have no
+  // stored text to match, so they filter the currently loaded page only. ──
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    setColFilters((prev) => {
-      const next: DataTableFilterMeta = {};
-      allColumnDefs.forEach((c) => {
-        next[c.key] = prev[c.key] ?? { value: null, matchMode: "contains" };
-      });
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allColumnDefs]);
+  const serverFilterKeys = useMemo(
+    () =>
+      new Set([
+        // Status column: the server matches the status name (submission_status_id).
+        "_status",
+        ...shownListFields
+          .filter(
+            (f) =>
+              COLUMN_FILTER_TYPES.includes(f.type) &&
+              !isAttachmentType(f.type) &&
+              !restricted?.masked?.includes(f.key),
+          )
+          .map((f) => f.key),
+      ]),
+    [shownListFields, restricted],
+  );
 
-  const onColumnFilter = (event: DataTableFilterEvent) => {
-    const activeField = Object.keys(event.filters).find((key) => {
-      const f: any = event.filters[key];
-      return "value" in f && f.value !== null && f.value !== "";
+  // What is typed in each box. Enter in any box applies all of them at once,
+  // so a box emptied earlier is picked up too (without its own Enter).
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
+
+  const applyColumnFilters = () => {
+    const next: Record<string, string> = {};
+    Object.entries(draftFilters).forEach(([k, v]) => {
+      const trimmed = v.trim();
+      if (trimmed) next[k] = trimmed;
     });
-    const next: DataTableFilterMeta = { ...event.filters };
-    Object.keys(next).forEach((key) => {
-      if (key !== activeField) (next[key] as any).value = null;
-    });
-    setColFilters(next);
+    setAppliedFilters((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
   };
+
+  const serverColumnFilters = useMemo(() => {
+    const out: Record<string, string> = {};
+    Object.entries(appliedFilters).forEach(([k, v]) => {
+      if (serverFilterKeys.has(k)) out[k] = v;
+    });
+    return out;
+  }, [appliedFilters, serverFilterKeys]);
+  const serverColumnFiltersKey = JSON.stringify(serverColumnFilters);
+
+  // Server-side column filter changed (Enter pressed): reload from page 1.
+  useEffect(() => {
+    if (!allFields.length) return;
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverColumnFiltersKey]);
 
   const cellFor = (row: any, key: string): React.ReactNode => {
     if (key === "_entry") return entryNumberOf(allFields, row);
@@ -620,13 +652,15 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   }, [rows, sortField, sortOrder]);
 
   const filteredRows = useMemo(() => {
-    const activeEntry = Object.entries(colFilters).find(([, f]: [string, any]) => f?.value != null && f.value !== "");
-    if (!activeEntry) return sortedRows;
-    const [key, f] = activeEntry as [string, any];
-    const needle = String(f.value).toLowerCase();
-    return sortedRows.filter((row) => textValueFor(row, key).toLowerCase().includes(needle));
+    // Only the built-in columns are matched here; field columns were
+    // already filtered by the server.
+    const clientEntries = Object.entries(appliedFilters).filter(([k]) => !serverFilterKeys.has(k));
+    if (clientEntries.length === 0) return sortedRows;
+    return sortedRows.filter((row) =>
+      clientEntries.every(([key, value]) => textValueFor(row, key).toLowerCase().includes(value.toLowerCase())),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedRows, colFilters]);
+  }, [sortedRows, appliedFilters, serverFilterKeys]);
 
   const exportColumns: ExportColumn[] = orderedVisibleKeys.map((key) => ({
     key,
@@ -811,8 +845,6 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           sortOrder={sortOrder}
           sortMode="single"
           filterDisplay="row"
-          filters={colFilters}
-          onFilter={onColumnFilter}
           loading={loading}
           selection={selectedRows}
           onSelectionChange={(e: any) => setSelectedRows(e.value)}
@@ -856,8 +888,15 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
                 sortable
                 filter
                 filterField={key}
-                filterPlaceholder="Search"
-                filterMatchMode="contains"
+                showFilterMenu={false}
+                showClearButton={false}
+                filterElement={
+                  <ColumnFilterInput
+                    value={draftFilters[key] ?? ""}
+                    onChange={(v) => setDraftFilters((prev) => ({ ...prev, [key]: v }))}
+                    onEnter={applyColumnFilters}
+                  />
+                }
                 headerStyle={{ width: "150px", position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
                 bodyStyle={{ fontSize: "14px" }}
                 body={(row) => cellFor(row, key)}

@@ -59,6 +59,7 @@ export interface ITaskView {
   is_notification_sand_wp?: number;
   reference_contact?: number | string;
   serial_number?: string;
+  product_id?: number | string;
   team_task_assignement_type?: string | number;
   is_auto_create?: string | number;
   label_name: string;

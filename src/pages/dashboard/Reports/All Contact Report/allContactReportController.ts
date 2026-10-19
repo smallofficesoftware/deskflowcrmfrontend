@@ -101,6 +101,7 @@ export const fetchAllcontact = async (
   leadAgingActivityTypes?: string[] | null,
   setTotalCount?: (total: number) => void,
   labelwiseContactShowAndOrNot?: number,
+  columnFilters?: Record<string, string>,
 ): Promise<IAllcontact[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const getUUID = getID || localStorage.getItem("UUID");
@@ -127,6 +128,8 @@ export const fetchAllcontact = async (
     leadAgingActivityTypes,
     // 1 = match any selected label (OR), 2 = match all (AND).
     labelwiseContactShowAndOrNot,
+    // Per-column grid filters, applied on Enter (contains match, server side).
+    column_filters: columnFilters,
   };
 
   try {
@@ -175,6 +178,7 @@ export const fetchAllContactsForExport = async (
     leadAgingBucket?: string | null,
     leadAgingActivityTypes?: string[] | null,
     labelwiseContactShowAndOrNot?: number,
+    columnFilters?: Record<string, string>,
   }
 ): Promise<IAllcontact[]> => {
   const LIMIT = 500;
@@ -206,6 +210,7 @@ export const fetchAllContactsForExport = async (
       params.leadAgingActivityTypes,
       undefined,
       params.labelwiseContactShowAndOrNot,
+      params.columnFilters,
     );
 
     if (!chunk.length) break;

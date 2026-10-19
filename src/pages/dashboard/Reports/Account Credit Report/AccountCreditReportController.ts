@@ -28,6 +28,7 @@ export interface IAccountTransaction {
   contact_companyName?: string;
   amountwithcurrency: string;
   amountwithoutcurrency: string;
+  voucher_number?: string;
 }
 export interface IAccountTransactionResult {
   data: IAccountTransaction[];

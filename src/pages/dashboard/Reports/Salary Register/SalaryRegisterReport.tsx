@@ -27,6 +27,7 @@ import {
 } from "../../../../hooks/useColumnPreferences";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { downloadSalarySlipPdfFromServer } from "./salarySlipServerPdf";
+import SalaryCalculationModal from "./SalaryCalculationModal";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import {
   fetchSalaryRegister,
@@ -128,6 +129,8 @@ const SalaryRegisterReport = ({
   selectedDayMonthYear,
 }: IPropsSalaryRegister) => {
   const [loading, setLoading] = useState(true);
+  // The row whose "How calculated" popup is open.
+  const [calculationRow, setCalculationRow] = useState<any>(null);
   const [totalRecords, setTotalRecords] = useState(0);
   const [salaries, setSalaries] = useState<ISalaryRegister[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -1297,7 +1300,40 @@ const SalaryRegisterReport = ({
               body={col.body}
             />
           ))}
+
+          {/* Not part of the exported columns: opens the step-by-step popup. */}
+          <Column
+            header="How calculated"
+            headerStyle={{
+              width: "140px",
+              position: "sticky",
+              top: 0,
+              zIndex: 1,
+              background: "#f8f9fa",
+              fontSize: "14px",
+            }}
+            bodyStyle={{ textAlign: "center" }}
+            body={(rowData: any) => (
+              <Button
+                type="button"
+                icon="pi pi-info-circle"
+                rounded
+                text
+                tooltip="How this salary is calculated"
+                tooltipOptions={{ position: "left" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCalculationRow(rowData);
+                }}
+              />
+            )}
+          />
         </DataTable>
+        <SalaryCalculationModal
+          show={calculationRow !== null}
+          onHide={() => setCalculationRow(null)}
+          row={calculationRow}
+        />
       </div>
       {isModalFilterVisible && (
         <CheckBoxFilterModal

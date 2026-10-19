@@ -460,6 +460,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewSerialNumberTrace = useCheckUserPermission(
+    PAGE_ID.SERIAL_NUMBER_TRACE,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewMyTeamList = useCheckUserPermission(
     PAGE_ID.TEAM_MEMBER_WITH_ACCESS_RIGHT,
     PERMISSION_TYPE.VIEW,
@@ -799,6 +803,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Inventory");
       setAppliedReportType(name);
       return;
+    } else if (canViewSerialNumberTrace && name === "serial_number_trace") {
+      setActiveView("Inventory");
+      setAppliedReportType(name);
+      return;
     } else if (canViewMyTeamList && name === "My_Team_Report") {
       setActiveView("HRMS");
       setAppliedReportType(name);
@@ -1036,6 +1044,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewStockAdjustment && name === "StockAdjustment_Report") {
+      setActiveView("Production");
+      setAppliedReportType(name);
+      return;
+    } else if (canViewStockAdjustment && name === "WarehouseTransfer_Report") {
       setActiveView("Production");
       setAppliedReportType(name);
       return;
@@ -1342,7 +1354,10 @@ const SideView = ({ profileDetail }: IProp) => {
   const openedCustomReportIdRef = useRef<string | null>(null);
   useEffect(() => {
     const customReportId = searchParams.get("customReportId");
-    if (!customReportId) return;
+    if (!customReportId) {
+      openedCustomReportIdRef.current = null;
+      return;
+    }
     if (openedCustomReportIdRef.current === customReportId) return;
     openedCustomReportIdRef.current = customReportId;
     setActiveView("custom_report");

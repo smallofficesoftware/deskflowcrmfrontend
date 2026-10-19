@@ -13,6 +13,12 @@ export interface IPaymentTypeView {
   payment_color: string | undefined;
   transaction_type: number;
   created_date_time?: string;
+  credit_series_prefix?: string | null;
+  credit_series_pattern?: string | null;
+  credit_sr_manual?: number;
+  debit_series_prefix?: string | null;
+  debit_series_pattern?: string | null;
+  debit_sr_manual?: number;
 }
 
 export interface IPaymentTypeCreate {
@@ -20,7 +26,22 @@ export interface IPaymentTypeCreate {
   payment_color: string | undefined | null;
   transaction_type: number;
   created_date_time?: string;
+  credit_series_prefix?: string;
+  credit_series_pattern?: string;
+  credit_sr_manual?: number;
+  debit_series_prefix?: string;
+  debit_series_pattern?: string;
+  debit_sr_manual?: number;
 }
+
+// Voucher series of the credit and debit side, as the tail of the JSON `data` string
+const seriesDataTail = (typeInput: IPaymentTypeCreate) =>
+  `,"credit_series_prefix":${JSON.stringify(typeInput.credit_series_prefix ?? "")}` +
+  `,"credit_series_pattern":${JSON.stringify(typeInput.credit_series_pattern ?? "")}` +
+  `,"credit_sr_manual":${typeInput.credit_sr_manual ? 1 : 0}` +
+  `,"debit_series_prefix":${JSON.stringify(typeInput.debit_series_prefix ?? "")}` +
+  `,"debit_series_pattern":${JSON.stringify(typeInput.debit_series_pattern ?? "")}` +
+  `,"debit_sr_manual":${typeInput.debit_sr_manual ? 1 : 0}`;
 
 export const TRANSACTION_MODES = [
   { id: 0, name: "Bank" },
@@ -73,7 +94,7 @@ export const createPaymentType = async (
     const requestData = {
       table: "payment_types",
       data: `{"payment_type_name":"${typeInput.payment_type_name}","payment_color":"${typeInput.payment_color
-        }","transaction_type":${typeInput.transaction_type},"a_application_login_id":${Number(getUUID)}}`,
+        }","transaction_type":${typeInput.transaction_type},"a_application_login_id":${Number(getUUID)}${seriesDataTail(typeInput)}}`,
       a_application_login_id: getUUID
 
     };
@@ -100,11 +121,14 @@ export const updatePaymentType = async (
   typeInput: IPaymentTypeCreate,
   editTypeId: number | undefined,
   setLoading: TReactSetState<boolean>,
-  clearFormCallback: () => void //
-
+  clearFormCallback: () => void, //
+  originalName?: string
 ) => {
+  // The check below finds this row itself when its name is unchanged, so it only
+  // runs for a renamed type (a series / colour change alone must be allowed).
+  const isRenamed = typeInput.payment_type_name !== originalName;
   if (
-    !(await checkDuplicationUpdate(
+    !(isRenamed && await checkDuplicationUpdate(
       typeInput.payment_type_name,
       "payment_types",
       "payment_type_name",
@@ -116,7 +140,7 @@ export const updatePaymentType = async (
       table: "payment_types",
       where: `{"id":"${editTypeId}"}`,
       data: `{"payment_type_name":"${typeInput.payment_type_name}","payment_color":"${typeInput.payment_color
-        }","transaction_type":${typeInput.transaction_type},"a_application_login_id":${Number(getUUID)}}`,
+        }","transaction_type":${typeInput.transaction_type},"a_application_login_id":${Number(getUUID)}${seriesDataTail(typeInput)}}`,
       a_application_login_id: getUUID
 
     };
@@ -146,7 +170,8 @@ export const fetchPaymentTypeApi = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     table: "payment_types",
-    columns: "id,payment_type_name,payment_color,transaction_type",
+    columns:
+      "id,payment_type_name,payment_color,transaction_type,credit_series_prefix,credit_series_pattern,credit_sr_manual,debit_series_prefix,debit_series_pattern,debit_sr_manual",
     // where: ["isDelete=0", `a_application_login_id=${getUUID}||0`],
     where: ["isDelete=0"],
     request_flag: 0,

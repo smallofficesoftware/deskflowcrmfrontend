@@ -42,6 +42,7 @@ import { syncMiracleInvoice } from "../../../right-side/list-order/ListOrderCont
 import { fetchContact } from "../../../right-side/RightViewController";
 import CommonOrderActions from "../CommonOrderActions";
 import MultipleDeletePopUp from "../MultipleDeletePopUp";
+import ColumnFilterInput from "../../../../components/ColumnFilterInput";
 import { openPrint } from "../Quotations/QuotationController";
 import {
   fetchCartReport,
@@ -495,6 +496,7 @@ const TeamPurchaseOrderDataReportsView = ({
         filters.selectedProductId,
         filters.selectedCategoryId,
         filters.selectedApproveStatus,
+        serverColumnFilters,
       );
 
       setCustomers(data?.items || []);
@@ -532,59 +534,60 @@ const TeamPurchaseOrderDataReportsView = ({
     }));
   };
 
-  function isSimpleFilter(
-    filter: DataTableFilterMetaData | DataTableOperatorFilterMetaData,
-  ): filter is DataTableFilterMetaData {
-    return (filter as DataTableFilterMetaData).value !== undefined;
-  }
+  // Typed text of every column filter box. Enter in any box applies all of
+  // them at once, so a box emptied earlier is picked up without its own Enter.
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
 
-  function isOperatorFilter(
-    filter: DataTableFilterMetaData | DataTableOperatorFilterMetaData,
-  ): filter is DataTableOperatorFilterMetaData {
-    return (
-      (filter as DataTableOperatorFilterMetaData).constraints !== undefined
-    );
-  }
-
-  const onFilter = (event: DataTableFilterEvent) => {
-    const activeField = Object.keys(event.filters).find((key) => {
-      const filter = event.filters[key];
-
-      if (isSimpleFilter(filter)) {
-        return filter.value !== null && filter.value !== "";
-      }
-
-      if (isOperatorFilter(filter)) {
-        return (
-          filter.constraints?.some((c) => c.value !== null && c.value !== "") ??
-          false
-        );
-      }
-
-      return false;
+  const applyColumnFilters = () => {
+    setLazyState((prev) => {
+      const nextFilters: DataTableFilterMeta = {};
+      Object.entries(prev.filters).forEach(([key, meta]) => {
+        const typed = (draftFilters[key] ?? "").trim();
+        nextFilters[key] = { ...(meta as any), value: typed || null };
+      });
+      return { ...prev, first: 0, filters: nextFilters };
     });
-
-    const newFilters: DataTableFilterMeta = { ...event.filters };
-    Object.keys(newFilters).forEach((key) => {
-      const filter = newFilters[key];
-
-      if (key !== activeField) {
-        if (isSimpleFilter(filter)) {
-          filter.value = null;
-        }
-
-        if (isOperatorFilter(filter)) {
-          filter.constraints.forEach((c) => (c.value = null));
-        }
-      }
-    });
-
-    setLazyState((prev) => ({
-      ...prev,
-      first: 0,
-      filters: newFilters,
-    }));
   };
+
+  // Columns the server filters across the whole result (mirrors
+  // column_filters in teamAllCartsReportServices.js). Date columns still
+  // filter the loaded page only.
+  const serverColumnFilters = useMemo(() => {
+    const serverKeys = new Set<string>([
+      "cart_number",
+      "username",
+      "cart_status",
+      "to_customer_name",
+      "grand_total",
+      ...uniqueCustomFields.map((f: any) => f.fieldName),
+    ]);
+    const out: Record<string, string> = {};
+    Object.entries(lazyState.filters).forEach(([key, meta]: [string, any]) => {
+      const value = meta && "value" in meta ? meta.value : null;
+      if (
+        serverKeys.has(key) &&
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+      ) {
+        out[key] = String(value).trim();
+      }
+    });
+    return out;
+  }, [lazyState.filters, uniqueCustomFields]);
+  const serverColumnFiltersKey = JSON.stringify(serverColumnFilters);
+
+  // A server-side column filter changed (Enter pressed): reload from page 1.
+  const skipFirstColumnFilterLoad = useRef(true);
+  useEffect(() => {
+    if (skipFirstColumnFilterLoad.current) {
+      skipFirstColumnFilterLoad.current = false;
+      return;
+    }
+    setPage(0);
+    loadOrders(0, rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverColumnFiltersKey]);
 
   const onSelectionChange = (event: { value: any[] }) => {
     const value = event.value;
@@ -1666,8 +1669,6 @@ const TeamPurchaseOrderDataReportsView = ({
               rowsPerPageOptions={[25, 50, 100, 200]}
               // dataKey="id"
               filterDisplay="row"
-              onFilter={onFilter}
-              filters={lazyState.filters}
               onSort={onSort}
               sortField={lazyState.sortField ?? undefined}
               sortOrder={lazyState.sortOrder ?? undefined}
@@ -1748,8 +1749,17 @@ const TeamPurchaseOrderDataReportsView = ({
                   sortable={col.sortableCol !== false}
                   filter={col.filterCol !== false}
                   filterField={col.key}
-                  filterPlaceholder="Search"
-                  filterMatchMode={col.filterMatchMode || "contains"}
+                  showFilterMenu={false}
+                  showClearButton={false}
+                  filterElement={
+                    <ColumnFilterInput
+                      value={draftFilters[col.key] ?? ""}
+                      onChange={(v) =>
+                        setDraftFilters((prev) => ({ ...prev, [col.key]: v }))
+                      }
+                      onEnter={applyColumnFilters}
+                    />
+                  }
                   headerStyle={{
                     width: col.width || "150px",
                     position: "sticky",

@@ -715,7 +715,8 @@ export const fetchPaymentTypeApi = async (
 
   const requestData = {
     table: "payment_types",
-    columns: "id,payment_type_name",
+    columns:
+      "id,payment_type_name,credit_series_prefix,credit_sr_manual,debit_series_prefix,debit_sr_manual",
     where: ["isDelete=0"],
     request_flag: 0,
     order: `{"id":"DESC"}`,

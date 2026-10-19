@@ -50,7 +50,7 @@ import {
   ITaskView,
   updateStageStatusRadioButton,
 } from "../../left-side/header/Setting/taskList/TaskListController";
-import Visitsview from "../../left-side/header/Setting/visits/VisitView";
+import { lazyView } from "../../../common/lazyView";
 import { ICompany } from "../../left-side/LeftSideController";
 import { fetchDepartmentsApi } from "../../left-side/list-company/EditTeamMemberController";
 import { ITaskCreate } from "../create-task/CreateTaskController";
@@ -67,6 +67,8 @@ import {
   tryPdfmeViewPrint,
   assignTaskTeamMembers,
 } from "./TaskChatRightController";
+
+const Visitsview = lazyView(() => import("../../left-side/header/Setting/visits/VisitView"));
 
 interface IPropRightView {
   isDashBoardOpen?: boolean;

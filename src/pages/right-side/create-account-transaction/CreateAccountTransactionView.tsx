@@ -10,6 +10,8 @@ import {
 import { TReactSetState } from "../../../helpers/AppType";
 import useMiracleFlagStore from "../../../store/miracle/useMiracleFlagStore";
 import CartLinkField from "./CartLinkField";
+import ReverseVoucherSeriesField from "./ReverseVoucherSeriesField";
+import VoucherSeriesField from "./VoucherSeriesField";
 import { IAccountTransaction } from "../list-account-transaction/ListAccounTransactionController";
 import { syncMiracleAccountEntry } from "../list-account-transaction/ListAccounTransactionController";
 import {
@@ -242,6 +244,11 @@ const CreateAccountTransactionView = ({
                             />
                           </div>
                         </div>
+                        <VoucherSeriesField
+                          transactionId={accountTransactionItem?.id}
+                          savedVoucherNumber={accountTransactionItem?.voucher_number}
+                        />
+                        {!accountTransactionItem?.id && <ReverseVoucherSeriesField />}
                         <CartLinkField
                           contact_id={contact_id}
                           transactionId={accountTransactionItem?.id}
