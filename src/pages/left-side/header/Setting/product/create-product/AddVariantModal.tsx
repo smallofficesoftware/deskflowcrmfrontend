@@ -1,0 +1,176 @@
+import { FC, useState } from "react";
+import { toast } from "react-toastify";
+import {
+  DEFAULT_STATUS_CODE_SUCCESS,
+  MESSAGE_UNKNOWN_ERROR_OCCURRED,
+} from "../../../../../../helpers/AppConstants";
+import { axiosInstance } from "../../../../../../services/axiosInstance";
+import { IVariantAttribute } from "./ProductVariantSection";
+import { IProductCreate } from "./CreateProductController";
+
+// Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt,
+// Q4): a variant copies its parent's non-varying fields (category/unit/tax/description)
+// server-side on /create-product - this modal only asks for what actually varies
+// (the attribute combination + rate), not the full ~50-field product form.
+
+interface AddVariantModalProps {
+  show: boolean;
+  onHide: () => void;
+  parentProduct: IProductCreate & { id: number };
+  attributes: IVariantAttribute[];
+  onCreated: () => void;
+}
+
+const AddVariantModal: FC<AddVariantModalProps> = ({
+  show,
+  onHide,
+  parentProduct,
+  attributes,
+  onCreated,
+}) => {
+  const [selectedValues, setSelectedValues] = useState<{ [attributeId: number]: number }>({});
+  const [rate, setRate] = useState(parentProduct.rate || "0");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  if (!show) return null;
+
+  const getUUID = localStorage.getItem("UUID");
+
+  const onSubmit = async () => {
+    const valueIds = attributes
+      .filter((a) => a.values.length > 0)
+      .map((a) => selectedValues[a.id]);
+
+    if (valueIds.some((v) => !v)) {
+      setErrorMessage("Please pick a value for every attribute.");
+      return;
+    }
+    setErrorMessage("");
+    setSaving(true);
+
+    try {
+      const label = attributes
+        .filter((a) => selectedValues[a.id])
+        .map((a) => a.values.find((v) => v.id === selectedValues[a.id])?.value)
+        .filter(Boolean)
+        .join(" / ");
+
+      const formData = new FormData();
+      formData.append("a_application_login_id", getUUID || "");
+      formData.append("product_name", `${parentProduct.product_name} - ${label}`);
+      formData.append("product_code", parentProduct.product_code || "");
+      formData.append("product_description", parentProduct.product_description || "");
+      formData.append("category_id", parentProduct.category_id || "");
+      formData.append("unit", parentProduct.unit || "");
+      formData.append("unit_id", String(parentProduct.unit_id || ""));
+      formData.append("product_group_id", parentProduct.product_group_id || "");
+      formData.append("GST", parentProduct.GST || "0");
+      formData.append("gst_id", String(parentProduct.gst_id || 0));
+      formData.append("hsn_code", parentProduct.hsn_code || "");
+      formData.append("rate", rate);
+      formData.append("net_rate", rate);
+      formData.append("is_serial_number", String(parentProduct.is_serial_number || 1));
+      formData.append("is_variant_parent", "0");
+      formData.append("parent_product_id", String(parentProduct.id));
+
+      const { data: createData } = await axiosInstance.post("create-product", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (createData.code !== 200 || createData.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(createData.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+
+      const newProductId =
+        createData.data?.item?.id || createData.data || createData.inserted_id;
+
+      await axiosInstance.post("set-variant-option-values", {
+        a_application_login_id: getUUID,
+        product_id: newProductId,
+        product_variant_attribute_value_ids: valueIds,
+      });
+
+      toast.success("Variant created");
+      onCreated();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content_label">
+        <h4 className="modal-title1 form_header_text">Add Variant</h4>
+        <div className="overflow-auto" style={{ maxHeight: "400px" }}>
+          <table className="table" border={0}>
+            <tbody>
+              {attributes
+                .filter((a) => a.values.length > 0)
+                .map((attribute) => (
+                  <tr key={attribute.id}>
+                    <td>
+                      <label className="mb-1 d-block">{attribute.attribute_name}</label>
+                      <select
+                        className="form-select"
+                        value={selectedValues[attribute.id] || ""}
+                        onChange={(e) =>
+                          setSelectedValues((prev) => ({
+                            ...prev,
+                            [attribute.id]: Number(e.target.value),
+                          }))
+                        }
+                      >
+                        <option value="">Select {attribute.attribute_name}</option>
+                        {attribute.values.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.value}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              <tr>
+                <td>
+                  <label className="mb-1 d-block">Rate</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={rate}
+                    onChange={(e) => setRate(e.target.value)}
+                  />
+                </td>
+              </tr>
+              {errorMessage && (
+                <tr>
+                  <td>
+                    <span className="text-danger">{errorMessage}</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="modal-buttons">
+          <button className="modal-button1" onClick={onHide} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            className="modal-button2"
+            style={{ color: "white" }}
+            onClick={onSubmit}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Create Variant"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AddVariantModal;

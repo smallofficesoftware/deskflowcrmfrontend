@@ -22,6 +22,7 @@ import {
 import FormikCustomSearchDropdown from "../../../../../../components/FormikCustomSearchDropdown";
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
 import ImageCropperToolModel from "../../../../../../components/model/ImageCroperToolModel";
+import ProductVariantSection from "./ProductVariantSection";
 import {
   BIG_TEXT_LENGTH,
   SMALL_TEXT_LENGTH,
@@ -1113,6 +1114,19 @@ const CreateProductView = ({
                               </Field>
                             </div>
                           </div>
+                          {!!values.is_variant_parent && productToEdit?.id && (
+                            <ProductVariantSection
+                              parentProduct={{ ...values, id: productToEdit.id }}
+                            />
+                          )}
+                          {!!values.is_variant_parent && !productToEdit?.id && (
+                            <div className="col-12">
+                              <p className="text-muted">
+                                Save this product first, then come back to add attributes
+                                and variants.
+                              </p>
+                            </div>
+                          )}
                           {isInnerFieldsOn && (
                             <div className="col-12 col-md-3">
                               <div className="form-group">
