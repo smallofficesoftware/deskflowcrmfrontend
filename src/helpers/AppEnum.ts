@@ -174,8 +174,9 @@ export enum PAGE_ID {
   SERIAL_NUMBER_STOCK_CHECK = 185,
   // Serial Number Trace report (full history of one serial). Migration
   // 20261019120000-add-serial-number-trace-application-page.js (master DB).
-  // id 197 = next after attribute_master (196) on local; re-verify per env.
-  SERIAL_NUMBER_TRACE = 197,
+  // id 199 = next after workspaces (198) on demo; re-verify per env (the admin
+  // panel shares a_application_pages and numbers its pages differently).
+  SERIAL_NUMBER_TRACE = 199,
 
   // Add more pages as needed
 }
