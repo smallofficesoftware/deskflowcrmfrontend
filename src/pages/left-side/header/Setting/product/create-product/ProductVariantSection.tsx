@@ -6,7 +6,10 @@ import {
 } from "../../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../../services/axiosInstance";
 import AddVariantModal from "./AddVariantModal";
+import GenerateVariantsModal from "./GenerateVariantsModal";
+import CreateProductView from "./CreateProductView";
 import { IProductCreate } from "./CreateProductController";
+import { IProductView } from "../ProductController";
 
 // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
 // Rendered inside CreateProductView.tsx only once a product is saved with
@@ -40,6 +43,9 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
   const [newAttributeName, setNewAttributeName] = useState("");
   const [newValueInputs, setNewValueInputs] = useState<{ [attributeId: number]: string }>({});
   const [showAddVariant, setShowAddVariant] = useState(false);
+  const [showGenerateVariants, setShowGenerateVariants] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<IVariantRow | null>(null);
+  const [variantRefresh, setVariantRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const getUUID = localStorage.getItem("UUID");
@@ -76,6 +82,15 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
     setLoading(true);
     Promise.all([fetchAttributes(), fetchVariants()]).finally(() => setLoading(false));
   }, [parentProduct?.id]);
+
+  // CreateProductView (reused below to edit a variant's own fields - image, rate, etc.)
+  // calls its setRefreshProduct(true) on a successful save, same as it does for any
+  // normal product edit - this just forwards that signal into a variant-list refetch.
+  useEffect(() => {
+    if (!variantRefresh) return;
+    setVariantRefresh(false);
+    fetchVariants();
+  }, [variantRefresh]);
 
   const addAttribute = async () => {
     if (!newAttributeName.trim()) return;
@@ -202,15 +217,26 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
 
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5 className="mb-0">Variants</h5>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          disabled={!hasAnyValue}
-          title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
-          onClick={() => setShowAddVariant(true)}
-        >
-          + Add Variant
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            disabled={!hasAnyValue}
+            title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
+            onClick={() => setShowGenerateVariants(true)}
+          >
+            Generate All Combinations
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            disabled={!hasAnyValue}
+            title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
+            onClick={() => setShowAddVariant(true)}
+          >
+            + Add Variant
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -228,7 +254,13 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
           </thead>
           <tbody>
             {variants.map((v) => (
-              <tr key={v.id}>
+              <tr
+                key={v.id}
+                role="button"
+                onClick={() => setEditingVariant(v)}
+                style={{ cursor: "pointer" }}
+                title="Click to edit this variant"
+              >
                 <td>{v.product_name}</td>
                 <td>
                   {v.variant_options
@@ -252,6 +284,30 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
             setShowAddVariant(false);
             fetchVariants();
           }}
+        />
+      )}
+
+      {showGenerateVariants && (
+        <GenerateVariantsModal
+          show={showGenerateVariants}
+          onHide={() => setShowGenerateVariants(false)}
+          parentProduct={parentProduct}
+          attributes={attributes}
+          existingVariants={variants}
+          onCreated={() => {
+            setShowGenerateVariants(false);
+            fetchVariants();
+          }}
+        />
+      )}
+
+      {editingVariant && (
+        <CreateProductView
+          show={!!editingVariant}
+          onHide={() => setEditingVariant(null)}
+          productToEdit={editingVariant as unknown as IProductView}
+          headerName="Edit Variant"
+          setRefreshProduct={setVariantRefresh}
         />
       )}
     </div>
