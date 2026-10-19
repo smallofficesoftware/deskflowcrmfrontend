@@ -99,6 +99,7 @@ import ContactTaskListView from "./contact-task-list/ContactTaskListView";
 import TaskChatRightSide from "./task-chat/TaskChatRightSide";
 import CreateTaskView from "./create-task/CreateTaskView";
 import EmailSendView from "./EmailSend/EmailSendView";
+import SwitchWorkspaceModal from "../../components/model/SwitchWorkspaceModal";
 import ListAccountTransactionView from "./list-account-transaction/ListAccountTransactionView";
 import ListOrderView from "./list-order/ListOrderView";
 import {
@@ -243,6 +244,7 @@ const RightView = ({
   const [dropdownOpenCreateOrder, setDropdownOpenCreateOrder] = useState(false);
   const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>("");
   const [isMainWorkspace, setIsMainWorkspace] = useState<boolean>(true);
+  const [showSwitchWorkspace, setShowSwitchWorkspace] = useState(false);
 
   useEffect(() => {
     const fetchCurrentWorkspace = async () => {
@@ -3643,6 +3645,10 @@ const RightView = ({
 
   return (
     <>
+      <SwitchWorkspaceModal
+        show={showSwitchWorkspace}
+        onHide={() => setShowSwitchWorkspace(false)}
+      />
       {isTaskRightSideopen == false && (
         <div
           className="Right-Container"
@@ -6290,13 +6296,16 @@ const RightView = ({
                                           }`,
                                         fontSize: "13px",
                                         fontWeight: 600,
+                                        cursor: "pointer",
                                         color:
                                           item.parent_company_id === null ||
                                             item.parent_company_id === undefined
                                             ? "#f58634"
                                             : "#475569",
                                       }}
-                                      title={`Active Workspace: ${item.company_name}`}
+                                      role="button"
+                                      onClick={() => setShowSwitchWorkspace(true)}
+                                      title={`Active Workspace: ${item.company_name} - click to switch`}
                                     >
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
@@ -6333,6 +6342,17 @@ const RightView = ({
                                           ? "Main Company"
                                           : "Workspace"}
                                       </span>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 19 20"
+                                        width="12"
+                                        height="12"
+                                      >
+                                        <path
+                                          fill="currentColor"
+                                          d="M3.8 6.7l5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"
+                                        />
+                                      </svg>
                                     </div>
                                   )}
                                   {item.expiry_msg && (
