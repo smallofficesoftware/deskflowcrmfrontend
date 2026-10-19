@@ -76,6 +76,7 @@ import PrintSettingModal from "../PrintSettingModal";
 import RibbonBanner from "../RibbonBedgetLeftSide/RibbonBannerLeft";
 import { whatsappTemplateCloudeSend } from "../whatsapp_template_sender/WhatsappTemplateSenderController";
 import { startWorkflow } from "../workflowConformatioModel/workFlowModelController";
+import { fetchGSTTaxApi } from "../../../pages/left-side/header/Setting/product/create-product/CreateProductController";
 import ApproveModel from "./ApproveModel";
 import AttachDocumentModel from "./AttachDoument/AttachDocumentModel";
 import {
@@ -375,6 +376,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [newOrderShowNumAfterConversion, setnewOrderShowNumAfterConversion] =
     useState<number | undefined>(undefined);
   const [dynamicGstSwitch, setDynamicGstSwitch] = useState<any>();
+  const [gstTaxList, setGstTaxList] = useState<
+    { id: number; value: string; name: string }[]
+  >([]);
+  useEffect(() => {
+    fetchGSTTaxApi(setGstTaxList);
+  }, []);
   const [dynamicTitle, setDynamicTitle] = useState<string>("");
   const [dynamicTitleColour, setDynamicTitleColour] = useState<string>("");
   const [dynamicImageView, setDynamicImageView] = useState<number[]>([]);
@@ -3957,19 +3964,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       }),
     );
   };
-  const handleGstChange = (
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = e.target.value;
-
-    if (!/^\d*\.?\d{0,2}$/.test(value)) return;
-
-    if (Number(value) > 100) {
-      toast.error("GST % cannot be more than 100");
-      return;
-    }
-
+  const handleGstSelect = (index: number, value: string) => {
+    const gst = Number(value) || 0;
     setCart((prevCart) =>
       prevCart.map((item, i) => {
         if (i !== index) return item;
@@ -3979,21 +3975,12 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
           discountType === "percentage"
             ? Number(item.item_discount_pct)
             : Number(item.item_discount_pr),
-          Number(value) || 0,
+          gst,
           discountType,
         );
 
-        // raw string kept while typing so "9." and "2.5" work; handleGstBlur turns it back into a number
-        return { ...item, GST: value as unknown as number, net_rate: result.net };
+        return { ...item, GST: gst, net_rate: result.net };
       }),
-    );
-  };
-
-  const handleGstBlur = (index: number) => {
-    setCart((prevCart) =>
-      prevCart.map((item, i) =>
-        i === index ? { ...item, GST: Number(item.GST) || 0 } : item,
-      ),
     );
   };
 
@@ -9208,22 +9195,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                 ?.getSize(),
                                             }}
                                           >
-                                            <input
-                                              className="form-control"
-                                              type="text"
+                                            <select
+                                              className="form-select"
                                               title="GST %"
-                                              placeholder="GST %"
-                                              value={item.GST}
+                                              value={String(Number(item.GST) || 0)}
                                               onChange={(e) =>
-                                                handleGstChange(index, e)
-                                              }
-                                              onBlur={() =>
-                                                handleGstBlur(index)
+                                                handleGstSelect(index, e.target.value)
                                               }
                                               style={{ textAlign: "right" }}
-                                              onFocus={(e) =>
-                                                e.target.select()
-                                              }
                                               disabled={
                                                 orderTypesNameFind !==
                                                   "Quotation" &&
@@ -9239,7 +9218,27 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                                   ? true
                                                   : false
                                               }
-                                            />
+                                            >
+                                              {!gstTaxList.some(
+                                                (t) =>
+                                                  Number(t.value) ===
+                                                  (Number(item.GST) || 0),
+                                              ) && (
+                                                <option
+                                                  value={String(Number(item.GST) || 0)}
+                                                >
+                                                  {Number(item.GST) || 0}%
+                                                </option>
+                                              )}
+                                              {gstTaxList.map((t) => (
+                                                <option
+                                                  key={t.id}
+                                                  value={String(Number(t.value))}
+                                                >
+                                                  {t.name || `${t.value}%`}
+                                                </option>
+                                              ))}
+                                            </select>
                                           </td>
                                           <td
                                             className="text-end"
