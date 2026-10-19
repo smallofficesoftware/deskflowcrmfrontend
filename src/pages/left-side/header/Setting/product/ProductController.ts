@@ -49,6 +49,7 @@ export interface IProductView {
   product_barcode_number: string;
   miracle_uom_name?: string;
   is_serial_number: any;
+  is_variant_parent?: number;
 }
 
 export interface IProductStockMovement {

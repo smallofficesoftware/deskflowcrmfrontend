@@ -76,6 +76,11 @@ export interface IProductCreate {
   hsn_code: string;
   miracle_uom_name?: string;
   is_serial_number: any;
+  // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
+  // "Has Variants" in the UI - 1 = this is a non-sellable template row (e.g. "T-Shirt"
+  // itself); its real variants are separate product rows with parent_product_id set to
+  // this one's id. Omitted/0 = a normal "Simple" product, today's only behavior.
+  is_variant_parent?: number;
   products_column_number_1?: number | string;
   products_column_number_2?: number | string;
   products_column_number_3?: number | string;
@@ -132,6 +137,7 @@ export const createProductInitialValues = (
   productToEdit: IProductCreate | undefined,
 ): IProductCreate => ({
   is_serial_number: productToEdit?.is_serial_number || 1,
+  is_variant_parent: productToEdit?.is_variant_parent ? 1 : 0,
   product_name: productToEdit?.product_name || "",
   product_alias: productToEdit?.product_alias || "",
   product_code: productToEdit?.product_code || "",
@@ -397,6 +403,7 @@ const appendCommonFormData = (
   formData.append("product_types", values.product_types || "");
   formData.append("product_name", values.product_name || "");
   formData.append("is_serial_number", values.is_serial_number || "");
+  formData.append("is_variant_parent", String(values.is_variant_parent ? 1 : 0));
   formData.append("miracle_uom_name", values.miracle_uom_name || "");
   formData.append("product_alias", values.product_alias || "");
   formData.append("product_code", values.product_code || "");

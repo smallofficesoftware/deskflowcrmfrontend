@@ -516,6 +516,13 @@ export const fetchProductApiForOrder = async (
     contact_id: Contact?.id,
     cart_type: isOrderShowNum,
     wherecall,
+    // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt,
+    // 4.3): a variant "parent" (e.g. "T-Shirt" itself) is a non-sellable template row -
+    // only this cart-building picker excludes it; Settings > Products, BOM, price lists,
+    // stock adjustment, and reports all still need to see/manage it, so this is a new,
+    // explicit flag rather than reusing cart_type/wherecall (both already carry other
+    // meaning for other callers of the same `product` endpoint).
+    excludeVariantParents: true,
   };
 
   try {
