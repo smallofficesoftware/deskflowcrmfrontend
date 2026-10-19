@@ -197,7 +197,10 @@ const SerialNumberStockMovement = ({
         productProductTypesList.find(
           (t) => Number(t.id) === Number(item.cart_type),
         )?.order_type || "",
-      reference: item.cart_number,
+      reference: [
+        item.cart_number,
+        ...(item.linked_documents || []).map((doc) => doc.cart_number),
+      ].join(", "),
       outer_qty: item.item_outer_quantity
         ? `${item.item_outer_quantity} / ${item.outer_qty_unit}`
         : "",
@@ -567,6 +570,17 @@ const SerialNumberStockMovement = ({
                                 >
                                   {item.cart_number}
                                 </span>
+                                {item.linked_documents?.map((doc) => (
+                                  <div key={`${doc.cart_type}-${doc.cart_number}`}>
+                                    <small className="text-muted">
+                                      {productProductTypesList.find(
+                                        (t) =>
+                                          Number(t.id) === Number(doc.cart_type),
+                                      )?.order_type || "Converted"}
+                                      : {doc.cart_number}
+                                    </small>
+                                  </div>
+                                ))}
                               </td>
                               {isOuterActive && (
                                 <td className="text-end">

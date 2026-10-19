@@ -65,6 +65,9 @@ export interface IProductStockMovement {
   outer_qty_unit: string;
   inner_qty_unit: string;
   to_customer_name: string;
+  // Docs converted from this row (e.g. dispatch -> invoice); only returned
+  // by get-serial-number-stock.
+  linked_documents?: { cart_type: number; cart_number: string }[];
 }
 // Task/Support Ticket or Visit filled in against this exact serial number
 // (task_managements.serial_number / visits.serial_number) - returned

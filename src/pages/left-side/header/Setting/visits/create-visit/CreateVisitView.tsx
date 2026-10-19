@@ -16,7 +16,7 @@ import {
   getCustomFieldDatavalues,
 } from "../../../../../../common/SharedFunction";
 import FormikCustomSearchDropdown from "../../../../../../components/FormikCustomSearchDropdown";
-import SerialProductFields from "../../../../../../components/SerialProductFields";
+import ProductOrSerialFields from "../../../../../../components/ProductOrSerialFields";
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
 import { TEXTAREA_TEXT_LENGTH } from "../../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../../helpers/AppEnum";
@@ -250,6 +250,7 @@ const CreateVisitView = ({
       formData.append("visit_type_id", values.visit_type_id?.toString() || "");
       formData.append("remark", values.remark || "");
       formData.append("serial_number", values.serial_number || "");
+      formData.append("product_id", values.product_id?.toString() || "");
       formData.append(
         "a_application_login_id",
         values.a_application_login_id?.toString() || "",
@@ -1203,7 +1204,7 @@ const CreateVisitView = ({
 
                         {createEditFlag === "createEdit" && (
                           <div className="col-12 col-md-6">
-                            <SerialProductFields requiredOnSave={false} />
+                            <ProductOrSerialFields />
                           </div>
                         )}
 

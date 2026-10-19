@@ -101,6 +101,7 @@ export const createProductInitialValues = (
   contact_id: VisitToEdit?.contactId || "",
   person_name: VisitToEdit?.contactName || "",
   serial_number: VisitToEdit?.serial_number || "",
+  product_id: VisitToEdit?.product_id || "",
   is_serial_required: false,
   status_remark: VisitToEdit?.status_remark || "",
   a_application_login_id:

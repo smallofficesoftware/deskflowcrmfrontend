@@ -460,6 +460,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewSerialNumberTrace = useCheckUserPermission(
+    PAGE_ID.SERIAL_NUMBER_TRACE,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewMyTeamList = useCheckUserPermission(
     PAGE_ID.TEAM_MEMBER_WITH_ACCESS_RIGHT,
     PERMISSION_TYPE.VIEW,
@@ -796,6 +800,10 @@ const SideView = ({ profileDetail }: IProp) => {
       canViewSerialNumberStockCheck &&
       name === "serial_number_stock_check"
     ) {
+      setActiveView("Inventory");
+      setAppliedReportType(name);
+      return;
+    } else if (canViewSerialNumberTrace && name === "serial_number_trace") {
       setActiveView("Inventory");
       setAppliedReportType(name);
       return;

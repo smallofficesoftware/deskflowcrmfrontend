@@ -66,6 +66,7 @@ import ProductCategoryReport from "../dashboard/Reports/Product Category Report/
 import ProductGroupReport from "../dashboard/Reports/Product Group Report/ProductGroupReport";
 import ProductInventoryReport from "../dashboard/Reports/Product Inventory/ProductInventory";
 import SerialNumberStockMovement from "../left-side/header/Setting/product/SerialNumberStockMovement";
+import SerialNumberTrace from "../left-side/header/Setting/product/SerialNumberTrace";
 import ProductPendingView from "../dashboard/Reports/Product Pending/productPendingView";
 import ProductSalesPurchaseReport from "../dashboard/Reports/Product Sales & Purchase/productSalesPurchaseView";
 import ProductUnitReport from "../dashboard/Reports/Product Unit Report/ProductUnitReport";
@@ -409,6 +410,9 @@ const BottomView = ({
         )}
         {appliedReportType === "serial_number_stock_check" && (
           <SerialNumberStockMovement show={true} onHide={handleonHide} />
+        )}
+        {appliedReportType === "serial_number_trace" && (
+          <SerialNumberTrace show={true} onHide={handleonHide} />
         )}
         {appliedReportType === "My_Team_Report" && (
           <MyTeamReport

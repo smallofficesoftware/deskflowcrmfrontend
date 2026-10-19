@@ -19,7 +19,7 @@ import {
 } from "../../../common/SharedFunction";
 import CustomSearchDropdown from "../../../components/CustomSearchDropdown";
 import FormikCustomSearchDropdown from "../../../components/FormikCustomSearchDropdown";
-import SerialProductFields from "../../../components/SerialProductFields";
+import ProductOrSerialFields from "../../../components/ProductOrSerialFields";
 import AddCategoryModal from "../../../components/model/AddCategoryModal";
 import MultiSelect from "../../../components/MultiSelect";
 import {
@@ -1406,7 +1406,7 @@ const CreateTaskView = ({
                                     />
                                   </div>
                                 </div>
-                                <SerialProductFields requiredOnSave={false} />
+                                <ProductOrSerialFields />
                                 <div className="w-100 mb-3">
                                   <div className="form-group text-start">
                                     <label

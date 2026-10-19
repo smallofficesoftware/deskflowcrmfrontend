@@ -32,6 +32,7 @@ export interface ITaskCreate {
   is_notification_sand_email?: number;
   reference_contact?: number | string;
   serial_number?: string;
+  product_id?: number | string;
   is_serial_required?: boolean;
   task_status: number | undefined,
   column_number_1: number | string;
@@ -171,6 +172,7 @@ export const createTaskInitialValues = (
       is_notification_sand_email: 0,
       reference_contact: "",
       serial_number: "",
+      product_id: "",
       is_serial_required: false,
       task_status: 0,
       column_number_1: "",
@@ -303,6 +305,7 @@ export const createTaskInitialValues = (
       parseInt(String(productToEdit.is_notification_sand_email)) || 0,
     reference_contact: productToEdit.reference_contact || "",
     serial_number: productToEdit.serial_number || "",
+    product_id: productToEdit.product_id || "",
     is_serial_required: false,
     task_status: parseInt(String(productToEdit.task_priority)) || 0,
     column_number_1: productToEdit?.column_number_1 || "",
@@ -502,6 +505,7 @@ export const updateTarget = async (
   );
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "");
   formData.append("serial_number", expenseTypeInput.serial_number || "");
+  formData.append("product_id", expenseTypeInput.product_id?.toString() || "");
 
   // if (customFormList && customFormList.length > 0) {
   //   customFormList.forEach((field) => {
@@ -870,6 +874,7 @@ export const createTask = async (
   formData.append("a_application_login_id", getUUID || "");
   formData.append("is_support_ticket", supportTicketFlag?.toString() || "0");
   formData.append("serial_number", expenseTypeInput.serial_number || "");
+  formData.append("product_id", expenseTypeInput.product_id?.toString() || "");
 
   const ATTACHMENT_COLUMNS = [
     "task_column_attechments_1",

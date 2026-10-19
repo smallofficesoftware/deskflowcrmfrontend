@@ -479,6 +479,14 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "qrCode",
         description: "Track every transaction for a specific serial number.",
       },
+      {
+        label: "Serial Number Trace",
+        value: "serial_number_trace",
+        pageId: PAGE_ID.SERIAL_NUMBER_TRACE,
+        icon: "qrCode",
+        description:
+          "Full history of a serial number: documents, tasks and visits.",
+      },
     ],
   },
 
