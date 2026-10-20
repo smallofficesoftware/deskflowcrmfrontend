@@ -103,6 +103,13 @@ const CreateProductView = ({
     undefined,
   );
   const editId = productToEdit?.id ?? createdProductId;
+  // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 3. A variant
+  // is a real products row with parent_product_id set - that's never editable here, so
+  // it's read straight off the static prop, not Formik values (unlike is_variant_parent,
+  // a live toggle - see isParentRow below, computed inside the Formik render instead).
+  const isVariantRow = !!productToEdit?.parent_product_id;
+  type TProductTab = "basic" | "variants" | "photos" | "custom";
+  const [activeTab, setActiveTab] = useState<TProductTab>("basic");
   const canAddCategory = useCheckUserPermission(
     PAGE_ID.CATEGORY,
     PERMISSION_TYPE.ADD,
@@ -956,11 +963,64 @@ const CreateProductView = ({
                 console.log("valuesvaluesvaluesvalues", values);
 
                 setFieldValueRef.current = setFieldValue;
+
+                // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 3.
+                // isParentRow depends on the live "Has Variants" toggle, so (unlike
+                // isVariantRow above) it has to be computed here, inside Formik's
+                // render where `values` exists. Variants/Photos tabs also need a saved
+                // row (editId) - same "save first" gating already built for each section.
+                const isParentRow = !isVariantRow && !!values.is_variant_parent;
+                const tabs: { key: TProductTab; label: string }[] = [
+                  { key: "basic", label: "Basic Info" },
+                  ...(isParentRow && editId ? [{ key: "variants" as TProductTab, label: "Variants" }] : []),
+                  ...(!isParentRow && editId ? [{ key: "photos" as TProductTab, label: "Photos" }] : []),
+                  { key: "custom", label: "Custom Fields" },
+                ];
+                // Defensive fallback instead of a useEffect (this closure isn't a real
+                // React component - Formik just calls it as a function during its own
+                // render - so hooks here would attach to the OUTER component's hook
+                // order in a fragile way): if the tab the user was on just disappeared
+                // (e.g. toggled off "Has Variants" while the Variants tab was open),
+                // fall back to Basic Info for this render rather than showing nothing.
+                const effectiveTab: TProductTab = tabs.some((t) => t.key === activeTab)
+                  ? activeTab
+                  : "basic";
+
+                // Final field classification, confirmed field-by-field in chat (see the
+                // plan doc section 1) - product_name/product_code are deliberately NOT
+                // here: every row (Simple, Parent, Variant) always shows its own name/code,
+                // so those two fields stay unconditional below, same as before this phase.
+                const showSharedField = !isVariantRow; // shared fields: Simple + Parent, never Variant
+                const showVariantField = !isParentRow; // variant-specific fields: Simple + Variant, never Parent
+
                 return (
                   <Form>
                     <div className="  mt-3    d-flex justify-content-center">
                       <div className="mb-3 py-4  ">
                         <div className="row  mx-0 px-2 gy-3  d-flex ">
+                          {tabs.length > 1 && (
+                            <div className="col-12 d-flex gap-2 mb-2">
+                              {tabs.map((tab) => (
+                                <button
+                                  key={tab.key}
+                                  type="button"
+                                  onClick={() => setActiveTab(tab.key)}
+                                  className="btn btn-sm"
+                                  style={
+                                    effectiveTab === tab.key
+                                      ? { backgroundColor: "#f58634", color: "#fff", border: "none" }
+                                      : { backgroundColor: "transparent", color: "#000", border: "1px solid #ccc" }
+                                  }
+                                >
+                                  {tab.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {effectiveTab === "basic" && (
+                          <>
+                          {showSharedField && (
+                          <>
                           <div className="col-6 ">
                             <div className="form-group">
                               <label
@@ -1056,6 +1116,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          </>
+                          )}
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1082,6 +1144,7 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          {showSharedField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1103,6 +1166,7 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
                           {/*
                             Multi-variant products
                             (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
@@ -1115,48 +1179,44 @@ const CreateProductView = ({
                             (editId/createdProductId above) instead of closing, so the
                             Variant Attributes section below appears right away.
                           */}
-                          <div className="col-12 col-md-4">
-                            <div className="form-group">
-                              <label
-                                htmlFor="is_variant_parent"
-                                className="mb-1 form_label"
-                              >
-                                Product Type
-                              </label>
-                              <Field name="is_variant_parent">
-                                {({ field, form }: any) => (
-                                  <div className="form-check form-switch">
-                                    <input
-                                      type="checkbox"
-                                      className="form-check-input"
-                                      id="is_variant_parent"
-                                      {...field}
-                                      checked={!!field.value}
-                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        form.setFieldValue(
-                                          "is_variant_parent",
-                                          e.target.checked ? 1 : 0,
-                                        );
-                                      }}
-                                    />
-                                    <label
-                                      htmlFor="is_variant_parent"
-                                      className="form-check-label ms-2"
-                                    >
-                                      {field.value ? "Has Variants" : "Simple"}
-                                    </label>
-                                  </div>
-                                )}
-                              </Field>
+                          {/* A variant row never shows this - you can't turn a
+                              variant into its own "Has Variants" template. */}
+                          {!isVariantRow && (
+                            <div className="col-12 col-md-4">
+                              <div className="form-group">
+                                <label
+                                  htmlFor="is_variant_parent"
+                                  className="mb-1 form_label"
+                                >
+                                  Product Type
+                                </label>
+                                <Field name="is_variant_parent">
+                                  {({ field, form }: any) => (
+                                    <div className="form-check form-switch">
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        id="is_variant_parent"
+                                        {...field}
+                                        checked={!!field.value}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                          form.setFieldValue(
+                                            "is_variant_parent",
+                                            e.target.checked ? 1 : 0,
+                                          );
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor="is_variant_parent"
+                                        className="form-check-label ms-2"
+                                      >
+                                        {field.value ? "Has Variants" : "Simple"}
+                                      </label>
+                                    </div>
+                                  )}
+                                </Field>
+                              </div>
                             </div>
-                          </div>
-                          {!!values.is_variant_parent && editId && (
-                            <ProductVariantSection
-                              parentProduct={{ ...values, id: editId }}
-                            />
-                          )}
-                          {!values.is_variant_parent && editId && (
-                            <ProductPhotosSection productId={editId} />
                           )}
                           {!!values.is_variant_parent && !editId && (
                             <div className="col-12">
@@ -1166,6 +1226,20 @@ const CreateProductView = ({
                               </p>
                             </div>
                           )}
+                          </>
+                          )}
+                          {effectiveTab === "variants" && isParentRow && editId && (
+                            <ProductVariantSection
+                              parentProduct={{ ...values, id: editId }}
+                            />
+                          )}
+                          {effectiveTab === "photos" && !isParentRow && editId && (
+                            <ProductPhotosSection productId={editId} />
+                          )}
+                          {effectiveTab === "basic" && (
+                          <>
+                          {showVariantField && (
+                          <>
                           {isInnerFieldsOn && (
                             <div className="col-12 col-md-3">
                               <div className="form-group">
@@ -1498,6 +1572,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          </>
+                          )}
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1519,6 +1595,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          {showSharedField && (
+                          <>
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1617,7 +1695,11 @@ const CreateProductView = ({
                               </div>
                             </div>
                           )}
+                          </>
+                          )}
 
+                          {showVariantField && (
+                          <>
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1743,9 +1825,12 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          </>
+                          )}
                           <div className="col-12">
                             <hr />
                           </div>
+                          {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label htmlFor="rate" className="pb-2 form_label">
@@ -1787,6 +1872,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showSharedField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label className="pb-2 form_label">
@@ -1841,6 +1928,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1888,9 +1977,11 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
                           <div className="col-12">
                             <hr />
                           </div>
+                          {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1941,6 +2032,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showSharedField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -2007,6 +2100,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -2057,9 +2152,11 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
                           <div className="col-12">
                             <hr />
                           </div>
+                          {showVariantField && (
                           <div className="col-12 col-md-12">
                             <div className="add-source-of-type-section">
                               <p>
@@ -2124,6 +2221,8 @@ const CreateProductView = ({
                               </label>
                             </div>
                           </div>
+                          )}
+                          {showSharedField && (
                           <div className="col-12 col-md-12">
                             <div className="form-group">
                               <label
@@ -2162,6 +2261,8 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showVariantField && (
                           <div
                             className="form-check form-switch"
                             style={{ marginTop: "1.8%" }}
@@ -2184,6 +2285,11 @@ const CreateProductView = ({
                               }}
                             />
                           </div>
+                          )}
+                          </>
+                          )}
+                          {effectiveTab === "custom" && (
+                          <>
                           <div className="col-12">
                             <hr />
                           </div>
@@ -2202,6 +2308,8 @@ const CreateProductView = ({
                                   : null}
                               </React.Fragment>
                             ))}
+                          </>
+                          )}
                         </div>
 
                         <div className="col-12 col-12 pt-4 pe-3 d-flex justify-content-end modal-buttons">
