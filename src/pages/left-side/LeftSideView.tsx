@@ -3221,6 +3221,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                 showTaskTemplate ||
                 ShowSupportTicket ||
                 showProductUnit ||
+                showAttributeMaster ||
                 showProductGroup ||
                 showStockAdjustment ||
                 showwarehouse ? (
