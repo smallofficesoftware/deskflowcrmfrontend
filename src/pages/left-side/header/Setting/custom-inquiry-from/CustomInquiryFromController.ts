@@ -88,6 +88,15 @@ export const productApplicableModulesList = [
   { id: "13", order_type_display: "Dispatch" },
   { id: "16", order_type_display: "Proforma Invoice" },
 ];
+// Product Master only (plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt,
+// Phase 1) - whether this field shows on the variant Parent template, a Variant row, or
+// both. Ignored for every other module; default "Both" (3) keeps existing fields
+// showing exactly where they do today.
+export const variantScopeOptions = [
+  { value: "3", label: "Both" },
+  { value: "1", label: "Parent Only" },
+  { value: "2", label: "Variant Only" },
+];
 export interface ICustomInquiryFromList {
   id: number;
   title: string;
@@ -106,6 +115,7 @@ export interface ICustomInquiryFromList {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  variant_scope?: number;
   display_on?: number;
   stage_ids?: string | null;
   calc_config?: string | null;
@@ -125,6 +135,7 @@ interface IAddCustomInquiryFromObj {
   validation_type: number;
   third_party_field_name?: string;
   applicable_modules?: string;
+  variant_scope?: number;
   display_on?: number;
   stage_ids?: string | null;
   calc_config?: string | null;
@@ -372,6 +383,7 @@ export const createCustomInquiryFrom = async (
     validation_type: customInquiryFromInput.validation_type,
     third_party_field_name: customInquiryFromInput.third_party_field_name,
     applicable_modules: customInquiryFromInput.applicable_modules,
+    variant_scope: customInquiryFromInput.variant_scope ?? 3,
     display_on: customInquiryFromInput.display_on ?? 1,
     stage_ids: customInquiryFromInput.stage_ids ?? null,
     calc_config: customInquiryFromInput.calc_config,
@@ -423,6 +435,7 @@ export const updateCustomInqFrom = async (
       validation_type: customInquiryFromInput.validation_type,
       third_party_field_name: customInquiryFromInput.third_party_field_name,
       applicable_modules: customInquiryFromInput.applicable_modules,
+      variant_scope: customInquiryFromInput.variant_scope ?? 3,
       display_on: customInquiryFromInput.display_on ?? 1,
       stage_ids: (customInquiryFromInput.display_on ?? 1) === 2 ? (customInquiryFromInput.stage_ids ?? null) : null,
       calc_config: customInquiryFromInput.calc_config ?? null,

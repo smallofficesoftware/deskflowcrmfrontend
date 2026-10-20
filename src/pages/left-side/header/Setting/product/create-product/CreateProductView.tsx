@@ -199,11 +199,25 @@ const CreateProductView = ({
     setIsModalImageTool(false);
   };
 
-  const isFieldForProductMaster = (f: any) => {
+  // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 1.
+  // `rowValues` is the live Formik values (or submitted values1) for the row being
+  // edited - needed because "Has Variants" (is_variant_parent) is a live toggle, not
+  // a static prop. `parent_product_id` is never an editable form field (set once at
+  // variant creation, never resurfaced in the UI), so that part reads productToEdit
+  // directly rather than rowValues.
+  const isFieldForProductMaster = (f: any, rowValues: any) => {
     if (f.form_type !== 4) return false;
-    if (!f.applicable_modules) return true;
-    const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
-    return mods.includes("4");
+    if (f.applicable_modules) {
+      const mods = String(f.applicable_modules).split(",").map((m: string) => m.trim());
+      if (!mods.includes("4")) return false;
+    }
+    const scope = Number(f.variant_scope) || 3;
+    if (scope === 3) return true;
+    const isVariant = !!productToEdit?.parent_product_id;
+    const isParent = !isVariant && !!rowValues?.is_variant_parent;
+    if (isParent) return scope === 1; // Parent Only
+    if (isVariant) return scope === 2; // Variant Only
+    return true; // Simple product - show regardless of scope
   };
 
   const handleSubmit = async (
@@ -217,7 +231,7 @@ const CreateProductView = ({
 
       const requiredCustomFields = customFormList.filter(
         (f) =>
-          isFieldForProductMaster(f) && f.required_or_not === 1 && f.data_type !== 7, // skip checkbox/switch
+          isFieldForProductMaster(f, values1) && f.required_or_not === 1 && f.data_type !== 7, // skip checkbox/switch
       );
 
       for (const field of requiredCustomFields) {
@@ -236,7 +250,7 @@ const CreateProductView = ({
       // 2. Min / Max length + Validation type checks for custom fields
       // ───────────────────────────────────────────────────────────────
       for (const item of customFormList) {
-        if (!isFieldForProductMaster(item)) continue;
+        if (!isFieldForProductMaster(item, values1)) continue;
 
         const fieldName = item.reference_column_name;
         const rawValue = values1[fieldName];
@@ -2172,7 +2186,7 @@ const CreateProductView = ({
                           {customFormList &&
                             customFormList.map((item) => (
                               <React.Fragment key={item.reference_column_name}>
-                                {isFieldForProductMaster(item)
+                                {isFieldForProductMaster(item, values)
                                   ? renderInputField(
                                       item,
                                       item.title,

@@ -50,6 +50,7 @@ export interface IProductView {
   miracle_uom_name?: string;
   is_serial_number: any;
   is_variant_parent?: number;
+  parent_product_id?: number;
 }
 
 export interface IProductStockMovement {
@@ -160,6 +161,8 @@ export interface ICustomFromList {
   min_limit: number;
   max_limit: number;
   validation_type: number;
+  applicable_modules?: string;
+  variant_scope?: number;
 }
 export const fetchCustomInqFromApiForProduct = async (
   setCustomFromList: TReactSetState<ICustomFromList[]>,
