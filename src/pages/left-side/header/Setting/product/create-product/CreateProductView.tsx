@@ -23,6 +23,7 @@ import FormikCustomSearchDropdown from "../../../../../../components/FormikCusto
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
 import ImageCropperToolModel from "../../../../../../components/model/ImageCroperToolModel";
 import ProductVariantSection from "./ProductVariantSection";
+import ProductPhotosSection from "./ProductPhotosSection";
 import {
   BIG_TEXT_LENGTH,
   SMALL_TEXT_LENGTH,
@@ -1153,6 +1154,9 @@ const CreateProductView = ({
                             <ProductVariantSection
                               parentProduct={{ ...values, id: editId }}
                             />
+                          )}
+                          {!values.is_variant_parent && editId && (
+                            <ProductPhotosSection productId={editId} />
                           )}
                           {!!values.is_variant_parent && !editId && (
                             <div className="col-12">
