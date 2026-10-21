@@ -5,6 +5,7 @@ import {
   MESSAGE_UNKNOWN_ERROR_OCCURRED,
 } from "../../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../../services/axiosInstance";
+import ConfirmationModal from "../../../../../../components/model/ConfirmationModal";
 import AddVariantModal from "./AddVariantModal";
 import GenerateVariantsModal from "./GenerateVariantsModal";
 import EditVariantAttributesModal from "./EditVariantAttributesModal";
@@ -59,6 +60,8 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
   const [showGenerateVariants, setShowGenerateVariants] = useState(false);
   const [editingVariant, setEditingVariant] = useState<IVariantRow | null>(null);
   const [editingAttributesVariant, setEditingAttributesVariant] = useState<IVariantRow | null>(null);
+  const [deletingVariant, setDeletingVariant] = useState<IVariantRow | null>(null);
+  const [deletingAttribute, setDeletingAttribute] = useState<IVariantAttribute | null>(null);
   const [variantRefresh, setVariantRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -144,10 +147,14 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
 
   const removeAttribute = async (id: number) => {
     try {
-      await axiosInstance.post("delete-variant-attribute", { id });
-      fetchAttributes();
-    } catch {
-      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      const { data } = await axiosInstance.post("delete-variant-attribute", { id });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        fetchAttributes();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
   };
 
@@ -173,10 +180,31 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
 
   const removeValue = async (id: number) => {
     try {
-      await axiosInstance.post("delete-variant-attribute-value", { id });
-      fetchAttributes();
-    } catch {
-      toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      const { data } = await axiosInstance.post("delete-variant-attribute-value", { id });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        fetchAttributes();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+  };
+
+  const deleteVariant = async (variant: IVariantRow) => {
+    try {
+      const { data } = await axiosInstance.post("delete-product", {
+        product_id: variant.id,
+        a_application_login_id: getUUID,
+      });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.success("Variant deleted");
+        fetchVariants();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
   };
 
@@ -192,7 +220,6 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
 
   return (
     <div className="col-12">
-      <hr />
       <h5 className="mb-3">Variant Attributes</h5>
       <p className="text-muted small">
         Attributes and values are managed once in Settings &gt; Attribute Master and picked
@@ -228,36 +255,38 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                 </button>
               </span>
             ))}
-            <select
-              className="form-select form-select-sm"
-              style={{ width: 160 }}
-              value={newValueSelections[attribute.id] || ""}
-              onChange={(e) =>
-                setNewValueSelections((prev) => ({ ...prev, [attribute.id]: e.target.value }))
-              }
-              disabled={!availableMasterValues.length}
-            >
-              <option value="">
-                {availableMasterValues.length ? "Pick a value..." : "No more values in catalog"}
-              </option>
-              {availableMasterValues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.value}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => addValue(attribute.id)}
-              disabled={!newValueSelections[attribute.id]}
-            >
-              Add
-            </button>
+            {availableMasterValues.length > 0 && (
+              <>
+                <select
+                  className="form-select form-select-sm"
+                  style={{ width: 160 }}
+                  value={newValueSelections[attribute.id] || ""}
+                  onChange={(e) =>
+                    setNewValueSelections((prev) => ({ ...prev, [attribute.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Pick a value...</option>
+                  {availableMasterValues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.value}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                  onClick={() => addValue(attribute.id)}
+                  disabled={!newValueSelections[attribute.id]}
+                >
+                  Add
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="btn btn-sm btn-outline-danger"
-              onClick={() => removeAttribute(attribute.id)}
+              onClick={() => setDeletingAttribute(attribute)}
             >
               Remove attribute
             </button>
@@ -288,7 +317,8 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
         </select>
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-sm"
+          style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
           onClick={addAttribute}
           disabled={!selectedMasterAttributeId}
         >
@@ -296,12 +326,14 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
         </button>
       </div>
 
+      <hr />
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5 className="mb-0">Variants</h5>
         <div className="d-flex gap-2">
           <button
             type="button"
-            className="btn btn-sm btn-outline-primary"
+            className="btn btn-sm"
+            style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
             disabled={!hasAnyValue}
             title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
             onClick={() => setShowGenerateVariants(true)}
@@ -310,7 +342,8 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
           </button>
           <button
             type="button"
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm"
+            style={{ backgroundColor: "#f58634", color: "#fff", border: "none" }}
             disabled={!hasAnyValue}
             title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
             onClick={() => setShowAddVariant(true)}
@@ -330,7 +363,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
             <tr>
               <th>Name</th>
               <th>Options</th>
-              <th>Rate</th>
+              <th>Sale Rate (before GST)</th>
               <th></th>
             </tr>
           </thead>
@@ -350,10 +383,24 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                     .join(", ")}
                 </td>
                 <td>{v.rate}</td>
-                <td>
+                <td className="d-flex gap-2">
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-secondary"
+                    className="btn btn-sm"
+                    style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                    // Same full product edit the row's own onClick opens - an explicit
+                    // button since "click the row" wasn't obvious enough on its own.
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingVariant(v);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
                     // Edits attribute selection only - separate from the row click above
                     // (which opens the full product edit for rate/image/etc) - stop the
                     // row's own onClick from also firing.
@@ -363,6 +410,16 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                     }}
                   >
                     Edit Attributes
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingVariant(v);
+                    }}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -420,6 +477,32 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
           }}
         />
       )}
+
+      <ConfirmationModal
+        show={!!deletingVariant}
+        onHide={() => setDeletingVariant(null)}
+        handleSubmit={() => {
+          if (deletingVariant) deleteVariant(deletingVariant);
+          setDeletingVariant(null);
+        }}
+        title="Delete Variant"
+        message={`Delete "${deletingVariant?.product_name}"? This cannot be undone.`}
+        btn1="CANCEL"
+        btn2="DELETE"
+      />
+
+      <ConfirmationModal
+        show={!!deletingAttribute}
+        onHide={() => setDeletingAttribute(null)}
+        handleSubmit={() => {
+          if (deletingAttribute) removeAttribute(deletingAttribute.id);
+          setDeletingAttribute(null);
+        }}
+        title="Remove Attribute"
+        message={`Remove "${deletingAttribute?.attribute_name}" and all its values from this product? This cannot be undone.`}
+        btn1="CANCEL"
+        btn2="REMOVE"
+      />
     </div>
   );
 };

@@ -85,8 +85,8 @@ const SelectVariantModal: FC<SelectVariantModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content_label" style={{ maxWidth: 480 }}>
+    <div className="modal-overlay" style={{ zIndex: 999999999 }}>
+      <div className="modal-content_label" style={{ maxWidth: 480, textAlign: "left" }}>
         <h4 className="modal-title1 form_header_text">
           Select Variant - {parentProduct.product_name}
         </h4>
@@ -134,10 +134,11 @@ const SelectVariantModal: FC<SelectVariantModalProps> = ({
         )}
 
         <div className="modal-buttons">
-          <button className="modal-button1" onClick={onHide}>
+          <button type="button" className="modal-button1" onClick={onHide}>
             Cancel
           </button>
           <button
+            type="button"
             className="modal-button2"
             style={{ color: "white" }}
             onClick={handleAdd}

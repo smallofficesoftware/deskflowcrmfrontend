@@ -132,7 +132,6 @@ const ProductPhotosSection: FC<ProductPhotosSectionProps> = ({ productId }) => {
 
   return (
     <div className="col-12">
-      <hr />
       <h5 className="mb-3">Photos</h5>
 
       {loading ? (
@@ -203,8 +202,13 @@ const ProductPhotosSection: FC<ProductPhotosSectionProps> = ({ productId }) => {
               <div className="d-flex justify-content-center gap-1 mt-1">
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  style={{ padding: "0px 6px" }}
+                  className="btn btn-sm"
+                  style={{
+                    padding: "0px 6px",
+                    border: "1px solid #f58634",
+                    color: "#f58634",
+                    background: "transparent",
+                  }}
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
                   title="Move left"
@@ -213,8 +217,13 @@ const ProductPhotosSection: FC<ProductPhotosSectionProps> = ({ productId }) => {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  style={{ padding: "0px 6px" }}
+                  className="btn btn-sm"
+                  style={{
+                    padding: "0px 6px",
+                    border: "1px solid #f58634",
+                    color: "#f58634",
+                    background: "transparent",
+                  }}
                   disabled={index === images.length - 1}
                   onClick={() => move(index, 1)}
                   title="Move right"
@@ -226,7 +235,7 @@ const ProductPhotosSection: FC<ProductPhotosSectionProps> = ({ productId }) => {
                 <button
                   type="button"
                   className="btn btn-sm btn-link p-0"
-                  style={{ fontSize: 11 }}
+                  style={{ fontSize: 11, color: "#f58634" }}
                   onClick={() => setPrimary(img.id)}
                 >
                   Set as Primary

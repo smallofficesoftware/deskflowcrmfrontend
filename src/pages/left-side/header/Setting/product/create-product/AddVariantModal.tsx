@@ -25,6 +25,7 @@ const AddVariantModal: FC<AddVariantModalProps> = ({
 }) => {
   const [selectedValues, setSelectedValues] = useState<{ [attributeId: number]: number }>({});
   const [rate, setRate] = useState(parentProduct.rate || "0");
+  const [purchaseRate, setPurchaseRate] = useState(parentProduct.purchase_rate || "0");
   const [errorMessage, setErrorMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -50,14 +51,14 @@ const AddVariantModal: FC<AddVariantModalProps> = ({
       .filter(Boolean)
       .join(" / ");
 
-    const success = await createVariantProduct(parentProduct, getUUID, label, rate, valueIds);
+    const success = await createVariantProduct(parentProduct, getUUID, label, rate, valueIds, purchaseRate);
     setSaving(false);
     if (success) onCreated();
   };
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content_label">
+      <div className="modal-content_label" style={{ textAlign: "left" }}>
         <h4 className="modal-title1 form_header_text">Add Variant</h4>
         <div className="overflow-auto" style={{ maxHeight: "400px" }}>
           <table className="table" border={0}>
@@ -90,12 +91,23 @@ const AddVariantModal: FC<AddVariantModalProps> = ({
                 ))}
               <tr>
                 <td>
-                  <label className="mb-1 d-block">Rate</label>
+                  <label className="mb-1 d-block">Sale Rate (before GST)</label>
                   <input
                     type="number"
                     className="form-control"
                     value={rate}
                     onChange={(e) => setRate(e.target.value)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <label className="mb-1 d-block">Purchase Rate (before GST)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={purchaseRate}
+                    onChange={(e) => setPurchaseRate(e.target.value)}
                   />
                 </td>
               </tr>
@@ -110,10 +122,11 @@ const AddVariantModal: FC<AddVariantModalProps> = ({
           </table>
         </div>
         <div className="modal-buttons">
-          <button className="modal-button1" onClick={onHide} disabled={saving}>
+          <button type="button" className="modal-button1" onClick={onHide} disabled={saving}>
             Cancel
           </button>
           <button
+            type="button"
             className="modal-button2"
             style={{ color: "white" }}
             onClick={onSubmit}

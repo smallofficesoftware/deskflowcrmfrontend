@@ -78,6 +78,8 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
 
   const [sharedRate, setSharedRate] = useState(parentProduct.rate || "0");
   const [rates, setRates] = useState<{ [key: string]: string }>({});
+  const [sharedPurchaseRate, setSharedPurchaseRate] = useState(parentProduct.purchase_rate || "0");
+  const [purchaseRates, setPurchaseRates] = useState<{ [key: string]: string }>({});
   const [creating, setCreating] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -85,9 +87,13 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
 
   const getUUID = localStorage.getItem("UUID");
   const rateFor = (combo: Combination) => rates[combo.key] ?? sharedRate;
+  const purchaseRateFor = (combo: Combination) => purchaseRates[combo.key] ?? sharedPurchaseRate;
 
   const applySharedRateToAll = () => {
     setRates(Object.fromEntries(newCombinations.map((c) => [c.key, sharedRate])));
+  };
+  const applySharedPurchaseRateToAll = () => {
+    setPurchaseRates(Object.fromEntries(newCombinations.map((c) => [c.key, sharedPurchaseRate])));
   };
 
   const onConfirm = async () => {
@@ -106,6 +112,7 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
         combo.label,
         rateFor(combo),
         combo.valueIds,
+        purchaseRateFor(combo),
       );
       if (ok) successCount += 1;
       setProgress((p) => p + 1);
@@ -120,15 +127,15 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content_label" style={{ maxWidth: 560 }}>
+      <div className="modal-content_label" style={{ maxWidth: 760, textAlign: "left" }}>
         <h4 className="modal-title1 form_header_text">Generate All Combinations</h4>
 
         {allCombinations.length === 0 ? (
           <p className="text-muted">Add at least one attribute value first.</p>
         ) : (
           <>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <label className="mb-0">Default rate for all:</label>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <label className="mb-0">Default Sale Rate (before GST) for all:</label>
               <input
                 type="number"
                 className="form-control form-control-sm"
@@ -138,8 +145,27 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
               />
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary"
+                className="btn btn-sm"
+                style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
                 onClick={applySharedRateToAll}
+              >
+                Apply to all
+              </button>
+            </div>
+            <div className="d-flex align-items-center gap-2 mb-3">
+              <label className="mb-0">Default Purchase Rate (before GST) for all:</label>
+              <input
+                type="number"
+                className="form-control form-control-sm"
+                style={{ width: 120 }}
+                value={sharedPurchaseRate}
+                onChange={(e) => setSharedPurchaseRate(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                onClick={applySharedPurchaseRateToAll}
               >
                 Apply to all
               </button>
@@ -150,7 +176,8 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
                 <thead>
                   <tr>
                     <th>Combination</th>
-                    <th style={{ width: 120 }}>Rate</th>
+                    <th style={{ width: 120 }}>Sale Rate (before GST)</th>
+                    <th style={{ width: 120 }}>Purchase Rate (before GST)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,6 +201,18 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
                             />
                           )}
                         </td>
+                        <td>
+                          {!alreadyExists && (
+                            <input
+                              type="number"
+                              className="form-control form-control-sm"
+                              value={purchaseRateFor(combo)}
+                              onChange={(e) =>
+                                setPurchaseRates((prev) => ({ ...prev, [combo.key]: e.target.value }))
+                              }
+                            />
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -190,10 +229,11 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
         )}
 
         <div className="modal-buttons">
-          <button className="modal-button1" onClick={onHide} disabled={creating}>
+          <button type="button" className="modal-button1" onClick={onHide} disabled={creating}>
             Cancel
           </button>
           <button
+            type="button"
             className="modal-button2"
             style={{ color: "white" }}
             onClick={onConfirm}

@@ -930,6 +930,12 @@ const CreateProductView = ({
                 </span>
               </div>
             </div>
+            {productToEdit && (
+              <p className="text-muted mb-2">
+                Editing: <strong>{productToEdit.product_name}</strong>
+                {productToEdit.product_code ? ` (${productToEdit.product_code})` : ""}
+              </p>
+            )}
 
             <Formik
               enableReinitialize
@@ -959,10 +965,14 @@ const CreateProductView = ({
                 // render where `values` exists. Variants/Photos tabs also need a saved
                 // row (editId) - same "save first" gating already built for each section.
                 const isParentRow = !isVariantRow && !!values.is_variant_parent;
+                // Photos tab shows for every saved row, Parent included - Parent gets its
+                // own showcase photos (its own product_images, keyed by its own id) in
+                // addition to the Variants tab, since each Variant also keeps its own
+                // independent photos under its own id.
                 const tabs: { key: TProductTab; label: string }[] = [
                   { key: "basic", label: "Basic Info" },
                   ...(isParentRow && editId ? [{ key: "variants" as TProductTab, label: "Variants" }] : []),
-                  ...(!isParentRow && editId ? [{ key: "photos" as TProductTab, label: "Photos" }] : []),
+                  ...(editId ? [{ key: "photos" as TProductTab, label: "Photos" }] : []),
                   { key: "custom", label: "Custom Fields" },
                 ];
                 // Defensive fallback instead of a useEffect (this closure isn't a real
@@ -985,7 +995,7 @@ const CreateProductView = ({
                 return (
                   <Form>
                     <div className="  mt-3    d-flex justify-content-center">
-                      <div className="mb-3 py-4  ">
+                      <div className="mb-3 py-4 w-100">
                         <div className="row  mx-0 px-2 gy-3  d-flex ">
                           {tabs.length > 1 && (
                             <div className="col-12 d-flex gap-2 mb-2">
@@ -1133,7 +1143,7 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
-                          {showSharedField && (
+                          {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1177,33 +1187,15 @@ const CreateProductView = ({
                                   htmlFor="is_variant_parent"
                                   className="mb-1 form_label"
                                 >
-                                  Product Type
+                                  Has Variants
                                 </label>
-                                <Field name="is_variant_parent">
-                                  {({ field, form }: any) => (
-                                    <div className="form-check form-switch">
-                                      <input
-                                        type="checkbox"
-                                        className="form-check-input"
-                                        id="is_variant_parent"
-                                        {...field}
-                                        checked={!!field.value}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                          form.setFieldValue(
-                                            "is_variant_parent",
-                                            e.target.checked ? 1 : 0,
-                                          );
-                                        }}
-                                      />
-                                      <label
-                                        htmlFor="is_variant_parent"
-                                        className="form-check-label ms-2"
-                                      >
-                                        {field.value ? "Has Variants" : "Simple"}
-                                      </label>
-                                    </div>
-                                  )}
-                                </Field>
+                                <FormikCustomSearchDropdown
+                                  name="is_variant_parent"
+                                  options={[
+                                    { value: 1, label: "Yes" },
+                                    { value: 0, label: "No" },
+                                  ]}
+                                />
                               </div>
                             </div>
                           )}
@@ -1222,7 +1214,7 @@ const CreateProductView = ({
                               parentProduct={{ ...values, id: editId }}
                             />
                           )}
-                          {effectiveTab === "photos" && !isParentRow && editId && (
+                          {effectiveTab === "photos" && editId && (
                             <ProductPhotosSection productId={editId} />
                           )}
                           {effectiveTab === "basic" && (
@@ -1665,6 +1657,11 @@ const CreateProductView = ({
                             </div>
                           </div>
 
+                          </>
+                          )}
+
+                          {showVariantField && (
+                          <>
                           {(isFeatureEnabled || Boolean((productToEdit as any)?.miracle_uom_name)) && (
                             <div className="col-12 col-md-4">
                               <div className="form-group">
@@ -1684,11 +1681,6 @@ const CreateProductView = ({
                               </div>
                             </div>
                           )}
-                          </>
-                          )}
-
-                          {showVariantField && (
-                          <>
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
@@ -1862,12 +1854,15 @@ const CreateProductView = ({
                             </div>
                           </div>
                           )}
-                          {showSharedField && (
+                          {/* Shown (but read-only) on a Variant row too - GST is set once
+                              on the Parent/Simple row and copied onto each variant at
+                              creation (AddVariantModal), never varies per Color/Size, so
+                              it's never editable here, just visible for reference. */}
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label className="pb-2 form_label">
-                                GST (%)
-                                <span className="text-danger">*</span>
+                                Sales GST (%)
+                                {showSharedField && <span className="text-danger">*</span>}
                               </label>
 
                               <FormikCustomSearchDropdown
@@ -1877,6 +1872,7 @@ const CreateProductView = ({
                                   (item) =>
                                     Number(item.value) == Number(values.gst_id),
                                 )}
+                                disabled={isVariantRow}
                                 className={
                                   errors.gst_id && touched.gst_id
                                     ? "is-invalid"
@@ -1917,7 +1913,6 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
-                          )}
                           {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
@@ -2022,15 +2017,17 @@ const CreateProductView = ({
                             </div>
                           </div>
                           )}
-                          {showSharedField && (
+                          {/* Shown (but read-only) on a Variant row too - same reasoning
+                              as Sales GST above: set once on Parent/Simple, copied onto
+                              each variant at creation, never varies per Color/Size. */}
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
                                 htmlFor="purchase_gst_per"
                                 className="pb-2 form_label"
                               >
-                                GST (%)
-                                <span className="text-danger">*</span>
+                                Purchase GST (%)
+                                {showSharedField && <span className="text-danger">*</span>}
                               </label>
 
                               <FormikCustomSearchDropdown
@@ -2041,6 +2038,7 @@ const CreateProductView = ({
                                     item.value ===
                                     Number(values.purchase_gst_id),
                                 )}
+                                disabled={isVariantRow}
                                 className={
                                   errors.purchase_gst_id &&
                                   touched.purchase_gst_id
@@ -2089,7 +2087,6 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
-                          )}
                           {showVariantField && (
                           <div className="col-12 col-md-4">
                             <div className="form-group">
@@ -2153,7 +2150,7 @@ const CreateProductView = ({
                               backfilled into product_images by that phase's migration;
                               the column itself stays for backward compatibility, just
                               no longer editable from here. */}
-                          {showSharedField && (
+                          {showVariantField && (
                           <div className="col-12 col-md-12">
                             <div className="form-group">
                               <label
@@ -2221,9 +2218,6 @@ const CreateProductView = ({
                           )}
                           {effectiveTab === "custom" && (
                           <>
-                          <div className="col-12">
-                            <hr />
-                          </div>
                           {customFormList &&
                             customFormList.map((item) => (
                               <React.Fragment key={item.reference_column_name}>

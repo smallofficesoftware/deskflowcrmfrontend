@@ -1546,7 +1546,11 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
    * variant Parent - callers skip their own success-toast/refresh tail in that case,
    * since nothing was actually added to the cart yet. */
   const handleProductPick = (item: ICart): boolean => {
-    if ((item as any).is_variant_parent) {
+    // Number(...) matters here - raw rows from getVariants carry is_variant_parent
+    // as the literal string "0", and "0" is truthy in JS, so a plain truthiness
+    // check here treated every resolved Variant as if it were itself a Parent,
+    // reopening this same popup on it instead of adding it to the cart.
+    if (Number((item as any).is_variant_parent) === 1) {
       setVariantPickerParent(item);
       return false;
     }

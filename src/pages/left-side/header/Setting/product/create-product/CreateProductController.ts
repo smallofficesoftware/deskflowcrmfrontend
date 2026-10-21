@@ -362,12 +362,28 @@ export const createProductValidationSchema = (
     }
   });
 
+  // Same row-type gating as the dynamicSchema loop above, applied to the plan doc's
+  // built-in shared/variant-specific fields: shared fields (category_id etc.) are
+  // hidden on a Variant row (CreateProductView's showSharedField), and variant-specific
+  // fields (rate etc.) are hidden on a Parent row (showVariantField) - required() on a
+  // hidden, never-filled field blocked save with no way to fix it, same bug as before.
+  const requiredIfNotVariant = (schema: Yup.StringSchema) =>
+    variantRole === "variant" ? schema.notRequired() : schema;
+  const requiredIfNotParent = (schema: Yup.StringSchema) =>
+    variantRole === "parent" ? schema.notRequired() : schema;
+
   return Yup.object().shape({
-    product_types: Yup.string().required("Product type is required"),
-    category_id: Yup.string().required("Product Category Name is required"),
-    product_group_id: Yup.string().required("Product Group Name is required"),
+    product_types: requiredIfNotVariant(
+      Yup.string().required("Product type is required"),
+    ),
+    category_id: requiredIfNotVariant(
+      Yup.string().required("Product Category Name is required"),
+    ),
+    product_group_id: requiredIfNotVariant(
+      Yup.string().required("Product Group Name is required"),
+    ),
     product_name: Yup.string().trim().required("Product Name is required"),
-    unit_id: Yup.string().required("Unit is required"),
+    unit_id: requiredIfNotVariant(Yup.string().required("Unit is required")),
     product_inner_unit: Yup.string().when("product_inner_qty", {
       is: (val: any) => {
         const num = Number(val);
@@ -387,11 +403,13 @@ export const createProductValidationSchema = (
     /*     GST: Yup.string()
       .required("GST is required")
       .oneOf(["0", "5", "12", "18", "28", "40"], "Invalid GST rate"), */
-    rate: Yup.string().required("Sale Rate is required"),
+    rate: requiredIfNotParent(Yup.string().required("Sale Rate is required")),
     /*     purchase_gst_per: Yup.string()
       .required("GST is required")
       .oneOf(["0", "5", "12", "18", "28", "40"], "Invalid GST rate"), */
-    purchase_rate: Yup.string().required("Purchase Rate is required"),
+    purchase_rate: requiredIfNotParent(
+      Yup.string().required("Purchase Rate is required"),
+    ),
     ...dynamicSchema,
   });
 };

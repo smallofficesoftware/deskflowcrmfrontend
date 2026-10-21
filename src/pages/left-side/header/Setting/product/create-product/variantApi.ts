@@ -36,6 +36,7 @@ export const createVariantProduct = async (
   label: string,
   rate: string,
   valueIds: number[],
+  purchaseRate: string = "0",
 ): Promise<boolean> => {
   try {
     const MAX_ATTEMPTS = 5;
@@ -55,9 +56,25 @@ export const createVariantProduct = async (
       formData.append("product_group_id", parentProduct.product_group_id || "");
       formData.append("GST", parentProduct.GST || "0");
       formData.append("gst_id", String(parentProduct.gst_id || 0));
+      // Purchase GST% is a shared field too (read-only on a Variant row in
+      // CreateProductView) - this was never copied across, so every new variant
+      // started with no purchase GST% at all until someone opened it and re-saved.
+      formData.append("purchase_gst_per", parentProduct.purchase_gst_per || "0");
+      formData.append("purchase_gst_id", String(parentProduct.purchase_gst_id || 0));
       formData.append("hsn_code", parentProduct.hsn_code || "");
+      // net_rate = rate inclusive of GST, same formula CreateProductView uses for a
+      // Simple product - this used to just copy `rate` straight across, silently
+      // ignoring the parent's GST% and leaving net_rate wrong for any taxed product.
+      const gstPercent = parseFloat(parentProduct.GST || "0") || 0;
+      const netRate = (parseFloat(rate) || 0) * (1 + gstPercent / 100);
       formData.append("rate", rate);
-      formData.append("net_rate", rate);
+      formData.append("net_rate", netRate.toFixed(2));
+      // Same before/after-GST pairing as rate/net_rate above, but for the purchase
+      // side - purchase_rate is variant-specific (asked here, not copied from parent).
+      const purchaseGstPercent = parseFloat(parentProduct.purchase_gst_per || "0") || 0;
+      const purchaseNetRate = (parseFloat(purchaseRate) || 0) * (1 + purchaseGstPercent / 100);
+      formData.append("purchase_rate", purchaseRate);
+      formData.append("purchase_net_rate", purchaseNetRate.toFixed(2));
       formData.append("is_serial_number", String(parentProduct.is_serial_number || 1));
       formData.append("is_variant_parent", "0");
       formData.append("parent_product_id", String(parentProduct.id));

@@ -86,7 +86,7 @@ const EditVariantAttributesModal: FC<EditVariantAttributesModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content_label">
+      <div className="modal-content_label" style={{ textAlign: "left" }}>
         <h4 className="modal-title1 form_header_text">
           Edit Attributes - {variant.product_name}
         </h4>
@@ -128,10 +128,11 @@ const EditVariantAttributesModal: FC<EditVariantAttributesModalProps> = ({
           </table>
         </div>
         <div className="modal-buttons">
-          <button className="modal-button1" onClick={onHide} disabled={saving}>
+          <button type="button" className="modal-button1" onClick={onHide} disabled={saving}>
             Cancel
           </button>
           <button
+            type="button"
             className="modal-button2"
             style={{ color: "white" }}
             onClick={onSubmit}
