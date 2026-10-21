@@ -13,7 +13,6 @@ import DatePicker, { DateObject } from "react-multi-date-picker";
 import TimePicker from "react-multi-date-picker/plugins/time_picker";
 import { SingleValue } from "react-select";
 import { toast } from "react-toastify";
-import no_image from "../../../../../../assets/images/no_image.jpeg";
 import {
   formatDateSendDataBaseV2,
   formatDateTimeSendDataBaseV2,
@@ -21,7 +20,6 @@ import {
 } from "../../../../../../common/SharedFunction";
 import FormikCustomSearchDropdown from "../../../../../../components/FormikCustomSearchDropdown";
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
-import ImageCropperToolModel from "../../../../../../components/model/ImageCroperToolModel";
 import ProductVariantSection from "./ProductVariantSection";
 import ProductPhotosSection from "./ProductPhotosSection";
 import {
@@ -91,9 +89,6 @@ const CreateProductView = ({
   }>({});
   const [isOpenAddCategoryModal, setIsOpenAddCategoryModal] =
     useState<boolean>(false);
-  const [isModalImageTool, setIsModalImageTool] = useState<boolean>(false);
-  const [croppedImageUrl, setCroppedImageUrl] = useState<string | null>(null);
-  const [croppedImageBlob, setCroppedImageBlob] = useState<Blob | null>(null);
   const setFieldValueRef = useRef<(field: string, value: any) => void>();
   const isSubmittingRef = useRef(false);
   // Set once a brand-new "Has Variants" product is first saved (see handleSubmit) -
@@ -200,23 +195,6 @@ const CreateProductView = ({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [show]);
-
-  const handleViewImageTool = () => {
-    setIsModalImageTool(true);
-  };
-
-  const handleCroppedImage = (blob: Blob | null, url: string | null) => {
-    if (blob && url) {
-      setCroppedImageBlob(blob);
-      setCroppedImageUrl(url);
-      const croppedFile = new File([blob], "cropped-product.jpg", {
-        type: "image/jpeg",
-      });
-      setFieldValueRef.current?.("product_img", croppedFile);
-      setProductPreview(url); // Optional: also update preview
-    }
-    setIsModalImageTool(false);
-  };
 
   // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 1.
   // `rowValues` is the live Formik values (or submitted values1) for the row being
@@ -2167,72 +2145,14 @@ const CreateProductView = ({
                           <div className="col-12">
                             <hr />
                           </div>
-                          {showVariantField && (
-                          <div className="col-12 col-md-12">
-                            <div className="add-source-of-type-section">
-                              <p>
-                                Product Image
-                                <small className="text-danger ps-2">
-                                  Best Size(521 X 419px)
-                                </small>
-                              </p>
-                            </div>
-                            <div className="imgBox-product">
-                              <label htmlFor="input-files-product">
-                                {croppedImageUrl ? (
-                                  <img
-                                    onClick={handleViewImageTool}
-                                    src={croppedImageUrl}
-                                    alt=""
-                                    className="imgBox-product-cover animate__animated animate__fadeIn"
-                                  />
-                                ) : productPreview ? (
-                                  <img
-                                    onClick={handleViewImageTool}
-                                    src={productPreview}
-                                    alt=""
-                                    className="imgBox-product-cover animate__animated animate__fadeIn"
-                                  />
-                                ) : values.product_img ? (
-                                  <img
-                                    onClick={handleViewImageTool}
-                                    src={values.product_img}
-                                    alt=""
-                                    className="imgBox-product-cover animate__animated animate__fadeIn"
-                                  />
-                                ) : (
-                                  <img
-                                    onClick={handleViewImageTool}
-                                    src={no_image}
-                                    alt=""
-                                    className="imgBox-product-cover animate__animated animate__fadeIn"
-                                  />
-                                )}
-
-                                {/* <div>
-                                  <div className="form-group1">
-                                    <input
-                                      type="file"
-                                      name="image"
-                                      id="input-files-product"
-                                      className="form-control-file border"
-                                      onChange={(event) =>
-                                        handleFileChange(
-                                          event,
-                                          "product_img",
-                                          setFieldValue,
-                                          setProductPreview
-                                        )
-                                      }
-                                      style={{ display: "none" }}
-                                      accept=".png,.jpg,.jpeg"
-                                    />
-                                  </div>
-                                </div> */}
-                              </label>
-                            </div>
-                          </div>
-                          )}
+                          {/* Legacy single-image field (product_img) removed from the
+                              UI - plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt,
+                              Phase 2's Photos tab (ProductPhotosSection, multi-image +
+                              WebP) is now the only way to manage photos for Simple/
+                              Variant rows. Existing product_img data was already
+                              backfilled into product_images by that phase's migration;
+                              the column itself stays for backward compatibility, just
+                              no longer editable from here. */}
                           {showSharedField && (
                           <div className="col-12 col-md-12">
                             <div className="form-group">
@@ -2434,22 +2354,6 @@ const CreateProductView = ({
                         displayClearButton={true}
                         payloadKey="addProductCategory"
                         group_id={selectedGroupId}
-                      />
-                    )}
-                    {isModalImageTool && (
-                      <ImageCropperToolModel
-                        show={isModalImageTool}
-                        onHide={() => setIsModalImageTool(false)}
-                        onSubmit={handleCroppedImage}
-                        initialImage={
-                          croppedImageUrl ||
-                          productPreview ||
-                          values.product_img ||
-                          ""
-                        }
-                        width={521 * 2}
-                        height={419 * 2}
-                        title="Crop Your Product Image"
                       />
                     )}
                     <UpdateNetRate />
