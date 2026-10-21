@@ -516,13 +516,12 @@ export const fetchProductApiForOrder = async (
     contact_id: Contact?.id,
     cart_type: isOrderShowNum,
     wherecall,
-    // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt,
-    // 4.3): a variant "parent" (e.g. "T-Shirt" itself) is a non-sellable template row -
-    // only this cart-building picker excludes it; Settings > Products, BOM, price lists,
-    // stock adjustment, and reports all still need to see/manage it, so this is a new,
-    // explicit flag rather than reusing cart_type/wherecall (both already carry other
-    // meaning for other callers of the same `product` endpoint).
-    excludeVariantParents: true,
+    // Multi-variant products (plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt).
+    // This picker shows Simple products and a Parent ("Has Variants" template, one entry
+    // representing its whole family) - never an individual Variant row directly. Picking
+    // a Parent opens SelectVariantModal, which resolves one Variant and adds THAT to the
+    // cart instead (see the item.is_variant_parent check around addToCart below).
+    excludeVariants: true,
   };
 
   try {
