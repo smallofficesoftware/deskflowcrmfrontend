@@ -273,17 +273,31 @@ export const createProductInitialValues = (
 
 export const createProductValidationSchema = (
   customFormList: ICustomFromList[],
+  // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 1/3 bugfix.
+  // Without this, a required custom field scoped "Parent Only" (or "Variant Only")
+  // still blocked save on the wrong row type, with no way to fix it - the field is
+  // correctly hidden on that row's Custom Fields tab (CreateProductView.tsx's
+  // isFieldForProductMaster), but this schema builder never knew to skip it too.
+  variantRole: "simple" | "parent" | "variant" = "simple",
 ) => {
   const dynamicSchema: any = {};
 
   customFormList.forEach((item: any) => {
-    const isProductMaster = !item.applicable_modules || 
+    const isProductMaster = !item.applicable_modules ||
       String(item.applicable_modules).split(",").map((m: string) => m.trim()).includes("4");
+
+    const scope = Number(item.variant_scope) || 3;
+    const matchesVariantScope =
+      scope === 3 ||
+      (variantRole === "parent" && scope === 1) ||
+      (variantRole === "variant" && scope === 2) ||
+      variantRole === "simple";
 
     if (
       item.required_or_not === 1 &&
       item.form_type === 4 &&
       isProductMaster &&
+      matchesVariantScope &&
       item.data_type !== 7
     ) {
       switch (item.data_type) {

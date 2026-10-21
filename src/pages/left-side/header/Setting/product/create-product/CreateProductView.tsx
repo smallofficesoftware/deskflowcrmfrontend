@@ -108,6 +108,17 @@ const CreateProductView = ({
   // it's read straight off the static prop, not Formik values (unlike is_variant_parent,
   // a live toggle - see isParentRow below, computed inside the Formik render instead).
   const isVariantRow = !!productToEdit?.parent_product_id;
+  // Static (saved-state) role for the Yup schema below, which is built once as a
+  // <Formik> prop, before Formik's own live `values.is_variant_parent` exists - the
+  // render-time isParentRow (CreateProductView's Formik render, further down) can
+  // react to the live toggle; this can't, so it uses the row's last-saved state
+  // instead. Narrow edge case: toggling Simple -> Has Variants on an unsaved new
+  // product won't retarget required-custom-field validation until that first save.
+  const variantRole: "simple" | "parent" | "variant" = isVariantRow
+    ? "variant"
+    : productToEdit?.is_variant_parent
+      ? "parent"
+      : "simple";
   type TProductTab = "basic" | "variants" | "photos" | "custom";
   const [activeTab, setActiveTab] = useState<TProductTab>("basic");
   const canAddCategory = useCheckUserPermission(
@@ -945,7 +956,7 @@ const CreateProductView = ({
             <Formik
               enableReinitialize
               initialValues={createProductInitialValues(productToEdit)}
-              validationSchema={createProductValidationSchema(customFormList)}
+              validationSchema={createProductValidationSchema(customFormList, variantRole)}
               onSubmit={handleSubmit}
             >
               {({
