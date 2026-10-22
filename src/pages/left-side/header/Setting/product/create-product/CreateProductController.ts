@@ -76,6 +76,11 @@ export interface IProductCreate {
   hsn_code: string;
   miracle_uom_name?: string;
   is_serial_number: any;
+  // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
+  // "Has Variants" in the UI - 1 = this is a non-sellable template row (e.g. "T-Shirt"
+  // itself); its real variants are separate product rows with parent_product_id set to
+  // this one's id. Omitted/0 = a normal "Simple" product, today's only behavior.
+  is_variant_parent?: number;
   products_column_number_1?: number | string;
   products_column_number_2?: number | string;
   products_column_number_3?: number | string;
@@ -132,6 +137,7 @@ export const createProductInitialValues = (
   productToEdit: IProductCreate | undefined,
 ): IProductCreate => ({
   is_serial_number: productToEdit?.is_serial_number || 1,
+  is_variant_parent: productToEdit?.is_variant_parent ? 1 : 0,
   product_name: productToEdit?.product_name || "",
   product_alias: productToEdit?.product_alias || "",
   product_code: productToEdit?.product_code || "",
@@ -267,17 +273,31 @@ export const createProductInitialValues = (
 
 export const createProductValidationSchema = (
   customFormList: ICustomFromList[],
+  // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt, Phase 1/3 bugfix.
+  // Without this, a required custom field scoped "Parent Only" (or "Variant Only")
+  // still blocked save on the wrong row type, with no way to fix it - the field is
+  // correctly hidden on that row's Custom Fields tab (CreateProductView.tsx's
+  // isFieldForProductMaster), but this schema builder never knew to skip it too.
+  variantRole: "simple" | "parent" | "variant" = "simple",
 ) => {
   const dynamicSchema: any = {};
 
   customFormList.forEach((item: any) => {
-    const isProductMaster = !item.applicable_modules || 
+    const isProductMaster = !item.applicable_modules ||
       String(item.applicable_modules).split(",").map((m: string) => m.trim()).includes("4");
+
+    const scope = Number(item.variant_scope) || 3;
+    const matchesVariantScope =
+      scope === 3 ||
+      (variantRole === "parent" && scope === 1) ||
+      (variantRole === "variant" && scope === 2) ||
+      variantRole === "simple";
 
     if (
       item.required_or_not === 1 &&
       item.form_type === 4 &&
       isProductMaster &&
+      matchesVariantScope &&
       item.data_type !== 7
     ) {
       switch (item.data_type) {
@@ -342,12 +362,28 @@ export const createProductValidationSchema = (
     }
   });
 
+  // Same row-type gating as the dynamicSchema loop above, applied to the plan doc's
+  // built-in shared/variant-specific fields: shared fields (category_id etc.) are
+  // hidden on a Variant row (CreateProductView's showSharedField), and variant-specific
+  // fields (rate etc.) are hidden on a Parent row (showVariantField) - required() on a
+  // hidden, never-filled field blocked save with no way to fix it, same bug as before.
+  const requiredIfNotVariant = (schema: Yup.StringSchema) =>
+    variantRole === "variant" ? schema.notRequired() : schema;
+  const requiredIfNotParent = (schema: Yup.StringSchema) =>
+    variantRole === "parent" ? schema.notRequired() : schema;
+
   return Yup.object().shape({
-    product_types: Yup.string().required("Product type is required"),
-    category_id: Yup.string().required("Product Category Name is required"),
-    product_group_id: Yup.string().required("Product Group Name is required"),
+    product_types: requiredIfNotVariant(
+      Yup.string().required("Product type is required"),
+    ),
+    category_id: requiredIfNotVariant(
+      Yup.string().required("Product Category Name is required"),
+    ),
+    product_group_id: requiredIfNotVariant(
+      Yup.string().required("Product Group Name is required"),
+    ),
     product_name: Yup.string().trim().required("Product Name is required"),
-    unit_id: Yup.string().required("Unit is required"),
+    unit_id: requiredIfNotVariant(Yup.string().required("Unit is required")),
     product_inner_unit: Yup.string().when("product_inner_qty", {
       is: (val: any) => {
         const num = Number(val);
@@ -367,11 +403,13 @@ export const createProductValidationSchema = (
     /*     GST: Yup.string()
       .required("GST is required")
       .oneOf(["0", "5", "12", "18", "28", "40"], "Invalid GST rate"), */
-    rate: Yup.string().required("Sale Rate is required"),
+    rate: requiredIfNotParent(Yup.string().required("Sale Rate is required")),
     /*     purchase_gst_per: Yup.string()
       .required("GST is required")
       .oneOf(["0", "5", "12", "18", "28", "40"], "Invalid GST rate"), */
-    purchase_rate: Yup.string().required("Purchase Rate is required"),
+    purchase_rate: requiredIfNotParent(
+      Yup.string().required("Purchase Rate is required"),
+    ),
     ...dynamicSchema,
   });
 };
@@ -397,6 +435,7 @@ const appendCommonFormData = (
   formData.append("product_types", values.product_types || "");
   formData.append("product_name", values.product_name || "");
   formData.append("is_serial_number", values.is_serial_number || "");
+  formData.append("is_variant_parent", String(values.is_variant_parent ? 1 : 0));
   formData.append("miracle_uom_name", values.miracle_uom_name || "");
   formData.append("product_alias", values.product_alias || "");
   formData.append("product_code", values.product_code || "");

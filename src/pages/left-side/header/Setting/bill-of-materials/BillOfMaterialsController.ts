@@ -198,7 +198,10 @@ export const fetchProductApi = async (
   const requestData = {
     a_application_login_id: getUUID,
     searchTerm: term,
-    productId
+    productId,
+    // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt) -
+    // a BOM should be defined on a real sellable product, not a non-sellable parent.
+    excludeVariantParents: true,
   };
   try {
     const data = await axiosInstance.post("product", requestData);

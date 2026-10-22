@@ -8,7 +8,7 @@ import { IOption } from "../../../../../helpers/AppInterface";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { FORMULA_BUILTINS, parseCalcConfig, TCalcDrives, translateFormulaRefs, validateFormula } from "../../../../../helpers/FormulaEngine";
-import { createCustomInquiryFrom, displayOnCustomInquiryList, fetchStageOptionsForFormType, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList } from "./CustomInquiryFromController";
+import { createCustomInquiryFrom, displayOnCustomInquiryList, fetchStageOptionsForFormType, fetchCompanyForTitle, fetchProductNumberFields, ICompany, ICustomInquiryFromList, orderTypesCustomInquiryList, pageTypesCustomFieldList, printTypesCustomInquiryList, productApplicableModulesList, reportPrintTypesCustomInquiryList, reqTypesCustomInquiryList, requiredForTypesCustomInquiryList, rowOrColumnTypesCustomInquiryList, updateCustomInqFrom, validationTypeList, variantScopeOptions } from "./CustomInquiryFromController";
 
 interface IPropsCreateCustomField {
     show: boolean;
@@ -40,6 +40,8 @@ const CreateCustomFieldView = ({
         useState<SingleValue<IOption> | null>(null);
     const [selectedApplicableModules, setSelectedApplicableModules] =
         useState<any[]>([]);
+    const [selectedVariantScope, setSelectedVariantScope] =
+        useState<SingleValue<IOption>>({ value: "3", label: "Both" });
     const [selectedDisplayOn, setSelectedDisplayOn] =
         useState<SingleValue<IOption> | null>({ value: "1", label: "Form" });
     const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
@@ -304,6 +306,7 @@ const CreateCustomFieldView = ({
         setSelectedPrintReport(null);
         setSelectedrowOrColumn(null);
         setSelectedApplicableModules([]);
+        setSelectedVariantScope({ value: "3", label: "Both" });
         setSelectedDisplayOn({ value: "1", label: "Form" });
         setSelectedStageIds([]);
         setSelectedPageType(null);
@@ -457,6 +460,7 @@ const CreateCustomFieldView = ({
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
+                        variant_scope: Number(selectedVariantScope?.value) || 3,
                         display_on: displayOnValue,
                         stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
@@ -499,6 +503,7 @@ const CreateCustomFieldView = ({
                             : 0,
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
+                        variant_scope: Number(selectedVariantScope?.value) || 3,
                         display_on: displayOnValue,
                         stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
@@ -590,6 +595,11 @@ const CreateCustomFieldView = ({
                     setSelectedApplicableModules(initialMods);
                 }
             }
+
+            setSelectedVariantScope(
+                variantScopeOptions.find((opt) => opt.value === String(productToEdit.variant_scope ?? 3))
+                    || { value: "3", label: "Both" }
+            );
 
             setSelectedDisplayOn(
                 Number(productToEdit.display_on) === 2
@@ -791,6 +801,22 @@ const CreateCustomFieldView = ({
                                                 </div>
                                             </div>
                                             {applicableModulesError && <span className="text-danger">{applicableModulesError}</span>}
+                                        </div>
+
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Applies To</h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={variantScopeOptions}
+                                                        value={selectedVariantScope}
+                                                        onChange={(opt: SingleValue<IOption>) => setSelectedVariantScope(opt)}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </>
                                 )}

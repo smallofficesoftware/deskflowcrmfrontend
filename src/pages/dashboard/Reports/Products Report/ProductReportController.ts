@@ -32,6 +32,12 @@ export const fetchProductForReport = async (
             typeof productId === "object"
                 ? productId?.value?.toString()
                 : productId?.toString() || "",
+        // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt) -
+        // a parent carries no real stock/rate of its own, so it would only show as
+        // confusing empty/zero rows in this report. Judgment call, not a hard design
+        // rule like the other fixes alongside this one - revisit if anyone wants
+        // parent-level rollups shown here.
+        excludeVariantParents: true,
     };
 
     try {

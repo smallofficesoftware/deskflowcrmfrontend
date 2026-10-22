@@ -12,6 +12,7 @@ import { useReactToPrint } from "react-to-print";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
 import no_image from "../../../assets/images/no_image.jpeg";
+import SelectVariantModal from "./SelectVariantModal";
 import {
   formatDateSendDataBase,
   formatNumber,
@@ -1506,6 +1507,59 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             : undefined,
       },
     ]);
+  };
+
+  // plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt. The picker shows a
+  // variant Parent as one entry; picking it must resolve to a real Variant first (via
+  // SelectVariantModal) rather than adding the non-sellable Parent row straight to cart.
+  const [variantPickerParent, setVariantPickerParent] = useState<ICart | null>(null);
+
+  // Shared tail for every successful add (list click, Enter key, or the variant popup's
+  // own "Add to Cart") - was duplicated per call site before this, now one place.
+  // wherecall preserves the original per-entry-point values (10 = click, 11 = Enter
+  // key) rather than collapsing them to one.
+  const finishAddingToCart = (item: ICart, wherecall: number = 10) => {
+    toast.success(
+      isProductInCart(item.id)
+        ? "Product quantity updated in cart"
+        : "Product added successfully to cart",
+      { autoClose: 200 },
+    );
+    setFocusedProductIndex(null);
+    fetchProductApiForOrder(
+      0,
+      ITEMS_PER_PAGE,
+      searchTerm,
+      0,
+      selectedCategory,
+      selectedPriceList,
+      Contact,
+      setProductList,
+      isOrderShowNum,
+      wherecall,
+      isPriceListTouched,
+    );
+    searchInputRef.current?.focus();
+  };
+
+  /** Returns false (and opens SelectVariantModal instead) when the picked row is a
+   * variant Parent - callers skip their own success-toast/refresh tail in that case,
+   * since nothing was actually added to the cart yet. */
+  const handleProductPick = (item: ICart): boolean => {
+    // Number(...) matters here - raw rows from getVariants carry is_variant_parent
+    // as the literal string "0", and "0" is truthy in JS, so a plain truthiness
+    // check here treated every resolved Variant as if it were itself a Parent,
+    // reopening this same popup on it instead of adding it to the cart.
+    if (Number((item as any).is_variant_parent) === 1) {
+      setVariantPickerParent(item);
+      return false;
+    }
+    if (isProductInCart(item.id) && dynamicProductAdd.includes(1)) {
+      updateCartQuantity(item.id, 1);
+    } else {
+      addToCart(item);
+    }
+    return true;
   };
 
   // const handleQuantityChange = (index: number, newQuantity: number) => {
@@ -5632,22 +5686,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       if (isBarcode && productList && productList.length > 0) {
-        addToCart(productList[0]);
-        setFocusedProductIndex(null);
-        fetchProductApiForOrder(
-          0,
-          ITEMS_PER_PAGE,
-          searchTerm,
-          0,
-          selectedCategory,
-          selectedPriceList,
-          Contact,
-          setProductList,
-          isOrderShowNum,
-          7,
-          isPriceListTouched,
-        );
-        searchInputRef.current?.focus();
+        if (handleProductPick(productList[0])) {
+          finishAddingToCart(productList[0], 7);
+        }
       } else if (
         focusedProductIndex !== null &&
         productList &&
@@ -5655,29 +5696,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         !cartnumber
       ) {
         const selectedProduct = productList[focusedProductIndex];
-        if (
-          isProductInCart(selectedProduct.id) &&
-          dynamicProductAdd.includes(1)
-        ) {
-          updateCartQuantity(selectedProduct.id, 1);
-        } else {
-          addToCart(selectedProduct);
+        if (handleProductPick(selectedProduct)) {
+          finishAddingToCart(selectedProduct, 8);
         }
-        setFocusedProductIndex(null);
-        fetchProductApiForOrder(
-          0,
-          ITEMS_PER_PAGE,
-          searchTerm,
-          0,
-          selectedCategory,
-          selectedPriceList,
-          Contact,
-          setProductList,
-          isOrderShowNum,
-          8,
-          isPriceListTouched,
-        );
-        searchInputRef.current?.focus();
       }
     } else if (e.key === "ArrowDown" && productList && productList.length > 0) {
       e.preventDefault();
@@ -11438,72 +11459,18 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                                             return;
                                           }
 
-                                          if (
-                                            isProductInCart(item.id) &&
-                                            dynamicProductAdd.includes(1)
-                                          ) {
-                                            updateCartQuantity(item.id, 1);
-                                          } else {
-                                            addToCart(item);
+                                          if (handleProductPick(item)) {
+                                            finishAddingToCart(item);
                                           }
-                                          toast.success(
-                                            isProductInCart(item.id)
-                                              ? "Product quantity updated in cart"
-                                              : "Product added successfully to cart",
-                                            {
-                                              autoClose: 200,
-                                            },
-                                          );
-                                          setFocusedProductIndex(null);
-                                          fetchProductApiForOrder(
-                                            0,
-                                            ITEMS_PER_PAGE,
-                                            searchTerm,
-                                            0,
-                                            selectedCategory,
-                                            selectedPriceList,
-                                            Contact,
-                                            setProductList,
-                                            isOrderShowNum,
-                                            10,
-                                            isPriceListTouched,
-                                          );
-                                          searchInputRef.current?.focus();
                                         }
                                       }}
                                       tabIndex={0}
                                       onKeyDown={(e) => {
                                         if (e.key === "Enter" && !cartnumber) {
-                                          if (
-                                            isProductInCart(
-                                              item.id &&
-                                              dynamicProductAdd.includes(1),
-                                            )
-                                          ) {
-                                            updateCartQuantity(item.id, 1);
-                                          } else {
-                                            addToCart(item);
+                                          if (handleProductPick(item)) {
+                                            finishAddingToCart(item, 11);
                                           }
-                                          toast.success(
-                                            isProductInCart(item.id)
-                                              ? "Product quantity updated in cart"
-                                              : "Product added successfully to cart",
-                                          );
-                                          setFocusedProductIndex(null);
-                                          fetchProductApiForOrder(
-                                            0,
-                                            ITEMS_PER_PAGE,
-                                            searchTerm,
-                                            0,
-                                            selectedCategory,
-                                            selectedPriceList,
-                                            Contact,
-                                            setProductList,
-                                            isOrderShowNum,
-                                            11,
-                                            isPriceListTouched,
-                                          );
-                                          searchInputRef.current?.focus();
+                                          return;
                                         }
                                       }}
                                     >
@@ -12399,6 +12366,19 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
+      )}
+      {variantPickerParent && (
+        <SelectVariantModal
+          show={!!variantPickerParent}
+          onHide={() => setVariantPickerParent(null)}
+          parentProduct={variantPickerParent as unknown as { id: number; product_name: string }}
+          onVariantSelected={(variant) => {
+            const variantAsCart = variant as unknown as ICart;
+            if (handleProductPick(variantAsCart)) {
+              finishAddingToCart(variantAsCart);
+            }
+          }}
+        />
       )}
     </div>
   );

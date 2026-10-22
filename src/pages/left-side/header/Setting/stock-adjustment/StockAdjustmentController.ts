@@ -79,6 +79,9 @@ export const fetchProductStockList = async (
     searchTerm: search || "",
     searchBarcodeNum: searchBarcodeNum1,
     searchCategoryId: selectedCategory ? selectedCategory.value : null,
+    // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt) -
+    // a variant "parent" has no real stock of its own, so it can't be adjusted here.
+    excludeVariantParents: true,
   };
 
   try {

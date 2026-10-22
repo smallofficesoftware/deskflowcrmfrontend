@@ -75,6 +75,10 @@ export const fetchProductApiForPriceListItem = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     a_application_login_id: getUUID,
+    // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt) -
+    // a parent has no own price_lists use (each variant prices independently, per that
+    // plan's Q4 decision), so it shouldn't be assignable a price-list line.
+    excludeVariantParents: true,
   };
   try {
     const data = await axiosInstance.post("product", requestData);

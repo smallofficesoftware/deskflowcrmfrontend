@@ -516,6 +516,12 @@ export const fetchProductApiForOrder = async (
     contact_id: Contact?.id,
     cart_type: isOrderShowNum,
     wherecall,
+    // Multi-variant products (plans/2026-10-20-product-variant-ui-and-field-scoping-plan.txt).
+    // This picker shows Simple products and a Parent ("Has Variants" template, one entry
+    // representing its whole family) - never an individual Variant row directly. Picking
+    // a Parent opens SelectVariantModal, which resolves one Variant and adds THAT to the
+    // cart instead (see the item.is_variant_parent check around addToCart below).
+    excludeVariants: true,
   };
 
   try {
