@@ -2252,6 +2252,25 @@ const CreateProductView = ({
                             />
                           </div>
                           )}
+                          {showVariantField && (
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
+                              <label
+                                htmlFor="show_in_ecommerce"
+                                className="mb-1 form_label"
+                              >
+                                Show in Ecommerce
+                              </label>
+                              <FormikCustomSearchDropdown
+                                name="show_in_ecommerce"
+                                options={[
+                                  { value: 1, label: "Yes" },
+                                  { value: 0, label: "No" },
+                                ]}
+                              />
+                            </div>
+                          </div>
+                          )}
                           </>
                           )}
                           {effectiveTab === "custom" && (

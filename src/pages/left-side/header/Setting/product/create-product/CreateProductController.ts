@@ -83,6 +83,10 @@ export interface IProductCreate {
   // itself); its real variants are separate product rows with parent_product_id set to
   // this one's id. Omitted/0 = a normal "Simple" product, today's only behavior.
   is_variant_parent?: number;
+  // Per-product visibility toggle for the ecommerce storefront's public catalog
+  // (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt, P2) - variant-specific, defaults
+  // to 1 (shown) on the backend.
+  show_in_ecommerce?: number;
   products_column_number_1?: number | string;
   products_column_number_2?: number | string;
   products_column_number_3?: number | string;
@@ -140,6 +144,7 @@ export const createProductInitialValues = (
 ): IProductCreate => ({
   is_serial_number: productToEdit?.is_serial_number || 1,
   is_variant_parent: productToEdit?.is_variant_parent ? 1 : 0,
+  show_in_ecommerce: productToEdit?.show_in_ecommerce !== undefined ? Number(productToEdit.show_in_ecommerce) : 1,
   product_name: productToEdit?.product_name || "",
   product_alias: productToEdit?.product_alias || "",
   product_code: productToEdit?.product_code || "",
@@ -440,6 +445,7 @@ const appendCommonFormData = (
   formData.append("product_name", values.product_name || "");
   formData.append("is_serial_number", values.is_serial_number || "");
   formData.append("is_variant_parent", String(values.is_variant_parent ? 1 : 0));
+  formData.append("show_in_ecommerce", String(values.show_in_ecommerce ?? 1));
   formData.append("miracle_uom_name", values.miracle_uom_name || "");
   formData.append("product_alias", values.product_alias || "");
   formData.append("product_code", values.product_code || "");
