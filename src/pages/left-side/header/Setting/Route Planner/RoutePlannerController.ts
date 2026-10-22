@@ -492,6 +492,47 @@ export const fetchContactsApi = async (
     }
 };
 
+export interface IContactLabelOption {
+    id: number;
+    lable_name: string;
+    color?: string;
+}
+
+export const fetchContactLabelOptions = async (
+    setLabels: TReactSetState<IContactLabelOption[]>,
+) => {
+    try {
+        const { data } = await axiosInstance.post("commonGet", {
+            table: "lable_masters",
+            columns: "id,lable_name,color",
+            where: ["isDelete=0"],
+            request_flag: 0,
+            order: `{"id":"DESC"}`,
+        });
+        setLabels(
+            data.ack === DEFAULT_STATUS_CODE_SUCCESS && Array.isArray(data.data) ? data.data : []
+        );
+    } catch (error: any) {
+        toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+};
+
+export const fetchContactStatusOptions = async (
+    setStatuses: TReactSetState<IStageStatusView[]>,
+) => {
+    const getUUID = localStorage.getItem("UUID");
+    try {
+        const { data } = await axiosInstance.post("get-status", {
+            status_type: "1",
+            a_application_login_id: getUUID,
+            action_flag: "view",
+        });
+        setStatuses(data.ack === DEFAULT_STATUS_CODE_SUCCESS && Array.isArray(data.data) ? data.data : []);
+    } catch (error: any) {
+        toast.error(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    }
+};
+
 // ── All-area contacts (no search term required) ──────────────────────────────
 
 export interface IAreaContact {
@@ -508,6 +549,8 @@ export const fetchAllAreaContacts = async (
     limit: number = 15,
     offset: number = 0,
     append: boolean = false,
+    stageStatusId: number = 0,
+    labelId: number = 0,
 ): Promise<boolean> => {
     const getUUID = localStorage.getItem("UUID");
     const token = localStorage.getItem("token");
@@ -525,6 +568,8 @@ export const fetchAllAreaContacts = async (
                 state: contactFilterObject?.state || 0,
                 city: contactFilterObject?.city || 0,
                 area: contactFilterObject?.area || 0,
+                stageStatusId: Number(stageStatusId) || 0,
+                labelId: Number(labelId) || 0,
             },
             {
                 headers: {
