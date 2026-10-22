@@ -329,22 +329,18 @@ const CreateInquiryView = ({
   };
   const fetchProductApiForInquiry = async () => {
     const getUUID = await localStorage.getItem("UUID");
+    // /product with forSeller: only products this team member is assigned to sell.
     const requestData = {
-      table: "products",
-      columns: "id,product_name",
-      where: [
-        "isDelete=0",
-        `category_id=${selectedCategoryId}`,
-        // `a_application_login_id=${getUUID}||0`,
-      ],
-      request_flag: 0,
-      order: `{"id":"DESC"}`,
+      a_application_login_id: getUUID,
+      searchCategoryId: selectedCategoryId,
+      forSeller: true,
+      excludeVariants: true,
     };
     if (canViewProduct) {
       try {
-        const response = await axiosInstance.post("commonGet", requestData);
+        const response = await axiosInstance.post("product", requestData);
 
-        setProductList(response.data.data); // Assuming API response is an array of countries
+        setProductList(response.data.data?.item || []); // Assuming API response is an array of countries
       } catch (error) {
         console.error("Error fetching countries:", error);
         setProductList([]);

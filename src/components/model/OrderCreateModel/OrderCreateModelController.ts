@@ -522,6 +522,8 @@ export const fetchProductApiForOrder = async (
     // a Parent opens SelectVariantModal, which resolves one Variant and adds THAT to the
     // cart instead (see the item.is_variant_parent check around addToCart below).
     excludeVariants: true,
+    // Team member only sees products they are assigned to sell.
+    forSeller: true,
   };
 
   try {

@@ -3,11 +3,15 @@ import "../../../../../components/model/ConfirmationModal.css";
 import {
     addContactAssignment,
     fetchAllAreaContacts,
+    fetchContactLabelOptions,
+    fetchContactStatusOptions,
     fetchSelectedContactsList,
     IAreaContact,
+    IContactLabelOption,
     ISelectedContacts,
     removeContactAssignment,
 } from "./RoutePlannerController";
+import { IStageStatusView } from "../stage-status/StageStatusController";
 
 interface IContactAssignmentModalProps {
     show: boolean;
@@ -37,6 +41,10 @@ const RouteAssignContact: React.FC<IContactAssignmentModalProps> = ({
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [statusOptions, setStatusOptions] = useState<IStageStatusView[]>([]);
+    const [labelOptions, setLabelOptions] = useState<IContactLabelOption[]>([]);
+    const [statusFilter, setStatusFilter] = useState(0);
+    const [labelFilter, setLabelFilter] = useState(0);
     const tableRef = useRef<HTMLDivElement>(null);
 
     const refreshAssigned = () => {
@@ -49,7 +57,7 @@ const RouteAssignContact: React.FC<IContactAssignmentModalProps> = ({
             const more = await fetchAllAreaContacts(
                 setAllContacts, contactFilterObject,
                 () => { }, // loading state handled by loadingMore
-                PAGE_SIZE, offset, true
+                PAGE_SIZE, offset, true, statusFilter, labelFilter
             );
             setHasMore(more);
             setLoadingMore(false);
@@ -57,7 +65,7 @@ const RouteAssignContact: React.FC<IContactAssignmentModalProps> = ({
             const more = await fetchAllAreaContacts(
                 setAllContacts, contactFilterObject,
                 setLoadingAll,
-                PAGE_SIZE, offset, false
+                PAGE_SIZE, offset, false, statusFilter, labelFilter
             );
             setHasMore(more);
         }
@@ -77,9 +85,18 @@ const RouteAssignContact: React.FC<IContactAssignmentModalProps> = ({
             setSelectedAssignedIds(new Set());
             setActiveTab("unassigned");
             setSearchTerm("");
+            setStatusFilter(0);
+            setLabelFilter(0);
+            fetchContactStatusOptions(setStatusOptions);
+            fetchContactLabelOptions(setLabelOptions);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show]);
+
+    useEffect(() => {
+        if (show) refreshAll();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statusFilter, labelFilter]);
 
     const assignedContactIds = useMemo(
         () => new Set(assignedContacts.map((c) => c.contact_id)),
@@ -467,6 +484,31 @@ const RouteAssignContact: React.FC<IContactAssignmentModalProps> = ({
                             Assigned Contacts ({assignedContacts.length})
                         </button>
                     </div>
+
+                    {activeTab === "unassigned" && (
+                        <div className="d-flex gap-2 mb-2">
+                            <select
+                                className="form-select form-select-sm"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(Number(e.target.value))}
+                            >
+                                <option value={0}>All Status</option>
+                                {statusOptions.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                            <select
+                                className="form-select form-select-sm"
+                                value={labelFilter}
+                                onChange={(e) => setLabelFilter(Number(e.target.value))}
+                            >
+                                <option value={0}>All Labels</option>
+                                {labelOptions.map((l) => (
+                                    <option key={l.id} value={l.id}>{l.lable_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="rac-toolbar">
                         <input
