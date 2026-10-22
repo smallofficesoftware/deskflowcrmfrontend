@@ -869,22 +869,18 @@ export const fetchProductApiForContact = async (
     return;
   }
 
+  // /product with forSeller: only products this team member is assigned to sell.
   const requestData = {
-    table: "products",
-    columns: "id,product_name",
-    where: [
-      "isDelete=0",
-      `category_id=${selectedCategoryId}`,
-      // `a_application_login_id=${getUUID}||0`,
-    ],
-    request_flag: 0,
-    order: `{"id":"DESC"}`,
+    a_application_login_id: getUUID,
+    searchCategoryId: selectedCategoryId,
+    forSeller: true,
+    excludeVariants: true,
   };
 
   try {
-    const response = await axiosInstance.post("commonGet", requestData);
+    const response = await axiosInstance.post("product", requestData);
 
-    setProductList(response.data.data);
+    setProductList(response.data.data?.item || []);
   } catch (error: any) {
     console.error("fetchProductApiForContact error:", error);
     toast.error(error.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);

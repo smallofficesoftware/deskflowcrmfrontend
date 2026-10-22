@@ -74,6 +74,8 @@ export interface IProductCreate {
   product_img: string;
   product_types: any;
   hsn_code: string;
+  // Comma-separated team-member ids allowed to sell the product; empty = everyone.
+  sellers_a_application_login_id?: string;
   miracle_uom_name?: string;
   is_serial_number: any;
   // Multi-variant products (plans/2026-10-18-product-variants-and-qty-pricing-plan.txt).
@@ -188,6 +190,8 @@ export const createProductInitialValues = (
     ? Number(productToEdit.product_types)
     : 5,
   hsn_code: productToEdit?.hsn_code || "",
+  sellers_a_application_login_id:
+    (productToEdit as any)?.sellers_a_application_login_id || "",
   miracle_uom_name: (productToEdit as any)?.miracle_uom_name || "",
   products_column_number_1: productToEdit?.products_column_number_1 || "",
   products_column_number_2: productToEdit?.products_column_number_2 || "",
@@ -469,6 +473,10 @@ const appendCommonFormData = (
   formData.append("product_height", values.product_height || "");
   formData.append("max_stock_quantity", values.max_stock_quantity || "");
   formData.append("hsn_code", values.hsn_code || "");
+  formData.append(
+    "sellers_a_application_login_id",
+    values.sellers_a_application_login_id || "",
+  );
   formData.append("a_application_login_id", getUUID);
 
   // Dynamic fields

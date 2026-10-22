@@ -20,6 +20,9 @@ import {
 } from "../../../../../../common/SharedFunction";
 import FormikCustomSearchDropdown from "../../../../../../components/FormikCustomSearchDropdown";
 import AddCategoryModal from "../../../../../../components/model/AddCategoryModal";
+import CustomSearchMultiSelectDropdown from "../../../../../../components/CustomSearchMultiSelectDropdown";
+import { fetchTeamMemberList } from "../../job-card/JobCardController";
+import { ITeamMemberOption } from "../../job-card/JobCardTypes";
 import ProductVariantSection from "./ProductVariantSection";
 import ProductPhotosSection from "./ProductPhotosSection";
 import {
@@ -80,6 +83,8 @@ const CreateProductView = ({
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [categoryList, setCategoryList] = useState<any>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number>();
+  const [sellerOptions, setSellerOptions] = useState<ITeamMemberOption[]>([]);
+  const [, setSellerLoading] = useState(false);
   const [productGroupsList, setProductGroupsList] = useState<any>([]);
   const [productTypesList, setProductList] = useState<any>([]);
   const [isProductUnitList, isSetProductUnitList] = useState<any>([]);
@@ -165,6 +170,7 @@ const CreateProductView = ({
   useEffect(() => {
     fetchCustomInqFromApiForProduct(setCustomFormList);
     fetchOrderUnitClassification(setOrderUnitClassification);
+    fetchTeamMemberList(setSellerOptions, setSellerLoading);
   }, []);
 
   useEffect(() => {
@@ -1597,6 +1603,38 @@ const CreateProductView = ({
                                 component="div"
                                 className="field-error text-danger"
                               />
+                            </div>
+                          </div>
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
+                              <label className="pb-2 form_label">
+                                Sellers (Team Members)
+                              </label>
+                              <Field name="sellers_a_application_login_id">
+                                {({ field, form }: FieldProps) => {
+                                  const selectedIds = String(field.value || "")
+                                    .split(",")
+                                    .filter(Boolean);
+                                  return (
+                                    <CustomSearchMultiSelectDropdown
+                                      options={sellerOptions}
+                                      value={sellerOptions.filter((option) =>
+                                        selectedIds.includes(String(option.value)),
+                                      )}
+                                      onChange={(selected) =>
+                                        form.setFieldValue(
+                                          "sellers_a_application_login_id",
+                                          selected
+                                            .filter((o) => o.value !== "all")
+                                            .map((o) => o.value)
+                                            .join(","),
+                                        )
+                                      }
+                                      placeholder="Everyone (leave empty)"
+                                    />
+                                  );
+                                }}
+                              </Field>
                             </div>
                           </div>
                           <div className="col-12 col-md-4">
