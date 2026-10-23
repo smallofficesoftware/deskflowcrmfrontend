@@ -33,6 +33,9 @@ interface IStorefrontAuthConfig {
   auth_light_mode_enabled: boolean;
   auth_invite_only: boolean;
   guest_checkout_enabled: boolean;
+  razorpay_key_id: string;
+  razorpay_key_secret: string;
+  paid_stage_status_id: number | null;
 }
 
 const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
@@ -43,9 +46,28 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_light_mode_enabled: false,
   auth_invite_only: false,
   guest_checkout_enabled: true,
+  razorpay_key_id: "",
+  razorpay_key_secret: "",
+  paid_stage_status_id: null,
 };
 
-const AUTH_TOGGLE_LABELS: { key: keyof IStorefrontAuthConfig; label: string; help: string }[] = [
+// Sales Order's own module id in stage_status_masters.order_type (see
+// orderTypesStageList in StageStatusController.ts: "4" = Sales Order) -
+// storefront checkout creates a `carts` row with type:2 (ListOrderController.ts's
+// own orderTypesList: "2" = Sales Order under ITS numbering - the two numbering
+// schemes already disagree elsewhere in this codebase, same mismatch, not a
+// new one), so the "which stage means paid" picker offers exactly the stages
+// the admin already set up for their Sales Order pipeline, nothing new.
+const SALES_ORDER_STAGE_MODULE = 4;
+
+interface IStageOption {
+  id: number;
+  name: string;
+}
+
+type AuthToggleKey = "auth_email_pin_enabled" | "auth_mobile_pin_enabled" | "auth_mobile_otp_enabled" | "auth_email_otp_enabled" | "auth_light_mode_enabled" | "auth_invite_only";
+
+const AUTH_TOGGLE_LABELS: { key: AuthToggleKey; label: string; help: string }[] = [
   { key: "auth_email_pin_enabled", label: "Email + PIN", help: "Verify email once, then PIN for later logins." },
   { key: "auth_mobile_pin_enabled", label: "Mobile + PIN", help: "Verify mobile via OTP once, then PIN for later logins." },
   { key: "auth_mobile_otp_enabled", label: "Mobile OTP every time", help: "No PIN - a fresh code every login." },
@@ -93,6 +115,7 @@ const EcommerceStorefrontSettingsView = ({
   const [lockChoices, setLockChoices] = useState<Record<string, "lock" | "keep">>({});
   const [lockedAccounts, setLockedAccounts] = useState<ILockedAccount[]>([]);
   const [unlockingKey, setUnlockingKey] = useState<string | null>(null);
+  const [stageOptions, setStageOptions] = useState<IStageOption[]>([]);
 
   useEscapeKey(closeEcommerceStorefrontView);
 
@@ -116,10 +139,25 @@ const EcommerceStorefrontSettingsView = ({
       }
 
       fetchLockedAccounts();
+      fetchStageOptions();
     } catch {
       setEnabled(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStageOptions = async () => {
+    try {
+      const { data } = await axiosInstance.post("commonGet", {
+        table: "stage_status_masters",
+        columns: "id,name",
+        where: [`order_type=${SALES_ORDER_STAGE_MODULE}`, "isDelete=0"],
+        request_flag: 0,
+      });
+      setStageOptions((data?.data || []) as IStageOption[]);
+    } catch {
+      // Non-critical - the dropdown just stays empty/unset.
     }
   };
 
@@ -310,13 +348,70 @@ const EcommerceStorefrontSettingsView = ({
               </label>
             </div>
 
+            <hr className="my-4" />
+
+            <h5 className="mb-1">Payment Gateway (Razorpay)</h5>
+            <p className="text-muted small mb-3">
+              Enter your own Razorpay merchant keys so storefront orders can be paid
+              online. Actually charging a card and confirming payment is coming in a
+              later update - for now this just stores your keys and which Sales Order
+              stage means "payment received" once that's wired up.
+            </p>
+            <div className="mb-2">
+              <label className="form-label small mb-1">Razorpay Key ID</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="rzp_live_..."
+                value={authConfig.razorpay_key_id}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_id: e.target.value })}
+              />
+            </div>
+            <div className="mb-2">
+              <label className="form-label small mb-1">Razorpay Key Secret</label>
+              <input
+                type="password"
+                className="form-control"
+                placeholder={authConfig.razorpay_key_secret ? "••••••••••••" : "Key secret"}
+                value={authConfig.razorpay_key_secret}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_secret: e.target.value })}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label small mb-1">Stage that means "Payment Received"</label>
+              <select
+                className="form-select"
+                value={authConfig.paid_stage_status_id ?? ""}
+                disabled={savingAuth}
+                onChange={(e) =>
+                  setAuthConfig({
+                    ...authConfig,
+                    paid_stage_status_id: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+              >
+                <option value="">Not selected</option>
+                {stageOptions.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.name}
+                  </option>
+                ))}
+              </select>
+              <div className="text-muted small mt-1">
+                From your own Sales Order pipeline (Settings → Stage & Status). A
+                successful payment will move the order to this stage.
+              </div>
+            </div>
+
             <button
               type="button"
               className="btn btn-primary"
               disabled={savingAuth}
               onClick={() => saveAuthConfig()}
             >
-              {savingAuth ? "Saving..." : "Save Login Settings"}
+              {savingAuth ? "Saving..." : "Save Settings"}
             </button>
 
             <hr className="my-4" />
