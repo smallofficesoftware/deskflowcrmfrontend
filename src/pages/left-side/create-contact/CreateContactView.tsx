@@ -1691,6 +1691,36 @@ const CreateContactView = ({
                           <div className="col-12 col-md-4">
                             <div className="form-group">
                               <label
+                                htmlFor="storefront_invited"
+                                className="pb-2 form_label d-block"
+                              >
+                                Ecommerce Storefront
+                              </label>
+                              <div className="form-check form-switch">
+                                <Field name="storefront_invited">
+                                  {({ field, form }: any) => (
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id="storefront_invited"
+                                      {...field}
+                                      checked={field.value ?? false}
+                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        form.setFieldValue("storefront_invited", e.target.checked);
+                                      }}
+                                    />
+                                  )}
+                                </Field>
+                                <label className="form-check-label" htmlFor="storefront_invited">
+                                  Invited
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
+                              <label
                                 htmlFor="gst_number"
                                 className="pb-2 form_label"
                               >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Modal, Button } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
@@ -10,12 +11,53 @@ import { axiosInstance } from "../../../../../services/axiosInstance";
 // would use via requireAddon) + theme picker (just Pharmacy today). Price list
 // picker / approval-mode / subdomain fields deliberately NOT built yet - they have
 // no backend consumer until P4/P5, so they'd just be inert UI right now.
+//
+// Auth method toggles (P3/Q3, added 23-10-2026): unlike the theme picker above
+// (which saves on every click), these batch into one Save button - a single
+// toggle flip can trigger the mode-switch "keep or lock" prompt (Q3(d)), and
+// that prompt needs every other toggle's pending value intact, not already
+// half-saved one field at a time.
 
 interface IStorefrontTheme {
   id: number;
   code: string;
   name: string;
   description: string | null;
+}
+
+interface IStorefrontAuthConfig {
+  auth_email_pin_enabled: boolean;
+  auth_mobile_pin_enabled: boolean;
+  auth_mobile_otp_enabled: boolean;
+  auth_email_otp_enabled: boolean;
+  auth_light_mode_enabled: boolean;
+  auth_invite_only: boolean;
+  guest_checkout_enabled: boolean;
+}
+
+const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
+  auth_email_pin_enabled: false,
+  auth_mobile_pin_enabled: false,
+  auth_mobile_otp_enabled: false,
+  auth_email_otp_enabled: false,
+  auth_light_mode_enabled: false,
+  auth_invite_only: false,
+  guest_checkout_enabled: true,
+};
+
+const AUTH_TOGGLE_LABELS: { key: keyof IStorefrontAuthConfig; label: string; help: string }[] = [
+  { key: "auth_email_pin_enabled", label: "Email + PIN", help: "Verify email once, then PIN for later logins." },
+  { key: "auth_mobile_pin_enabled", label: "Mobile + PIN", help: "Verify mobile via OTP once, then PIN for later logins." },
+  { key: "auth_mobile_otp_enabled", label: "Mobile OTP every time", help: "No PIN - a fresh code every login." },
+  { key: "auth_email_otp_enabled", label: "Email OTP every time", help: "No PIN - a fresh code every login." },
+  { key: "auth_light_mode_enabled", label: "No-verification (mobile only)", help: "Trusted entry, order-placing only - no OTP/PIN." },
+  { key: "auth_invite_only", label: "Invite-only signup", help: "Only contacts you've marked \"Invited\" can create an account. Doesn't affect guest checkout." },
+];
+
+interface IAffectedMethod {
+  setting: string;
+  method: string;
+  count: number;
 }
 
 interface IPropsEcommerceStorefront {
@@ -32,6 +74,10 @@ const EcommerceStorefrontSettingsView = ({
   const [themes, setThemes] = useState<IStorefrontTheme[]>([]);
   const [currentThemeId, setCurrentThemeId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [authConfig, setAuthConfig] = useState<IStorefrontAuthConfig>(DEFAULT_AUTH_CONFIG);
+  const [savingAuth, setSavingAuth] = useState(false);
+  const [affectedMethods, setAffectedMethods] = useState<IAffectedMethod[]>([]);
+  const [lockChoices, setLockChoices] = useState<Record<string, "lock" | "keep">>({});
 
   useEscapeKey(closeEcommerceStorefrontView);
 
@@ -46,6 +92,7 @@ const EcommerceStorefrontSettingsView = ({
         return;
       }
       setEnabled(true);
+      setAuthConfig({ ...DEFAULT_AUTH_CONFIG, ...(data.data?.item?.config_json || {}) });
 
       const themesRes = await axiosInstance.post("storefront/themes/get", {});
       if (themesRes.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
@@ -80,6 +127,37 @@ const EcommerceStorefrontSettingsView = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveAuthConfig = async (lock_decisions?: Record<string, "lock" | "keep">) => {
+    setSavingAuth(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/settings/save", {
+        config_json: authConfig,
+        ...(lock_decisions ? { lock_decisions } : {}),
+      });
+      if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      if (data.data?.needs_decision) {
+        // Mode-switch (Q3(d)): existing accounts signed up through a method
+        // this save would disable - ask per method before actually saving.
+        setAffectedMethods(data.data.affected || []);
+        setLockChoices(Object.fromEntries((data.data.affected || []).map((a: IAffectedMethod) => [a.setting, "keep"])));
+        return;
+      }
+      toast.success("Settings saved");
+      setAffectedMethods([]);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setSavingAuth(false);
+    }
+  };
+
+  const confirmLockDecisions = async () => {
+    await saveAuthConfig(lockChoices);
   };
 
   if (!isEcommerceStorefrontView) return null;
@@ -140,9 +218,109 @@ const EcommerceStorefrontSettingsView = ({
                 </div>
               ))
             )}
+
+            <hr className="my-4" />
+
+            <h5 className="mb-1">Customer Login Methods</h5>
+            <p className="text-muted small mb-3">
+              Turn on any combination - customers won't see a method picker; the
+              storefront tries a PIN first (if they have one) and falls back to a
+              one-time code automatically.
+            </p>
+            {AUTH_TOGGLE_LABELS.map(({ key, label, help }) => (
+              <div key={key} className="form-check form-switch mb-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id={`auth-toggle-${key}`}
+                  checked={authConfig[key]}
+                  disabled={savingAuth}
+                  onChange={(e) => setAuthConfig({ ...authConfig, [key]: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor={`auth-toggle-${key}`}>
+                  <b>{label}</b>
+                  <div className="text-muted small">{help}</div>
+                </label>
+              </div>
+            ))}
+
+            <div className="form-check form-switch mb-3 mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="guest-checkout-toggle"
+                checked={authConfig.guest_checkout_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, guest_checkout_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="guest-checkout-toggle">
+                <b>Allow guest checkout</b>
+                <div className="text-muted small">
+                  B2C visitors can check out without logging in - independent of invite-only.
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={savingAuth}
+              onClick={() => saveAuthConfig()}
+            >
+              {savingAuth ? "Saving..." : "Save Login Settings"}
+            </button>
           </>
         )}
       </div>
+
+      <Modal show={affectedMethods.length > 0} onHide={() => setAffectedMethods([])} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Existing customer accounts</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Turning off a method doesn't remove the accounts created through it - choose
+            whether to keep them working (they can still use any other method you leave on)
+            or lock them out of this specific method, even if you turn it back on later.
+          </p>
+          {affectedMethods.map((affected) => {
+            const label = AUTH_TOGGLE_LABELS.find((a) => a.key === affected.setting)?.label || affected.setting;
+            return (
+              <div key={affected.setting} className="mb-3">
+                <b>{label}</b> - {affected.count} existing account{affected.count === 1 ? "" : "s"}
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name={`lock-${affected.setting}`}
+                    id={`keep-${affected.setting}`}
+                    checked={lockChoices[affected.setting] !== "lock"}
+                    onChange={() => setLockChoices({ ...lockChoices, [affected.setting]: "keep" })}
+                  />
+                  <label className="form-check-label" htmlFor={`keep-${affected.setting}`}>Keep them working</label>
+                </div>
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name={`lock-${affected.setting}`}
+                    id={`lock-${affected.setting}`}
+                    checked={lockChoices[affected.setting] === "lock"}
+                    onChange={() => setLockChoices({ ...lockChoices, [affected.setting]: "lock" })}
+                  />
+                  <label className="form-check-label" htmlFor={`lock-${affected.setting}`}>Lock them out</label>
+                </div>
+              </div>
+            );
+          })}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setAffectedMethods([])}>Cancel</Button>
+          <Button variant="primary" onClick={confirmLockDecisions} disabled={savingAuth}>Confirm & Save</Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

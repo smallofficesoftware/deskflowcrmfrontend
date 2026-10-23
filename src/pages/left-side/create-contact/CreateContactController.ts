@@ -36,6 +36,12 @@ export interface ICreateCustomer {
   static: number;
   assinged_to_work_a_application_id: number;
   lable: string | number | undefined;
+  // Ecommerce storefront invite-only allowlist (plans/2026-10-15-ecommerce-
+  // b2b-b2c-plan.txt, P3/Q3) - admin marks an existing contact as allowed to
+  // sign up/log in on the storefront when invite-only is on. Edit-only (see
+  // updateContact below) - not wired into createContact, since inviting is
+  // normally done on an already-existing contact, not at creation time.
+  storefront_invited: boolean;
   cntc_column_number_1: number | string;
   cntc_column_number_2: number | string;
   cntc_column_number_3: number | string;
@@ -198,6 +204,7 @@ export const createCustomerInitialValues = (
     address: contactData?.address || "",
     source_type_id: contactData?.source_type_id || "",
     lable: contactData?.lable,
+    storefront_invited: (contactData as any)?.storefront_invited === 1,
     assinged_to_price_list: contactData?.assinged_to_price_list || 0,
     shipping_address: contactData?.shipping_address || "",
     gst_number: contactData?.gst_number || "",
@@ -731,6 +738,7 @@ export const updateContact = async (
       client_code: values.client_code,
       longitude: values.longitude,
       latitude: values.latitude,
+      storefront_invited: values.storefront_invited ? 1 : 0,
     }),
   };
 
