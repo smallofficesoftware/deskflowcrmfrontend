@@ -60,6 +60,19 @@ interface IAffectedMethod {
   count: number;
 }
 
+interface ILockedMethod {
+  method: string;
+  label: string;
+}
+
+interface ILockedAccount {
+  id: number;
+  person_name: string | null;
+  mobile_number: string | null;
+  email_id: string | null;
+  locked_methods: ILockedMethod[];
+}
+
 interface IPropsEcommerceStorefront {
   isEcommerceStorefrontView: boolean;
   closeEcommerceStorefrontView: () => void;
@@ -78,6 +91,8 @@ const EcommerceStorefrontSettingsView = ({
   const [savingAuth, setSavingAuth] = useState(false);
   const [affectedMethods, setAffectedMethods] = useState<IAffectedMethod[]>([]);
   const [lockChoices, setLockChoices] = useState<Record<string, "lock" | "keep">>({});
+  const [lockedAccounts, setLockedAccounts] = useState<ILockedAccount[]>([]);
+  const [unlockingKey, setUnlockingKey] = useState<string | null>(null);
 
   useEscapeKey(closeEcommerceStorefrontView);
 
@@ -99,10 +114,23 @@ const EcommerceStorefrontSettingsView = ({
         setThemes(themesRes.data.data?.item?.themes || []);
         setCurrentThemeId(themesRes.data.data?.item?.current_theme_id || null);
       }
+
+      fetchLockedAccounts();
     } catch {
       setEnabled(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLockedAccounts = async () => {
+    try {
+      const { data } = await axiosInstance.post("storefront/locked-accounts/get", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setLockedAccounts(data.data?.items || []);
+      }
+    } catch {
+      // Non-critical - the rest of the page still works without this list.
     }
   };
 
@@ -149,6 +177,7 @@ const EcommerceStorefrontSettingsView = ({
       }
       toast.success("Settings saved");
       setAffectedMethods([]);
+      fetchLockedAccounts(); // a fresh "lock" choice may have just added rows here.
     } catch (error: any) {
       toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     } finally {
@@ -158,6 +187,24 @@ const EcommerceStorefrontSettingsView = ({
 
   const confirmLockDecisions = async () => {
     await saveAuthConfig(lockChoices);
+  };
+
+  const handleUnlock = async (contactId: number, method: string) => {
+    const key = `${contactId}-${method}`;
+    setUnlockingKey(key);
+    try {
+      const { data } = await axiosInstance.post("storefront/locked-accounts/unlock", { contact_id: contactId, method });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.success("Unlocked");
+        fetchLockedAccounts();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setUnlockingKey(null);
+    }
   };
 
   if (!isEcommerceStorefrontView) return null;
@@ -271,6 +318,40 @@ const EcommerceStorefrontSettingsView = ({
             >
               {savingAuth ? "Saving..." : "Save Login Settings"}
             </button>
+
+            <hr className="my-4" />
+
+            <h5 className="mb-1">Locked Accounts</h5>
+            <p className="text-muted small mb-3">
+              Accounts locked out of a specific method after it was turned off (the "Lock
+              them out" choice above). A locked method stays blocked for that one customer
+              even if you turn the method back on - unlock here to let them back in.
+            </p>
+            {lockedAccounts.length === 0 ? (
+              <p className="text-muted">No locked accounts.</p>
+            ) : (
+              lockedAccounts.map((account) => (
+                <div key={account.id} className="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                  <div>
+                    <b>{account.person_name || "Guest"}</b>{" "}
+                    <span className="text-muted small">{account.mobile_number || account.email_id}</span>
+                  </div>
+                  <div>
+                    {account.locked_methods.map(({ method, label }) => (
+                      <button
+                        key={method}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary ms-2"
+                        disabled={unlockingKey === `${account.id}-${method}`}
+                        onClick={() => handleUnlock(account.id, method)}
+                      >
+                        Unlock {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </>
         )}
       </div>
