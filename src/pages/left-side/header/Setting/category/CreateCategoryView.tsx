@@ -1,11 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
-import { BIG_TEXT_LENGTH, DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
+import {
+  BIG_TEXT_LENGTH,
+  DEFAULT_MESSAGE_ERROR_PERMISSION,
+  DEFAULT_STATUS_CODE_SUCCESS,
+  MESSAGE_UNKNOWN_ERROR_OCCURRED,
+} from "../../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { TOnChangeInput, TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
+import { axiosInstance } from "../../../../../services/axiosInstance";
 import { createCategory, fetchProductGroupApi, ICategoryView, IGroupView, updateCategory } from "./CategoryController";
 
 interface IPropsCreateCategory {
@@ -35,6 +41,14 @@ const CreateCategoryView = ({
     const [categoryError, setCategoryError] = useState("");
     const [countryError, setCountryError] = useState("");
 
+    // Category image for the ecommerce storefront (23-10-2026) - edit-only
+    // (upload needs a real category_id, and createCategory doesn't return
+    // the new row's id today) - a brand-new category must be saved once,
+    // then reopened for Edit, to add a photo.
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
     const canView = useCheckUserPermission(PAGE_ID.CATEGORY, PERMISSION_TYPE.VIEW);
     const canAdd = useCheckUserPermission(PAGE_ID.CATEGORY, PERMISSION_TYPE.ADD);
     const canEdit = useCheckUserPermission(PAGE_ID.CATEGORY, PERMISSION_TYPE.EDIT);
@@ -46,8 +60,62 @@ const CreateCategoryView = ({
             setCategoryInputInput(productToEdit.category_name);
             setCategoryHexColorInput(productToEdit.color || "#999999");
             setSelectedGroupId(productToEdit.group_id || null);
+            fetchCategoryImage();
         }
     }, []);
+
+    const fetchCategoryImage = async () => {
+        if (!productToEdit?.id) return;
+        try {
+            const { data } = await axiosInstance.post("get-category-image", { category_id: productToEdit.id });
+            if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+                setImagePreviewUrl(data.data?.item?.thumbnail_url || data.data?.item?.webp_url || data.data?.item?.image_url || null);
+            }
+        } catch {
+            // Non-critical - the rest of the form still works without a preview.
+        }
+    };
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !productToEdit?.id) return;
+        e.target.value = "";
+
+        const formData = new FormData();
+        formData.append("category_id", String(productToEdit.id));
+        formData.append("image", file);
+
+        setUploadingImage(true);
+        try {
+            const { data } = await axiosInstance.post("upload-category-image", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+                setImagePreviewUrl(data.data?.item?.thumbnail_url || data.data?.item?.webp_url || null);
+                toast.success("Category image uploaded");
+            } else {
+                toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleRemoveImage = async () => {
+        if (!productToEdit?.id) return;
+        try {
+            const { data } = await axiosInstance.post("delete-category-image", { category_id: productToEdit.id });
+            if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+                setImagePreviewUrl(null);
+            } else {
+                toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+            }
+        } catch {
+            toast.error(MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        }
+    };
 
     useEffect(() => {
         if (canView) {
@@ -201,6 +269,52 @@ const CreateCategoryView = ({
                                     <span className="text-danger">{categoryError}</span>
                                 )}
                             </div>
+
+                            {productToEdit && (
+                                <div className="col-12 mt-3">
+                                    <label className="form-check-label">
+                                        <h6>Category Image</h6>
+                                    </label>
+                                    <div className="d-flex align-items-center">
+                                        {imagePreviewUrl && (
+                                            <img
+                                                src={imagePreviewUrl}
+                                                alt="Category"
+                                                style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 4, marginRight: "10px" }}
+                                            />
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="modal-button1"
+                                            disabled={uploadingImage}
+                                            onClick={() => imageInputRef.current?.click()}
+                                        >
+                                            {uploadingImage ? "Uploading..." : imagePreviewUrl ? "Replace" : "Upload"}
+                                        </button>
+                                        {imagePreviewUrl && (
+                                            <button
+                                                type="button"
+                                                className="modal-button1 mx-2"
+                                                onClick={handleRemoveImage}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                        <input
+                                            ref={imageInputRef}
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/jpg"
+                                            style={{ display: "none" }}
+                                            onChange={handleImageChange}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {!productToEdit && (
+                                <div className="col-12 mt-3 text-muted" style={{ fontSize: "0.85em" }}>
+                                    Save the category first, then edit it again to add a photo.
+                                </div>
+                            )}
                         </div>
 
                         <div className="col-12 col-12 pt-4 pe-3 d-flex justify-content-end modal-buttons">
