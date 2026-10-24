@@ -63,7 +63,67 @@ export interface ITaskPerformance {
   salary: number;
   pendingReminder: number;
   attendanceData: IAttendanceData[];
+  userId?: number;
+  activity?: ITeamActivity;
+  // Flat copies of `activity`, so the table can sort and filter on them.
+  calls_total?: number;
+  calls_connected?: number;
+  calls_not_connected?: number;
+  followups_done?: number;
+  tasks_assigned?: number;
+  tasks_completed?: number;
+  tasks_called?: number;
+  tasks_called_text?: string;
 }
+
+export interface ITeamActivity {
+  calls_total: number;
+  calls_connected: number;
+  calls_not_connected: number;
+  followups_done: number;
+  tasks_assigned: number;
+  tasks_completed: number;
+  tasks_pending: number;
+  tasks_with_contact: number;
+  tasks_called: number;
+}
+
+export interface ITeamDetailTask {
+  id: number;
+  title: string;
+  given_on: string;
+  completed: boolean;
+  contact_name: string;
+  mobile_number: string;
+  has_contact: boolean;
+  called: boolean;
+  last_call: string;
+}
+
+export interface ITeamPerformanceDetail {
+  contacts_touched: number;
+  status_breakdown: { name: string; count: number }[];
+  label_breakdown: { name: string; count: number }[];
+  tasks: ITeamDetailTask[];
+}
+
+export const fetchTeamPerformanceDetail = async (
+  userId: number,
+  selectedDates: Date[] | undefined,
+): Promise<ITeamPerformanceDetail | null> => {
+  try {
+    const response = await axiosInstance.post("/team-performance-detail", {
+      a_application_login_id: localStorage.getItem("UUID"),
+      user_id: userId,
+      selectedDates,
+    });
+    if (response?.data?.ack === 1) return response.data.data as ITeamPerformanceDetail;
+    toast.error(response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  } catch (error: any) {
+    toast.error(error?.response?.data?.message || error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+  }
+  return null;
+};
 
 export const fetchTeamPerformance = async (
   setTaskPerformance: TReactSetState<ITaskPerformance[]>,
