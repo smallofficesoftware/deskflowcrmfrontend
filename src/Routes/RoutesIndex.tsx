@@ -6,6 +6,7 @@ import LogoutComponent from "../components/LogoutComponent";
 
 // Every route is code-split so a print/PDF/public URL does not download the
 // whole CRM app (and its heavy libs: pdfme, charts, xyflow, ...) up front.
+const GuideAvatar = lazy(() => import("../components/guide/GuideAvatar"));
 const InstructionView = lazy(() => import("../pages/instruction/InstructionView"));
 const PdfView = lazy(() => import("../pages/order-pdf-view/PdfView"));
 const OrderPrintViewV2 = lazy(() => import("../pages/order-print-view/OrderPrintViewV2"));
@@ -323,6 +324,7 @@ const RoutesIndex = () => {
             {/* <Route path="/fullScreenReport" element={<TeamPerformanceReports/>}></Route> */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <GuideAvatar />
           </Suspense>
         </Router>
       </AppProvider>
