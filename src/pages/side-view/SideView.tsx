@@ -1043,6 +1043,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Product Settings");
       setAppliedReportType(name);
       return;
+    } else if (canViewPriceList && name === "PriceListRate_Report") {
+      setActiveView("Product Settings");
+      setAppliedReportType(name);
+      return;
     } else if (canViewStockAdjustment && name === "StockAdjustment_Report") {
       setActiveView("Production");
       setAppliedReportType(name);
