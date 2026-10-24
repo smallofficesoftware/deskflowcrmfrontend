@@ -1,5 +1,6 @@
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useEffect, useRef, useState } from "react";
+import { getMyDayMode, MY_DAY_MODE_LABEL, setMyDayMode, TMyDayMode } from "../../../../../components/my-day/myDayPreference";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useWhatsappPlatformStore from "../../../../../store/whatsapp/useWhatsappPlateformFlagStore";
@@ -31,6 +32,7 @@ const PersonalSettingView = ({
     useState<ITeamWABADetails[]>([]);
 
   const [isOpenThirdParty, setIsOpenThirdParty] = useState(false);
+  const [myDayMode, setMyDayModeState] = useState<TMyDayMode>(getMyDayMode());
 
   const handleSubmit = async (values: any) => {
     handleSaveData(values, companyToEdit.id, onHide, setIsLoadApi);
@@ -140,6 +142,32 @@ const PersonalSettingView = ({
                     <div className="  mt-3    d-flex justify-content-center">
                       <div className="mb-3 py-4  ">
                         <div className="row  mx-0 px-2 gy-3  d-flex justify-content-center">
+                          <div className="col-12">
+                            <div className="form-group">
+                              <label htmlFor="my_day_popup_mode" className="pb-2 form_label">
+                                Today's Work Popup
+                              </label>
+                              <select
+                                id="my_day_popup_mode"
+                                className="form-select font-size-15 rounded-1"
+                                value={myDayMode}
+                                onChange={(e) => {
+                                  const mode = e.target.value as TMyDayMode;
+                                  setMyDayModeState(mode);
+                                  setMyDayMode(mode);
+                                }}
+                              >
+                                {(Object.keys(MY_DAY_MODE_LABEL) as TMyDayMode[]).map((mode) => (
+                                  <option key={mode} value={mode}>
+                                    {MY_DAY_MODE_LABEL[mode]}
+                                  </option>
+                                ))}
+                              </select>
+                              <small className="text-dark">
+                                Shows today's tasks and reminders when the app opens. Saved on this device.
+                              </small>
+                            </div>
+                          </div>
                           {/* <div className="col-12 col-md-6">
                           <div className="form-group">
                             <label

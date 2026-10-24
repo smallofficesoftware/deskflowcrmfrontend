@@ -46,6 +46,7 @@ import {
   ICompany,
 } from "../left-side/list-company/ListCompanyController";
 import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
+import MyDayPopup from "../../components/my-day/MyDayPopup";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
@@ -1518,6 +1519,7 @@ const SideView = ({ profileDetail }: IProp) => {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <MyDayPopup active={!isEmbed && !reportSlug && activeView === "dashboard"} />
       {/* SIDEBAR */}
       {!isEmbed && (
         <div
