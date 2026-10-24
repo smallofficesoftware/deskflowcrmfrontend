@@ -178,6 +178,10 @@ export enum PAGE_ID {
   // id 199 = next after workspaces (198) on demo; re-verify per env (the admin
   // panel shares a_application_pages and numbers its pages differently).
   SERIAL_NUMBER_TRACE = 199,
+  // Price List Rates report (current rates + rate change history). Migration
+  // 20261024120000-add-price-list-rates-application-page.js (master DB). id 202 = next after
+  // Ecommerce Storefront (201) locally; re-verify per env before running the migration.
+  PRICE_LIST_RATES = 202,
 
   // Add more pages as needed
 }

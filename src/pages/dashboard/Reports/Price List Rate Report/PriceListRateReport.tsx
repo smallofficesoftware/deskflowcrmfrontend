@@ -1,6 +1,7 @@
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
+import { MultiSelect } from "primereact/multiselect";
 import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
@@ -88,6 +89,9 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<IPriceListRateReport>(emptyPriceListRateReport);
   const [tab, setTab] = useState<TTab>("current");
+  // Price list / product filters; empty = all.
+  const [selectedPriceListIds, setSelectedPriceListIds] = useState<number[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const [globalSearchText, setGlobalSearchText] = useState("");
@@ -101,9 +105,9 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const canViewReport = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.VIEW);
-  const canShare = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.SHARE);
-  const canPrint = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.PRINT);
+  const canViewReport = useCheckUserPermission(PAGE_ID.PRICE_LIST_RATES, PERMISSION_TYPE.VIEW);
+  const canShare = useCheckUserPermission(PAGE_ID.PRICE_LIST_RATES, PERMISSION_TYPE.SHARE);
+  const canPrint = useCheckUserPermission(PAGE_ID.PRICE_LIST_RATES, PERMISSION_TYPE.PRINT);
   const canEditPrice = useCheckUserPermission(PAGE_ID.PRICE_LIST_ITEM, PERMISSION_TYPE.EDIT);
 
   // Price list whose items are open for editing (the existing price list item screen).
@@ -164,13 +168,15 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       setLoading,
       toApiDate(reportSelectedDates[0]),
       toApiDate(reportSelectedDates[1]),
+      selectedPriceListIds,
+      selectedProductIds,
     );
   };
 
   useEffect(() => {
     setSelectedRows([]);
     loadData();
-  }, [reportSelectedDates, canViewReport]);
+  }, [reportSelectedDates, canViewReport, selectedPriceListIds, selectedProductIds]);
 
   useEffect(() => {
     setSelectedRows([]);
@@ -482,6 +488,38 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
         endDate={filters.endSearchDate}
       />
 
+      {/* Price list / product filters */}
+      <div className="row g-2 mb-3">
+        <div className="col-12 col-md-6">
+          <MultiSelect
+            value={selectedPriceListIds}
+            options={report.options?.price_lists ?? []}
+            optionLabel="name"
+            optionValue="id"
+            onChange={(e) => setSelectedPriceListIds(e.value || [])}
+            placeholder="All Price Lists"
+            filter
+            showClear
+            maxSelectedLabels={2}
+            className="w-100"
+          />
+        </div>
+        <div className="col-12 col-md-6">
+          <MultiSelect
+            value={selectedProductIds}
+            options={(report.options?.products ?? []).map((p) => ({ id: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))}
+            optionLabel="label"
+            optionValue="id"
+            onChange={(e) => setSelectedProductIds(e.value || [])}
+            placeholder="All Products"
+            filter
+            showClear
+            maxSelectedLabels={2}
+            className="w-100"
+          />
+        </div>
+      </div>
+
       {/* View switch: current rates / change history */}
       <div className="d-flex align-items-center justify-content-between mb-3">
         <nav className="nav nav-pills flex-column flex-sm-row flex-wrap gap-2" style={{ width: "100%" }}>
@@ -563,7 +601,7 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
             <Column
               header="Action"
               headerStyle={{
-                width: "130px",
+                width: "80px",
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
@@ -573,12 +611,13 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
               bodyStyle={{ fontSize: "14px", textAlign: "center" }}
               body={(row: any) => (
                 <Button
-                  label="Edit Price"
                   icon="pi pi-pencil"
-                  size="small"
-                  className="p-button-sm"
-                  style={{ backgroundColor: "#4C4C4C", border: "none" }}
+                  className="report_button"
+                  style={{ backgroundColor: "#4C4C4C", width: "2rem", height: "2rem" }}
+                  rounded
                   onClick={() => openEditPrice(row)}
+                  tooltip="Edit Price"
+                  tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
                 />
               )}
             />
@@ -611,7 +650,7 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
           btn1="Cancel"
           btn2="Apply Filter"
           filtersToShow={[1]}
-          pageId={PAGE_ID.PRICE_LIST}
+          pageId={PAGE_ID.PRICE_LIST_RATES}
           initialStartSearchDate={filters.startSearchDate}
           initialEndSearchDate={filters.endSearchDate}
         />

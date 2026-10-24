@@ -37,9 +37,15 @@ export interface IPriceListRateHistoryRow {
   changed_by_name: string;
 }
 
+export interface IPriceListRateOptions {
+  price_lists: { id: number; name: string }[];
+  products: { id: number; name: string; code: string | null }[];
+}
+
 export interface IPriceListRateReport {
   current: IPriceListRateCurrentRow[];
   history: IPriceListRateHistoryRow[];
+  options: IPriceListRateOptions;
   totals: {
     price_lists: number;
     products: number;
@@ -50,6 +56,7 @@ export interface IPriceListRateReport {
 export const emptyPriceListRateReport: IPriceListRateReport = {
   current: [],
   history: [],
+  options: { price_lists: [], products: [] },
   totals: { price_lists: 0, products: 0, changes: 0 },
 };
 
@@ -58,6 +65,8 @@ export const fetchPriceListRateReportApi = async (
   setLoading: TReactSetState<boolean>,
   fromDate: string,
   toDate: string,
+  priceListIds: number[] = [],
+  productIds: number[] = [],
 ) => {
   setLoading(true);
   try {
@@ -65,6 +74,8 @@ export const fetchPriceListRateReportApi = async (
       a_application_login_id: localStorage.getItem("UUID"),
       from_date: fromDate,
       to_date: toDate,
+      pricelist_masters_id: priceListIds.length > 0 ? priceListIds.join(",") : undefined,
+      product_id: productIds.length > 0 ? productIds.join(",") : undefined,
     });
     if (response.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
       setReport(response.data.data);

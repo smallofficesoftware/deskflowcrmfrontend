@@ -661,6 +661,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.PRICE_LIST,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewPriceListRates = useCheckUserPermission(
+    PAGE_ID.PRICE_LIST_RATES,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewStockAdjustment = useCheckUserPermission(
     PAGE_ID.STOCK_ADJUSTMENT,
     PERMISSION_TYPE.VIEW,
@@ -1043,7 +1047,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Product Settings");
       setAppliedReportType(name);
       return;
-    } else if (canViewPriceList && name === "PriceListRate_Report") {
+    } else if (canViewPriceListRates && name === "PriceListRate_Report") {
       setActiveView("Product Settings");
       setAppliedReportType(name);
       return;

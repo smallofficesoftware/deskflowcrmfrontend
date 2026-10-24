@@ -731,7 +731,7 @@ export const reportsMenuData: IReportMenuGroup[] = [
       {
         label: "Price List Rates",
         value: "PriceListRate_Report",
-        pageId: PAGE_ID.PRICE_LIST,
+        pageId: PAGE_ID.PRICE_LIST_RATES,
         icon: "priceChange",
         description: "Current rate of every product in each price list, and the history of rate changes.",
       },
