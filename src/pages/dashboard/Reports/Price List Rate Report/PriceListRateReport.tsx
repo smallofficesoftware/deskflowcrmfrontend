@@ -15,6 +15,8 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { exportReportExcel, exportReportPdf } from "../../../../services/reportExportService";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
+import { IPriceListView } from "../../../left-side/header/Setting/priceList/PriceListController";
+import PriceListItemView from "../../../left-side/header/Setting/priceList/PriceListItemView";
 import {
   emptyPriceListRateReport,
   fetchPriceListRateReportApi,
@@ -102,6 +104,10 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const canViewReport = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.VIEW);
   const canShare = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.SHARE);
   const canPrint = useCheckUserPermission(PAGE_ID.PRICE_LIST, PERMISSION_TYPE.PRINT);
+  const canEditPrice = useCheckUserPermission(PAGE_ID.PRICE_LIST_ITEM, PERMISSION_TYPE.EDIT);
+
+  // Price list whose items are open for editing (the existing price list item screen).
+  const [editPriceList, setEditPriceList] = useState<IPriceListView>();
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -171,6 +177,15 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   }, [tab, debouncedSearchText]);
 
   const handleGlobalSearch = () => setGlobalSearchText(searchInputRef.current?.value || "");
+
+  // The item screen only needs the price list id and name.
+  const openEditPrice = (row: any) => {
+    if (!canEditPrice) {
+      toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+      return;
+    }
+    setEditPriceList({ id: row.pricelist_masters_id, price_list_name: row.price_list_name } as IPriceListView);
+  };
 
   const handleApplyFilters = (data: any) => {
     const [startDate, endDate] = getCurrentMonthDateRange();
@@ -544,8 +559,46 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
               body={cellBody(col)}
             />
           ))}
+          {canEditPrice && (
+            <Column
+              header="Action"
+              headerStyle={{
+                width: "130px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              bodyStyle={{ fontSize: "14px", textAlign: "center" }}
+              body={(row: any) => (
+                <Button
+                  label="Edit Price"
+                  icon="pi pi-pencil"
+                  size="small"
+                  className="p-button-sm"
+                  style={{ backgroundColor: "#4C4C4C", border: "none" }}
+                  onClick={() => openEditPrice(row)}
+                />
+              )}
+            />
+          )}
         </DataTable>
       </div>
+
+      {editPriceList && (
+        <PriceListItemView
+          show={!!editPriceList}
+          onHide={() => {
+            setEditPriceList(undefined);
+            loadData(); // show the new rate and the history row the change just wrote
+          }}
+          title={"Price List Item"}
+          btn1={"Cancel"}
+          btn2={"Save"}
+          passDataInAddItem={editPriceList}
+        />
+      )}
 
       {/* Filter Modal */}
       {isModalFilterVisible && (
