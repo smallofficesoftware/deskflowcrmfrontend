@@ -1720,6 +1720,36 @@ const CreateContactView = ({
 
                           <div className="col-12 col-md-4">
                             <div className="form-group">
+                              <label htmlFor="credit_limit" className="pb-2 form_label d-block">
+                                Credit Limit
+                              </label>
+                              <Field
+                                type="number"
+                                id="credit_limit"
+                                name="credit_limit"
+                                className="form-control"
+                                placeholder="No limit"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
+                              <label htmlFor="payment_terms" className="pb-2 form_label d-block">
+                                Payment Terms (days)
+                              </label>
+                              <Field
+                                type="number"
+                                id="payment_terms"
+                                name="payment_terms"
+                                className="form-control"
+                                placeholder="e.g. 30"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-4">
+                            <div className="form-group">
                               <label
                                 htmlFor="gst_number"
                                 className="pb-2 form_label"

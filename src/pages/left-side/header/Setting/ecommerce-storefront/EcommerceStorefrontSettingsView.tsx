@@ -36,6 +36,9 @@ interface IStorefrontAuthConfig {
   razorpay_key_id: string;
   razorpay_key_secret: string;
   paid_stage_status_id: number | null;
+  credit_limit_action: "block" | "warn";
+  approval_mode_enabled: boolean;
+  stock_check_mode: "derived" | "reserved";
 }
 
 const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
@@ -49,6 +52,9 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   razorpay_key_id: "",
   razorpay_key_secret: "",
   paid_stage_status_id: null,
+  credit_limit_action: "warn",
+  approval_mode_enabled: false,
+  stock_check_mode: "derived",
 };
 
 // Sales Order's own module id in stage_status_masters.order_type (see
@@ -402,6 +408,62 @@ const EcommerceStorefrontSettingsView = ({
               <div className="text-muted small mt-1">
                 From your own Sales Order pipeline (Settings → Stage & Status). A
                 successful payment will move the order to this stage.
+              </div>
+            </div>
+
+            <hr className="my-4" />
+
+            <h5 className="mb-1">B2B Settings</h5>
+            <p className="text-muted small mb-3">
+              Apply only to logged-in accounts - never to anonymous B2C guest checkout.
+            </p>
+            <div className="mb-2">
+              <label className="form-label small mb-1">If an order would exceed a customer's credit limit</label>
+              <select
+                className="form-select"
+                value={authConfig.credit_limit_action}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, credit_limit_action: e.target.value as "block" | "warn" })}
+              >
+                <option value="warn">Allow it, just flag it for review</option>
+                <option value="block">Block checkout</option>
+              </select>
+              <div className="text-muted small mt-1">
+                Only applies to contacts with a Credit Limit set (Contact edit screen). A
+                contact with no limit set is never affected.
+              </div>
+            </div>
+            <div className="form-check form-switch mb-2">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="approval-mode-toggle"
+                checked={authConfig.approval_mode_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, approval_mode_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="approval-mode-toggle">
+                <b>Require approval instead of online payment</b>
+                <div className="text-muted small">
+                  A logged-in customer's order is placed as an unpaid draft for your team to
+                  review - no payment is taken at checkout.
+                </div>
+              </label>
+            </div>
+            <div className="mb-3">
+              <label className="form-label small mb-1">Stock check mode</label>
+              <select
+                className="form-select"
+                value={authConfig.stock_check_mode}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, stock_check_mode: e.target.value as "derived" | "reserved" })}
+              >
+                <option value="derived">Derived (calculate from existing stock records)</option>
+                <option value="reserved">Reserved (also hold stock against other in-progress checkouts)</option>
+              </select>
+              <div className="text-muted small mt-1">
+                Only takes effect when strict stock checking is already on (Settings → Stock Settings).
               </div>
             </div>
 

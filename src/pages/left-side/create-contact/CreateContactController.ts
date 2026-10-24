@@ -42,6 +42,12 @@ export interface ICreateCustomer {
   // updateContact below) - not wired into createContact, since inviting is
   // normally done on an already-existing contact, not at creation time.
   storefront_invited: boolean;
+  // B2B credit control (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt, P5) -
+  // null/0 = no limit/not set, same convention as this file's own other
+  // optional numeric fields. Edit-only, same reasoning as storefront_invited
+  // above.
+  credit_limit: number | string;
+  payment_terms: number | string;
   cntc_column_number_1: number | string;
   cntc_column_number_2: number | string;
   cntc_column_number_3: number | string;
@@ -205,6 +211,8 @@ export const createCustomerInitialValues = (
     source_type_id: contactData?.source_type_id || "",
     lable: contactData?.lable,
     storefront_invited: (contactData as any)?.storefront_invited === 1,
+    credit_limit: (contactData as any)?.credit_limit || "",
+    payment_terms: (contactData as any)?.payment_terms || "",
     assinged_to_price_list: contactData?.assinged_to_price_list || 0,
     shipping_address: contactData?.shipping_address || "",
     gst_number: contactData?.gst_number || "",
@@ -739,6 +747,8 @@ export const updateContact = async (
       longitude: values.longitude,
       latitude: values.latitude,
       storefront_invited: values.storefront_invited ? 1 : 0,
+      credit_limit: values.credit_limit === "" ? null : Number(values.credit_limit),
+      payment_terms: values.payment_terms === "" ? null : Number(values.payment_terms),
     }),
   };
 
