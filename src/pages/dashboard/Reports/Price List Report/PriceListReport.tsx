@@ -22,10 +22,12 @@ import { fetchPriceListForReport, handleDeletePriceList } from "./PriceListRepor
 
 interface IPropsPriceListReport {
     onHide?: () => void
+    MobileFlag?: string
 }
 
 const PriceListReport = ({
-    onHide
+    onHide,
+    MobileFlag
 }: IPropsPriceListReport) => {
     const [loading, setLoading] = useState(false);
     const [priceListList, setPriceListList] = useState<IPriceListView[]>([]);
@@ -265,14 +267,14 @@ const PriceListReport = ({
 
     return (
         <div>
-            <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <div className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between"} gap-2 mb-3`}>
                 <h3
-                    style={{ fontSize: "20px", paddingLeft: "12px" }}
+                    style={{ fontSize: "20px", paddingLeft: MobileFlag ? "10px" : "12px" }}
                     className="dash-board-text-count"
                 >
                     Price List
                 </h3>
-                <div className="d-flex gap-2 align-items-center">
+                <div className="d-flex gap-2 align-items-center" style={{ paddingLeft: MobileFlag ? "10px" : "" }}>
                     <Button
                         icon="pi pi-refresh"
                         className="report_button"

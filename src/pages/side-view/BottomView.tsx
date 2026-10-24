@@ -640,7 +640,7 @@ const BottomView = ({
           <TaxMasterGridView onHide={handleonHide} />
         )}
         {appliedReportType === "Price_List_Report" && (
-          <PriceListReport onHide={handleonHide} />
+          <PriceListReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "PriceListRate_Report" && (
           <PriceListRateReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
