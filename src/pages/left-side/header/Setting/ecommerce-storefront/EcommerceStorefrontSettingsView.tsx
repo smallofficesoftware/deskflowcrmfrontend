@@ -331,8 +331,6 @@ const EcommerceStorefrontSettingsView = ({
       <style>{`
         .esf { max-width: 860px; color: #4B4B4D; }
         .esf-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .esf-back { width: 36px; height: 36px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; color: #4B4B4D; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .esf-back:hover { border-color: #F58634; color: #F58634; }
         .esf-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a; }
         .esf-sub { margin: 2px 0 0; font-size: 12px; color: #8a8a8a; }
         .esf-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
@@ -346,11 +344,6 @@ const EcommerceStorefrontSettingsView = ({
         .esf-card .btn-outline-secondary:hover { background: rgba(245,134,52,0.12); border-color: #F58634; color: #4B4B4D; }
       `}</style>
       <div className="esf-head">
-        <div role="button" className="esf-back" title="Back" aria-label="Back" onClick={closeEcommerceStorefrontView}>
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="m12 4 1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path>
-          </svg>
-        </div>
         <div>
           <h2 className="esf-title">Ecommerce Storefront</h2>
           <p className="esf-sub">Theme, customer login, payments and B2B rules for your online store.</p>

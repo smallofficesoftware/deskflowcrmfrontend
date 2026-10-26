@@ -1531,7 +1531,7 @@ const SideView = ({ profileDetail }: IProp) => {
               setAppliedReportType("");
               navigate("/SideView?view=reports");
             }}
-            onEcommerceClick={() => handleSingleReportShow("ecommerce_storefront")}
+            onEcommerceClick={() => openReport("ecommerce_storefront")}
             isOpen={isOpen}
             setIsOpen={setIsOpen}
             activeReport={appliedReportType}
