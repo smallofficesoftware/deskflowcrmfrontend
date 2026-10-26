@@ -61,13 +61,29 @@ const TeamPerformanceDetailModal: React.FC<IProps> = ({ show, onHide, userId, us
         {!loading && !detail && <div className="text-dark">No details available.</div>}
         {detail && (
           <>
-            <p className="text-dark">
-              Contacts worked on (called, completed a reminder for, or given a task about): <strong>{detail.contacts_touched}</strong>
+            {detail.new_contacts && (
+              <>
+                <h6 className="fw-bold text-dark">New contacts created in this period: {detail.new_contacts.count}</h6>
+                <div className="row">
+                  <Breakdown title="By status" rows={detail.new_contacts.status_breakdown} />
+                  <Breakdown title="By label" rows={detail.new_contacts.label_breakdown} />
+                </div>
+              </>
+            )}
+            {detail.followup_contacts && (
+              <>
+                <h6 className="fw-bold text-dark">
+                  Follow-ups on older contacts (completed reminder or task): {detail.followup_contacts.count}
+                </h6>
+                <div className="row">
+                  <Breakdown title="By status" rows={detail.followup_contacts.status_breakdown} />
+                  <Breakdown title="By label" rows={detail.followup_contacts.label_breakdown} />
+                </div>
+              </>
+            )}
+            <p className="small text-dark">
+              All contacts worked on in this period (called, completed a reminder for, or given a task about): <strong>{detail.contacts_touched}</strong>
             </p>
-            <div className="row">
-              <Breakdown title="By status" rows={detail.status_breakdown} />
-              <Breakdown title="By label" rows={detail.label_breakdown} />
-            </div>
             <h6 className="fw-bold text-dark mt-2">Tasks given in this period ({detail.tasks.length})</h6>
             <div className="table-responsive">
               <table className="table table-sm">

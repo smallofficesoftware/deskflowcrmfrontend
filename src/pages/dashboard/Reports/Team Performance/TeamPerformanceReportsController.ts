@@ -100,10 +100,20 @@ export interface ITeamDetailTask {
   last_call: string;
 }
 
+export interface IContactGroup {
+  count: number;
+  status_breakdown: { name: string; count: number }[];
+  label_breakdown: { name: string; count: number }[];
+}
+
 export interface ITeamPerformanceDetail {
   contacts_touched: number;
   status_breakdown: { name: string; count: number }[];
   label_breakdown: { name: string; count: number }[];
+  // Contacts created in the period, and older contacts followed up (a completed reminder or task) in
+  // the period, each counted by status and by label.
+  new_contacts: IContactGroup;
+  followup_contacts: IContactGroup;
   tasks: ITeamDetailTask[];
 }
 
