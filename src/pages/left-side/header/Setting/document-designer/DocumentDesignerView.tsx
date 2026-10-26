@@ -351,7 +351,7 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
 const columnToggleBridge = {
   current: (_columnOptions: Record<string, any>, _changeSchemas: any, _schemaId: string) => {},
 };
-const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "cgst", "sgst", "igst", "image"];
+const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "taxable", "cgst", "sgst", "igst", "image"];
 // Product photo size limits, in mm: the same range the PDF engine accepts (tableColumns.js).
 const IMAGE_SIZE_DEFAULT_MM = 9;
 const IMAGE_SIZE_MIN_MM = 5;
