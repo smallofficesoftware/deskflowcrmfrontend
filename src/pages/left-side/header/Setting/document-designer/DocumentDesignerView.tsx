@@ -352,7 +352,7 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
 const columnToggleBridge = {
   current: (_columnOptions: Record<string, boolean>, _changeSchemas: any, _schemaId: string) => {},
 };
-const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "cgst", "sgst", "igst", "image"];
+const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "taxable", "cgst", "sgst", "igst", "image"];
 
 // Vanilla-DOM propPanel widget — pdfme's own `select` plugin extends `text`'s
 // propPanel with a custom widget the exact same way (addOptions), confirmed
