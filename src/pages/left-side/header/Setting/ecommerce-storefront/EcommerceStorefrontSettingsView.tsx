@@ -29,6 +29,7 @@ interface IStorefrontAuthConfig {
   public_browsing_enabled: boolean;
   payment_razorpay_enabled: boolean;
   payment_cash_enabled: boolean;
+  cash_stage_status_id: number | null;
   razorpay_key_id: string;
   razorpay_key_secret: string;
   paid_stage_status_id: number | null;
@@ -55,6 +56,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   public_browsing_enabled: true,
   payment_razorpay_enabled: true,
   payment_cash_enabled: false,
+  cash_stage_status_id: null,
   razorpay_key_id: "",
   razorpay_key_secret: "",
   paid_stage_status_id: null,
@@ -255,6 +257,11 @@ const EcommerceStorefrontSettingsView = ({
   const saveAuthConfig = async (lock_decisions?: Record<string, "lock" | "keep">) => {
     if (!authConfig.payment_razorpay_enabled && !authConfig.payment_cash_enabled) {
       toast.error("Enable at least one payment option");
+      return;
+    }
+    if (authConfig.payment_cash_enabled && !authConfig.cash_stage_status_id) {
+      setOpenPayment("cash");
+      toast.error("Select the stage for cash orders");
       return;
     }
     if (authConfig.payment_razorpay_enabled && (!authConfig.razorpay_key_id.trim() || !authConfig.razorpay_key_secret.trim())) {
@@ -533,9 +540,27 @@ const EcommerceStorefrontSettingsView = ({
                   {open && (
                     <div className="p-3 border-top">
                       {method.key === "cash" ? (
-                        <p className="text-muted small mb-0">
-                          No gateway. The order is saved as a draft with no online payment, and you collect payment yourself.
+                        <>
+                        <p className="text-muted small mb-2">
+                          No gateway. The order is created with the stage below and no online payment; you collect payment yourself.
                         </p>
+                        <label className="form-label small mb-1">Stage for cash orders</label>
+                        <select
+                          className="form-select"
+                          value={authConfig.cash_stage_status_id ?? ""}
+                          disabled={savingAuth}
+                          onChange={(e) =>
+                            setAuthConfig({ ...authConfig, cash_stage_status_id: e.target.value ? Number(e.target.value) : null })
+                          }
+                        >
+                          <option value="">Not selected</option>
+                          {stageOptions.map((stage) => (
+                            <option key={stage.id} value={stage.id}>
+                              {stage.name}
+                            </option>
+                          ))}
+                        </select>
+                        </>
                       ) : (
                         <>
                           <p className="text-muted small mb-3">
