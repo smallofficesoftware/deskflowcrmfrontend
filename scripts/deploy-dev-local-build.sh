@@ -43,7 +43,7 @@ if [ ! -f "$REACT_ENV_FILE" ]; then
   exit 1
 fi
 
-if [ -n "$(git status --porcelain -- . ':!build')" ]; then
+if [ -n "$(git status --porcelain -- . ':!build' ':(exclude,glob)**/bun.lock' ':(exclude,glob)**/bun.lockb' ':(exclude,glob)**/yarn.lock')" ]; then
   echo "ERROR: working tree has uncommitted changes outside build/ — commit or stash those first."
   exit 1
 fi
