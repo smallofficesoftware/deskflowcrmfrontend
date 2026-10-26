@@ -18,13 +18,6 @@ import { axiosInstance } from "../../../../../services/axiosInstance";
 // that prompt needs every other toggle's pending value intact, not already
 // half-saved one field at a time.
 
-interface IStorefrontTheme {
-  id: number;
-  code: string;
-  name: string;
-  description: string | null;
-}
-
 interface IStorefrontAuthConfig {
   auth_email_pin_enabled: boolean;
   auth_mobile_pin_enabled: boolean;
@@ -33,6 +26,9 @@ interface IStorefrontAuthConfig {
   auth_light_mode_enabled: boolean;
   auth_invite_only: boolean;
   guest_checkout_enabled: boolean;
+  public_browsing_enabled: boolean;
+  payment_razorpay_enabled: boolean;
+  payment_cash_enabled: boolean;
   razorpay_key_id: string;
   razorpay_key_secret: string;
   paid_stage_status_id: number | null;
@@ -42,6 +38,12 @@ interface IStorefrontAuthConfig {
   theme_accent_color: string;
 }
 
+// One row per payment method; add a new gateway here plus its settings key and body.
+const PAYMENT_METHODS: { key: "razorpay" | "cash"; label: string; enabledKey: "payment_razorpay_enabled" | "payment_cash_enabled" }[] = [
+  { key: "razorpay", label: "Online payment (Razorpay)", enabledKey: "payment_razorpay_enabled" },
+  { key: "cash", label: "Cash / pay later (no gateway)", enabledKey: "payment_cash_enabled" },
+];
+
 const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_email_pin_enabled: false,
   auth_mobile_pin_enabled: false,
@@ -50,6 +52,9 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_light_mode_enabled: false,
   auth_invite_only: false,
   guest_checkout_enabled: true,
+  public_browsing_enabled: true,
+  payment_razorpay_enabled: true,
+  payment_cash_enabled: false,
   razorpay_key_id: "",
   razorpay_key_secret: "",
   paid_stage_status_id: null,
@@ -122,11 +127,9 @@ const EcommerceStorefrontSettingsView = ({
   closeEcommerceStorefrontView,
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
+  const [openPayment, setOpenPayment] = useState<"razorpay" | "cash" | null>("razorpay");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [themes, setThemes] = useState<IStorefrontTheme[]>([]);
-  const [currentThemeId, setCurrentThemeId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
   const [authConfig, setAuthConfig] = useState<IStorefrontAuthConfig>(DEFAULT_AUTH_CONFIG);
   const [savingAuth, setSavingAuth] = useState(false);
   const [affectedMethods, setAffectedMethods] = useState<IAffectedMethod[]>([]);
@@ -209,12 +212,6 @@ const EcommerceStorefrontSettingsView = ({
       setEnabled(true);
       setAuthConfig({ ...DEFAULT_AUTH_CONFIG, ...(data.data?.item?.config_json || {}) });
 
-      const themesRes = await axiosInstance.post("storefront/themes/get", {});
-      if (themesRes.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-        setThemes(themesRes.data.data?.item?.themes || []);
-        setCurrentThemeId(themesRes.data.data?.item?.current_theme_id || null);
-      }
-
       fetchLockedAccounts();
       fetchStageOptions();
       fetchDomain();
@@ -255,26 +252,16 @@ const EcommerceStorefrontSettingsView = ({
     if (isEcommerceStorefrontView) fetchStatusAndThemes();
   }, [isEcommerceStorefrontView]);
 
-  const handleSelectTheme = async (themeId: number) => {
-    setSaving(true);
-    try {
-      const { data } = await axiosInstance.post("storefront/theme/select", {
-        storefront_theme_id: themeId,
-      });
-      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
-        setCurrentThemeId(themeId);
-        toast.success("Theme updated");
-      } else {
-        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-      }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const saveAuthConfig = async (lock_decisions?: Record<string, "lock" | "keep">) => {
+    if (!authConfig.payment_razorpay_enabled && !authConfig.payment_cash_enabled) {
+      toast.error("Enable at least one payment option");
+      return;
+    }
+    if (authConfig.payment_razorpay_enabled && (!authConfig.razorpay_key_id.trim() || !authConfig.razorpay_key_secret.trim())) {
+      setOpenPayment("razorpay");
+      toast.error("Enter the Razorpay Key ID and Key Secret, or turn Razorpay off");
+      return;
+    }
     setSavingAuth(true);
     try {
       const { data } = await axiosInstance.post("storefront/settings/save", {
@@ -346,7 +333,7 @@ const EcommerceStorefrontSettingsView = ({
       <div className="esf-head">
         <div>
           <h2 className="esf-title">Ecommerce Storefront</h2>
-          <p className="esf-sub">Theme, customer login, payments and B2B rules for your online store.</p>
+          <p className="esf-sub">Colour, customer login, payments and B2B rules for your online store.</p>
         </div>
       </div>
 
@@ -412,30 +399,7 @@ const EcommerceStorefrontSettingsView = ({
 
             </section>
             <section className="esf-card">
-            <h5 className="mb-3">Storefront Theme</h5>
-            {themes.length === 0 ? (
-              <p className="text-muted">No themes available yet.</p>
-            ) : (
-              themes.map((theme) => (
-                <div key={theme.id} className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name="storefront-theme"
-                    id={`theme-${theme.id}`}
-                    checked={currentThemeId === theme.id}
-                    disabled={saving}
-                    onChange={() => handleSelectTheme(theme.id)}
-                  />
-                  <label className="form-check-label" htmlFor={`theme-${theme.id}`}>
-                    <b>{theme.name}</b>
-                    {theme.description ? ` - ${theme.description}` : ""}
-                  </label>
-                </div>
-              ))
-            )}
-
-            <h5 className="mt-4 mb-2">Accent Colour</h5>
+            <h5 className="mb-2">Accent Colour</h5>
             <p className="text-muted small mb-2">
               Colour for prices, buttons and the active menu underline. Saved with the Save Settings button below.
             </p>
@@ -500,6 +464,24 @@ const EcommerceStorefrontSettingsView = ({
                 className="form-check-input"
                 type="checkbox"
                 role="switch"
+                id="public-browsing-toggle"
+                checked={authConfig.public_browsing_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, public_browsing_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="public-browsing-toggle">
+                <b>Allow public browsing</b>
+                <div className="text-muted small">
+                  Off = visitors must log in before they can see products; every page sends them to the login screen.
+                </div>
+              </label>
+            </div>
+
+            <div className="form-check form-switch mb-3 mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
                 id="guest-checkout-toggle"
                 checked={authConfig.guest_checkout_enabled}
                 disabled={savingAuth}
@@ -516,60 +498,104 @@ const EcommerceStorefrontSettingsView = ({
             </section>
             <section className="esf-card">
 
-            <h5 className="mb-1">Payment Gateway (Razorpay)</h5>
+            <h5 className="mb-1">Payment Methods</h5>
             <p className="text-muted small mb-3">
-              Enter your own Razorpay merchant keys so storefront orders can be paid
-              online. Actually charging a card and confirming payment is coming in a
-              later update - for now this just stores your keys and which Sales Order
-              stage means "payment received" once that's wired up.
+              Turn on each method you accept. Customers pick from the enabled ones at checkout (one enabled = no choice shown).
             </p>
-            <div className="mb-2">
-              <label className="form-label small mb-1">Razorpay Key ID</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="rzp_live_..."
-                value={authConfig.razorpay_key_id}
-                disabled={savingAuth}
-                onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_id: e.target.value })}
-              />
-            </div>
-            <div className="mb-2">
-              <label className="form-label small mb-1">Razorpay Key Secret</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder={authConfig.razorpay_key_secret ? "••••••••••••" : "Key secret"}
-                value={authConfig.razorpay_key_secret}
-                disabled={savingAuth}
-                onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_secret: e.target.value })}
-              />
-            </div>
-            <div className="mb-3">
-              <label className="form-label small mb-1">Stage that means "Payment Received"</label>
-              <select
-                className="form-select"
-                value={authConfig.paid_stage_status_id ?? ""}
-                disabled={savingAuth}
-                onChange={(e) =>
-                  setAuthConfig({
-                    ...authConfig,
-                    paid_stage_status_id: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-              >
-                <option value="">Not selected</option>
-                {stageOptions.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
-                ))}
-              </select>
-              <div className="text-muted small mt-1">
-                From your own Sales Order pipeline (Settings → Stage & Status). A
-                successful payment will move the order to this stage.
-              </div>
-            </div>
+            {PAYMENT_METHODS.map((method) => {
+              const open = openPayment === method.key;
+              const on = authConfig[method.enabledKey];
+              return (
+                <div key={method.key} className="border rounded mb-2">
+                  <div className="d-flex align-items-center justify-content-between p-2">
+                    <div
+                      role="button"
+                      className="flex-grow-1 d-flex align-items-center"
+                      style={{ gap: "0.5rem" }}
+                      onClick={() => setOpenPayment(open ? null : method.key)}
+                    >
+                      <i className={`pi ${open ? "pi-chevron-down" : "pi-chevron-right"}`} style={{ fontSize: 12 }} />
+                      <b>{method.label}</b>
+                      <span className="text-muted small">{on ? "Enabled" : "Off"}</span>
+                    </div>
+                    <div className="form-check form-switch m-0">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        aria-label={`Enable ${method.label}`}
+                        checked={on}
+                        disabled={savingAuth}
+                        onChange={(e) => setAuthConfig({ ...authConfig, [method.enabledKey]: e.target.checked })}
+                      />
+                    </div>
+                  </div>
+                  {open && (
+                    <div className="p-3 border-top">
+                      {method.key === "cash" ? (
+                        <p className="text-muted small mb-0">
+                          No gateway. The order is saved as a draft with no online payment, and you collect payment yourself.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-muted small mb-3">
+                            Enter your own Razorpay merchant keys so storefront orders can be paid online, and pick the Sales
+                            Order stage that means "payment received".
+                          </p>
+                              <div className="mb-2">
+                                <label className="form-label small mb-1">Razorpay Key ID</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  placeholder="rzp_live_..."
+                                  value={authConfig.razorpay_key_id}
+                                  disabled={savingAuth}
+                                  onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_id: e.target.value })}
+                                />
+                              </div>
+                              <div className="mb-2">
+                                <label className="form-label small mb-1">Razorpay Key Secret</label>
+                                <input
+                                  type="password"
+                                  className="form-control"
+                                  placeholder={authConfig.razorpay_key_secret ? "••••••••••••" : "Key secret"}
+                                  value={authConfig.razorpay_key_secret}
+                                  disabled={savingAuth}
+                                  onChange={(e) => setAuthConfig({ ...authConfig, razorpay_key_secret: e.target.value })}
+                                />
+                              </div>
+                              <div className="mb-3">
+                                <label className="form-label small mb-1">Stage that means "Payment Received"</label>
+                                <select
+                                  className="form-select"
+                                  value={authConfig.paid_stage_status_id ?? ""}
+                                  disabled={savingAuth}
+                                  onChange={(e) =>
+                                    setAuthConfig({
+                                      ...authConfig,
+                                      paid_stage_status_id: e.target.value ? Number(e.target.value) : null,
+                                    })
+                                  }
+                                >
+                                  <option value="">Not selected</option>
+                                  {stageOptions.map((stage) => (
+                                    <option key={stage.id} value={stage.id}>
+                                      {stage.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="text-muted small mt-1">
+                                  From your own Sales Order pipeline (Settings → Stage & Status). A
+                                  successful payment will move the order to this stage.
+                                </div>
+                              </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             </section>
             <section className="esf-card">
