@@ -15,6 +15,9 @@ export interface IReminderItem {
   assigned_to?: number;
   assigned_to_name: string | null;
   remark: string | null;
+  // The contact's labels (names joined, and name + colour each).
+  label_name?: string;
+  labels?: { label_name: string; color: string }[];
   company_masters_id?: number;
   isDelete: 0 | 1;
   created_at?: string;
@@ -50,6 +53,9 @@ export const fetchTaskReport = async (
   // "All"/"My" toggle (same idea as Task Management's All/My buttons).
   viewScope?: "all" | "my",
   setCanSeeAllData?: TReactSetState<boolean>,
+  // Label filter (the contact's label ids; -9999 = no label) and sort by label ("asc" | "desc").
+  labelFilter?: any[],
+  labelSort?: "asc" | "desc" | null,
 ): Promise<IReminderItem[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const uuid = getID || localStorage.getItem("UUID");
@@ -79,6 +85,9 @@ export const fetchTaskReport = async (
     referenceWiseContact: referenceWiseContact,
     typeFilter,
     viewScope,
+    labelFilter: Array.isArray(labelFilter) && labelFilter.length > 0 ? labelFilter.map(Number) : undefined,
+    sortBy: labelSort ? "label" : undefined,
+    sortOrder: labelSort === "desc" ? "DESC" : "ASC",
   };
 
   try {

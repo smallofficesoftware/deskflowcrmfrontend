@@ -96,6 +96,8 @@ const AllReminderReport = ({
   });
   // "All"/"My" toggle (same idea as Task Management's All/My buttons).
   const [viewScope, setViewScope] = useState<"all" | "my">("my");
+  // Sort by the contact's label: off, A to Z, Z to A (done on the server, so it holds across pages).
+  const [labelSort, setLabelSort] = useState<"asc" | "desc" | null>(null);
   const [canSeeAllData, setCanSeeAllData] = useState(false);
   const [selectedReminders, setSelectedReminders] = useState<IReminderItem[]>(
     [],
@@ -259,6 +261,8 @@ const AllReminderReport = ({
     filters.referenceWiseContact,
     filterType,
     viewScope,
+    filters.checkedOptions,
+    labelSort,
   ]);
 
   const loadReminders = async (offset: number, limit: number) => {
@@ -287,6 +291,8 @@ const AllReminderReport = ({
         setTotalRecords,
         viewScope,
         setCanSeeAllData,
+        filters.checkedOptions,
+        labelSort,
       );
 
       setReminders(newData);
@@ -570,6 +576,33 @@ const AllReminderReport = ({
         ),
         width: "180px",
         body: (row) => formatDateTime(row.completed_date_time),
+      },
+      {
+        key: "label_name",
+        label: "Label",
+        header: "Label",
+        width: "160px",
+        // The contact's labels as coloured chips (the name is always written, colour is only a hint).
+        body: (rowData) =>
+          rowData.labels && rowData.labels.length > 0 ? (
+            <span className="d-flex flex-wrap gap-1">
+              {rowData.labels.map((l) => (
+                <span
+                  key={l.label_name}
+                  style={{
+                    border: `1px solid ${l.color || "#ccc"}`,
+                    borderRadius: "10px",
+                    padding: "1px 8px",
+                    fontSize: "12px",
+                  }}
+                >
+                  {l.label_name}
+                </span>
+              ))}
+            </span>
+          ) : (
+            "-"
+          ),
       },
       {
         key: "assigned_to_name",
@@ -990,6 +1023,9 @@ const AllReminderReport = ({
                     selectedContactId: filters.selectedContactId,
                     referenceWiseContact: filters.referenceWiseContact,
                     typeFilter: filterType,
+                    labelFilter: filters.checkedOptions,
+                    sortBy: labelSort ? "label" : undefined,
+                    sortOrder: labelSort === "desc" ? "DESC" : "ASC",
                   }}
                   columns={visibleColumns}
                   fileName={`${title}_Report`}
@@ -1026,6 +1062,9 @@ const AllReminderReport = ({
                     selectedContactId: filters.selectedContactId,
                     referenceWiseContact: filters.referenceWiseContact,
                     typeFilter: filterType,
+                    labelFilter: filters.checkedOptions,
+                    sortBy: labelSort ? "label" : undefined,
+                    sortOrder: labelSort === "desc" ? "DESC" : "ASC",
                   }}
                   columns={visibleColumns}
                   fileName={`${title}_Report`}
@@ -1071,6 +1110,36 @@ const AllReminderReport = ({
             </div>
             )}
 
+            <Button
+                icon={
+                  labelSort === "desc"
+                    ? "pi pi-sort-alpha-up"
+                    : "pi pi-sort-alpha-down"
+                }
+                className="report_button"
+                style={{
+                  backgroundColor: labelSort ? "#f58634" : "#4C4C4C",
+                }}
+                rounded
+                onClick={() =>
+                  setLabelSort((prev) =>
+                    prev === null ? "asc" : prev === "asc" ? "desc" : null,
+                  )
+                }
+                tooltip={
+                  labelSort === "asc"
+                    ? "Sorted by Label A-Z (click for Z-A)"
+                    : labelSort === "desc"
+                      ? "Sorted by Label Z-A (click to clear)"
+                      : "Sort by Label"
+                }
+                tooltipOptions={{
+                  position: "top",
+                  style: {
+                    fontSize: "14px",
+                  },
+                }}
+              />
             <Button
                 icon="pi pi-refresh"
                 className="report_button"
@@ -1353,7 +1422,7 @@ const AllReminderReport = ({
           message="Please select the Dates and Team Members for the Report."
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 5, 18]}
+          filtersToShow={[1, 2, 5, 18]}
           pageId={1}
           initialFilterData={{
             ...filters.filterData,
