@@ -289,6 +289,9 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
   const [gstAmount, setGstAmount] = useState(0);
   const [closingQty, setClosingQty] = useState(0);
   const [cartRemark, setCartRemark] = useState("");
+  // Sales return only: should the returned goods go back into stock? Off = replacement / no stock
+  // effect, saved as stock_type 0 so no stock report counts it.
+  const [includeStockBack, setIncludeStockBack] = useState(true);
   const [isBarcode, setIsBarcode] = useState(false);
   const [cartTermsAndCondition, setCartTermsAndCondition] = useState("");
   const [cartNote, setCartNote] = useState("");
@@ -1390,6 +1393,14 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
       setGstAmount(orderbyidList.cart.gst_amt ?? 0);
       setRoundOffAmount(orderbyidList.cart.round_off ?? 0);
       setCartRemark(orderbyidList.cart.cart_remark ?? "");
+      // An approved (numbered) sales return with stock_type 0 was saved as "no stock effect".
+      setIncludeStockBack(
+        !(
+          Number(orderbyidList.cart.type) === 6 &&
+          orderbyidList.cart.cart_number &&
+          Number(orderbyidList.cart.stock_type) === 0
+        ),
+      );
       setConversionRate(orderbyidList.cart.conversion_rate ?? 1);
       setAdvancePayment(orderbyidList.cart.advance_payment ?? "");
       setSelectedPaymentMode(orderbyidList.cart.payment_type ?? "");
@@ -1956,6 +1967,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setIsTcsActive(false);
     setSelectedCategory("");
     setCartRemark("");
+    setIncludeStockBack(true);
     setCartTermsAndCondition("");
     setCartNote("");
     setCartDueDate(undefined);
@@ -1997,6 +2009,7 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
     setIsTcsActive(false);
     setSelectedCategory("");
     setCartRemark("");
+    setIncludeStockBack(true);
     setCartTermsAndCondition("");
     setCartNote("");
     setCartDueDate(undefined);
@@ -4735,6 +4748,8 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
         miracle_account_legder: selectedMiracleLedger_main || "",
         entered_series_date: enteredSeriesDate || "",
         cart_remark: cartRemark.replace(/\n/g, "<br>"),
+        // Read by the server for sales returns only (stock_type 0 when off).
+        include_stock: includeStockBack ? 1 : 0,
         account_transactions_ref_table: "carts",
         grand_total: grandTotal ? formatNumber(grandTotal, 2) : 0,
         transport_charge: transportCharge,
@@ -9943,6 +9958,20 @@ const OrderCreateModal: React.FC<IOrderCreateModal> = ({
                       }}
                     >
                       <div className="form-group col-6 px-2">
+                        {orderTypesNameFind === "Return Sales Invoice" && (
+                          <div className="form-check mb-2">
+                            <input
+                              id="include_stock_back"
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={includeStockBack}
+                              onChange={(e) => setIncludeStockBack(e.target.checked)}
+                            />
+                            <label htmlFor="include_stock_back" className="form-check-label">
+                              Add returned stock back (untick for a replacement: no stock entry)
+                            </label>
+                          </div>
+                        )}
                         <label>Remark</label>
                         <textarea
                           style={{ height: "150px" }}
