@@ -49,6 +49,7 @@ interface IStorefrontAuthConfig {
   approval_mode_enabled: boolean;
   stock_check_mode: "derived" | "reserved";
   theme_accent_color: string;
+  default_price_list_id: number | null;
 }
 
 // One row per payment method; add a new gateway here plus its settings key and body.
@@ -90,6 +91,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   approval_mode_enabled: false,
   stock_check_mode: "derived",
   theme_accent_color: "#ff0000",
+  default_price_list_id: null,
 };
 
 const ACCENT_PRESETS = ["#ff0000", "#F58634", "#2e7d32", "#1565c0", "#6a1b9a", "#e91e63", "#00897b", "#37474f"];
@@ -164,6 +166,7 @@ const EcommerceStorefrontSettingsView = ({
   const [lockChoices, setLockChoices] = useState<Record<string, "lock" | "keep">>({});
   const [lockedAccounts, setLockedAccounts] = useState<ILockedAccount[]>([]);
   const [unlockingKey, setUnlockingKey] = useState<string | null>(null);
+  const [priceListOptions, setPriceListOptions] = useState<{ id: number; price_list_name: string }[]>([]);
   const [stageOptions, setStageOptions] = useState<IStageOption[]>([]);
 
   const [domainInfo, setDomainInfo] = useState<IDomainInfo | null>(null);
@@ -242,12 +245,24 @@ const EcommerceStorefrontSettingsView = ({
 
       fetchLockedAccounts();
       fetchStageOptions();
+      fetchPriceListOptions();
       fetchDomain();
     } catch (error: any) {
       setLoadError(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
       setEnabled(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPriceListOptions = async () => {
+    try {
+      const { data } = await axiosInstance.post("priceListMaster", {
+        a_application_login_id: localStorage.getItem("UUID"),
+      });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setPriceListOptions(data.data?.item || []);
+    } catch {
+      // Non-critical - the dropdown just stays empty.
     }
   };
 
@@ -544,6 +559,31 @@ const EcommerceStorefrontSettingsView = ({
                 </div>
               </label>
             </div>
+
+            </section>
+            <section className="esf-card">
+
+            <h5 className="mb-1">Pricing</h5>
+            <p className="text-muted small mb-3">
+              Prices shown to shoppers who are not logged in, and used when a customer has no price list of their own.
+              Quantity slabs set on the price list apply too.
+            </p>
+            <label className="form-label small mb-1">Default price list</label>
+            <select
+              className="form-select"
+              value={authConfig.default_price_list_id ?? ""}
+              disabled={savingAuth}
+              onChange={(e) =>
+                setAuthConfig({ ...authConfig, default_price_list_id: e.target.value ? Number(e.target.value) : null })
+              }
+            >
+              <option value="">None - use each product's own price</option>
+              {priceListOptions.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.price_list_name}
+                </option>
+              ))}
+            </select>
 
             </section>
             <section className="esf-card">
