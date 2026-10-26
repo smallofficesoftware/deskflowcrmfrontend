@@ -1126,7 +1126,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
-    } else if (name === "report_builder" || name === "report_builder_new") {
+    } else if (name === "report_builder" || name === "report_builder_new" || name === "ecommerce_storefront") {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
@@ -1531,6 +1531,7 @@ const SideView = ({ profileDetail }: IProp) => {
               setAppliedReportType("");
               navigate("/SideView?view=reports");
             }}
+            onEcommerceClick={() => handleSingleReportShow("ecommerce_storefront")}
             isOpen={isOpen}
             setIsOpen={setIsOpen}
             activeReport={appliedReportType}

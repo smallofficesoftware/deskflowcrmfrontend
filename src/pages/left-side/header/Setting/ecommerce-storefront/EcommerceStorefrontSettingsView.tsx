@@ -39,6 +39,7 @@ interface IStorefrontAuthConfig {
   credit_limit_action: "block" | "warn";
   approval_mode_enabled: boolean;
   stock_check_mode: "derived" | "reserved";
+  theme_accent_color: string;
 }
 
 const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
@@ -55,7 +56,10 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   credit_limit_action: "warn",
   approval_mode_enabled: false,
   stock_check_mode: "derived",
+  theme_accent_color: "#ff0000",
 };
+
+const ACCENT_PRESETS = ["#ff0000", "#F58634", "#2e7d32", "#1565c0", "#6a1b9a", "#e91e63", "#00897b", "#37474f"];
 
 // Sales Order's own module id in stage_status_masters.order_type (see
 // orderTypesStageList in StageStatusController.ts: "4" = Sales Order) -
@@ -101,6 +105,13 @@ interface ILockedAccount {
   locked_methods: ILockedMethod[];
 }
 
+interface IDomainInfo {
+  domain: string;
+  verified: boolean;
+  verification_host: string;
+  verification_token: string;
+}
+
 interface IPropsEcommerceStorefront {
   isEcommerceStorefrontView: boolean;
   closeEcommerceStorefrontView: () => void;
@@ -123,7 +134,62 @@ const EcommerceStorefrontSettingsView = ({
   const [unlockingKey, setUnlockingKey] = useState<string | null>(null);
   const [stageOptions, setStageOptions] = useState<IStageOption[]>([]);
 
+  const [domainInfo, setDomainInfo] = useState<IDomainInfo | null>(null);
+  const [domainInput, setDomainInput] = useState("");
+  const [subdomainUrl, setSubdomainUrl] = useState<string | null>(null);
+  const [customDomainUrl, setCustomDomainUrl] = useState<string | null>(null);
+  const [domainBusy, setDomainBusy] = useState(false);
+
   useEscapeKey(closeEcommerceStorefrontView);
+
+  const fetchDomain = async () => {
+    try {
+      const { data } = await axiosInstance.post("storefront/domain/get", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        const item = data.data?.item || null;
+        setDomainInfo(item);
+        setDomainInput(item?.domain || "");
+        setSubdomainUrl(data.data?.subdomain_url || null);
+        setCustomDomainUrl(data.data?.custom_domain_url || null);
+      }
+    } catch {
+      // The address card just stays empty; the rest of the page is unaffected.
+    }
+  };
+
+  const saveDomain = async () => {
+    setDomainBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/domain/save", { domain: domainInput });
+      if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      toast.success(domainInput.trim() ? "Domain saved - add the DNS record, then click Verify" : "Domain removed");
+      fetchDomain();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const verifyDomain = async () => {
+    setDomainBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/domain/verify", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.success("Domain verified");
+        fetchDomain();
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setDomainBusy(false);
+    }
+  };
 
   const fetchStatusAndThemes = async () => {
     setLoading(true);
@@ -146,6 +212,7 @@ const EcommerceStorefrontSettingsView = ({
 
       fetchLockedAccounts();
       fetchStageOptions();
+      fetchDomain();
     } catch {
       setEnabled(false);
     } finally {
@@ -254,30 +321,37 @@ const EcommerceStorefrontSettingsView = ({
   if (!isEcommerceStorefrontView) return null;
 
   return (
-    <div className="notifications animate__animated animate__fadeInLeft" id="notifications">
-      <div className="header-Chat">
-        <div className="ICON">
-          <div
-            aria-disabled="false"
-            role="button"
-            className="icons"
-            title="Back"
-            aria-label="Back"
-            onClick={closeEcommerceStorefrontView}
-          >
-            <span data-testid="chat" data-icon="chat" className="">
-              <svg viewBox="0 0 24 24" width="24" height="24" className="">
-                <path fill="currentColor" d="m12 4 1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path>
-              </svg>
-            </span>
-          </div>
+    <div className="esf">
+      <style>{`
+        .esf { max-width: 860px; color: #4B4B4D; }
+        .esf-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .esf-back { width: 36px; height: 36px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; color: #4B4B4D; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .esf-back:hover { border-color: #F58634; color: #F58634; }
+        .esf-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a; }
+        .esf-sub { margin: 2px 0 0; font-size: 12px; color: #8a8a8a; }
+        .esf-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
+        .esf-card h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8a8a; margin-bottom: 6px !important; }
+        .esf-card .form-check-input:checked { background-color: #F58634; border-color: #F58634; }
+        .esf-card .form-check-input:focus, .esf-card .form-control:focus, .esf-card .form-select:focus { border-color: #F58634; box-shadow: 0 0 0 0.2rem rgba(245,134,52,0.2); }
+        .esf-card .form-control, .esf-card .form-select { border-radius: 10px; border-color: #d1d5db; }
+        .esf-card .btn-primary { background: #F58634; border-color: #F58634; border-radius: 10px; font-weight: 600; padding: 10px 18px; }
+        .esf-card .btn-primary:hover, .esf-card .btn-primary:disabled { background: #e0762a; border-color: #e0762a; }
+        .esf-card .btn-outline-secondary { border-radius: 10px; color: #4B4B4D; border-color: #d1d5db; }
+        .esf-card .btn-outline-secondary:hover { background: rgba(245,134,52,0.12); border-color: #F58634; color: #4B4B4D; }
+      `}</style>
+      <div className="esf-head">
+        <div role="button" className="esf-back" title="Back" aria-label="Back" onClick={closeEcommerceStorefrontView}>
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="m12 4 1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path>
+          </svg>
         </div>
-        <div className="newText">
-          <h2>Ecommerce Storefront</h2>
+        <div>
+          <h2 className="esf-title">Ecommerce Storefront</h2>
+          <p className="esf-sub">Theme, customer login, payments and B2B rules for your online store.</p>
         </div>
       </div>
 
-      <div className="p-3">
+      <div>
         {loading ? (
           <p className="text-muted">Loading...</p>
         ) : enabled === false ? (
@@ -287,6 +361,53 @@ const EcommerceStorefrontSettingsView = ({
           </p>
         ) : (
           <>
+            <section className="esf-card">
+            <h5 className="mb-2">Your Storefront Address</h5>
+            {subdomainUrl ? (
+              <p className="mb-1">
+                <a href={subdomainUrl} target="_blank" rel="noreferrer"><b>{subdomainUrl}</b></a>
+              </p>
+            ) : (
+              <p className="text-muted small mb-1">No store address available yet.</p>
+            )}
+            {customDomainUrl && (
+              <p className="mb-1">
+                <a href={customDomainUrl} target="_blank" rel="noreferrer"><b>{customDomainUrl}</b></a>{" "}
+                <span className="text-success small">verified</span>
+              </p>
+            )}
+            <div className="mt-3">
+              <label className="form-label small mb-1">Custom domain (optional)</label>
+              <div className="d-flex" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ maxWidth: 320 }}
+                  placeholder="shop.yourcompany.com"
+                  value={domainInput}
+                  disabled={domainBusy}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                />
+                <button type="button" className="btn btn-primary" disabled={domainBusy} onClick={saveDomain}>
+                  Save domain
+                </button>
+                {domainInfo && !domainInfo.verified && (
+                  <button type="button" className="btn btn-outline-secondary" disabled={domainBusy} onClick={verifyDomain}>
+                    Verify
+                  </button>
+                )}
+              </div>
+              {domainInfo && !domainInfo.verified && (
+                <div className="text-muted small mt-2" style={{ overflowWrap: "anywhere" }}>
+                  To verify, add a DNS <b>TXT</b> record: name <code>{domainInfo.verification_host}</code>, value{" "}
+                  <code>{domainInfo.verification_token}</code>. Also point <code>{domainInfo.domain}</code> (CNAME) at
+                  your storefront host. DNS changes can take a few minutes.
+                </div>
+              )}
+            </div>
+
+            </section>
+            <section className="esf-card">
             <h5 className="mb-3">Storefront Theme</h5>
             {themes.length === 0 ? (
               <p className="text-muted">No themes available yet.</p>
@@ -310,7 +431,41 @@ const EcommerceStorefrontSettingsView = ({
               ))
             )}
 
-            <hr className="my-4" />
+            <h5 className="mt-4 mb-2">Accent Colour</h5>
+            <p className="text-muted small mb-2">
+              Colour for prices, buttons and the active menu underline. Saved with the Save Settings button below.
+            </p>
+            <div className="d-flex align-items-center flex-wrap" style={{ gap: "0.5rem" }}>
+              {ACCENT_PRESETS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  title={color}
+                  aria-label={`Use ${color}`}
+                  onClick={() => setAuthConfig({ ...authConfig, theme_accent_color: color })}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: color,
+                    border: authConfig.theme_accent_color.toLowerCase() === color.toLowerCase() ? "3px solid #1a1a1a" : "2px solid #fff",
+                    boxShadow: "0 0 0 1px #d1d5db",
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                />
+              ))}
+              <input
+                type="color"
+                aria-label="Custom accent colour"
+                value={/^#[0-9a-fA-F]{6}$/.test(authConfig.theme_accent_color) ? authConfig.theme_accent_color : "#ff0000"}
+                onChange={(e) => setAuthConfig({ ...authConfig, theme_accent_color: e.target.value })}
+                style={{ width: 36, height: 28, padding: 0, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff" }}
+              />
+            </div>
+
+            </section>
+            <section className="esf-card">
 
             <h5 className="mb-1">Customer Login Methods</h5>
             <p className="text-muted small mb-3">
@@ -354,7 +509,8 @@ const EcommerceStorefrontSettingsView = ({
               </label>
             </div>
 
-            <hr className="my-4" />
+            </section>
+            <section className="esf-card">
 
             <h5 className="mb-1">Payment Gateway (Razorpay)</h5>
             <p className="text-muted small mb-3">
@@ -411,7 +567,8 @@ const EcommerceStorefrontSettingsView = ({
               </div>
             </div>
 
-            <hr className="my-4" />
+            </section>
+            <section className="esf-card">
 
             <h5 className="mb-1">B2B Settings</h5>
             <p className="text-muted small mb-3">
@@ -476,7 +633,8 @@ const EcommerceStorefrontSettingsView = ({
               {savingAuth ? "Saving..." : "Save Settings"}
             </button>
 
-            <hr className="my-4" />
+            </section>
+            <section className="esf-card">
 
             <h5 className="mb-1">Locked Accounts</h5>
             <p className="text-muted small mb-3">
@@ -488,17 +646,21 @@ const EcommerceStorefrontSettingsView = ({
               <p className="text-muted">No locked accounts.</p>
             ) : (
               lockedAccounts.map((account) => (
-                <div key={account.id} className="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
-                  <div>
+                <div
+                  key={account.id}
+                  className="d-flex justify-content-between align-items-center border rounded p-2 mb-2"
+                  style={{ flexWrap: "wrap", gap: "0.5rem" }}
+                >
+                  <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
                     <b>{account.person_name || "Guest"}</b>{" "}
                     <span className="text-muted small">{account.mobile_number || account.email_id}</span>
                   </div>
-                  <div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                     {account.locked_methods.map(({ method, label }) => (
                       <button
                         key={method}
                         type="button"
-                        className="btn btn-sm btn-outline-secondary ms-2"
+                        className="btn btn-sm btn-outline-secondary"
                         disabled={unlockingKey === `${account.id}-${method}`}
                         onClick={() => handleUnlock(account.id, method)}
                       >
@@ -509,6 +671,7 @@ const EcommerceStorefrontSettingsView = ({
                 </div>
               ))
             )}
+            </section>
           </>
         )}
       </div>

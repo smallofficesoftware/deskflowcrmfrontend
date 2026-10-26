@@ -64,7 +64,6 @@ interface IPropsSetting {
   TaskTemplate: () => void;
   ProductUnit: () => void;
   AttributeMaster: () => void;
-  EcommerceStorefront: () => void;
   warehouse: () => void;
   PaymentType: () => void;
   CompensationAdjustments: () => void;
@@ -122,7 +121,6 @@ const Setting = ({
   TaskTemplate,
   ProductUnit,
   AttributeMaster,
-  EcommerceStorefront,
   PaymentType,
   CompensationAdjustments,
   HolidayMaster,
@@ -362,9 +360,6 @@ const Setting = ({
   }
   function openAttributeMaster() {
     AttributeMaster();
-  }
-  function openEcommerceStorefront() {
-    EcommerceStorefront();
   }
   function openRoutePlanner() {
     routePlanner();
@@ -1594,33 +1589,6 @@ const Setting = ({
                       <div className="head">
                         <h4 title="Attribute Master" aria-label="Attribute Master">
                           Attribute Master
-                        </h4>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="block ps-3" onClick={openEcommerceStorefront}>
-                    <div className="icon-Box">
-                      <button className="icons-setings">
-                        <span
-                          data-icon="settings-notifications"
-                          className=""
-                          title="Ecommerce Storefront"
-                        >
-                          <svg
-                            height="24px"
-                            viewBox="0 -960 960 960"
-                            width="24px"
-                            fill="currentColor"
-                          >
-                            <path d="M280-80q-33 0-56.5-23.5T200-160v-440q0-33 23.5-56.5T280-680h80q0-83 58.5-141.5T560-880q83 0 141.5 58.5T760-680h80q33 0 56.5 23.5T920-600v440q0 33-23.5 56.5T840-80H280Zm200-600h160q0-50-35-85t-85-35q-50 0-85 35t-35 85Z" />
-                          </svg>
-                        </span>
-                      </button>
-                    </div>
-                    <div className="h-text">
-                      <div className="head">
-                        <h4 title="Ecommerce Storefront" aria-label="Ecommerce Storefront">
-                          Ecommerce Storefront
                         </h4>
                       </div>
                     </div>

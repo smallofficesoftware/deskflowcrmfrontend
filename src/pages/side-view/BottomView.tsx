@@ -107,6 +107,7 @@ import {
   ICompanyTeam,
 } from "../left-side/LeftSideController";
 import ReportsTileView from "./ReportsTileView";
+import EcommerceStorefrontSettingsView from "../left-side/header/Setting/ecommerce-storefront/EcommerceStorefrontSettingsView";
 
 const BottomView = ({
   activeView,
@@ -670,6 +671,12 @@ const BottomView = ({
         )}
         {(appliedReportType === "report_builder" || appliedReportType === "report_builder_new") && (
           <ReportBuilderSideView onHide={handleonHide} startNew={appliedReportType === "report_builder_new"} />
+        )}
+        {appliedReportType === "ecommerce_storefront" && (
+          <EcommerceStorefrontSettingsView
+            isEcommerceStorefrontView
+            closeEcommerceStorefrontView={handleonHide}
+          />
         )}
         {appliedReportType === "workflow_automation" && (
           <WorkFlowAutomationReport />

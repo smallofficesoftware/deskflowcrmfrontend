@@ -129,7 +129,6 @@ const ProcessAttendanceView = lazyView(() => import("./header/Setting/process-at
 const ProcessMasterView = lazyView(() => import("./header/Setting/process-master/ProcessMasterView"));
 const UnitMasterView = lazyView(() => import("./header/Setting/product-unit/UnitMasterView"));
 const AttributeMasterView = lazyView(() => import("./header/Setting/attribute-master/AttributeMasterView"));
-const EcommerceStorefrontSettingsView = lazyView(() => import("./header/Setting/ecommerce-storefront/EcommerceStorefrontSettingsView"));
 const ProductView = lazyView(() => import("./header/Setting/product/ProductView"));
 const ProductgroupView = lazyView(() => import("./header/Setting/productgroup/ProductgroupView"));
 const RoundOffMasterView = lazyView(() => import("./header/Setting/round of master/RoundOfMasterView"));
@@ -882,7 +881,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [showTaskTemplate, setShowTaskTemplate] = useState(false);
   const [showProductUnit, setShowProductUnit] = useState(false);
   const [showAttributeMaster, setShowAttributeMaster] = useState(false);
-  const [showEcommerceStorefront, setShowEcommerceStorefront] = useState(false);
   const [selectedButton, setSelectedButton] = useState<string>("all");
   const [showwarehouse, setShowwarehouse] = useState(false);
   const [showPaymentType, setShowPaymentType] = useState(false);
@@ -1142,7 +1140,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     let taskTemplate = false;
     let productUnit = false;
     let attributeMaster = false;
-    let ecommerceStorefront = false;
     let warehouse = false;
     let paymentType = false;
     let compensationAdjustments = false;
@@ -1275,9 +1272,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       case "attributeMaster":
         attributeMaster = true;
         break;
-      case "ecommerceStorefront":
-        ecommerceStorefront = true;
-        break;
       case "routePlanner":
         routePlanner = true;
         break;
@@ -1360,7 +1354,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     setShowTaskTemplate(taskTemplate);
     setShowProductUnit(productUnit);
     setShowAttributeMaster(attributeMaster);
-    setShowEcommerceStorefront(ecommerceStorefront);
     setShowwarehouse(warehouse);
     setShowPaymentType(paymentType);
     setShowCompensationAdjustments(compensationAdjustments);
@@ -3229,7 +3222,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                 ShowSupportTicket ||
                 showProductUnit ||
                 showAttributeMaster ||
-                showEcommerceStorefront ||
                 showProductGroup ||
                 showStockAdjustment ||
                 showwarehouse ? (
@@ -3310,9 +3302,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                     ProductUnit={() => rightSideVIewProvider("productUnit")}
                     AttributeMaster={() =>
                       rightSideVIewProvider("attributeMaster")
-                    }
-                    EcommerceStorefront={() =>
-                      rightSideVIewProvider("ecommerceStorefront")
                     }
                     routePlanner={() => rightSideVIewProvider("routePlanner")}
                     taskManagement={() =>
@@ -3862,16 +3851,6 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
                       isAttributeMasterView={showAttributeMaster}
                       closeAttributeMasterView={() => {
                         setShowAttributeMaster(false);
-                        setshowSetting(true);
-                        setSearchTermFromRightSide("");
-                      }}
-                    />
-                  )}
-                  {showEcommerceStorefront && (
-                    <EcommerceStorefrontSettingsView
-                      isEcommerceStorefrontView={showEcommerceStorefront}
-                      closeEcommerceStorefrontView={() => {
-                        setShowEcommerceStorefront(false);
                         setshowSetting(true);
                         setSearchTermFromRightSide("");
                       }}
