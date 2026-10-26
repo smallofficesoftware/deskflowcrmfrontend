@@ -123,6 +123,7 @@ const EcommerceStorefrontSettingsView = ({
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [themes, setThemes] = useState<IStorefrontTheme[]>([]);
   const [currentThemeId, setCurrentThemeId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -196,11 +197,15 @@ const EcommerceStorefrontSettingsView = ({
     try {
       const { data } = await axiosInstance.post("storefront/settings/get", {});
       if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
-        // requireAddon() blocked this - the addon is off for this company.
+        // Only the addon gate's own refusal means "not enabled" - anything else
+        // (not logged in, tenant DB unavailable) is a different problem.
+        const addonOff = /addon is not enabled/i.test(data.ack_msg || "");
+        setLoadError(addonOff ? null : data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         setEnabled(false);
         setLoading(false);
         return;
       }
+      setLoadError(null);
       setEnabled(true);
       setAuthConfig({ ...DEFAULT_AUTH_CONFIG, ...(data.data?.item?.config_json || {}) });
 
@@ -213,7 +218,8 @@ const EcommerceStorefrontSettingsView = ({
       fetchLockedAccounts();
       fetchStageOptions();
       fetchDomain();
-    } catch {
+    } catch (error: any) {
+      setLoadError(error?.message || MESSAGE_UNKNOWN_ERROR_OCCURRED);
       setEnabled(false);
     } finally {
       setLoading(false);
@@ -354,6 +360,11 @@ const EcommerceStorefrontSettingsView = ({
       <div>
         {loading ? (
           <p className="text-muted">Loading...</p>
+        ) : enabled === false && loadError ? (
+          <p className="text-danger">
+            Couldn&apos;t load Ecommerce Storefront settings: {loadError}. Check that the backend is reachable and
+            try again.
+          </p>
         ) : enabled === false ? (
           <p className="text-muted">
             This addon is not enabled for your company. Contact your DeskflowCRM
