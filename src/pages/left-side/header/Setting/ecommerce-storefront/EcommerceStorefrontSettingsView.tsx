@@ -30,6 +30,18 @@ interface IStorefrontAuthConfig {
   payment_razorpay_enabled: boolean;
   payment_cash_enabled: boolean;
   cash_stage_status_id: number | null;
+  payment_bank_enabled: boolean;
+  bank_stage_status_id: number | null;
+  bank_name: string;
+  bank_account_holder: string;
+  bank_account_number: string;
+  bank_ifsc: string;
+  bank_instructions: string;
+  payment_upi_enabled: boolean;
+  upi_stage_status_id: number | null;
+  upi_id: string;
+  upi_payee_name: string;
+  upi_instructions: string;
   razorpay_key_id: string;
   razorpay_key_secret: string;
   paid_stage_status_id: number | null;
@@ -40,9 +52,11 @@ interface IStorefrontAuthConfig {
 }
 
 // One row per payment method; add a new gateway here plus its settings key and body.
-const PAYMENT_METHODS: { key: "razorpay" | "cash"; label: string; enabledKey: "payment_razorpay_enabled" | "payment_cash_enabled" }[] = [
+const PAYMENT_METHODS: { key: "razorpay" | "cash" | "bank" | "upi"; label: string; enabledKey: "payment_razorpay_enabled" | "payment_cash_enabled" | "payment_bank_enabled" | "payment_upi_enabled" }[] = [
   { key: "razorpay", label: "Online payment (Razorpay)", enabledKey: "payment_razorpay_enabled" },
   { key: "cash", label: "Cash / pay later (no gateway)", enabledKey: "payment_cash_enabled" },
+  { key: "bank", label: "Bank transfer (no gateway)", enabledKey: "payment_bank_enabled" },
+  { key: "upi", label: "UPI (no gateway)", enabledKey: "payment_upi_enabled" },
 ];
 
 const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
@@ -57,6 +71,18 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   payment_razorpay_enabled: true,
   payment_cash_enabled: false,
   cash_stage_status_id: null,
+  payment_bank_enabled: false,
+  bank_stage_status_id: null,
+  bank_name: "",
+  bank_account_holder: "",
+  bank_account_number: "",
+  bank_ifsc: "",
+  bank_instructions: "",
+  payment_upi_enabled: false,
+  upi_stage_status_id: null,
+  upi_id: "",
+  upi_payee_name: "",
+  upi_instructions: "",
   razorpay_key_id: "",
   razorpay_key_secret: "",
   paid_stage_status_id: null,
@@ -129,7 +155,7 @@ const EcommerceStorefrontSettingsView = ({
   closeEcommerceStorefrontView,
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
-  const [openPayment, setOpenPayment] = useState<"razorpay" | "cash" | null>("razorpay");
+  const [openPayment, setOpenPayment] = useState<"razorpay" | "cash" | "bank" | "upi" | null>("razorpay");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [authConfig, setAuthConfig] = useState<IStorefrontAuthConfig>(DEFAULT_AUTH_CONFIG);
@@ -255,13 +281,30 @@ const EcommerceStorefrontSettingsView = ({
   }, [isEcommerceStorefrontView]);
 
   const saveAuthConfig = async (lock_decisions?: Record<string, "lock" | "keep">) => {
-    if (!authConfig.payment_razorpay_enabled && !authConfig.payment_cash_enabled) {
+    if (!authConfig.payment_razorpay_enabled && !authConfig.payment_cash_enabled && !authConfig.payment_bank_enabled && !authConfig.payment_upi_enabled) {
       toast.error("Enable at least one payment option");
       return;
     }
     if (authConfig.payment_cash_enabled && !authConfig.cash_stage_status_id) {
       setOpenPayment("cash");
       toast.error("Select the stage for cash orders");
+      return;
+    }
+    if (authConfig.payment_bank_enabled) {
+      const missing =
+        !authConfig.bank_stage_status_id ||
+        !authConfig.bank_account_holder.trim() ||
+        !authConfig.bank_account_number.trim() ||
+        !authConfig.bank_ifsc.trim();
+      if (missing) {
+        setOpenPayment("bank");
+        toast.error("Bank transfer needs a stage, account holder, account number and IFSC");
+        return;
+      }
+    }
+    if (authConfig.payment_upi_enabled && (!authConfig.upi_stage_status_id || !authConfig.upi_id.trim())) {
+      setOpenPayment("upi");
+      toast.error("UPI needs a UPI ID and a stage");
       return;
     }
     if (authConfig.payment_razorpay_enabled && (!authConfig.razorpay_key_id.trim() || !authConfig.razorpay_key_secret.trim())) {
@@ -539,7 +582,107 @@ const EcommerceStorefrontSettingsView = ({
                   </div>
                   {open && (
                     <div className="p-3 border-top">
-                      {method.key === "cash" ? (
+                      {method.key === "upi" ? (
+                        <>
+                          <p className="text-muted small mb-2">
+                            The customer pays to this UPI ID from their own UPI app after placing the order. You confirm the payment yourself.
+                          </p>
+                          {(
+                            [
+                              ["upi_id", "UPI ID (e.g. shop@bank)"],
+                              ["upi_payee_name", "Payee name"],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <div className="mb-2" key={field}>
+                              <label className="form-label small mb-1">{label}</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={authConfig[field]}
+                                disabled={savingAuth}
+                                onChange={(e) => setAuthConfig({ ...authConfig, [field]: e.target.value })}
+                              />
+                            </div>
+                          ))}
+                          <div className="mb-2">
+                            <label className="form-label small mb-1">Instructions (optional)</label>
+                            <textarea
+                              className="form-control"
+                              rows={2}
+                              value={authConfig.upi_instructions}
+                              disabled={savingAuth}
+                              onChange={(e) => setAuthConfig({ ...authConfig, upi_instructions: e.target.value })}
+                            />
+                          </div>
+                          <label className="form-label small mb-1">Stage for UPI orders</label>
+                          <select
+                            className="form-select"
+                            value={authConfig.upi_stage_status_id ?? ""}
+                            disabled={savingAuth}
+                            onChange={(e) =>
+                              setAuthConfig({ ...authConfig, upi_stage_status_id: e.target.value ? Number(e.target.value) : null })
+                            }
+                          >
+                            <option value="">Not selected</option>
+                            {stageOptions.map((stage) => (
+                              <option key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : method.key === "bank" ? (
+                        <>
+                          <p className="text-muted small mb-2">
+                            Shown to the customer after they place the order. The order is created in the stage below; you confirm the transfer yourself.
+                          </p>
+                          {(
+                            [
+                              ["bank_name", "Bank name"],
+                              ["bank_account_holder", "Account holder name"],
+                              ["bank_account_number", "Account number"],
+                              ["bank_ifsc", "IFSC code"],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <div className="mb-2" key={field}>
+                              <label className="form-label small mb-1">{label}</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={authConfig[field]}
+                                disabled={savingAuth}
+                                onChange={(e) => setAuthConfig({ ...authConfig, [field]: e.target.value })}
+                              />
+                            </div>
+                          ))}
+                          <div className="mb-2">
+                            <label className="form-label small mb-1">Instructions (optional)</label>
+                            <textarea
+                              className="form-control"
+                              rows={2}
+                              value={authConfig.bank_instructions}
+                              disabled={savingAuth}
+                              onChange={(e) => setAuthConfig({ ...authConfig, bank_instructions: e.target.value })}
+                            />
+                          </div>
+                          <label className="form-label small mb-1">Stage for bank transfer orders</label>
+                          <select
+                            className="form-select"
+                            value={authConfig.bank_stage_status_id ?? ""}
+                            disabled={savingAuth}
+                            onChange={(e) =>
+                              setAuthConfig({ ...authConfig, bank_stage_status_id: e.target.value ? Number(e.target.value) : null })
+                            }
+                          >
+                            <option value="">Not selected</option>
+                            {stageOptions.map((stage) => (
+                              <option key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : method.key === "cash" ? (
                         <>
                         <p className="text-muted small mb-2">
                           No gateway. The order is created with the stage below and no online payment; you collect payment yourself.

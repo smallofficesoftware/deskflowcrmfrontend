@@ -12,6 +12,7 @@ import {
 } from "./PriceListItemController";
 
 import { SingleValue } from "react-select";
+import QtySlabsEditor from "../../../../../components/QtySlabsEditor";
 import { toast } from "react-toastify";
 import { formatDateAndTime } from "../../../../../common/SharedFunction";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
@@ -923,6 +924,13 @@ const PriceListItemView = ({
                     </table>
                   </div>
                 </div>
+                {isEditing && selectedProductId?.value && passDataInAddItem?.id ? (
+                  <QtySlabsEditor
+                    productId={selectedProductId.value}
+                    pricelistId={Number(passDataInAddItem.id)}
+                    title="Quantity pricing for this price list"
+                  />
+                ) : null}
                 <div className="source-of-type-list-grid-block">
                   <div className="source-of-type-list-grid-main">
                     <table className="table table-hover" border={0}>

@@ -37,6 +37,7 @@ import {
 } from "../../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../../hooks/useCheckUserPermission";
 import useMiracleFlagStore from "../../../../../../store/miracle/useMiracleFlagStore";
+import QtySlabsEditor from "../../../../../../components/QtySlabsEditor";
 import {
   fetchCustomInqFromApiForProduct,
   fetchOrderUnitClassification,
@@ -2270,6 +2271,15 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showVariantField && (
+                            <div className="col-12">
+                              {editId ? (
+                                <QtySlabsEditor productId={editId} pricelistId={0} title="Quantity pricing (all customers)" />
+                              ) : (
+                                <div className="text-muted small mb-3">Save the product first to set quantity pricing.</div>
+                              )}
+                            </div>
                           )}
                           </>
                           )}
