@@ -12,6 +12,7 @@ import { OverlayPanel } from "primereact/overlaypanel";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ProductKindSelect, { type TProductKind } from "../../../../components/ProductKindSelect";
 import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -95,6 +96,10 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     useState<boolean>(false);
   const [isModalFilterVisible, setIsModalFilterVisible] =
     useState<boolean>(false);
+  const [productKind, setProductKind] = useState<TProductKind>("");
+  // Read inside loadPage, which the queued-load runner may call after a re-render.
+  const productKindRef = useRef<TProductKind>("");
+  productKindRef.current = productKind;
   const { getFilter, setFilters } = useCommonFilterStore();
   const filters = getFilter("products_report");
   const [hasData, setHasData] = useState<boolean>(false);
@@ -223,6 +228,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
         categoryId ?? filters.selectedCategoryId,
         productId ?? filters.selectedProductId,
         setTotalRecords,
+        productKindRef.current,
       );
     } catch (err) {
       console.error(err);
@@ -243,6 +249,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
     debouncedSearchText,
     filters.selectedCategoryId,
     filters.selectedProductId,
+    productKind,
   ]);
 
   // ── Refresh trigger (after create/edit/delete) ────────────────────────
@@ -576,6 +583,7 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
                   },
                 }}
               />
+              <ProductKindSelect value={productKind} onChange={setProductKind} style={{ marginRight: 6 }} />
               <Button
                 icon={hasData ? "pi pi-filter-slash" : "pi pi-filter"}
                 className="report_button"
@@ -766,7 +774,14 @@ const ProductReport = ({ onHide, MobileFlag }: IProductReport) => {
                 }}
                 bodyStyle={{ fontSize: "14px" }}
                 body={(rowData: IProductView) => (
-                  <span>{rowData.product_name}</span>
+                  <span>
+                    {rowData.product_name}
+                    {rowData.parent_product_id ? (
+                      <span className="badge bg-secondary ms-2">Variant</span>
+                    ) : Number(rowData.is_variant_parent) === 1 ? (
+                      <span className="badge bg-info text-dark ms-2">Has variants</span>
+                    ) : null}
+                  </span>
                 )}
               />
 

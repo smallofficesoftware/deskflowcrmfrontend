@@ -13,6 +13,7 @@ export const fetchProductForReport = async (
     searchCategoryId?: any,
     productId?: any,
     setTotalCount?: (total: number) => void,
+    productKind?: string,
 ) => {
     const token = localStorage.getItem("token");
     const getUUID = localStorage.getItem("UUID");
@@ -38,6 +39,8 @@ export const fetchProductForReport = async (
         // rule like the other fixes alongside this one - revisit if anyone wants
         // parent-level rollups shown here.
         excludeVariantParents: true,
+        // Overrides the line above when set (e.g. "parent" must still list parents).
+        productKind: productKind || "",
     };
 
     try {

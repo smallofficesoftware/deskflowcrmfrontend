@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import ProductKindSelect, { type TProductKind } from "../../../../../components/ProductKindSelect";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +22,7 @@ import PrintBarcode from "./PrintBarcode";
 import {
   fetchExportProductApi,
   fetchProductApi,
+  setProductKindFilter,
   handleDeleteProduct,
   IProductView,
   syncMiracleProduct,
@@ -69,6 +71,7 @@ const ProductView = ({
   const [selectedProduct, setSelectedProduct] = useState<IProductView>();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [productKind, setProductKind] = useState<TProductKind>("");
   const [isModalExcelProductVisible, setIsModalExcelProductVisible] =
     useState<boolean>(false);
   const [isModalExcelProductForImportUpdate, setIsModalExcelProductForUpdate] =
@@ -366,6 +369,18 @@ const ProductView = ({
       openCreateProduct();
     }
   }, []);
+
+  const firstKindRun = useRef(true);
+  useEffect(() => {
+    setProductKindFilter(productKind);
+    if (firstKindRun.current) {
+      firstKindRun.current = false;
+      return;
+    }
+    setCurrentPage(0);
+    fetchProductApi(0, itemsPerPage, setProductList, setLoading, searchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productKind]);
 
   useEffect(() => {
     if (refreshProduct) {
@@ -725,6 +740,7 @@ const ProductView = ({
                       ></path>
                     </svg>
                   </span>
+                  <ProductKindSelect value={productKind} onChange={setProductKind} style={{ marginRight: 6 }} />
                   <input
                     type="text"
                     title="Search"
@@ -964,6 +980,21 @@ const ProductView = ({
                                       >
                                         {item.product_name}
                                       </h2>
+                                      {item.parent_product_id ? (
+                                        <span
+                                          className="badge bg-secondary"
+                                          style={{ marginLeft: "5px", width: "fit-content" }}
+                                        >
+                                          Variant
+                                        </span>
+                                      ) : Number(item.is_variant_parent) === 1 ? (
+                                        <span
+                                          className="badge bg-info text-dark"
+                                          style={{ marginLeft: "5px", width: "fit-content" }}
+                                        >
+                                          Has variants
+                                        </span>
+                                      ) : null}
                                     </div>
                                   </div>
                                   {item.id === -1 ? (

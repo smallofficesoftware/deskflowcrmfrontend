@@ -340,6 +340,14 @@ export const fetchCategoryApiForProduct = async (
   }
 };
 
+// Product-type filter chosen on the Settings > Product list. Module-level so the nine
+// existing fetchProductApi call sites (search, paging, refresh) all honour it without
+// each being changed; ProductView sets it and refetches when the dropdown changes.
+let activeProductKind = "";
+export const setProductKindFilter = (kind: string) => {
+  activeProductKind = kind;
+};
+
 export const fetchProductApi = async (
   page: number,
   itemsPerPage: number,
@@ -356,6 +364,7 @@ export const fetchProductApi = async (
     ll: itemsPerPage, // Lower limit based on page number
     a_application_login_id: getUUID,
     searchTerm: term,
+    productKind: activeProductKind,
   };
   try {
     const data = await axiosInstance.post("product", requestData);
