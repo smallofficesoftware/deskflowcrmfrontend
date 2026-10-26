@@ -291,6 +291,7 @@
     /* display: none; */
     position: relative;
     flex: 30%;
+    min-width: 0; /* flex items default to min-width:auto, which lets wide content (e.g. long settings labels/inputs) push this panel past its flex-basis and overflow the page horizontally instead of wrapping - this allows it to shrink to fit. */
     background-color: var(--side);
     border-right: 1px solid var(--border-right);
 }
