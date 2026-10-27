@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { BIG_TEXT_LENGTH, DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
-import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
+import { PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import {
@@ -41,7 +41,7 @@ const CreateAttributeMasterView = ({
   const [values, setValues] = useState(attributeToEdit?.values || []);
   const [newValueInput, setNewValueInput] = useState("");
 
-  const canAdd = useCheckUserPermission(PAGE_ID.ATTRIBUTE_MASTER, PERMISSION_TYPE.ADD);
+  const canAdd = useCheckUserPermission("attribute_master", PERMISSION_TYPE.ADD);
 
   useEffect(() => {
     if (attributeToEdit) {

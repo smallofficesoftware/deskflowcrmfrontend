@@ -172,9 +172,9 @@ const MiracleSynchronizationView = ({ show, onHide }: IPropsMiracleSynchronizati
   const [endDate, setEndDate] = useState<string>("");
 
   // ─── Permission check using same pattern as SideBarView ───
-  const hasPermission = (pageId: number, permissionType: string): boolean => {
-    const pagePermission = permissions?.find(
-      (perm: any) => perm.page_id === pageId
+  const hasPermission = (pageId: number | string, permissionType: string): boolean => {
+    const pagePermission = permissions?.find((perm: any) =>
+      typeof pageId === "string" ? perm.page_slug === pageId : perm.page_id === pageId,
     );
     if (!pagePermission) return false;
     try {

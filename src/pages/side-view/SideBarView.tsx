@@ -66,9 +66,9 @@ const SidebarView = ({
     })();
   }, []);
 
-  const hasPermission = (pageId: number, permissionType: string) => {
-    const pagePermission = permissions?.find(
-      (perm: any) => perm.page_id === pageId,
+  const hasPermission = (pageId: number | string, permissionType: string) => {
+    const pagePermission = permissions?.find((perm: any) =>
+      typeof pageId === "string" ? perm.page_slug === pageId : perm.page_id === pageId,
     );
 
     if (!pagePermission) return false;

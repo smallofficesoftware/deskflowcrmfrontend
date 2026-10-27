@@ -6,7 +6,7 @@ import { useEscapeKey } from "../../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { useTheme } from "../../../../../components/ThemeContext";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../../helpers/AppConstants";
-import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
+import { PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import {
   fetchAttributeMastersApi,
@@ -40,10 +40,10 @@ const AttributeMasterView = ({
     undefined
   );
 
-  const canView = useCheckUserPermission(PAGE_ID.ATTRIBUTE_MASTER, PERMISSION_TYPE.VIEW);
-  const canAdd = useCheckUserPermission(PAGE_ID.ATTRIBUTE_MASTER, PERMISSION_TYPE.ADD);
-  const canEdit = useCheckUserPermission(PAGE_ID.ATTRIBUTE_MASTER, PERMISSION_TYPE.EDIT);
-  const canDelete = useCheckUserPermission(PAGE_ID.ATTRIBUTE_MASTER, PERMISSION_TYPE.DELETE);
+  const canView = useCheckUserPermission("attribute_master", PERMISSION_TYPE.VIEW);
+  const canAdd = useCheckUserPermission("attribute_master", PERMISSION_TYPE.ADD);
+  const canEdit = useCheckUserPermission("attribute_master", PERMISSION_TYPE.EDIT);
+  const canDelete = useCheckUserPermission("attribute_master", PERMISSION_TYPE.DELETE);
 
   useEscapeKey(closeAttributeMasterView);
 

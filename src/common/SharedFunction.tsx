@@ -874,15 +874,18 @@ export function isValidPhone(phone?: string): boolean {
   return /^[0-9]{10,15}$/.test(phone);
 }
 
+// pageIdOrSlug: pass a page_slug string for any page added after 27-10-2026 to stay
+// correct regardless of which numeric page_id it gets on a given database (see
+// useCheckUserPermission.ts for why). Existing numeric PAGE_ID callers are unaffected.
 export const newRightsForPrint = async (
-  page_id: number,
+  pageIdOrSlug: number | string,
   a_application_login_id: number | string | null,
 ) => {
   try {
-    const payload = {
-      page_id,
-      a_application_login_id,
-    };
+    const payload =
+      typeof pageIdOrSlug === "string"
+        ? { page_slug: pageIdOrSlug, a_application_login_id }
+        : { page_id: pageIdOrSlug, a_application_login_id };
     const { data } = await axiosInstance.post("new-rights-print", payload);
     const rights = data?.data;
     return rights;

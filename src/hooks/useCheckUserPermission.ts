@@ -1,11 +1,19 @@
 import { useContext } from "react";
 import { AppContext } from "../common/AppContext";
 
-const useCheckUserPermission = (pageId: number, permissionType: string) => {
+// pageId can drift between databases (a_application_pages ids are plain
+// AUTO_INCREMENT and the table is also written to independently by the admin
+// panel's own platform-page migrations - e.g. Attribute Master landed on 196
+// on one database and 200 on another). Pass a page_slug string instead of a
+// hardcoded numeric PAGE_ID for any page added after 27-10-2026 to stay
+// correct regardless of which id it happens to get on a given server.
+const useCheckUserPermission = (pageId: number | string, permissionType: string) => {
   const { permissions } = useContext(AppContext)!;
- 
- // Find the permission object for the given pageId
-  const pagePermission = permissions?.find((perm: any) => perm.page_id === pageId);
+
+  // Find the permission object for the given pageId (or page_slug, if a string was passed)
+  const pagePermission = permissions?.find((perm: any) =>
+    typeof pageId === "string" ? perm.page_slug === pageId : perm.page_id === pageId,
+  );
 
 
 
