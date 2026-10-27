@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import StorefrontChatInbox from "./StorefrontChatInbox";
 
 // B2B/B2C ecommerce storefront addon (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt,
 // P1/4.4). First slice of this settings page: on/off display (the settings/get
@@ -27,6 +28,7 @@ interface IStorefrontAuthConfig {
   auth_invite_only: boolean;
   guest_checkout_enabled: boolean;
   public_browsing_enabled: boolean;
+  chat_enabled: boolean;
   payment_razorpay_enabled: boolean;
   payment_cash_enabled: boolean;
   cash_stage_status_id: number | null;
@@ -69,6 +71,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_invite_only: false,
   guest_checkout_enabled: true,
   public_browsing_enabled: true,
+  chat_enabled: false,
   payment_razorpay_enabled: true,
   payment_cash_enabled: false,
   cash_stage_status_id: null,
@@ -157,6 +160,7 @@ const EcommerceStorefrontSettingsView = ({
   closeEcommerceStorefrontView,
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
+  const [showChatInbox, setShowChatInbox] = useState(false);
   const [openPayment, setOpenPayment] = useState<"razorpay" | "cash" | "bank" | "upi" | null>("razorpay");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -540,6 +544,29 @@ const EcommerceStorefrontSettingsView = ({
                   Off = visitors must log in before they can see products; every page sends them to the login screen.
                 </div>
               </label>
+            </div>
+
+            <div className="form-check form-switch mb-3 mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="storefront-chat-toggle"
+                checked={authConfig.chat_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, chat_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="storefront-chat-toggle">
+                <b>Customer chat</b>
+                <div className="text-muted small">
+                  On = a chat bubble appears on the store for logged-in customers. Messages show on the contact; reply from here.
+                </div>
+              </label>
+              <div className="mt-2">
+                <Button variant="outline-primary" size="sm" onClick={() => setShowChatInbox(true)}>
+                  Open customer chats
+                </Button>
+              </div>
             </div>
 
             <div className="form-check form-switch mb-3 mt-3">
@@ -960,6 +987,7 @@ const EcommerceStorefrontSettingsView = ({
           <Button variant="primary" onClick={confirmLockDecisions} disabled={savingAuth}>Confirm & Save</Button>
         </Modal.Footer>
       </Modal>
+      <StorefrontChatInbox show={showChatInbox} onHide={() => setShowChatInbox(false)} />
     </div>
   );
 };
