@@ -30,6 +30,13 @@ interface IStorefrontAuthConfig {
   public_browsing_enabled: boolean;
   chat_enabled: boolean;
   chat_guest_enabled: boolean;
+  tickets_enabled: boolean;
+  ticket_category_ids: number[];
+  ticket_category_required: boolean;
+  ticket_default_assignee_id: number | null;
+  ticket_default_priority: number;
+  ticket_initial_status_id: number;
+  ticket_customer_reply_enabled: boolean;
   payment_razorpay_enabled: boolean;
   payment_cash_enabled: boolean;
   cash_stage_status_id: number | null;
@@ -74,6 +81,13 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   public_browsing_enabled: true,
   chat_enabled: false,
   chat_guest_enabled: true,
+  tickets_enabled: true,
+  ticket_category_ids: [],
+  ticket_category_required: false,
+  ticket_default_assignee_id: null,
+  ticket_default_priority: 4,
+  ticket_initial_status_id: -14,
+  ticket_customer_reply_enabled: true,
   payment_razorpay_enabled: true,
   payment_cash_enabled: false,
   cash_stage_status_id: null,
@@ -163,6 +177,11 @@ const EcommerceStorefrontSettingsView = ({
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
   const [showChatInbox, setShowChatInbox] = useState(false);
+  const [ticketOptions, setTicketOptions] = useState<{
+    categories: { id: number; name: string }[];
+    statuses: { id: number; name: string }[];
+    members: { id: number; name: string }[];
+  }>({ categories: [], statuses: [], members: [] });
   const [openPayment, setOpenPayment] = useState<"razorpay" | "cash" | "bank" | "upi" | null>("razorpay");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -250,6 +269,7 @@ const EcommerceStorefrontSettingsView = ({
       setAuthConfig({ ...DEFAULT_AUTH_CONFIG, ...(data.data?.item?.config_json || {}) });
 
       fetchLockedAccounts();
+      fetchTicketOptions();
       fetchStageOptions();
       fetchPriceListOptions();
       fetchDomain();
@@ -300,6 +320,26 @@ const EcommerceStorefrontSettingsView = ({
   useEffect(() => {
     if (isEcommerceStorefrontView) fetchStatusAndThemes();
   }, [isEcommerceStorefrontView]);
+
+  const fetchTicketOptions = async () => {
+    try {
+      const { data } = await axiosInstance.post("storefront/tickets/options", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setTicketOptions({
+          categories: data.data?.item?.categories || [],
+          statuses: data.data?.item?.statuses || [],
+          members: data.data?.item?.members || [],
+        });
+      }
+    } catch {
+      // The ticket pickers just stay empty - the rest of the page is unaffected.
+    }
+  };
+
+  const toggleTicketCategory = (id: number) => {
+    const ids = authConfig.ticket_category_ids;
+    setAuthConfig({ ...authConfig, ticket_category_ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] });
+  };
 
   const saveAuthConfig = async (lock_decisions?: Record<string, "lock" | "keep">) => {
     if (!authConfig.payment_razorpay_enabled && !authConfig.payment_cash_enabled && !authConfig.payment_bank_enabled && !authConfig.payment_upi_enabled) {
@@ -582,6 +622,130 @@ const EcommerceStorefrontSettingsView = ({
                   Open customer chats
                 </Button>
               </div>
+            </div>
+
+            <div className="mb-3 mt-4 pt-3" style={{ borderTop: "1px solid #e5e7eb" }}>
+              <div className="form-check form-switch mb-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="storefront-tickets-toggle"
+                  checked={authConfig.tickets_enabled}
+                  disabled={savingAuth}
+                  onChange={(e) => setAuthConfig({ ...authConfig, tickets_enabled: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor="storefront-tickets-toggle">
+                  <b>Support tickets</b>
+                  <div className="text-muted small">Customers can raise tickets from the store and follow them. Tickets appear in your normal Tickets module.</div>
+                </label>
+              </div>
+
+              {authConfig.tickets_enabled && (
+                <div className="ps-4">
+                  <div className="form-check form-switch mb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      id="storefront-ticket-reply-toggle"
+                      checked={authConfig.ticket_customer_reply_enabled}
+                      disabled={savingAuth}
+                      onChange={(e) => setAuthConfig({ ...authConfig, ticket_customer_reply_enabled: e.target.checked })}
+                    />
+                    <label className="form-check-label" htmlFor="storefront-ticket-reply-toggle">
+                      Customers can reply on their tickets
+                    </label>
+                  </div>
+
+                  <div className="form-check form-switch mb-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      id="storefront-ticket-category-required"
+                      checked={authConfig.ticket_category_required}
+                      disabled={savingAuth}
+                      onChange={(e) => setAuthConfig({ ...authConfig, ticket_category_required: e.target.checked })}
+                    />
+                    <label className="form-check-label" htmlFor="storefront-ticket-category-required">
+                      Category is required
+                    </label>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="small fw-bold mb-1">Categories customers can choose</div>
+                    <div className="text-muted small mb-1">None ticked = every customer-visible category.</div>
+                    {ticketOptions.categories.length === 0 && <div className="text-muted small">No ticket categories found.</div>}
+                    {ticketOptions.categories.map((c) => (
+                      <div className="form-check" key={c.id}>
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`storefront-ticket-cat-${c.id}`}
+                          checked={authConfig.ticket_category_ids.includes(c.id)}
+                          disabled={savingAuth}
+                          onChange={() => toggleTicketCategory(c.id)}
+                        />
+                        <label className="form-check-label" htmlFor={`storefront-ticket-cat-${c.id}`}>
+                          {c.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold">Assign new tickets to</label>
+                      <select
+                        className="form-select"
+                        value={authConfig.ticket_default_assignee_id ?? ""}
+                        disabled={savingAuth}
+                        onChange={(e) => setAuthConfig({ ...authConfig, ticket_default_assignee_id: e.target.value ? Number(e.target.value) : null })}
+                      >
+                        <option value="">Company owner (default)</option>
+                        {ticketOptions.members.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold">Priority</label>
+                      <select
+                        className="form-select"
+                        value={authConfig.ticket_default_priority}
+                        disabled={savingAuth}
+                        onChange={(e) => setAuthConfig({ ...authConfig, ticket_default_priority: Number(e.target.value) })}
+                      >
+                        <option value={1}>Low</option>
+                        <option value={2}>Medium</option>
+                        <option value={3}>High</option>
+                        <option value={4}>Critical</option>
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold">New tickets start as</label>
+                      <select
+                        className="form-select"
+                        value={authConfig.ticket_initial_status_id}
+                        disabled={savingAuth}
+                        onChange={(e) => setAuthConfig({ ...authConfig, ticket_initial_status_id: Number(e.target.value) })}
+                      >
+                        {!ticketOptions.statuses.some((st) => st.id === authConfig.ticket_initial_status_id) && (
+                          <option value={authConfig.ticket_initial_status_id}>Current status ({authConfig.ticket_initial_status_id})</option>
+                        )}
+                        {ticketOptions.statuses.map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="form-check form-switch mb-3 mt-3">
