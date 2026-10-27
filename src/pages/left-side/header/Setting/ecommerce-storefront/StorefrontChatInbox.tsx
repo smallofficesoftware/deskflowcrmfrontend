@@ -22,7 +22,7 @@ interface IMessage {
   at: string;
 }
 
-const POLL_MS = 5000;
+const POLL_MS = 10000;
 
 const timeOf = (v: string) => {
   const d = new Date(v);
