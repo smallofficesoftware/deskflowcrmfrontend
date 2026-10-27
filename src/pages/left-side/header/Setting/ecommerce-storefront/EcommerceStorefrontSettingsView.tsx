@@ -29,6 +29,7 @@ interface IStorefrontAuthConfig {
   guest_checkout_enabled: boolean;
   public_browsing_enabled: boolean;
   chat_enabled: boolean;
+  chat_guest_enabled: boolean;
   payment_razorpay_enabled: boolean;
   payment_cash_enabled: boolean;
   cash_stage_status_id: number | null;
@@ -72,6 +73,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   guest_checkout_enabled: true,
   public_browsing_enabled: true,
   chat_enabled: false,
+  chat_guest_enabled: true,
   payment_razorpay_enabled: true,
   payment_cash_enabled: false,
   cash_stage_status_id: null,
@@ -562,6 +564,19 @@ const EcommerceStorefrontSettingsView = ({
                   On = a chat bubble appears on the store for logged-in customers. Messages show on the contact; reply from here.
                 </div>
               </label>
+              <div className="form-check mt-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="storefront-chat-guest-toggle"
+                  checked={authConfig.chat_guest_enabled}
+                  disabled={savingAuth || !authConfig.chat_enabled}
+                  onChange={(e) => setAuthConfig({ ...authConfig, chat_guest_enabled: e.target.checked })}
+                />
+                <label className="form-check-label small" htmlFor="storefront-chat-guest-toggle">
+                  Let visitors without an account chat and raise tickets - they verify their mobile number with a code, and a contact is created for them.
+                </label>
+              </div>
               <div className="mt-2">
                 <Button variant="outline-primary" size="sm" onClick={() => setShowChatInbox(true)}>
                   Open customer chats
