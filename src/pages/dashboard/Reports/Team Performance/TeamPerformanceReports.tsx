@@ -15,6 +15,8 @@ import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
+import { activityColumnDefs } from "./teamPerformanceActivityColumns";
+import TeamPerformanceDetailModal from "./TeamPerformanceDetailModal";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
 import CheckBoxFilterModal from "../../../../components/model/CheckBoxFilterModal";
@@ -293,10 +295,45 @@ const TeamPerformanceReports = ({
           },
         },
         attendanceData: item.attendanceData ?? [],
+        userId: item.userId,
+        activity: item.activity,
+        calls_total: item.activity?.calls_total ?? 0,
+        calls_connected: item.activity?.calls_connected ?? 0,
+        calls_not_connected: item.activity?.calls_not_connected ?? 0,
+        followups_done: item.activity?.followups_done ?? 0,
+        tasks_assigned: item.activity?.tasks_assigned ?? 0,
+        tasks_completed: item.activity?.tasks_completed ?? 0,
+        tasks_called: item.activity?.tasks_called ?? 0,
+        tasks_called_text: `${item.activity?.tasks_called ?? 0} / ${item.activity?.tasks_with_contact ?? 0}`,
       }))
     : [];
 
   const dt = useRef<DataTable<ITaskPerformance[]>>(null);
+  // Team member whose details popup (status / label counts, tasks called or not) is open.
+  const [detailFor, setDetailFor] = useState<{ userId: number; username: string } | null>(null);
+
+  const activityTotals = dataArray.reduce(
+    (acc, item) => ({
+      calls_total: acc.calls_total + (item.calls_total ?? 0),
+      calls_connected: acc.calls_connected + (item.calls_connected ?? 0),
+      calls_not_connected: acc.calls_not_connected + (item.calls_not_connected ?? 0),
+      followups_done: acc.followups_done + (item.followups_done ?? 0),
+      tasks_assigned: acc.tasks_assigned + (item.tasks_assigned ?? 0),
+      tasks_completed: acc.tasks_completed + (item.tasks_completed ?? 0),
+      tasks_called: acc.tasks_called + (item.activity?.tasks_called ?? 0),
+      tasks_with_contact: acc.tasks_with_contact + (item.activity?.tasks_with_contact ?? 0),
+    }),
+    {
+      calls_total: 0,
+      calls_connected: 0,
+      calls_not_connected: 0,
+      followups_done: 0,
+      tasks_assigned: 0,
+      tasks_completed: 0,
+      tasks_called: 0,
+      tasks_with_contact: 0,
+    },
+  );
 
   // `customers` mirrors `dataArray` (the mapped, always-complete fetch
   // result) directly - PrimeReact's own non-lazy DataTable filters/sorts/
@@ -737,6 +774,9 @@ const TeamPerformanceReports = ({
           >{`${columnTotals.debitCount} (${columnTotals.currencySymbol}${columnTotals.debitAmount.toLocaleString()})`}</strong>
         ),
       },
+      ...activityColumnDefs(activityTotals, (row) =>
+        setDetailFor({ userId: Number(row.userId), username: row.username }),
+      ),
     ],
     [
       quotationTitle,
@@ -745,6 +785,8 @@ const TeamPerformanceReports = ({
       purchaseOrderTitle,
       purchaseTitle,
       columnTotals,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(activityTotals),
     ],
   );
 
@@ -792,6 +834,15 @@ const TeamPerformanceReports = ({
         return `${customer.account?.credit?.count ?? "-"} (${customer.account?.credit?.amount ?? "-"})`;
       case "account_debit":
         return `${customer.account?.debit?.count ?? "-"} (${customer.account?.debit?.amount ?? "-"})`;
+      case "calls_total":
+      case "calls_connected":
+      case "calls_not_connected":
+      case "followups_done":
+      case "tasks_assigned":
+      case "tasks_completed":
+        return String(customer[col.key] ?? "-");
+      case "tasks_called_text":
+        return customer.tasks_called_text ?? "-";
       default:
         return "-";
     }
@@ -925,6 +976,14 @@ const TeamPerformanceReports = ({
             <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.dueSupportTicketCount), 0)}</td>
             <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.credit?.amount), 0)})</td>
             <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.count), 0)} (${dataToExport.reduce((sum, c) => sum + parseValue(c.account?.debit?.amount), 0)})</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.calls_total), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.calls_connected), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.calls_not_connected), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.followups_done), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.tasks_assigned), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.tasks_completed), 0)}</td>
+            <td>${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.tasks_called), 0)} / ${dataToExport.reduce((sum, c) => sum + parseValue(c.activity?.tasks_with_contact), 0)}</td>
+            <td></td>
           </tr>
         </tfoot>
       </table>
@@ -1301,6 +1360,15 @@ const TeamPerformanceReports = ({
           ))}
         </DataTable>
       </div>
+      {detailFor && (
+        <TeamPerformanceDetailModal
+          show={!!detailFor}
+          onHide={() => setDetailFor(null)}
+          userId={detailFor.userId}
+          username={detailFor.username}
+          selectedDates={reportSelectedDates}
+        />
+      )}
       {isModalFilterVisible && (
         <CheckBoxFilterModal
           show={isModalFilterVisible}

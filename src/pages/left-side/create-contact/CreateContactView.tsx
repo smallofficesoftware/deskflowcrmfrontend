@@ -1616,8 +1616,8 @@ const CreateContactView = ({
                                 <span className="text-danger">*</span>
                               </label>
                               <Field
-                                type="number"
-                                onWheel={(e: any) => e.currentTarget.blur()}
+                                type="text"
+                                inputMode="numeric"
                                 name="mobile_number"
                                 maxLength={MINI_TEXT_LENGTH}
                                 className={`form-control font-size-15 rounded-1 ${errors.mobile_number &&
@@ -1626,16 +1626,23 @@ const CreateContactView = ({
                                   }`}
                                 rows={1}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                  const val = e.target.value;
+                                  // Text input (not type="number") so leading zeros of international numbers are kept.
+                                  const val = e.target.value.replace(/\D/g, "");
+                                  const previousMobile = String(values?.mobile_number ?? "");
                                   setFieldValue("mobile_number", val);
-                                  if (isFeatureEnabled) {
+                                  // Mirror into Client Code only while it is empty or still the old mobile number.
+                                  const currentCode = String(values?.client_code ?? "");
+                                  if (
+                                    isFeatureEnabled &&
+                                    (currentCode === "" || currentCode === previousMobile)
+                                  ) {
                                     setFieldValue("client_code", val);
                                   }
                                 }}
                                 onBlur={async (e: React.FocusEvent<any>) => {
                                   const mobileValue = e.target.value.trim();
 
-                                  if (isFeatureEnabled) {
+                                  if (isFeatureEnabled && !values?.client_code) {
                                     setFieldValue("client_code", mobileValue);
                                   }
 

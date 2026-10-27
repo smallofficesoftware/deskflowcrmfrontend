@@ -349,9 +349,13 @@ const injectRealCompanyHeaderData = (template: any, companyData: any) => {
 // pattern src/common/pdfmeDesigner/pdfmeFieldSettingsPlugin.ts uses to
 // connect its own module-scope plugin objects to React state).
 const columnToggleBridge = {
-  current: (_columnOptions: Record<string, boolean>, _changeSchemas: any, _schemaId: string) => {},
+  current: (_columnOptions: Record<string, any>, _changeSchemas: any, _schemaId: string) => {},
 };
-const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "cgst", "sgst", "igst", "image"];
+const ITEMS_TABLE_COLUMN_KEYS = ["hsn", "discount", "serial", "taxable", "cgst", "sgst", "igst", "image"];
+// Product photo size limits, in mm: the same range the PDF engine accepts (tableColumns.js).
+const IMAGE_SIZE_DEFAULT_MM = 9;
+const IMAGE_SIZE_MIN_MM = 5;
+const IMAGE_SIZE_MAX_MM = 60;
 
 // Vanilla-DOM propPanel widget — pdfme's own `select` plugin extends `text`'s
 // propPanel with a custom widget the exact same way (addOptions), confirmed
@@ -388,15 +392,89 @@ const itemsTableColumnsWidget = (props: any) => {
     label.appendChild(document.createTextNode(key.toUpperCase()));
     container.appendChild(label);
   });
+  // Product photo settings (only used while IMAGE is ticked): where the photo goes, and its size.
+  // "column" = own Image column, "below" = under the product description (the description keeps the
+  // Image column's width). The size is typed by the user, in millimetres.
+  const imageRow = document.createElement("div");
+  imageRow.style.display = "flex";
+  imageRow.style.flexWrap = "wrap";
+  imageRow.style.alignItems = "center";
+  imageRow.style.gap = "10px";
+  imageRow.style.width = "100%";
+  imageRow.style.marginTop = "8px";
+  imageRow.style.fontSize = "12px";
+
+  const positionLabel = document.createElement("label");
+  positionLabel.style.display = "flex";
+  positionLabel.style.alignItems = "center";
+  positionLabel.style.gap = "4px";
+  positionLabel.appendChild(document.createTextNode("Image position"));
+  const positionSelect = document.createElement("select");
+  [
+    ["column", "Own column"],
+    ["below", "Below description"],
+  ].forEach(([value, text]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    positionSelect.appendChild(option);
+  });
+  positionSelect.value = activeSchema?.columnOptions?.imageMode === "below" ? "below" : "column";
+  positionLabel.appendChild(positionSelect);
+
+  const sizeLabel = document.createElement("label");
+  sizeLabel.style.display = "flex";
+  sizeLabel.style.alignItems = "center";
+  sizeLabel.style.gap = "4px";
+  sizeLabel.appendChild(document.createTextNode("Image size (mm)"));
+  const sizeInput = document.createElement("input");
+  sizeInput.type = "number";
+  sizeInput.min = String(IMAGE_SIZE_MIN_MM);
+  sizeInput.max = String(IMAGE_SIZE_MAX_MM);
+  sizeInput.step = "1";
+  sizeInput.style.width = "64px";
+  sizeInput.value = String(activeSchema?.columnOptions?.imageSizeMm ?? IMAGE_SIZE_DEFAULT_MM);
+  sizeLabel.appendChild(sizeInput);
+
+  imageRow.appendChild(positionLabel);
+  imageRow.appendChild(sizeLabel);
+  container.appendChild(imageRow);
+
+  const syncImageControls = () => {
+    const on = inputs.image.checked;
+    positionSelect.disabled = !on;
+    sizeInput.disabled = !on;
+    imageRow.style.opacity = on ? "1" : "0.5";
+  };
+  syncImageControls();
+
+  const commit = () => {
+    // Keep the typed size inside the range the PDF engine accepts (a blank or odd value falls back
+    // to the default).
+    const typed = Number(sizeInput.value);
+    const sizeMm = Number.isFinite(typed) && typed > 0
+      ? Math.min(IMAGE_SIZE_MAX_MM, Math.max(IMAGE_SIZE_MIN_MM, Math.round(typed)))
+      : IMAGE_SIZE_DEFAULT_MM;
+    sizeInput.value = String(sizeMm);
+    const mergedColumnOptions: Record<string, any> = {};
+    ITEMS_TABLE_COLUMN_KEYS.forEach((k) => {
+      mergedColumnOptions[k] = inputs[k].checked;
+    });
+    mergedColumnOptions.imageMode = positionSelect.value;
+    mergedColumnOptions.imageSizeMm = sizeMm;
+    columnToggleBridge.current(mergedColumnOptions, changeSchemas, activeSchema.id);
+  };
+
   ITEMS_TABLE_COLUMN_KEYS.forEach((key) => {
     inputs[key].addEventListener("change", () => {
-      const mergedColumnOptions: Record<string, boolean> = {};
-      ITEMS_TABLE_COLUMN_KEYS.forEach((k) => {
-        mergedColumnOptions[k] = inputs[k].checked;
-      });
-      columnToggleBridge.current(mergedColumnOptions, changeSchemas, activeSchema.id);
+      if (key === "image") syncImageControls();
+      commit();
     });
   });
+  positionSelect.addEventListener("change", commit);
+  // "change" (not "input") so the template is rebuilt once when the user finishes typing, not on
+  // every keystroke.
+  sizeInput.addEventListener("change", commit);
   rootElement.appendChild(container);
 };
 
@@ -1468,7 +1546,7 @@ const DocumentDesignerView: React.FC<IDocumentDesignerViewProps> = ({ reportMode
   // unchanged (applyOptionsToDraft already persists the new draft as a side
   // effect; tableColumns.js stays the single source of truth for columns).
   const applyColumnToggle = async (
-    columnOptions: Record<string, boolean>,
+    columnOptions: Record<string, any>,
     changeSchemas: (objs: { key: string; value: unknown; schemaId: string }[]) => void,
     schemaId: string,
   ) => {

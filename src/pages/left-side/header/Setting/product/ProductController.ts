@@ -225,11 +225,18 @@ export const handleDeleteProduct = async (
       if (data.data.ack === 1) {
         setIsDeleteConfirmation(false);
         fetchProductApi(0, ITEMS_PER_PAGE, setProductList, setLoading, "");
-        toast.success(
-          productIds.length > 1
-            ? "Products Deleted Successfully"
-            : "Product Deleted Successfully",
-        );
+        // Some selected products may have been skipped because they are in use (a document, task,
+        // price list, variant, job card...); the server's message says which, and where.
+        const skipped = data.data?.data?.skipped;
+        if (Array.isArray(skipped) && skipped.length > 0) {
+          toast.warning(data.data.ack_msg, { autoClose: 10000 });
+        } else {
+          toast.success(
+            productIds.length > 1
+              ? "Products Deleted Successfully"
+              : "Product Deleted Successfully",
+          );
+        }
       } else {
         toast.error(data.data.ack_msg || "Unknown error occurred");
       }

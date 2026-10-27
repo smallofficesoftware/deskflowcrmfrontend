@@ -728,6 +728,13 @@ export const reportsMenuData: IReportMenuGroup[] = [
         icon: "priceChange",
         description: "Custom price lists set up for different customers.",
       },
+      {
+        label: "Price List Rates",
+        value: "PriceListRate_Report",
+        pageId: PAGE_ID.PRICE_LIST_RATES,
+        icon: "priceChange",
+        description: "Current rate of every product in each price list, and the history of rate changes.",
+      },
     ],
   },
 

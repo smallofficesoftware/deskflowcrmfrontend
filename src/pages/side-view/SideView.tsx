@@ -46,6 +46,7 @@ import {
   ICompany,
 } from "../left-side/list-company/ListCompanyController";
 import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
+import MyDayPopup from "../../components/my-day/MyDayPopup";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
@@ -661,6 +662,10 @@ const SideView = ({ profileDetail }: IProp) => {
     PAGE_ID.PRICE_LIST,
     PERMISSION_TYPE.VIEW,
   );
+  const canViewPriceListRates = useCheckUserPermission(
+    PAGE_ID.PRICE_LIST_RATES,
+    PERMISSION_TYPE.VIEW,
+  );
   const canViewStockAdjustment = useCheckUserPermission(
     PAGE_ID.STOCK_ADJUSTMENT,
     PERMISSION_TYPE.VIEW,
@@ -1040,6 +1045,10 @@ const SideView = ({ profileDetail }: IProp) => {
       setAppliedReportType(name);
       return;
     } else if (canViewPriceList && name === "Price_List_Report") {
+      setActiveView("Product Settings");
+      setAppliedReportType(name);
+      return;
+    } else if (canViewPriceListRates && name === "PriceListRate_Report") {
       setActiveView("Product Settings");
       setAppliedReportType(name);
       return;
@@ -1510,6 +1519,7 @@ const SideView = ({ profileDetail }: IProp) => {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <MyDayPopup active={!isEmbed && !reportSlug && activeView === "dashboard"} />
       {/* SIDEBAR */}
       {!isEmbed && (
         <div

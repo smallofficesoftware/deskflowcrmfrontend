@@ -59,6 +59,7 @@ import PendingOrderView from "../dashboard/Reports/Pending Order/pendingOrderVie
 import PendingPurchaseReportsView from "../dashboard/Reports/Pending Purchase/pendingPurchaseView";
 import PersonalNotesReport from "../dashboard/Reports/Personal Notes Report/PersonalNotesReport";
 import PriceListReport from "../dashboard/Reports/Price List Report/PriceListReport";
+import PriceListRateReport from "../dashboard/Reports/Price List Rate Report/PriceListRateReport";
 import ProcessAttendanceGridView from "../dashboard/Reports/Process Attendance Grid View/ProcessAttendanceGridView";
 import ProcessAttendanceReportView from "../dashboard/Reports/Process Attendance Report/ProcessAttendanceReportView";
 import ProcessReport from "../dashboard/Reports/Process Report/ProcessReport";
@@ -640,7 +641,10 @@ const BottomView = ({
           <TaxMasterGridView onHide={handleonHide} />
         )}
         {appliedReportType === "Price_List_Report" && (
-          <PriceListReport onHide={handleonHide} />
+          <PriceListReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
+        )}
+        {appliedReportType === "PriceListRate_Report" && (
+          <PriceListRateReport MobileFlag={isEmbed ? "1" : undefined} onHide={handleonHide} />
         )}
         {appliedReportType === "StockAdjustment_Report" && (
           <StockAdjustmentReport onHide={handleonHide} />

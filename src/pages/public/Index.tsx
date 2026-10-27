@@ -19,6 +19,7 @@ import { logOutApi } from "../left-side/LeftSideController";
 import LeftSideView from "../left-side/LeftSideView";
 import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import LoginView from "./login/LoginView";
+import MyDayPopup from "../../components/my-day/MyDayPopup";
 import PricingTable from "./payment-gateway/PricingTable";
 import TeamPriceTable from "./payment-gateway/TeamPriceTable";
 import { useTaskCategoryStore } from "./UseTaskCategoryStore";
@@ -431,7 +432,10 @@ const Index = () => {
                   <TeamPriceTable />
                 )
               ) : (
-                <LeftSideView isVisible={!isGroupOpen} />
+                <>
+                  <LeftSideView isVisible={!isGroupOpen} />
+                  <MyDayPopup active={!isGroupOpen} />
+                </>
               )}
             </div>
           )}
