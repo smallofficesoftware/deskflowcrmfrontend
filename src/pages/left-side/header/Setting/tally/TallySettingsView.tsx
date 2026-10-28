@@ -19,16 +19,12 @@ import { axiosInstance } from "../../../../../services/axiosInstance";
 // and writes the same data through the connector-key mirror of these routes.
 
 interface ITallySettings {
-  connection_mode: "local_connector" | "direct_url";
-  direct_url_host: string;
-  direct_url_port: string;
+  connection_mode: "local_connector";
   tally_version: "prime" | "erp9";
 }
 
 const DEFAULT_SETTINGS: ITallySettings = {
   connection_mode: "local_connector",
-  direct_url_host: "",
-  direct_url_port: "9000",
   tally_version: "prime",
 };
 
@@ -179,9 +175,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
       const item = data.data?.item;
       if (item) {
         setSettings({
-          connection_mode: item.connection_mode === "direct_url" ? "direct_url" : "local_connector",
-          direct_url_host: item.direct_url_host || "",
-          direct_url_port: item.direct_url_port ? String(item.direct_url_port) : "9000",
+          connection_mode: "local_connector",
           tally_version: item.config_json?.tally_version === "erp9" ? "erp9" : "prime",
         });
         const cfg = item.config_json || {};
@@ -197,16 +191,12 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const saveSettings = async () => {
-    if (settings.connection_mode === "direct_url" && !settings.direct_url_host.trim()) {
-      toast.error("Enter the Tally host for a direct URL connection");
-      return;
-    }
     setSaving(true);
     try {
       const { data } = await axiosInstance.post("tally/settings/save", {
-        connection_mode: settings.connection_mode,
-        direct_url_host: settings.connection_mode === "direct_url" ? settings.direct_url_host.trim() : null,
-        direct_url_port: settings.connection_mode === "direct_url" ? Number(settings.direct_url_port) || 9000 : null,
+        connection_mode: "local_connector",
+        direct_url_host: null,
+        direct_url_port: null,
         // The server merges this into the stored config and stamps when auto-send was switched on.
         config_json: { tally_version: settings.tally_version, ledgers, auto_sync: autoSync },
       });
@@ -506,20 +496,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
             <h5>Connection</h5>
             <div className="row g-3">
               <div className="col-md-6">
-                <label className="form-label small mb-1">How the CRM reaches Tally</label>
-                <select
-                  className="form-select"
-                  value={settings.connection_mode}
-                  disabled={saving}
-                  onChange={(e) => setSettings({ ...settings, connection_mode: e.target.value as ITallySettings["connection_mode"] })}
-                >
-                  <option value="local_connector">Deskflow Tally Connector (installed next to Tally)</option>
-                  <option value="direct_url" disabled>
-                    Direct URL (coming soon)
-                  </option>
-                </select>
-              </div>
-              <div className="col-md-6">
                 <label className="form-label small mb-1">Tally version</label>
                 <select
                   className="form-select"
@@ -531,30 +507,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                   <option value="erp9">Tally ERP 9</option>
                 </select>
               </div>
-              {settings.connection_mode === "direct_url" && (
-                <>
-                  <div className="col-md-8">
-                    <label className="form-label small mb-1">Tally host</label>
-                    <input
-                      className="form-control"
-                      value={settings.direct_url_host}
-                      disabled={saving}
-                      placeholder="tally.example.com"
-                      onChange={(e) => setSettings({ ...settings, direct_url_host: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label small mb-1">Port</label>
-                    <input
-                      className="form-control"
-                      value={settings.direct_url_port}
-                      disabled={saving}
-                      inputMode="numeric"
-                      onChange={(e) => setSettings({ ...settings, direct_url_port: e.target.value.replace(/\D/g, "") })}
-                    />
-                  </div>
-                </>
-              )}
             </div>
             <div className="mt-3">
               <button className="btn report_button" onClick={saveSettings} disabled={saving}>
