@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
@@ -38,12 +38,38 @@ interface IMappingRow {
   [key: string]: any;
 }
 
-const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string }[] = [
-  { key: "products", label: "Products", ledgerNoun: "Tally stock item" },
-  { key: "contacts", label: "Contacts", ledgerNoun: "Tally ledger" },
-  { key: "voucher-types", label: "Voucher types", ledgerNoun: "Tally voucher type" },
-  { key: "gst-ledgers", label: "GST ledgers", ledgerNoun: "Tally ledger" },
+type PullJobType = "pull_ledgers" | "pull_stock_items" | "pull_voucher_types";
+
+// pullJob = which read of Tally feeds the name suggestions for that tab.
+const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string; pullJob: PullJobType }[] = [
+  { key: "products", label: "Products", ledgerNoun: "Tally stock item", pullJob: "pull_stock_items" },
+  { key: "contacts", label: "Contacts", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
+  { key: "voucher-types", label: "Voucher types", ledgerNoun: "Tally voucher type", pullJob: "pull_voucher_types" },
+  { key: "gst-ledgers", label: "GST ledgers", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
 ];
+
+interface ISyncLogRow {
+  id: number;
+  job_type: string;
+  status: string;
+  attempt_count: number;
+  error_message: string | null;
+  created_date_time: string | null;
+  completed_at: string | null;
+}
+
+const JOB_LABEL: Record<string, string> = {
+  pull_ledgers: "Fetch ledgers",
+  pull_stock_items: "Fetch stock items",
+  pull_voucher_types: "Fetch voucher types",
+  pull_groups: "Fetch groups",
+  push_ledger: "Send ledger",
+  push_voucher: "Send voucher",
+};
+
+const POLL_EVERY_MS = 2000;
+const POLL_GIVE_UP_MS = 2 * 60 * 1000;
+const formatWhen = (value: string | null) => (value ? new Date(value).toLocaleString("en-IN") : "");
 
 const STATUS_LABEL: Record<string, string> = {
   already_synced: "Synced",
@@ -87,6 +113,18 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   const [rowsLoading, setRowsLoading] = useState(false);
   const [savingRow, setSavingRow] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tallyNames, setTallyNames] = useState<Partial<Record<PullJobType, string[]>>>({});
+  const [pulling, setPulling] = useState(false);
+  const [syncLog, setSyncLog] = useState<ISyncLogRow[]>([]);
+  const [logLoading, setLogLoading] = useState(false);
+  // Stops the polling loop if the screen closes mid-fetch.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEscapeKey(onHide);
 
@@ -214,6 +252,10 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   }, []);
 
   useEffect(() => {
+    if (enabled) fetchSyncLog();
+  }, [enabled]);
+
+  useEffect(() => {
     if (enabled) {
       setSearch("");
       fetchRows(entity);
@@ -274,6 +316,64 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
     }
   };
 
+  const fetchSyncLog = async () => {
+    setLogLoading(true);
+    try {
+      const { data } = await axiosInstance.post("tally/sync/log", { limit: 100 });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setSyncLog(data.data?.items || []);
+    } catch {
+      // The log table just stays as it was.
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  // Asks the connector to read Tally, then polls the job until it reports back.
+  const fetchFromTally = async () => {
+    const jobType = ENTITIES.find((e) => e.key === entity)!.pullJob;
+    setPulling(true);
+    try {
+      const { data } = await axiosInstance.post("tally/sync/request-pull", { job_type: jobType });
+      if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const jobId = data.data?.item?.id;
+      const startedAt = Date.now();
+      while (mounted.current && Date.now() - startedAt < POLL_GIVE_UP_MS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_EVERY_MS));
+        if (!mounted.current) return;
+        const { data: status } = await axiosInstance.post("tally/sync/pull-status", { job_id: jobId });
+        if (status.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+          toast.error(status.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          return;
+        }
+        const item = status.data?.item;
+        if (item?.status === "done") {
+          setTallyNames((prev) => ({ ...prev, [jobType]: item.names || [] }));
+          toast.success(
+            item.names?.length
+              ? `Fetched ${item.names.length} names from Tally`
+              : "Tally returned nothing for this list"
+          );
+          return;
+        }
+        if (item?.status === "failed") {
+          toast.error(item.error_message || "The connector could not read Tally");
+          return;
+        }
+      }
+      if (mounted.current) toast.error("The connector did not answer. Check that it is running and connected to Tally.");
+    } catch (error: any) {
+      toast.error(errorOf(error));
+    } finally {
+      if (mounted.current) {
+        setPulling(false);
+        fetchSyncLog();
+      }
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -324,7 +424,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                   onChange={(e) => setSettings({ ...settings, connection_mode: e.target.value as ITallySettings["connection_mode"] })}
                 >
                   <option value="local_connector">Deskflow Tally Connector (installed next to Tally)</option>
-                  <option value="direct_url">Direct URL (Tally reachable from the server)</option>
+                  <option value="direct_url" disabled>
+                    Direct URL (coming soon)
+                  </option>
                 </select>
               </div>
               <div className="col-md-6">
@@ -429,7 +531,20 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            <button className="btn btn-outline-secondary" onClick={fetchFromTally} disabled={pulling}>
+              {pulling ? "Waiting for Tally..." : "Fetch from Tally"}
+            </button>
+            {tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob] && (
+              <span className="text-muted small">
+                {tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob]!.length} names loaded - pick one in the list below
+              </span>
+            )}
           </div>
+          <datalist id="tally-names">
+            {(tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob] || []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
             <DataTable
               value={filtered}
@@ -468,6 +583,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                   return (
                     <input
                       className="form-control form-control-sm"
+                      list="tally-names"
                       value={currentValue(row)}
                       placeholder={usesExternalId(entity) ? `Name of the ${noun}` : ""}
                       onChange={(e) => setEdits({ ...edits, [key]: e.target.value })}
@@ -501,6 +617,84 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                     </button>
                   );
                 }}
+              />
+            </DataTable>
+          </div>
+
+          <div className="d-flex align-items-center justify-content-between mt-4 mb-2">
+            <h5 className="tly-heading mb-0">Sync log</h5>
+            <button className="btn btn-outline-secondary btn-sm" onClick={fetchSyncLog} disabled={logLoading}>
+              {logLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+          <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
+            <DataTable
+              value={syncLog}
+              className="custom-centered-table"
+              tableStyle={{ tableLayout: "fixed", width: "100%" }}
+              loading={logLoading}
+              scrollable
+              scrollHeight="40vh"
+              paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
+              rows={25}
+              rowsPerPageOptions={[25, 50, 100]}
+              emptyMessage="No sync activity yet"
+            >
+              <Column
+                header="S.No"
+                body={(_row: ISyncLogRow, options: { rowIndex: number }) => options.rowIndex + 1}
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="Job"
+                sortable
+                sortField="job_type"
+                body={(row: ISyncLogRow) => JOB_LABEL[row.job_type] || row.job_type}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Status"
+                sortable
+                sortField="status"
+                style={{ fontSize: "14px", width: "110px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "110px" }}
+                body={(row: ISyncLogRow) => (
+                  <span
+                    className={`badge ${row.status === "done" ? "bg-success" : row.status === "failed" ? "bg-danger" : "bg-secondary"}`}
+                  >
+                    {row.status === "done" ? "Done" : row.status === "failed" ? "Failed" : row.status === "running" ? "Running" : "Queued"}
+                  </span>
+                )}
+              />
+              <Column
+                header="Requested"
+                sortable
+                sortField="created_date_time"
+                body={(row: ISyncLogRow) => formatWhen(row.created_date_time)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Finished"
+                body={(row: ISyncLogRow) => formatWhen(row.completed_at)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Tries"
+                field="attempt_count"
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="Error"
+                field="error_message"
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
               />
             </DataTable>
           </div>
