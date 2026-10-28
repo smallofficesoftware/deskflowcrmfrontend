@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import StorefrontChatInbox from "./StorefrontChatInbox";
 
 // B2B/B2C ecommerce storefront addon (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt,
 // P1/4.4). First slice of this settings page: on/off display (the settings/get
@@ -176,7 +175,6 @@ const EcommerceStorefrontSettingsView = ({
   closeEcommerceStorefrontView,
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
-  const [showChatInbox, setShowChatInbox] = useState(false);
   const [ticketOptions, setTicketOptions] = useState<{
     categories: { id: number; name: string }[];
     statuses: { id: number; name: string }[];
@@ -598,7 +596,7 @@ const EcommerceStorefrontSettingsView = ({
               <label className="form-check-label" htmlFor="storefront-chat-toggle">
                 <b>Customer chat</b>
                 <div className="text-muted small">
-                  On = a chat bubble appears on the store for logged-in customers. Messages show on the contact; reply from here.
+                  On = a chat bubble appears on the store for logged-in customers. Messages show on the contact - reply from the contact's chat and it goes straight to the customer.
                 </div>
               </label>
               <div className="form-check mt-2">
@@ -613,11 +611,6 @@ const EcommerceStorefrontSettingsView = ({
                 <label className="form-check-label small" htmlFor="storefront-chat-guest-toggle">
                   Let visitors without an account chat and raise tickets - they verify their mobile number with a code, and a contact is created for them.
                 </label>
-              </div>
-              <div className="mt-2">
-                <Button variant="outline-primary" size="sm" onClick={() => setShowChatInbox(true)}>
-                  Open customer chats
-                </Button>
               </div>
             </div>
 
@@ -1163,7 +1156,6 @@ const EcommerceStorefrontSettingsView = ({
           <Button variant="primary" onClick={confirmLockDecisions} disabled={savingAuth}>Confirm & Save</Button>
         </Modal.Footer>
       </Modal>
-      <StorefrontChatInbox show={showChatInbox} onHide={() => setShowChatInbox(false)} />
     </div>
   );
 };
