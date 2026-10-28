@@ -13,6 +13,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ConfirmationModal from "../../../../components/model/ConfirmationModal";
+import DeactivateTeamMemberModal from "../../../../components/model/DeactivateTeamMemberModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
@@ -855,7 +856,23 @@ const MyTeamReport = ({
                         companyTeamInfo={companyTeamInfo}
                     />
                 )}
-                {isDeactivateEmployee && (
+                {isDeactivateEmployee && deactiveEmployeeFlag == 1 && (
+                    <DeactivateTeamMemberModal
+                        show={isDeactivateEmployee}
+                        onHide={() => setIsDeactivateEmployee(false)}
+                        memberId={deactiveEmployeeId}
+                        onDeactivate={() =>
+                            deactivateTeamPerson(
+                                deactiveEmployeeId,
+                                deactiveEmployeeFlag,
+                                setIsDeactivateEmployee,
+                                setMyTeamList,
+                                companyLists?.[0]?.id ?? 0,
+                            )
+                        }
+                    />
+                )}
+                {isDeactivateEmployee && deactiveEmployeeFlag != 1 && (
                     <ConfirmationModal
                         show={isDeactivateEmployee}
                         onHide={() => setIsDeactivateEmployee(false)}

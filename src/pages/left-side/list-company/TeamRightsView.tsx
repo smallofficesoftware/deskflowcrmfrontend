@@ -142,7 +142,7 @@ const TeamRightsView = ({
     try {
       const data = await axiosInstance.post(
         "my-team",
-        { company_masters_id: targetCompanyId, searchTerm: "" },
+        { company_masters_id: targetCompanyId, searchTerm: "", include_inactive: true },
         {
           headers: {
             Authorization: `${token}`,

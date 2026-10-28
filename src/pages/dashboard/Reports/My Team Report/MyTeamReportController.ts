@@ -15,6 +15,7 @@ export const fetchMyTeamForReport = async (
     const requestData = {
         company_masters_id: company_id,
         searchTerm: "",
+        include_inactive: true,
     };
 
     try {

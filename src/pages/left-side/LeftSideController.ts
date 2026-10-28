@@ -776,6 +776,7 @@ export const fetchCompanyTeamApi = async (
   const requestData = {
     company_masters_id: companyMastersId,
     searchTerm: searchTerm,
+    include_inactive: true,
   };
   try {
     const data = await axiosInstance.post("my-team", requestData);

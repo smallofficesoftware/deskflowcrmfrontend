@@ -5,6 +5,7 @@ import {
   useEscapeKey
 } from "../../../common/SharedFunction";
 import ConfirmationModal from "../../../components/model/ConfirmationModal";
+import DeactivateTeamMemberModal from "../../../components/model/DeactivateTeamMemberModal";
 import ImportExcelForContactModal from "../../../components/model/ImportExcelForContactModal";
 import {
   BIG_TEXT_LENGTH,
@@ -953,7 +954,23 @@ const MyCompanyList = ({
               btn2="Remove"
             />
           )}
-          {isDeactivateEmployee && (
+          {isDeactivateEmployee && deactiveEmployeeFlag == 1 && (
+            <DeactivateTeamMemberModal
+              show={isDeactivateEmployee}
+              onHide={() => setIsDeactivateEmployee(false)}
+              memberId={deactiveEmployeeId}
+              onDeactivate={() =>
+                deactivateTeamPerson(
+                  deactiveEmployeeId,
+                  deactiveEmployeeFlag,
+                  setIsDeactivateEmployee,
+                  setCompanyTeamLists,
+                  companyInfo.id,
+                )
+              }
+            />
+          )}
+          {isDeactivateEmployee && deactiveEmployeeFlag != 1 && (
             <ConfirmationModal
               show={isDeactivateEmployee}
               onHide={() => setIsDeactivateEmployee(false)}
