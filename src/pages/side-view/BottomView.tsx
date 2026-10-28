@@ -108,6 +108,8 @@ import {
   ICompanyTeam,
 } from "../left-side/LeftSideController";
 import ReportsTileView from "./ReportsTileView";
+import TallySettingsView from "../left-side/header/Setting/tally/TallySettingsView";
+import MarketplaceView from "../left-side/header/Setting/marketplace/MarketplaceView";
 import EcommerceStorefrontSettingsView from "../left-side/header/Setting/ecommerce-storefront/EcommerceStorefrontSettingsView";
 
 const BottomView = ({
@@ -682,6 +684,13 @@ const BottomView = ({
             closeEcommerceStorefrontView={handleonHide}
           />
         )}
+        {appliedReportType === "marketplace" && (
+          <MarketplaceView
+            onHide={handleonHide}
+            onOpenSettings={(report) => navigate(`/SideView/report/${report}${isEmbed ? "?embed=1" : ""}`)}
+          />
+        )}
+        {appliedReportType === "tally_settings" && <TallySettingsView onHide={handleonHide} />}
         {appliedReportType === "workflow_automation" && (
           <WorkFlowAutomationReport />
         )}

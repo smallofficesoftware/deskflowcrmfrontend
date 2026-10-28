@@ -12,6 +12,7 @@ const SidebarView = ({
   onInsightsClick,
   onSmartReportsClick,
   onEcommerceClick,
+  onMarketplaceClick,
   isOpen,
   setIsOpen,
   activeReport,
@@ -486,6 +487,53 @@ const SidebarView = ({
         {isOpen && (
           <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
             Ecommerce Storefront
+          </span>
+        )}
+      </div>
+
+      <div
+        onClick={() => onMarketplaceClick && onMarketplaceClick()}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background =
+            activeReport === "marketplace" ? "rgba(245, 134, 52, 0.12)" : "transparent";
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          justifyContent: isOpen ? "flex-start" : "center",
+          padding: "10px 15px",
+          margin: "4px 8px",
+          borderRadius: "10px",
+          cursor: "pointer",
+          transition: "background 0.15s ease",
+          background: activeReport === "marketplace" ? "rgba(245, 134, 52, 0.12)" : "transparent",
+        }}
+        title="Marketplace"
+      >
+        <div
+          style={{
+            width: "30px",
+            height: "30px",
+            minWidth: "30px",
+            borderRadius: "50%",
+            background: "rgb(245, 134, 52)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 6px rgba(245,134,52,0.4)",
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="#fff">
+            <path d="M160-720v-80h640v80H160Zm0 560v-240h-40v-80l40-200h640l40 200v80h-40v240h-80v-240H560v240H160Zm80-80h240v-160H240v160Z" />
+          </svg>
+        </div>
+        {isOpen && (
+          <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
+            Marketplace
           </span>
         )}
       </div>

@@ -1135,7 +1135,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
-    } else if (name === "report_builder" || name === "report_builder_new" || name === "ecommerce_storefront") {
+    } else if (name === "report_builder" || name === "report_builder_new" || name === "ecommerce_storefront" || name === "marketplace" || name === "tally_settings") {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
@@ -1542,6 +1542,7 @@ const SideView = ({ profileDetail }: IProp) => {
               navigate("/SideView?view=reports");
             }}
             onEcommerceClick={() => openReport("ecommerce_storefront")}
+            onMarketplaceClick={() => openReport("marketplace")}
             isOpen={isOpen}
             setIsOpen={setIsOpen}
             activeReport={appliedReportType}
