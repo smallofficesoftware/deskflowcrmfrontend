@@ -145,8 +145,7 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
               />
               <button
                 type="button"
-                className="btn btn-sm"
-                style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                className="btn btn-sm btn-outline-secondary"
                 onClick={applySharedRateToAll}
               >
                 Apply to all
@@ -163,8 +162,7 @@ const GenerateVariantsModal: FC<GenerateVariantsModalProps> = ({
               />
               <button
                 type="button"
-                className="btn btn-sm"
-                style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                className="btn btn-sm btn-outline-secondary"
                 onClick={applySharedPurchaseRateToAll}
               >
                 Apply to all

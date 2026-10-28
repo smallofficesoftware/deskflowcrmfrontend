@@ -274,8 +274,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                 </select>
                 <button
                   type="button"
-                  className="btn btn-sm"
-                  style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                  className="btn btn-sm btn-outline-secondary"
                   onClick={() => addValue(attribute.id)}
                   disabled={!newValueSelections[attribute.id]}
                 >
@@ -317,8 +316,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
         </select>
         <button
           type="button"
-          className="btn btn-sm"
-          style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+          className="btn btn-sm btn-outline-secondary"
           onClick={addAttribute}
           disabled={!selectedMasterAttributeId}
         >
@@ -332,8 +330,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
         <div className="d-flex gap-2">
           <button
             type="button"
-            className="btn btn-sm"
-            style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+            className="btn btn-sm btn-outline-secondary"
             disabled={!hasAnyValue}
             title={!hasAnyValue ? "Add at least one attribute value first" : undefined}
             onClick={() => setShowGenerateVariants(true)}
@@ -386,8 +383,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                 <td className="d-flex gap-2">
                   <button
                     type="button"
-                    className="btn btn-sm"
-                    style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                    className="btn btn-sm btn-outline-secondary"
                     // Same full product edit the row's own onClick opens - an explicit
                     // button since "click the row" wasn't obvious enough on its own.
                     onClick={(e) => {
@@ -399,8 +395,7 @@ const ProductVariantSection: FC<ProductVariantSectionProps> = ({ parentProduct }
                   </button>
                   <button
                     type="button"
-                    className="btn btn-sm"
-                    style={{ border: "1px solid #f58634", color: "#f58634", background: "transparent" }}
+                    className="btn btn-sm btn-outline-secondary"
                     // Edits attribute selection only - separate from the row click above
                     // (which opens the full product edit for rate/image/etc) - stop the
                     // row's own onClick from also firing.

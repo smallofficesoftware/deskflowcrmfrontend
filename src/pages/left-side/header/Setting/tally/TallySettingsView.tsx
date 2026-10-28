@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { Column } from "primereact/column";
+import { DataTable } from "primereact/datatable";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 
 // Tally addon settings + mapping (plans/2026-10-08-marketplace-tally-plan.txt
@@ -61,8 +66,6 @@ const rowTitle = (entity: EntityKey, row: IMappingRow) => {
 // entities only carry a Tally name (external_ref).
 const usesExternalId = (entity: EntityKey) => entity === "products" || entity === "contacts";
 
-const MAX_ROWS_SHOWN = 200;
-
 interface IPropsTally {
   onHide: () => void;
 }
@@ -76,6 +79,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
 
   const [newKey, setNewKey] = useState<string | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [confirmKeyAction, setConfirmKeyAction] = useState<"issue" | "revoke" | null>(null);
 
   const [entity, setEntity] = useState<EntityKey>("products");
   const [rows, setRows] = useState<IMappingRow[]>([]);
@@ -144,7 +148,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const issueKey = async () => {
-    if (!window.confirm("Generate a new connector key? Any key issued before stops working immediately.")) return;
     setKeyBusy(true);
     try {
       const { data } = await axiosInstance.post("tally/connector-key/issue", {});
@@ -161,7 +164,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const revokeKey = async () => {
-    if (!window.confirm("Revoke the active connector key? The connector stops syncing until you issue a new one.")) return;
     setKeyBusy(true);
     try {
       const { data } = await axiosInstance.post("tally/connector-key/revoke", {});
@@ -198,7 +200,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         return;
       }
-      setRows(data.data?.items || []);
+      // __title is the CRM-column text, precomputed so the column can sort on it.
+      setRows((data.data?.items || []).map((r: IMappingRow) => ({ ...r, __title: rowTitle(which, r) })));
     } catch (error: any) {
       toast.error(errorOf(error));
     } finally {
@@ -277,37 +280,29 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
     return rows.filter((r) => (rowTitle(entity, r) || "").toLowerCase().includes(q));
   }, [rows, search, entity]);
 
-  const shown = filtered.slice(0, MAX_ROWS_SHOWN);
   const noun = ENTITIES.find((e) => e.key === entity)?.ledgerNoun;
 
   return (
     <div className="tly">
       <style>{`
-        .tly { max-width: 960px; color: #4B4B4D; }
-        .tly-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a; }
-        .tly-sub { margin: 2px 0 20px; font-size: 12px; color: #8a8a8a; }
-        .tly-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
-        .tly-card h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8a8a; margin-bottom: 10px; }
-        .tly-card .form-control, .tly-card .form-select { border-radius: 10px; border-color: #d1d5db; }
-        .tly-card .form-control:focus, .tly-card .form-select:focus { border-color: #F58634; box-shadow: 0 0 0 0.2rem rgba(245,134,52,0.2); }
-        .tly-card .btn { border-radius: 10px; font-weight: 600; }
-        .tly-card .btn-primary { background: #F58634; border-color: #F58634; }
-        .tly-card .btn-primary:hover, .tly-card .btn-primary:disabled { background: #e0762a; border-color: #e0762a; }
-        .tly-card .btn-outline-secondary { color: #4B4B4D; border-color: #d1d5db; }
-        .tly-card .btn-outline-secondary:hover { background: rgba(245,134,52,0.12); border-color: #F58634; color: #4B4B4D; }
-        .tly-key { font-family: monospace; background: #f6f7f9; border: 1px dashed #F58634; border-radius: 10px; padding: 10px 12px; word-break: break-all; }
-        .tly-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-        .tly-tab { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: #4B4B4D; }
-        .tly-tab.active { background: #F58634; border-color: #F58634; color: #fff; }
-        .tly-table { width: 100%; font-size: 13px; }
-        .tly-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #8a8a8a; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
-        .tly-table td { padding: 6px 8px; border-bottom: 1px solid #f0f1f3; vertical-align: middle; }
-        .tly-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f1f2f4; color: #6b7280; white-space: nowrap; }
-        .tly-pill.ok { background: rgba(34,150,80,0.12); color: #1d7a43; }
+        .tly { color: #4c4c4c; }
+        .tly h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6c757d; margin-bottom: 10px; }
+        .tly .report_button { background: #4c4c4c; border-color: #4c4c4c; color: #fff; }
+        .tly .report_button:hover, .tly .report_button:disabled { background: #333; border-color: #333; color: #fff; }
+        .tly .btn-outline-secondary { color: #4c4c4c; border-color: #ccc; font-size: 14px; }
+        .tly .btn-outline-secondary:hover { background: #f8f9fa; border-color: #4c4c4c; color: #4c4c4c; }
+        .tly-key { font-family: monospace; background: #f8f9fa; border: 1px dashed #4c4c4c; border-radius: 5px; padding: 10px 12px; word-break: break-all; }
+        .tly .custom-centered-table .p-inputtext { font-size: 14px; }
       `}</style>
 
-      <h2 className="tly-title">Tally</h2>
-      <p className="tly-sub">Connection, connector key and the mappings used when syncing with Tally.</p>
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <h3 className="dash-board-text-count" style={{ fontSize: "20px" }}>
+            Tally
+          </h3>
+          <div className="text-muted small">Connection, connector key and the mappings used when syncing with Tally.</div>
+        </div>
+      </div>
 
       {loading ? (
         <p className="text-muted">Loading...</p>
@@ -317,7 +312,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         <p className="text-muted">This addon is not enabled for your company. Contact your DeskflowCRM account manager to enable Tally.</p>
       ) : (
         <>
-          <section className="tly-card">
+          <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
             <h5>Connection</h5>
             <div className="row g-3">
               <div className="col-md-6">
@@ -370,14 +365,14 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               )}
             </div>
             <div className="mt-3">
-              <button className="btn btn-primary" onClick={saveSettings} disabled={saving}>
+              <button className="btn report_button" onClick={saveSettings} disabled={saving}>
                 {saving ? "Saving..." : "Save settings"}
               </button>
             </div>
           </section>
 
           {settings.connection_mode === "local_connector" && (
-            <section className="tly-card">
+            <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
               <h5>Connector key</h5>
               <p className="small text-muted mb-2">
                 Enter this key, your company code and the CRM address in the Deskflow Tally Connector installer. A company has one active key;
@@ -392,85 +387,144 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                 </div>
               )}
               <div className="d-flex gap-2">
-                <button className="btn btn-primary" onClick={issueKey} disabled={keyBusy}>
+                <button className="btn report_button" onClick={() => setConfirmKeyAction("issue")} disabled={keyBusy}>
                   {newKey ? "Generate another key" : "Generate key"}
                 </button>
-                <button className="btn btn-outline-secondary" onClick={revokeKey} disabled={keyBusy}>
+                <button className="btn btn-outline-secondary" onClick={() => setConfirmKeyAction("revoke")} disabled={keyBusy}>
                   Revoke active key
                 </button>
               </div>
             </section>
           )}
 
-          <section className="tly-card">
-            <h5>Mappings</h5>
-            <div className="tly-tabs">
-              {ENTITIES.map((e) => (
-                <button key={e.key} className={`tly-tab${entity === e.key ? " active" : ""}`} onClick={() => setEntity(e.key)}>
-                  {e.label}
-                </button>
-              ))}
-            </div>
+          <h5 className="tly-heading">Mappings</h5>
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <nav className="nav nav-pills flex-column flex-sm-row flex-wrap gap-2" style={{ width: "100%" }}>
+              {ENTITIES.map((e) => {
+                const active = entity === e.key;
+                return (
+                  <button
+                    key={e.key}
+                    type="button"
+                    className="flex-sm-fill text-sm-center nav-link"
+                    style={{
+                      backgroundColor: active ? "#f58634" : "transparent",
+                      color: active ? "#ffffff" : "#000000",
+                      border: active ? "none" : "1px solid #ccc",
+                      boxShadow: "none",
+                    }}
+                    onClick={() => setEntity(e.key)}
+                  >
+                    <span className="m-1">{e.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="d-flex align-items-center gap-2 mb-3">
             <input
-              className="form-control mb-3"
-              placeholder="Search"
+              className="form-control"
+              style={{ maxWidth: 320 }}
+              placeholder="Search in This Report"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {rowsLoading ? (
-              <p className="text-muted">Loading...</p>
-            ) : shown.length === 0 ? (
-              <p className="text-muted">{rows.length === 0 ? "Nothing to map yet." : "No matches."}</p>
-            ) : (
-              <>
-                <table className="tly-table">
-                  <thead>
-                    <tr>
-                      <th>CRM</th>
-                      <th>{noun}</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((row) => {
-                      const key = rowKey(entity, row);
-                      const status = row.mapping_status || row.match_confidence || "";
-                      const confirmed = Boolean(row.is_confirmed) || status === "already_synced";
-                      return (
-                        <tr key={key}>
-                          <td>{rowTitle(entity, row)}</td>
-                          <td style={{ minWidth: 220 }}>
-                            <input
-                              className="form-control form-control-sm"
-                              value={currentValue(row)}
-                              placeholder={usesExternalId(entity) ? `Name of the ${noun}` : ""}
-                              onChange={(e) => setEdits({ ...edits, [key]: e.target.value })}
-                            />
-                          </td>
-                          <td>
-                            <span className={`tly-pill${confirmed ? " ok" : ""}`}>{confirmed ? "Confirmed" : STATUS_LABEL[status] || "Not mapped"}</span>
-                          </td>
-                          <td>
-                            <button className="btn btn-outline-secondary btn-sm" disabled={savingRow === key} onClick={() => saveRow(row)}>
-                              {savingRow === key ? "Saving..." : "Confirm"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {filtered.length > shown.length && (
-                  <p className="small text-muted mt-2 mb-0">
-                    Showing the first {MAX_ROWS_SHOWN} of {filtered.length}. Use search to find the rest.
-                  </p>
-                )}
-              </>
-            )}
-          </section>
+          </div>
+          <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
+            <DataTable
+              value={filtered}
+              className="custom-centered-table"
+              tableStyle={{ tableLayout: "fixed", width: "100%" }}
+              loading={rowsLoading}
+              scrollable
+              scrollHeight="60vh"
+              paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
+              rows={50}
+              rowsPerPageOptions={[25, 50, 100, 200]}
+              emptyMessage={rows.length === 0 ? "Nothing to map yet" : "No records found"}
+            >
+              <Column
+                header="S.No"
+                body={(_row: IMappingRow, options: { rowIndex: number }) => options.rowIndex + 1}
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="CRM"
+                sortable
+                sortField="__title"
+                body={(row: IMappingRow) => rowTitle(entity, row)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header={noun}
+                style={{ fontSize: "14px", minWidth: 220 }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+                body={(row: IMappingRow) => {
+                  const key = rowKey(entity, row);
+                  return (
+                    <input
+                      className="form-control form-control-sm"
+                      value={currentValue(row)}
+                      placeholder={usesExternalId(entity) ? `Name of the ${noun}` : ""}
+                      onChange={(e) => setEdits({ ...edits, [key]: e.target.value })}
+                    />
+                  );
+                }}
+              />
+              <Column
+                header="Status"
+                style={{ fontSize: "14px", width: "130px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "130px" }}
+                body={(row: IMappingRow) => {
+                  const status = row.mapping_status || row.match_confidence || "";
+                  const confirmed = Boolean(row.is_confirmed) || status === "already_synced";
+                  return (
+                    <span className={`badge ${confirmed ? "bg-success" : "bg-secondary"}`}>
+                      {confirmed ? "Confirmed" : STATUS_LABEL[status] || "Not mapped"}
+                    </span>
+                  );
+                }}
+              />
+              <Column
+                header=""
+                style={{ fontSize: "14px", width: "110px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", width: "110px" }}
+                body={(row: IMappingRow) => {
+                  const key = rowKey(entity, row);
+                  return (
+                    <button className="btn btn-outline-secondary btn-sm" disabled={savingRow === key} onClick={() => saveRow(row)}>
+                      {savingRow === key ? "Saving..." : "Confirm"}
+                    </button>
+                  );
+                }}
+              />
+            </DataTable>
+          </div>
         </>
       )}
+
+      <ConfirmationModal
+        show={confirmKeyAction !== null}
+        onHide={() => setConfirmKeyAction(null)}
+        handleSubmit={() => {
+          const action = confirmKeyAction;
+          setConfirmKeyAction(null);
+          if (action === "issue") issueKey();
+          else if (action === "revoke") revokeKey();
+        }}
+        title={confirmKeyAction === "revoke" ? "Revoke connector key" : "Generate connector key"}
+        message={
+          confirmKeyAction === "revoke"
+            ? "Revoke the active connector key? The connector stops syncing until you issue a new one."
+            : "Generate a new connector key? Any key issued before stops working immediately."
+        }
+        btn1="Cancel"
+        btn2={confirmKeyAction === "revoke" ? "Revoke" : "Generate"}
+      />
     </div>
   );
 };

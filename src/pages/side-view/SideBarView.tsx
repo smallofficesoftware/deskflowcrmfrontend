@@ -11,7 +11,6 @@ const SidebarView = ({
   onReportClick,
   onInsightsClick,
   onSmartReportsClick,
-  onEcommerceClick,
   onMarketplaceClick,
   isOpen,
   setIsOpen,
@@ -38,6 +37,10 @@ const SidebarView = ({
   const [isHovered, setIsHovered] = useState(false);
   // const [selectedSubMenu, setSelectedSubMenu] = useState("");
   const [hoveredSubMenu, setHoveredSubMenu] = useState<string | null>(null);
+
+  // The addon screens (Ecommerce Storefront, Tally) open from the Marketplace
+  // cards, so the Marketplace entry stays highlighted while they're showing.
+  const isMarketplaceActive = ["marketplace", "ecommerce_storefront", "tally_settings"].includes(activeReport);
 
   const { permissions } = useContext(AppContext)!;
   const navigate = useNavigate();
@@ -445,60 +448,12 @@ const SidebarView = ({
       </div>
 
       <div
-        onClick={() => onEcommerceClick && onEcommerceClick()}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background =
-            activeReport === "ecommerce_storefront" ? "rgba(245, 134, 52, 0.12)" : "transparent";
-        }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          justifyContent: isOpen ? "flex-start" : "center",
-          padding: "10px 15px",
-          margin: "4px 8px",
-          borderRadius: "10px",
-          cursor: "pointer",
-          transition: "background 0.15s ease",
-          background: activeReport === "ecommerce_storefront" ? "rgba(245, 134, 52, 0.12)" : "transparent",
-        }}
-        title="Ecommerce Storefront"
-      >
-        <div
-          style={{
-            width: "30px",
-            height: "30px",
-            minWidth: "30px",
-            borderRadius: "50%",
-            background: "rgb(245, 134, 52)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 2px 6px rgba(245,134,52,0.4)",
-          }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="#fff">
-            <path d="M280-80q-33 0-56.5-23.5T200-160v-440q0-33 23.5-56.5T280-680h80q0-83 58.5-141.5T560-880q83 0 141.5 58.5T760-680h80q33 0 56.5 23.5T920-600v440q0 33-23.5 56.5T840-80H280Zm200-600h160q0-50-35-85t-85-35q-50 0-85 35t-35 85Z" />
-          </svg>
-        </div>
-        {isOpen && (
-          <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
-            Ecommerce Storefront
-          </span>
-        )}
-      </div>
-
-      <div
         onClick={() => onMarketplaceClick && onMarketplaceClick()}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background =
-            activeReport === "marketplace" ? "rgba(245, 134, 52, 0.12)" : "transparent";
+          e.currentTarget.style.background = isMarketplaceActive ? "rgba(245, 134, 52, 0.12)" : "transparent";
         }}
         style={{
           display: "flex",
@@ -510,7 +465,7 @@ const SidebarView = ({
           borderRadius: "10px",
           cursor: "pointer",
           transition: "background 0.15s ease",
-          background: activeReport === "marketplace" ? "rgba(245, 134, 52, 0.12)" : "transparent",
+          background: isMarketplaceActive ? "rgba(245, 134, 52, 0.12)" : "transparent",
         }}
         title="Marketplace"
       >

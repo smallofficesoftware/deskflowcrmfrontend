@@ -126,6 +126,15 @@ behave like these, using the shared pieces below instead of its own markup.
 - `useEscapeKey` closes an open dropdown first, then calls `onHide`.
 - API errors go to `toast.error(...)`; loading is a `loading` flag on the table,
   never a blocking dialog.
+- **Confirmations** (delete, revoke, regenerate a key, anything that cannot be undone or
+  breaks something that works today) use the shared `ConfirmationModal`
+  (`components/model/ConfirmationModal`), never `window.confirm`. Keep the pending action
+  in state (`const [confirmAction, setConfirmAction] = useState<"x" | null>(null)`), open the
+  modal from the button, and run the action from `handleSubmit`. Props: `title` names the
+  action (`Revoke connector key`), `message` says what happens
+  (`The connector stops syncing until you issue a new one.`), `btn1="Cancel"`, `btn2` is the
+  verb (`Revoke`, `Generate`, `Delete`). Reference: `Setting/tally/TallySettingsView.tsx`
+  (connector key) and `Setting/main-settings/MainSettingsView.tsx`.
 
 ## 9. Mobile / embedded (`MobileFlag`)
 
@@ -162,6 +171,8 @@ Reference implementations: `Reports/Serial Number Trace` and
 - Add your own date pickers or export code when the shared filter modal / export
   service covers it.
 - Use the app orange for anything except the primary add action.
+- Use `window.confirm`, `window.alert` or `window.prompt`; use `ConfirmationModal` and
+  `toast` (section 8).
 - Hide meaning in colour alone: put a sign or a label next to green / red values.
 
 ## Checklist for a new report
@@ -173,5 +184,6 @@ Reference implementations: `Reports/Serial Number Trace` and
 - [ ] Sortable, row-filterable, sticky-header columns; `S.No` first.
 - [ ] Export (Excel, PDF) and Print behind the right permissions.
 - [ ] No view right: alert and no API call.
+- [ ] Destructive actions confirm through `ConfirmationModal`, not `window.confirm`.
 - [ ] Works with `MobileFlag` (phone width).
 - [ ] Flutter catalog entry added with the same key and page id.
