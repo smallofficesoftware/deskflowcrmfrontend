@@ -7,6 +7,7 @@ import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import TallyFieldMappingSection from "./TallyFieldMappingSection";
 import TallySendSection from "./TallySendSection";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
@@ -18,16 +19,12 @@ import { axiosInstance } from "../../../../../services/axiosInstance";
 // and writes the same data through the connector-key mirror of these routes.
 
 interface ITallySettings {
-  connection_mode: "local_connector" | "direct_url";
-  direct_url_host: string;
-  direct_url_port: string;
+  connection_mode: "local_connector";
   tally_version: "prime" | "erp9";
 }
 
 const DEFAULT_SETTINGS: ITallySettings = {
   connection_mode: "local_connector",
-  direct_url_host: "",
-  direct_url_port: "9000",
   tally_version: "prime",
 };
 
@@ -52,16 +49,12 @@ const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string; pullJob: Pu
 ];
 
 interface IConnectorInfo {
-  available: boolean;
-  file_name: string | null;
-  size_bytes: number | null;
-  updated_at: string | null;
   /** The company code and CRM address the connector must be configured with. */
   company_code: string | null;
   crm_base_url: string | null;
 }
 
-const formatSize = (bytes: number | null) => (bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "");
+const CONNECTOR_DOWNLOAD_URL = "https://deskflowcrm.com/apk/tally-connector-0.3.0.exe";
 
 type LedgerRole = "sales" | "round_off" | "other_charges" | "discount" | "tcs";
 
@@ -135,7 +128,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
 
   const [newKey, setNewKey] = useState<string | null>(null);
   const [connectorInfo, setConnectorInfo] = useState<IConnectorInfo | null>(null);
-  const [downloading, setDownloading] = useState(false);
   const [keyBusy, setKeyBusy] = useState(false);
   const [confirmKeyAction, setConfirmKeyAction] = useState<"issue" | "revoke" | null>(null);
 
@@ -178,9 +170,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
       const item = data.data?.item;
       if (item) {
         setSettings({
-          connection_mode: item.connection_mode === "direct_url" ? "direct_url" : "local_connector",
-          direct_url_host: item.direct_url_host || "",
-          direct_url_port: item.direct_url_port ? String(item.direct_url_port) : "9000",
+          connection_mode: "local_connector",
           tally_version: item.config_json?.tally_version === "erp9" ? "erp9" : "prime",
         });
         const cfg = item.config_json || {};
@@ -196,16 +186,12 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const saveSettings = async () => {
-    if (settings.connection_mode === "direct_url" && !settings.direct_url_host.trim()) {
-      toast.error("Enter the Tally host for a direct URL connection");
-      return;
-    }
     setSaving(true);
     try {
       const { data } = await axiosInstance.post("tally/settings/save", {
-        connection_mode: settings.connection_mode,
-        direct_url_host: settings.connection_mode === "direct_url" ? settings.direct_url_host.trim() : null,
-        direct_url_port: settings.connection_mode === "direct_url" ? Number(settings.direct_url_port) || 9000 : null,
+        connection_mode: "local_connector",
+        direct_url_host: null,
+        direct_url_port: null,
         // The server merges this into the stored config and stamps when auto-send was switched on.
         config_json: { tally_version: settings.tally_version, ledgers, auto_sync: autoSync },
       });
@@ -259,30 +245,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
       const { data } = await axiosInstance.post("tally/connector/download-info", {});
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setConnectorInfo(data.data?.item || null);
     } catch {
-      // The download card just shows as unavailable; the rest of the screen is unaffected.
-    }
-  };
-
-  const downloadConnector = async () => {
-    setDownloading(true);
-    try {
-      const res = await axiosInstance.post("tally/connector/download", {}, { responseType: "blob" });
-      // A missing installer is answered as JSON (the app's usual error shape), not a file.
-      if (String(res.headers?.["content-type"] || "").includes("application/json")) {
-        let message = MESSAGE_UNKNOWN_ERROR_OCCURRED;
-        try {
-          message = JSON.parse(await (res.data as Blob).text())?.ack_msg || message;
-        } catch {
-          // keep the generic message
-        }
-        toast.error(message);
-        return;
-      }
-      saveAs(new Blob([res.data]), connectorInfo?.file_name || "tally-connector.exe");
-    } catch (error: any) {
-      toast.error(errorOf(error));
-    } finally {
-      setDownloading(false);
+      // Only the config-file values are missing; the rest of the screen is unaffected.
     }
   };
 
@@ -505,20 +468,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
             <h5>Connection</h5>
             <div className="row g-3">
               <div className="col-md-6">
-                <label className="form-label small mb-1">How the CRM reaches Tally</label>
-                <select
-                  className="form-select"
-                  value={settings.connection_mode}
-                  disabled={saving}
-                  onChange={(e) => setSettings({ ...settings, connection_mode: e.target.value as ITallySettings["connection_mode"] })}
-                >
-                  <option value="local_connector">Deskflow Tally Connector (installed next to Tally)</option>
-                  <option value="direct_url" disabled>
-                    Direct URL (coming soon)
-                  </option>
-                </select>
-              </div>
-              <div className="col-md-6">
                 <label className="form-label small mb-1">Tally version</label>
                 <select
                   className="form-select"
@@ -530,30 +479,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                   <option value="erp9">Tally ERP 9</option>
                 </select>
               </div>
-              {settings.connection_mode === "direct_url" && (
-                <>
-                  <div className="col-md-8">
-                    <label className="form-label small mb-1">Tally host</label>
-                    <input
-                      className="form-control"
-                      value={settings.direct_url_host}
-                      disabled={saving}
-                      placeholder="tally.example.com"
-                      onChange={(e) => setSettings({ ...settings, direct_url_host: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label small mb-1">Port</label>
-                    <input
-                      className="form-control"
-                      value={settings.direct_url_port}
-                      disabled={saving}
-                      inputMode="numeric"
-                      onChange={(e) => setSettings({ ...settings, direct_url_port: e.target.value.replace(/\D/g, "") })}
-                    />
-                  </div>
-                </>
-              )}
             </div>
             <div className="mt-3">
               <button className="btn report_button" onClick={saveSettings} disabled={saving}>
@@ -569,18 +494,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                 A small program that runs on the computer where Tally is open. It reads Tally and writes your invoices and receipts into it.
               </p>
               <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
-                <button className="btn report_button" onClick={downloadConnector} disabled={downloading || connectorInfo?.available === false}>
-                  {downloading ? "Downloading..." : "Download connector"}
-                </button>
-                {connectorInfo?.available && (
-                  <span className="text-muted small">
-                    {connectorInfo.file_name} · {formatSize(connectorInfo.size_bytes)}
-                    {connectorInfo.updated_at ? ` · updated ${new Date(connectorInfo.updated_at).toLocaleDateString("en-IN")}` : ""}
-                  </span>
-                )}
-                {connectorInfo?.available === false && (
-                  <span className="text-muted small">The installer has not been added to this server yet - contact your administrator.</span>
-                )}
+                <a className="btn report_button" href={CONNECTOR_DOWNLOAD_URL} download>
+                  Download connector
+                </a>
               </div>
               <ol className="small text-muted mb-0 ps-3">
                 <li>Download the connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
@@ -803,6 +719,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               />
             </DataTable>
           </div>
+
+          <TallyFieldMappingSection />
 
           <TallySendSection />
 
