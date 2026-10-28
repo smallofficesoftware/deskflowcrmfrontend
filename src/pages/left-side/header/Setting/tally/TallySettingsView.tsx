@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Column } from "primereact/column";
+import { DataTable } from "primereact/datatable";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
+import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import TallySendSection from "./TallySendSection";
+import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 
 // Tally addon settings + mapping (plans/2026-10-08-marketplace-tally-plan.txt
@@ -24,7 +31,7 @@ const DEFAULT_SETTINGS: ITallySettings = {
   tally_version: "prime",
 };
 
-type EntityKey = "products" | "contacts" | "voucher-types" | "gst-ledgers";
+type EntityKey = "products" | "contacts" | "voucher-types" | "gst-ledgers" | "payment-modes";
 
 interface IMappingRow {
   crm_id?: number;
@@ -33,12 +40,63 @@ interface IMappingRow {
   [key: string]: any;
 }
 
-const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string }[] = [
-  { key: "products", label: "Products", ledgerNoun: "Tally stock item" },
-  { key: "contacts", label: "Contacts", ledgerNoun: "Tally ledger" },
-  { key: "voucher-types", label: "Voucher types", ledgerNoun: "Tally voucher type" },
-  { key: "gst-ledgers", label: "GST ledgers", ledgerNoun: "Tally ledger" },
+type PullJobType = "pull_ledgers" | "pull_stock_items" | "pull_voucher_types";
+
+// pullJob = which read of Tally feeds the name suggestions for that tab.
+const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string; pullJob: PullJobType }[] = [
+  { key: "products", label: "Products", ledgerNoun: "Tally stock item", pullJob: "pull_stock_items" },
+  { key: "contacts", label: "Contacts", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
+  { key: "voucher-types", label: "Voucher types", ledgerNoun: "Tally voucher type", pullJob: "pull_voucher_types" },
+  { key: "gst-ledgers", label: "GST ledgers", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
+  { key: "payment-modes", label: "Payment modes", ledgerNoun: "Tally cash/bank ledger", pullJob: "pull_ledgers" },
 ];
+
+interface IConnectorInfo {
+  available: boolean;
+  file_name: string | null;
+  size_bytes: number | null;
+  updated_at: string | null;
+  /** The company code and CRM address the connector must be configured with. */
+  company_code: string | null;
+  crm_base_url: string | null;
+}
+
+const formatSize = (bytes: number | null) => (bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "");
+
+type LedgerRole = "sales" | "round_off" | "other_charges" | "discount" | "tcs";
+
+// Placeholders are what the voucher uses when a name is left blank; the connector creates any
+// ledger Tally does not already have, so a blank is fine for a first try.
+const LEDGER_FIELDS: { role: LedgerRole; label: string; placeholder: string }[] = [
+  { role: "sales", label: "Sales ledger", placeholder: "Sales" },
+  { role: "round_off", label: "Round-off ledger", placeholder: "Round Off" },
+  { role: "other_charges", label: "Packing / transport charges ledger", placeholder: "Freight and Packing" },
+  { role: "discount", label: "Discount ledger", placeholder: "Discount Allowed" },
+  { role: "tcs", label: "TCS ledger", placeholder: "TCS Payable" },
+];
+
+interface ISyncLogRow {
+  id: number;
+  job_type: string;
+  status: string;
+  attempt_count: number;
+  error_message: string | null;
+  created_date_time: string | null;
+  completed_at: string | null;
+}
+
+const JOB_LABEL: Record<string, string> = {
+  pull_ledgers: "Fetch ledgers",
+  pull_stock_items: "Fetch stock items",
+  pull_voucher_types: "Fetch voucher types",
+  pull_groups: "Fetch groups",
+  push_ledger: "Send ledger",
+  push_voucher: "Send voucher",
+};
+
+const POLL_EVERY_MS = 2000;
+const POLL_GIVE_UP_MS = 2 * 60 * 1000;
+const formatWhen = (value: string | null) => (value ? new Date(value).toLocaleString("en-IN") : "");
 
 const STATUS_LABEL: Record<string, string> = {
   already_synced: "Synced",
@@ -53,15 +111,13 @@ const rowKey = (entity: EntityKey, row: IMappingRow) => `${entity}:${row.crm_id 
 const rowTitle = (entity: EntityKey, row: IMappingRow) => {
   if (entity === "products") return [row.product_name, row.product_code].filter(Boolean).join(" · ");
   if (entity === "contacts") return [row.contact_name, row.gst_number || row.client_code].filter(Boolean).join(" · ");
-  if (entity === "voucher-types") return row.label;
+  if (entity === "voucher-types" || entity === "payment-modes") return row.label;
   return `${row.tax_rate_label} (${row.tax_rate_value}%) - ${row.duty_label}`;
 };
 
 // products/contacts map to a Tally id (external_id); the two fixed-slot
 // entities only carry a Tally name (external_ref).
 const usesExternalId = (entity: EntityKey) => entity === "products" || entity === "contacts";
-
-const MAX_ROWS_SHOWN = 200;
 
 interface IPropsTally {
   onHide: () => void;
@@ -72,10 +128,16 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [settings, setSettings] = useState<ITallySettings>(DEFAULT_SETTINGS);
+  // The rest of config_json: ledger names for the invoice/receipt voucher and the auto-send switches.
+  const [ledgers, setLedgers] = useState<Record<LedgerRole, string>>({ sales: "", round_off: "", other_charges: "", discount: "", tcs: "" });
+  const [autoSync, setAutoSync] = useState<{ invoices: boolean; receipts: boolean }>({ invoices: false, receipts: false });
   const [saving, setSaving] = useState(false);
 
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [connectorInfo, setConnectorInfo] = useState<IConnectorInfo | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [confirmKeyAction, setConfirmKeyAction] = useState<"issue" | "revoke" | null>(null);
 
   const [entity, setEntity] = useState<EntityKey>("products");
   const [rows, setRows] = useState<IMappingRow[]>([]);
@@ -83,6 +145,18 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   const [rowsLoading, setRowsLoading] = useState(false);
   const [savingRow, setSavingRow] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tallyNames, setTallyNames] = useState<Partial<Record<PullJobType, string[]>>>({});
+  const [pulling, setPulling] = useState(false);
+  const [syncLog, setSyncLog] = useState<ISyncLogRow[]>([]);
+  const [logLoading, setLogLoading] = useState(false);
+  // Stops the polling loop if the screen closes mid-fetch.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEscapeKey(onHide);
 
@@ -109,6 +183,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
           direct_url_port: item.direct_url_port ? String(item.direct_url_port) : "9000",
           tally_version: item.config_json?.tally_version === "erp9" ? "erp9" : "prime",
         });
+        const cfg = item.config_json || {};
+        setLedgers({ sales: "", round_off: "", other_charges: "", discount: "", tcs: "", ...(cfg.ledgers || {}) });
+        setAutoSync({ invoices: Boolean(cfg.auto_sync?.invoices), receipts: Boolean(cfg.auto_sync?.receipts) });
       }
     } catch (error: any) {
       setLoadError(errorOf(error));
@@ -129,7 +206,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         connection_mode: settings.connection_mode,
         direct_url_host: settings.connection_mode === "direct_url" ? settings.direct_url_host.trim() : null,
         direct_url_port: settings.connection_mode === "direct_url" ? Number(settings.direct_url_port) || 9000 : null,
-        config_json: { tally_version: settings.tally_version },
+        // The server merges this into the stored config and stamps when auto-send was switched on.
+        config_json: { tally_version: settings.tally_version, ledgers, auto_sync: autoSync },
       });
       if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -144,7 +222,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const issueKey = async () => {
-    if (!window.confirm("Generate a new connector key? Any key issued before stops working immediately.")) return;
     setKeyBusy(true);
     try {
       const { data } = await axiosInstance.post("tally/connector-key/issue", {});
@@ -161,7 +238,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   };
 
   const revokeKey = async () => {
-    if (!window.confirm("Revoke the active connector key? The connector stops syncing until you issue a new one.")) return;
     setKeyBusy(true);
     try {
       const { data } = await axiosInstance.post("tally/connector-key/revoke", {});
@@ -176,6 +252,56 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
     } finally {
       setKeyBusy(false);
     }
+  };
+
+  const fetchConnectorInfo = async () => {
+    try {
+      const { data } = await axiosInstance.post("tally/connector/download-info", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setConnectorInfo(data.data?.item || null);
+    } catch {
+      // The download card just shows as unavailable; the rest of the screen is unaffected.
+    }
+  };
+
+  const downloadConnector = async () => {
+    setDownloading(true);
+    try {
+      const res = await axiosInstance.post("tally/connector/download", {}, { responseType: "blob" });
+      // A missing installer is answered as JSON (the app's usual error shape), not a file.
+      if (String(res.headers?.["content-type"] || "").includes("application/json")) {
+        let message = MESSAGE_UNKNOWN_ERROR_OCCURRED;
+        try {
+          message = JSON.parse(await (res.data as Blob).text())?.ack_msg || message;
+        } catch {
+          // keep the generic message
+        }
+        toast.error(message);
+        return;
+      }
+      saveAs(new Blob([res.data]), connectorInfo?.file_name || "tally-connector.exe");
+    } catch (error: any) {
+      toast.error(errorOf(error));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // The file the connector reads from its own folder. Built here, from the key just generated, so
+  // the key never has to be typed or retyped; the CRM address and company code come from the server.
+  const downloadConnectorConfig = () => {
+    if (!newKey || !connectorInfo?.company_code || !connectorInfo?.crm_base_url) {
+      toast.error("Generate a key first");
+      return;
+    }
+    const config = {
+      connectorKey: newKey,
+      companyCode: connectorInfo.company_code,
+      crmBaseUrl: connectorInfo.crm_base_url,
+      tallyVersion: settings.tally_version,
+      tallyHost: "localhost",
+      tallyPort: 9000,
+    };
+    saveAs(new Blob([JSON.stringify(config, null, 2)], { type: "application/json" }), "connector-config.json");
   };
 
   const copyKey = async () => {
@@ -198,7 +324,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
         return;
       }
-      setRows(data.data?.items || []);
+      // __title is the CRM-column text, precomputed so the column can sort on it.
+      setRows((data.data?.items || []).map((r: IMappingRow) => ({ ...r, __title: rowTitle(which, r) })));
     } catch (error: any) {
       toast.error(errorOf(error));
     } finally {
@@ -209,6 +336,13 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (enabled) {
+      fetchSyncLog();
+      fetchConnectorInfo();
+    }
+  }, [enabled]);
 
   useEffect(() => {
     if (enabled) {
@@ -271,43 +405,93 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
     }
   };
 
+  const fetchSyncLog = async () => {
+    setLogLoading(true);
+    try {
+      const { data } = await axiosInstance.post("tally/sync/log", { limit: 100 });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setSyncLog(data.data?.items || []);
+    } catch {
+      // The log table just stays as it was.
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  // Asks the connector to read Tally, then polls the job until it reports back.
+  const fetchFromTally = async () => {
+    const jobType = ENTITIES.find((e) => e.key === entity)!.pullJob;
+    setPulling(true);
+    try {
+      const { data } = await axiosInstance.post("tally/sync/request-pull", { job_type: jobType });
+      if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+        return;
+      }
+      const jobId = data.data?.item?.id;
+      const startedAt = Date.now();
+      while (mounted.current && Date.now() - startedAt < POLL_GIVE_UP_MS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_EVERY_MS));
+        if (!mounted.current) return;
+        const { data: status } = await axiosInstance.post("tally/sync/pull-status", { job_id: jobId });
+        if (status.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
+          toast.error(status.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+          return;
+        }
+        const item = status.data?.item;
+        if (item?.status === "done") {
+          setTallyNames((prev) => ({ ...prev, [jobType]: item.names || [] }));
+          toast.success(
+            item.names?.length
+              ? `Fetched ${item.names.length} names from Tally`
+              : "Tally returned nothing for this list"
+          );
+          return;
+        }
+        if (item?.status === "failed") {
+          toast.error(item.error_message || "The connector could not read Tally");
+          return;
+        }
+      }
+      if (mounted.current) toast.error("The connector did not answer. Check that it is running and connected to Tally.");
+    } catch (error: any) {
+      toast.error(errorOf(error));
+    } finally {
+      if (mounted.current) {
+        setPulling(false);
+        fetchSyncLog();
+      }
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) => (rowTitle(entity, r) || "").toLowerCase().includes(q));
   }, [rows, search, entity]);
 
-  const shown = filtered.slice(0, MAX_ROWS_SHOWN);
   const noun = ENTITIES.find((e) => e.key === entity)?.ledgerNoun;
 
   return (
     <div className="tly">
       <style>{`
-        .tly { max-width: 960px; color: #4B4B4D; }
-        .tly-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a; }
-        .tly-sub { margin: 2px 0 20px; font-size: 12px; color: #8a8a8a; }
-        .tly-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
-        .tly-card h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8a8a; margin-bottom: 10px; }
-        .tly-card .form-control, .tly-card .form-select { border-radius: 10px; border-color: #d1d5db; }
-        .tly-card .form-control:focus, .tly-card .form-select:focus { border-color: #F58634; box-shadow: 0 0 0 0.2rem rgba(245,134,52,0.2); }
-        .tly-card .btn { border-radius: 10px; font-weight: 600; }
-        .tly-card .btn-primary { background: #F58634; border-color: #F58634; }
-        .tly-card .btn-primary:hover, .tly-card .btn-primary:disabled { background: #e0762a; border-color: #e0762a; }
-        .tly-card .btn-outline-secondary { color: #4B4B4D; border-color: #d1d5db; }
-        .tly-card .btn-outline-secondary:hover { background: rgba(245,134,52,0.12); border-color: #F58634; color: #4B4B4D; }
-        .tly-key { font-family: monospace; background: #f6f7f9; border: 1px dashed #F58634; border-radius: 10px; padding: 10px 12px; word-break: break-all; }
-        .tly-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-        .tly-tab { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: #4B4B4D; }
-        .tly-tab.active { background: #F58634; border-color: #F58634; color: #fff; }
-        .tly-table { width: 100%; font-size: 13px; }
-        .tly-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #8a8a8a; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
-        .tly-table td { padding: 6px 8px; border-bottom: 1px solid #f0f1f3; vertical-align: middle; }
-        .tly-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f1f2f4; color: #6b7280; white-space: nowrap; }
-        .tly-pill.ok { background: rgba(34,150,80,0.12); color: #1d7a43; }
+        .tly { color: #4c4c4c; }
+        .tly h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6c757d; margin-bottom: 10px; }
+        .tly .report_button { background: #4c4c4c; border-color: #4c4c4c; color: #fff; }
+        .tly .report_button:hover, .tly .report_button:disabled { background: #333; border-color: #333; color: #fff; }
+        .tly .btn-outline-secondary { color: #4c4c4c; border-color: #ccc; font-size: 14px; }
+        .tly .btn-outline-secondary:hover { background: #f8f9fa; border-color: #4c4c4c; color: #4c4c4c; }
+        .tly-key { font-family: monospace; background: #f8f9fa; border: 1px dashed #4c4c4c; border-radius: 5px; padding: 10px 12px; word-break: break-all; }
+        .tly .custom-centered-table .p-inputtext { font-size: 14px; }
       `}</style>
 
-      <h2 className="tly-title">Tally</h2>
-      <p className="tly-sub">Connection, connector key and the mappings used when syncing with Tally.</p>
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <h3 className="dash-board-text-count" style={{ fontSize: "20px" }}>
+            Tally
+          </h3>
+          <div className="text-muted small">Connection, connector key and the mappings used when syncing with Tally.</div>
+        </div>
+      </div>
 
       {loading ? (
         <p className="text-muted">Loading...</p>
@@ -317,7 +501,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         <p className="text-muted">This addon is not enabled for your company. Contact your DeskflowCRM account manager to enable Tally.</p>
       ) : (
         <>
-          <section className="tly-card">
+          <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
             <h5>Connection</h5>
             <div className="row g-3">
               <div className="col-md-6">
@@ -329,7 +513,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                   onChange={(e) => setSettings({ ...settings, connection_mode: e.target.value as ITallySettings["connection_mode"] })}
                 >
                   <option value="local_connector">Deskflow Tally Connector (installed next to Tally)</option>
-                  <option value="direct_url">Direct URL (Tally reachable from the server)</option>
+                  <option value="direct_url" disabled>
+                    Direct URL (coming soon)
+                  </option>
                 </select>
               </div>
               <div className="col-md-6">
@@ -370,107 +556,354 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               )}
             </div>
             <div className="mt-3">
-              <button className="btn btn-primary" onClick={saveSettings} disabled={saving}>
+              <button className="btn report_button" onClick={saveSettings} disabled={saving}>
                 {saving ? "Saving..." : "Save settings"}
               </button>
             </div>
           </section>
 
           {settings.connection_mode === "local_connector" && (
-            <section className="tly-card">
+            <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
+              <h5>Deskflow Tally Connector</h5>
+              <p className="small text-muted mb-2">
+                A small program that runs on the computer where Tally is open. It reads Tally and writes your invoices and receipts into it.
+              </p>
+              <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
+                <button className="btn report_button" onClick={downloadConnector} disabled={downloading || connectorInfo?.available === false}>
+                  {downloading ? "Downloading..." : "Download connector"}
+                </button>
+                {connectorInfo?.available && (
+                  <span className="text-muted small">
+                    {connectorInfo.file_name} · {formatSize(connectorInfo.size_bytes)}
+                    {connectorInfo.updated_at ? ` · updated ${new Date(connectorInfo.updated_at).toLocaleDateString("en-IN")}` : ""}
+                  </span>
+                )}
+                {connectorInfo?.available === false && (
+                  <span className="text-muted small">The installer has not been added to this server yet - contact your administrator.</span>
+                )}
+              </div>
+              <ol className="small text-muted mb-0 ps-3">
+                <li>Download the connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
+                <li>Generate a key below, then download <code>connector-config.json</code> and put it in the same folder as the connector.</li>
+                <li>Run the connector. It shows its status at <code>http://127.0.0.1:9100</code> on that computer.</li>
+              </ol>
+            </section>
+          )}
+
+          {settings.connection_mode === "local_connector" && (
+            <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
               <h5>Connector key</h5>
               <p className="small text-muted mb-2">
-                Enter this key, your company code and the CRM address in the Deskflow Tally Connector installer. A company has one active key;
-                issuing a new one replaces the old one. The key is shown only once.
+                The connector signs in with this key. A company has one active key; issuing a new one replaces the old one. The key is shown
+                only once - download the config file now.
               </p>
               {newKey && (
                 <div className="mb-3">
                   <div className="tly-key">{newKey}</div>
-                  <button className="btn btn-outline-secondary btn-sm mt-2" onClick={copyKey}>
-                    Copy key
-                  </button>
+                  <div className="d-flex gap-2 mt-2">
+                    <button className="btn btn-outline-secondary btn-sm" onClick={copyKey}>
+                      Copy key
+                    </button>
+                    <button className="btn btn-outline-secondary btn-sm" onClick={downloadConnectorConfig}>
+                      Download connector-config.json
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="d-flex gap-2">
-                <button className="btn btn-primary" onClick={issueKey} disabled={keyBusy}>
+                <button className="btn report_button" onClick={() => setConfirmKeyAction("issue")} disabled={keyBusy}>
                   {newKey ? "Generate another key" : "Generate key"}
                 </button>
-                <button className="btn btn-outline-secondary" onClick={revokeKey} disabled={keyBusy}>
+                <button className="btn btn-outline-secondary" onClick={() => setConfirmKeyAction("revoke")} disabled={keyBusy}>
                   Revoke active key
                 </button>
               </div>
             </section>
           )}
 
-          <section className="tly-card">
-            <h5>Mappings</h5>
-            <div className="tly-tabs">
-              {ENTITIES.map((e) => (
-                <button key={e.key} className={`tly-tab${entity === e.key ? " active" : ""}`} onClick={() => setEntity(e.key)}>
-                  {e.label}
-                </button>
+          <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
+            <h5>Invoices and receipts</h5>
+            <p className="small text-muted mb-3">
+              Names of the Tally ledgers an invoice posts to. Leave a name blank to use the suggestion; the connector creates any ledger Tally
+              does not already have and never changes one that exists. GST ledgers and payment-mode ledgers are set in the mapping tabs below.
+            </p>
+            <div className="row g-3">
+              {LEDGER_FIELDS.map((f) => (
+                <div className="col-md-6" key={f.role}>
+                  <label className="form-label small mb-1">{f.label}</label>
+                  <input
+                    className="form-control"
+                    value={ledgers[f.role]}
+                    placeholder={f.placeholder}
+                    disabled={saving}
+                    onChange={(e) => setLedgers({ ...ledgers, [f.role]: e.target.value })}
+                  />
+                </div>
               ))}
             </div>
+            <div className="mt-3">
+              <div className="form-check form-switch mb-1">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="tally-auto-invoices"
+                  checked={autoSync.invoices}
+                  disabled={saving}
+                  onChange={(e) => setAutoSync({ ...autoSync, invoices: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor="tally-auto-invoices">
+                  Send new sales invoices to Tally automatically
+                </label>
+              </div>
+              <div className="form-check form-switch mb-1">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="tally-auto-receipts"
+                  checked={autoSync.receipts}
+                  disabled={saving}
+                  onChange={(e) => setAutoSync({ ...autoSync, receipts: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor="tally-auto-receipts">
+                  Send new receipts to Tally automatically
+                </label>
+              </div>
+              <div className="text-muted small">
+                Only documents created after you turn this on are sent, checked every 10 minutes. Anything older, or anything that failed, is sent
+                from the list below.
+              </div>
+            </div>
+            <div className="mt-3">
+              <button className="btn report_button" onClick={saveSettings} disabled={saving}>
+                {saving ? "Saving..." : "Save settings"}
+              </button>
+            </div>
+          </section>
+
+          <h5 className="tly-heading">Mappings</h5>
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <nav className="nav nav-pills flex-column flex-sm-row flex-wrap gap-2" style={{ width: "100%" }}>
+              {ENTITIES.map((e) => {
+                const active = entity === e.key;
+                return (
+                  <button
+                    key={e.key}
+                    type="button"
+                    className="flex-sm-fill text-sm-center nav-link"
+                    style={{
+                      backgroundColor: active ? "#f58634" : "transparent",
+                      color: active ? "#ffffff" : "#000000",
+                      border: active ? "none" : "1px solid #ccc",
+                      boxShadow: "none",
+                    }}
+                    onClick={() => setEntity(e.key)}
+                  >
+                    <span className="m-1">{e.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="d-flex align-items-center gap-2 mb-3">
             <input
-              className="form-control mb-3"
-              placeholder="Search"
+              className="form-control"
+              style={{ maxWidth: 320 }}
+              placeholder="Search in This Report"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {rowsLoading ? (
-              <p className="text-muted">Loading...</p>
-            ) : shown.length === 0 ? (
-              <p className="text-muted">{rows.length === 0 ? "Nothing to map yet." : "No matches."}</p>
-            ) : (
-              <>
-                <table className="tly-table">
-                  <thead>
-                    <tr>
-                      <th>CRM</th>
-                      <th>{noun}</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((row) => {
-                      const key = rowKey(entity, row);
-                      const status = row.mapping_status || row.match_confidence || "";
-                      const confirmed = Boolean(row.is_confirmed) || status === "already_synced";
-                      return (
-                        <tr key={key}>
-                          <td>{rowTitle(entity, row)}</td>
-                          <td style={{ minWidth: 220 }}>
-                            <input
-                              className="form-control form-control-sm"
-                              value={currentValue(row)}
-                              placeholder={usesExternalId(entity) ? `Name of the ${noun}` : ""}
-                              onChange={(e) => setEdits({ ...edits, [key]: e.target.value })}
-                            />
-                          </td>
-                          <td>
-                            <span className={`tly-pill${confirmed ? " ok" : ""}`}>{confirmed ? "Confirmed" : STATUS_LABEL[status] || "Not mapped"}</span>
-                          </td>
-                          <td>
-                            <button className="btn btn-outline-secondary btn-sm" disabled={savingRow === key} onClick={() => saveRow(row)}>
-                              {savingRow === key ? "Saving..." : "Confirm"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {filtered.length > shown.length && (
-                  <p className="small text-muted mt-2 mb-0">
-                    Showing the first {MAX_ROWS_SHOWN} of {filtered.length}. Use search to find the rest.
-                  </p>
-                )}
-              </>
+            <button className="btn btn-outline-secondary" onClick={fetchFromTally} disabled={pulling}>
+              {pulling ? "Waiting for Tally..." : "Fetch from Tally"}
+            </button>
+            {tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob] && (
+              <span className="text-muted small">
+                {tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob]!.length} names loaded - pick one in the list below
+              </span>
             )}
-          </section>
+          </div>
+          <datalist id="tally-names">
+            {(tallyNames[ENTITIES.find((e) => e.key === entity)!.pullJob] || []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
+            <DataTable
+              value={filtered}
+              className="custom-centered-table"
+              tableStyle={{ tableLayout: "fixed", width: "100%" }}
+              loading={rowsLoading}
+              scrollable
+              scrollHeight="60vh"
+              paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
+              rows={50}
+              rowsPerPageOptions={[25, 50, 100, 200]}
+              emptyMessage={rows.length === 0 ? "Nothing to map yet" : "No records found"}
+            >
+              <Column
+                header="S.No"
+                body={(_row: IMappingRow, options: { rowIndex: number }) => options.rowIndex + 1}
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="CRM"
+                sortable
+                sortField="__title"
+                body={(row: IMappingRow) => rowTitle(entity, row)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header={noun}
+                style={{ fontSize: "14px", minWidth: 220 }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+                body={(row: IMappingRow) => {
+                  const key = rowKey(entity, row);
+                  return (
+                    <input
+                      className="form-control form-control-sm"
+                      list="tally-names"
+                      value={currentValue(row)}
+                      placeholder={usesExternalId(entity) ? `Name of the ${noun}` : ""}
+                      onChange={(e) => setEdits({ ...edits, [key]: e.target.value })}
+                    />
+                  );
+                }}
+              />
+              <Column
+                header="Status"
+                style={{ fontSize: "14px", width: "130px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "130px" }}
+                body={(row: IMappingRow) => {
+                  const status = row.mapping_status || row.match_confidence || "";
+                  const confirmed = Boolean(row.is_confirmed) || status === "already_synced";
+                  return (
+                    <span className={`badge ${confirmed ? "bg-success" : "bg-secondary"}`}>
+                      {confirmed ? "Confirmed" : STATUS_LABEL[status] || "Not mapped"}
+                    </span>
+                  );
+                }}
+              />
+              <Column
+                header=""
+                style={{ fontSize: "14px", width: "110px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", width: "110px" }}
+                body={(row: IMappingRow) => {
+                  const key = rowKey(entity, row);
+                  return (
+                    <button className="btn btn-outline-secondary btn-sm" disabled={savingRow === key} onClick={() => saveRow(row)}>
+                      {savingRow === key ? "Saving..." : "Confirm"}
+                    </button>
+                  );
+                }}
+              />
+            </DataTable>
+          </div>
+
+          <TallySendSection />
+
+          <div className="d-flex align-items-center justify-content-between mt-4 mb-2">
+            <h5 className="tly-heading mb-0">Sync log</h5>
+            <button className="btn btn-outline-secondary btn-sm" onClick={fetchSyncLog} disabled={logLoading}>
+              {logLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+          <div className="report_card" style={{ display: "flex", flexDirection: "column" }}>
+            <DataTable
+              value={syncLog}
+              className="custom-centered-table"
+              tableStyle={{ tableLayout: "fixed", width: "100%" }}
+              loading={logLoading}
+              scrollable
+              scrollHeight="40vh"
+              paginator
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Total Records: {totalRecords}"
+              rows={25}
+              rowsPerPageOptions={[25, 50, 100]}
+              emptyMessage="No sync activity yet"
+            >
+              <Column
+                header="S.No"
+                body={(_row: ISyncLogRow, options: { rowIndex: number }) => options.rowIndex + 1}
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="Job"
+                sortable
+                sortField="job_type"
+                body={(row: ISyncLogRow) => JOB_LABEL[row.job_type] || row.job_type}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Status"
+                sortable
+                sortField="status"
+                style={{ fontSize: "14px", width: "110px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "110px" }}
+                body={(row: ISyncLogRow) => (
+                  <span
+                    className={`badge ${row.status === "done" ? "bg-success" : row.status === "failed" ? "bg-danger" : "bg-secondary"}`}
+                  >
+                    {row.status === "done" ? "Done" : row.status === "failed" ? "Failed" : row.status === "running" ? "Running" : "Queued"}
+                  </span>
+                )}
+              />
+              <Column
+                header="Requested"
+                sortable
+                sortField="created_date_time"
+                body={(row: ISyncLogRow) => formatWhen(row.created_date_time)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Finished"
+                body={(row: ISyncLogRow) => formatWhen(row.completed_at)}
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+              <Column
+                header="Tries"
+                field="attempt_count"
+                style={{ fontSize: "14px", width: "70px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px", width: "70px" }}
+              />
+              <Column
+                header="Error"
+                field="error_message"
+                style={{ fontSize: "14px" }}
+                headerStyle={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa", fontSize: "14px" }}
+              />
+            </DataTable>
+          </div>
         </>
       )}
+
+      <ConfirmationModal
+        show={confirmKeyAction !== null}
+        onHide={() => setConfirmKeyAction(null)}
+        handleSubmit={() => {
+          const action = confirmKeyAction;
+          setConfirmKeyAction(null);
+          if (action === "issue") issueKey();
+          else if (action === "revoke") revokeKey();
+        }}
+        title={confirmKeyAction === "revoke" ? "Revoke connector key" : "Generate connector key"}
+        message={
+          confirmKeyAction === "revoke"
+            ? "Revoke the active connector key? The connector stops syncing until you issue a new one."
+            : "Generate a new connector key? Any key issued before stops working immediately."
+        }
+        btn1="Cancel"
+        btn2={confirmKeyAction === "revoke" ? "Revoke" : "Generate"}
+      />
     </div>
   );
 };

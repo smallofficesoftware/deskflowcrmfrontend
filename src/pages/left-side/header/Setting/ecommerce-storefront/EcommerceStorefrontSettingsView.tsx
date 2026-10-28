@@ -427,24 +427,21 @@ const EcommerceStorefrontSettingsView = ({
   return (
     <div className="esf">
       <style>{`
-        .esf { max-width: 860px; color: #4B4B4D; }
-        .esf-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .esf-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a; }
-        .esf-sub { margin: 2px 0 0; font-size: 12px; color: #8a8a8a; }
-        .esf-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
-        .esf-card h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8a8a; margin-bottom: 6px !important; }
-        .esf-card .form-check-input:checked { background-color: #F58634; border-color: #F58634; }
-        .esf-card .form-check-input:focus, .esf-card .form-control:focus, .esf-card .form-select:focus { border-color: #F58634; box-shadow: 0 0 0 0.2rem rgba(245,134,52,0.2); }
-        .esf-card .form-control, .esf-card .form-select { border-radius: 10px; border-color: #d1d5db; }
-        .esf-card .btn-primary { background: #F58634; border-color: #F58634; border-radius: 10px; font-weight: 600; padding: 10px 18px; }
-        .esf-card .btn-primary:hover, .esf-card .btn-primary:disabled { background: #e0762a; border-color: #e0762a; }
-        .esf-card .btn-outline-secondary { border-radius: 10px; color: #4B4B4D; border-color: #d1d5db; }
-        .esf-card .btn-outline-secondary:hover { background: rgba(245,134,52,0.12); border-color: #F58634; color: #4B4B4D; }
+        .esf { color: #4c4c4c; }
+        .esf-card h5 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6c757d; margin-bottom: 6px !important; }
+        .esf-card .form-check-input:checked { background-color: #4c4c4c; border-color: #4c4c4c; }
+        .esf-card .form-check-input:focus, .esf-card .form-control:focus, .esf-card .form-select:focus { border-color: #4c4c4c; box-shadow: 0 0 0 0.2rem rgba(76,76,76,0.2); }
+        .esf-card .btn-primary { background: #4c4c4c; border-color: #4c4c4c; color: #fff; font-size: 14px; }
+        .esf-card .btn-primary:hover, .esf-card .btn-primary:disabled { background: #333; border-color: #333; color: #fff; }
+        .esf-card .btn-outline-secondary { color: #4c4c4c; border-color: #ccc; font-size: 14px; }
+        .esf-card .btn-outline-secondary:hover { background: #f8f9fa; border-color: #4c4c4c; color: #4c4c4c; }
       `}</style>
-      <div className="esf-head">
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
         <div>
-          <h2 className="esf-title">Ecommerce Storefront</h2>
-          <p className="esf-sub">Colour, customer login, payments and B2B rules for your online store.</p>
+          <h3 className="dash-board-text-count" style={{ fontSize: "20px" }}>
+            Ecommerce Storefront
+          </h3>
+          <div className="text-muted small">Colour, customer login, payments and B2B rules for your online store.</div>
         </div>
       </div>
 
@@ -463,7 +460,7 @@ const EcommerceStorefrontSettingsView = ({
           </p>
         ) : (
           <>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
             <h5 className="mb-2">Your Storefront Address</h5>
             {subdomainUrl ? (
               <p className="mb-1">
@@ -509,7 +506,7 @@ const EcommerceStorefrontSettingsView = ({
             </div>
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
             <h5 className="mb-2">Accent Colour</h5>
             <p className="text-muted small mb-2">
               Colour for prices, buttons and the active menu underline. Saved with the Save Settings button below.
@@ -544,7 +541,7 @@ const EcommerceStorefrontSettingsView = ({
             </div>
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
             <h5 className="mb-1">Customer Login Methods</h5>
             <p className="text-muted small mb-3">
@@ -767,7 +764,7 @@ const EcommerceStorefrontSettingsView = ({
             </div>
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
             <h5 className="mb-1">Pricing</h5>
             <p className="text-muted small mb-3">
@@ -792,7 +789,7 @@ const EcommerceStorefrontSettingsView = ({
             </select>
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
             <h5 className="mb-1">Payment Methods</h5>
             <p className="text-muted small mb-3">
@@ -1012,7 +1009,7 @@ const EcommerceStorefrontSettingsView = ({
             })}
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
             <h5 className="mb-1">B2B Settings</h5>
             <p className="text-muted small mb-3">
@@ -1078,7 +1075,7 @@ const EcommerceStorefrontSettingsView = ({
             </button>
 
             </section>
-            <section className="esf-card">
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
             <h5 className="mb-1">Locked Accounts</h5>
             <p className="text-muted small mb-3">
