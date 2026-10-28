@@ -9,6 +9,8 @@ import {
   useEscapeKey,
 } from "../../../common/SharedFunction";
 import ConfirmationModal from "../../../components/model/ConfirmationModal";
+import { DEFAULT_STATUS_CODE_SUCCESS } from "../../../helpers/AppConstants";
+import { axiosInstance } from "../../../services/axiosInstance";
 import JoinModal from "../../../components/model/JoinModal";
 import { useTheme } from "../../../components/ThemeContext";
 import PricingTable from "../../public/payment-gateway/PricingTable";
@@ -46,6 +48,23 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
   );
 
   const [companyLists, setCompanyLists] = useState<ICompany[]>([]);
+
+  // Online Store address of the ACTIVE company, set only when its Ecommerce Storefront
+  // addon is on (storefront/domain/get is addon-gated and answers for the logged-in
+  // company only), so the dropdown item is shown for that company alone.
+  const [storefrontUrl, setStorefrontUrl] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axiosInstance.post("storefront/domain/get", {});
+        if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+          setStorefrontUrl(data.data?.custom_domain_url || data.data?.subdomain_url || null);
+        }
+      } catch {
+        setStorefrontUrl(null);
+      }
+    })();
+  }, []);
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState<any>(null);
   const [hasOneData, setHasOneData] = useState<number | null>(null);
 
@@ -654,21 +673,20 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                         >
                                           Print my QR Code
                                         </li>
-                                        <li
-                                          className="listItem"
-                                          role="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(
-                                              `/website/${item.qr_code}`,
-                                              "_blank",
-                                            );
-                                            setCompanyDropdownOpen(null);
-                                            setHasOneData(null);
-                                          }}
-                                        >
-                                          Online Store
-                                        </li>
+                                        {storefrontUrl && item.id === Number(localStorage.getItem("COMPANY_ID")) && (
+                                          <li
+                                            className="listItem"
+                                            role="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              window.open(storefrontUrl, "_blank");
+                                              setCompanyDropdownOpen(null);
+                                              setHasOneData(null);
+                                            }}
+                                          >
+                                            Online Store
+                                          </li>
+                                        )}
                                         <li
                                           className="listItem"
                                           role="button"
