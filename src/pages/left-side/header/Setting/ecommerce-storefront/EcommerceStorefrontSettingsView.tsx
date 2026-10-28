@@ -26,6 +26,7 @@ interface IStorefrontAuthConfig {
   auth_light_mode_enabled: boolean;
   auth_invite_only: boolean;
   guest_checkout_enabled: boolean;
+  signup_enabled: boolean;
   public_browsing_enabled: boolean;
   chat_enabled: boolean;
   chat_guest_enabled: boolean;
@@ -77,6 +78,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_light_mode_enabled: false,
   auth_invite_only: false,
   guest_checkout_enabled: true,
+  signup_enabled: true,
   public_browsing_enabled: true,
   chat_enabled: false,
   chat_guest_enabled: true,
@@ -564,6 +566,24 @@ const EcommerceStorefrontSettingsView = ({
                 </label>
               </div>
             ))}
+
+            <div className="form-check form-switch mb-3 mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="signup-enabled-toggle"
+                checked={authConfig.signup_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, signup_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="signup-enabled-toggle">
+                <b>Allow customer sign-ups</b>
+                <div className="text-muted small">
+                  Off = new customers cannot register; only customers who already have a store account, or contacts you invited, can log in.
+                </div>
+              </label>
+            </div>
 
             <div className="form-check form-switch mb-3 mt-3">
               <input
