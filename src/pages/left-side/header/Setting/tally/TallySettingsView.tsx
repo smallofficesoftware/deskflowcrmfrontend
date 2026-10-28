@@ -54,7 +54,7 @@ interface IConnectorInfo {
   crm_base_url: string | null;
 }
 
-const CONNECTOR_DOWNLOAD_URL = "https://deskflowcrm.com/apk/tally-connector-0.3.0.exe";
+const CONNECTOR_DOWNLOAD_URL = "https://deskflowcrm.com/download.php";
 
 type LedgerRole = "sales" | "round_off" | "other_charges" | "discount" | "tcs";
 
@@ -493,13 +493,12 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               <p className="small text-muted mb-2">
                 A small program that runs on the computer where Tally is open. It reads Tally and writes your invoices and receipts into it.
               </p>
-              <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
-                <a className="btn report_button" href={CONNECTOR_DOWNLOAD_URL} download>
-                  Download connector
-                </a>
-              </div>
               <ol className="small text-muted mb-0 ps-3">
-                <li>Download the connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
+                <li>
+                  <a href={CONNECTOR_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                    Open the download page
+                  </a>{" "}
+                  (all Deskflow installers are listed there), get the Tally Connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
                 <li>Generate a key below, then download <code>connector-config.json</code> and put it in the same folder as the connector.</li>
                 <li>Run the connector. It shows its status at <code>http://127.0.0.1:9100</code> on that computer.</li>
               </ol>
