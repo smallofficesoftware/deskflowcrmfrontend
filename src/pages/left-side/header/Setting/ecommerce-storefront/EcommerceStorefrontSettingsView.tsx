@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
-import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT, DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import StorefrontChatInbox from "./StorefrontChatInbox";
 
 // B2B/B2C ecommerce storefront addon (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt,
 // P1/4.4). First slice of this settings page: on/off display (the settings/get
@@ -27,6 +26,7 @@ interface IStorefrontAuthConfig {
   auth_light_mode_enabled: boolean;
   auth_invite_only: boolean;
   guest_checkout_enabled: boolean;
+  signup_enabled: boolean;
   public_browsing_enabled: boolean;
   chat_enabled: boolean;
   chat_guest_enabled: boolean;
@@ -59,6 +59,8 @@ interface IStorefrontAuthConfig {
   approval_mode_enabled: boolean;
   stock_check_mode: "derived" | "reserved";
   theme_accent_color: string;
+  /** Relative path of the uploaded tab icon ("<company id>/storefront-favicon-<ts>.png"); "" = none. */
+  favicon_path?: string;
   default_price_list_id: number | null;
 }
 
@@ -78,6 +80,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   auth_light_mode_enabled: false,
   auth_invite_only: false,
   guest_checkout_enabled: true,
+  signup_enabled: true,
   public_browsing_enabled: true,
   chat_enabled: false,
   chat_guest_enabled: true,
@@ -110,6 +113,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   approval_mode_enabled: false,
   stock_check_mode: "derived",
   theme_accent_color: "#ff0000",
+  favicon_path: "",
   default_price_list_id: null,
 };
 
@@ -176,7 +180,6 @@ const EcommerceStorefrontSettingsView = ({
   closeEcommerceStorefrontView,
 }: IPropsEcommerceStorefront) => {
   const [loading, setLoading] = useState(false);
-  const [showChatInbox, setShowChatInbox] = useState(false);
   const [ticketOptions, setTicketOptions] = useState<{
     categories: { id: number; name: string }[];
     statuses: { id: number; name: string }[];
@@ -201,6 +204,51 @@ const EcommerceStorefrontSettingsView = ({
   const [domainBusy, setDomainBusy] = useState(false);
 
   useEscapeKey(closeEcommerceStorefrontView);
+
+  const [faviconBusy, setFaviconBusy] = useState(false);
+
+  // Upload/remove act on the saved settings straight away (like the domain actions); the new path is mirrored into
+  // authConfig so a later "Save" - which writes the whole config - does not put the old icon back.
+  const uploadFavicon = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 256 * 1024) {
+      toast.error("Favicon must be 256 KB or smaller.");
+      return;
+    }
+    setFaviconBusy(true);
+    try {
+      const form = new FormData();
+      form.append("favicon", file);
+      const { data } = await axiosInstance.post("storefront/favicon/upload", form, { headers: { "Content-Type": "multipart/form-data" } });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setAuthConfig((prev) => ({ ...prev, favicon_path: data.data?.item?.favicon_path || "" }));
+        toast.success("Favicon updated.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setFaviconBusy(false);
+    }
+  };
+
+  const removeFavicon = async () => {
+    setFaviconBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/favicon/remove", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setAuthConfig((prev) => ({ ...prev, favicon_path: "" }));
+        toast.success("Favicon removed.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setFaviconBusy(false);
+    }
+  };
 
   const fetchDomain = async () => {
     try {
@@ -540,6 +588,41 @@ const EcommerceStorefrontSettingsView = ({
               />
             </div>
 
+            <h6 className="mt-4 mb-1">Favicon</h6>
+            <p className="text-muted small mb-2">
+              The small icon on the browser tab and when the store is added to a phone. PNG, ICO, JPG or WEBP up to 256 KB; a square
+              image of at least 64 x 64 works best. Without one the store shows your company logo.
+            </p>
+            <div className="d-flex align-items-center gap-3 flex-wrap">
+              {authConfig.favicon_path ? (
+                <img
+                  src={`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/companyImg/${authConfig.favicon_path}`}
+                  alt="Current favicon"
+                  width={40}
+                  height={40}
+                  style={{ objectFit: "contain", border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", padding: 4 }}
+                />
+              ) : (
+                <span className="text-muted small">No favicon uploaded.</span>
+              )}
+              <input
+                type="file"
+                accept=".png,.ico,.jpg,.jpeg,.webp,image/png,image/x-icon,image/vnd.microsoft.icon,image/jpeg,image/webp"
+                className="form-control form-control-sm"
+                style={{ maxWidth: 280 }}
+                disabled={faviconBusy}
+                onChange={(e) => {
+                  uploadFavicon(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              {authConfig.favicon_path && (
+                <Button variant="outline-danger" size="sm" disabled={faviconBusy} onClick={removeFavicon}>
+                  Remove
+                </Button>
+              )}
+            </div>
+
             </section>
             <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
 
@@ -572,6 +655,24 @@ const EcommerceStorefrontSettingsView = ({
                 className="form-check-input"
                 type="checkbox"
                 role="switch"
+                id="signup-enabled-toggle"
+                checked={authConfig.signup_enabled}
+                disabled={savingAuth}
+                onChange={(e) => setAuthConfig({ ...authConfig, signup_enabled: e.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="signup-enabled-toggle">
+                <b>Allow customer sign-ups</b>
+                <div className="text-muted small">
+                  Off = new customers cannot register; only customers who already have a store account, or contacts you invited, can log in.
+                </div>
+              </label>
+            </div>
+
+            <div className="form-check form-switch mb-3 mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
                 id="public-browsing-toggle"
                 checked={authConfig.public_browsing_enabled}
                 disabled={savingAuth}
@@ -598,7 +699,7 @@ const EcommerceStorefrontSettingsView = ({
               <label className="form-check-label" htmlFor="storefront-chat-toggle">
                 <b>Customer chat</b>
                 <div className="text-muted small">
-                  On = a chat bubble appears on the store for logged-in customers. Messages show on the contact; reply from here.
+                  On = a chat bubble appears on the store for logged-in customers. Messages show on the contact - reply from the contact's chat and it goes straight to the customer.
                 </div>
               </label>
               <div className="form-check mt-2">
@@ -613,11 +714,6 @@ const EcommerceStorefrontSettingsView = ({
                 <label className="form-check-label small" htmlFor="storefront-chat-guest-toggle">
                   Let visitors without an account chat and raise tickets - they verify their mobile number with a code, and a contact is created for them.
                 </label>
-              </div>
-              <div className="mt-2">
-                <Button variant="outline-primary" size="sm" onClick={() => setShowChatInbox(true)}>
-                  Open customer chats
-                </Button>
               </div>
             </div>
 
@@ -1163,7 +1259,6 @@ const EcommerceStorefrontSettingsView = ({
           <Button variant="primary" onClick={confirmLockDecisions} disabled={savingAuth}>Confirm & Save</Button>
         </Modal.Footer>
       </Modal>
-      <StorefrontChatInbox show={showChatInbox} onHide={() => setShowChatInbox(false)} />
     </div>
   );
 };

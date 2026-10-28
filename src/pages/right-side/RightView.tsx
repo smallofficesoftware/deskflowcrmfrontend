@@ -246,6 +246,23 @@ const RightView = ({
   const [isMainWorkspace, setIsMainWorkspace] = useState<boolean>(true);
   const [showSwitchWorkspace, setShowSwitchWorkspace] = useState(false);
 
+  // Online Store address: only set when the Ecommerce Storefront addon is on for
+  // this company (storefront/domain/get is addon-gated), so the icon is hidden otherwise.
+  // A verified custom domain wins over the <qr_code>.<base> subdomain address.
+  const [storefrontUrl, setStorefrontUrl] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axiosInstance.post("storefront/domain/get", {});
+        if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+          setStorefrontUrl(data.data?.custom_domain_url || data.data?.subdomain_url || null);
+        }
+      } catch {
+        setStorefrontUrl(null);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     const fetchCurrentWorkspace = async () => {
       const activeId = localStorage.getItem("COMPANY_ID");
@@ -362,6 +379,28 @@ const RightView = ({
   const [getCompanyId, setGetCompanyId] = useState(0);
   const [imageViewData, setImageViewData] = useState<TMessage>();
   const [isWhatsAppAuto, setIsWhatsAppAuto] = useState(false);
+  // True when this contact is chatting with us from the online store. Messages typed here then go
+  // straight into that store chat (entry_flag 3) instead of staying a CRM-only entry. The call is
+  // addon-gated, so it simply stays false when the Ecommerce Storefront addon is off.
+  const [hasStorefrontChat, setHasStorefrontChat] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setHasStorefrontChat(false);
+    if (!getData?.id) return;
+    (async () => {
+      try {
+        const { data } = await axiosInstance.post("storefront/chat/messages", { contact_id: getData.id });
+        if (!cancelled && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+          setHasStorefrontChat((data.data?.item || []).length > 0);
+        }
+      } catch {
+        // stays false - the message is saved as a normal CRM chat entry
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getData?.id]);
   const [createContactTrigger, setCreateContactTrigger] = useState(0);
   const [editorContent, setEditorContent] = useState<string>("");
   const [editorContentToEditId, setEditorContentToEditId] = useState(0);
@@ -763,13 +802,17 @@ const RightView = ({
           : toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
       },
     },
-    {
-      Number: "9",
-      text: "Online Store",
-      action: () => {
-        window.open(`/website/${companyData?.qr_code}`, "_blank");
-      },
-    },
+    ...(storefrontUrl
+      ? [
+          {
+            Number: "9",
+            text: "Online Store",
+            action: () => {
+              window.open(storefrontUrl, "_blank");
+            },
+          },
+        ]
+      : []),
     {
       Number: "10",
       text: `Add ${companyLists[0] && companyLists[0]?.quotation_title
@@ -2465,7 +2508,7 @@ const RightView = ({
             contact_masters_id: getData?.id,
             application_login_name: getUserName,
             message_type_id: 0,
-            entry_flag: isWhatsAppAuto ? 1 : 0,
+            entry_flag: isWhatsAppAuto ? 1 : hasStorefrontChat ? 3 : 0,
             is_reminder: crd_flag === "1" ? 1 : 0,
           }),
           ...(isWhatsAppAuto ? { request_flag: "msg" } : {}),
@@ -6013,35 +6056,37 @@ const RightView = ({
                                 </span>
                               </button>
 
-                              <a
-                                href={`/website/${companyData?.qr_code}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Online Store"
-                              >
-                                <button
-                                  className="icons right-icons"
-                                  style={{
-                                    borderRadius: "50%",
-                                    padding: "10px",
-                                    zIndex: "1",
-                                    margin: "10px",
-                                    position: "relative",
-                                  }}
+                              {storefrontUrl && (
+                                <a
+                                  href={storefrontUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Online Store"
                                 >
-                                  <span>
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      height="24px"
-                                      viewBox="0 -960 960 960"
-                                      width="24px"
-                                      fill="#1f1f1f"
-                                    >
-                                      <path d="M838-65 720-183v89h-80v-226h226v80h-90l118 118-56 57ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 20-2 40t-6 40h-82q5-20 7.5-40t2.5-40q0-20-2.5-40t-7.5-40H654q3 20 4.5 40t1.5 40q0 20-1.5 40t-4.5 40h-80q3-20 4.5-40t1.5-40q0-20-1.5-40t-4.5-40H386q-3 20-4.5 40t-1.5 40q0 20 1.5 40t4.5 40h134v80H404q12 43 31 82.5t45 75.5q20 0 40-2.5t40-4.5v82q-20 2-40 4.5T480-80ZM170-400h136q-3-20-4.5-40t-1.5-40q0-20 1.5-40t4.5-40H170q-5 20-7.5 40t-2.5 40q0 20 2.5 40t7.5 40Zm34-240h118q9-37 22.5-72.5T376-782q-55 18-99 54.5T204-640Zm172 462q-18-34-31.5-69.5T322-320H204q29 51 73 87.5t99 54.5Zm28-462h152q-12-43-31-82.5T480-798q-26 36-45 75.5T404-640Zm234 0h118q-29-51-73-87.5T584-782q18 34 31.5 69.5T638-640Z" />
-                                    </svg>
-                                  </span>
-                                </button>
-                              </a>
+                                  <button
+                                    className="icons right-icons"
+                                    style={{
+                                      borderRadius: "50%",
+                                      padding: "10px",
+                                      zIndex: "1",
+                                      margin: "10px",
+                                      position: "relative",
+                                    }}
+                                  >
+                                    <span>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        height="24px"
+                                        viewBox="0 -960 960 960"
+                                        width="24px"
+                                        fill="#1f1f1f"
+                                      >
+                                        <path d="M838-65 720-183v89h-80v-226h226v80h-90l118 118-56 57ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 20-2 40t-6 40h-82q5-20 7.5-40t2.5-40q0-20-2.5-40t-7.5-40H654q3 20 4.5 40t1.5 40q0 20-1.5 40t-4.5 40h-80q3-20 4.5-40t1.5-40q0-20-1.5-40t-4.5-40H386q-3 20-4.5 40t-1.5 40q0 20 1.5 40t4.5 40h134v80H404q12 43 31 82.5t45 75.5q20 0 40-2.5t40-4.5v82q-20 2-40 4.5T480-80ZM170-400h136q-3-20-4.5-40t-1.5-40q0-20 1.5-40t4.5-40H170q-5 20-7.5 40t-2.5 40q0 20 2.5 40t7.5 40Zm34-240h118q9-37 22.5-72.5T376-782q-55 18-99 54.5T204-640Zm172 462q-18-34-31.5-69.5T322-320H204q29 51 73 87.5t99 54.5Zm28-462h152q-12-43-31-82.5T480-798q-26 36-45 75.5T404-640Zm234 0h118q-29-51-73-87.5T584-782q18 34 31.5 69.5T638-640Z" />
+                                      </svg>
+                                    </span>
+                                  </button>
+                                </a>
+                              )}
                               <button
                                 className="icons right-icons"
                                 style={{
