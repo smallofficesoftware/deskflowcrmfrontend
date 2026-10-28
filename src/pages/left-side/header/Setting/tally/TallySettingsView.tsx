@@ -49,16 +49,12 @@ const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string; pullJob: Pu
 ];
 
 interface IConnectorInfo {
-  available: boolean;
-  file_name: string | null;
-  size_bytes: number | null;
-  updated_at: string | null;
   /** The company code and CRM address the connector must be configured with. */
   company_code: string | null;
   crm_base_url: string | null;
 }
 
-const formatSize = (bytes: number | null) => (bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "");
+const CONNECTOR_DOWNLOAD_URL = "https://deskflowcrm.com/apk/tally-connector-0.3.0.exe";
 
 type LedgerRole = "sales" | "round_off" | "other_charges" | "discount" | "tcs";
 
@@ -132,7 +128,6 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
 
   const [newKey, setNewKey] = useState<string | null>(null);
   const [connectorInfo, setConnectorInfo] = useState<IConnectorInfo | null>(null);
-  const [downloading, setDownloading] = useState(false);
   const [keyBusy, setKeyBusy] = useState(false);
   const [confirmKeyAction, setConfirmKeyAction] = useState<"issue" | "revoke" | null>(null);
 
@@ -250,30 +245,7 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
       const { data } = await axiosInstance.post("tally/connector/download-info", {});
       if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setConnectorInfo(data.data?.item || null);
     } catch {
-      // The download card just shows as unavailable; the rest of the screen is unaffected.
-    }
-  };
-
-  const downloadConnector = async () => {
-    setDownloading(true);
-    try {
-      const res = await axiosInstance.post("tally/connector/download", {}, { responseType: "blob" });
-      // A missing installer is answered as JSON (the app's usual error shape), not a file.
-      if (String(res.headers?.["content-type"] || "").includes("application/json")) {
-        let message = MESSAGE_UNKNOWN_ERROR_OCCURRED;
-        try {
-          message = JSON.parse(await (res.data as Blob).text())?.ack_msg || message;
-        } catch {
-          // keep the generic message
-        }
-        toast.error(message);
-        return;
-      }
-      saveAs(new Blob([res.data]), connectorInfo?.file_name || "tally-connector.exe");
-    } catch (error: any) {
-      toast.error(errorOf(error));
-    } finally {
-      setDownloading(false);
+      // Only the config-file values are missing; the rest of the screen is unaffected.
     }
   };
 
@@ -522,18 +494,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
                 A small program that runs on the computer where Tally is open. It reads Tally and writes your invoices and receipts into it.
               </p>
               <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
-                <button className="btn report_button" onClick={downloadConnector} disabled={downloading || connectorInfo?.available === false}>
-                  {downloading ? "Downloading..." : "Download connector"}
-                </button>
-                {connectorInfo?.available && (
-                  <span className="text-muted small">
-                    {connectorInfo.file_name} · {formatSize(connectorInfo.size_bytes)}
-                    {connectorInfo.updated_at ? ` · updated ${new Date(connectorInfo.updated_at).toLocaleDateString("en-IN")}` : ""}
-                  </span>
-                )}
-                {connectorInfo?.available === false && (
-                  <span className="text-muted small">The installer has not been added to this server yet - contact your administrator.</span>
-                )}
+                <a className="btn report_button" href={CONNECTOR_DOWNLOAD_URL} download>
+                  Download connector
+                </a>
               </div>
               <ol className="small text-muted mb-0 ps-3">
                 <li>Download the connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
