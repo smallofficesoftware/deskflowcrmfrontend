@@ -3,9 +3,11 @@ import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
+import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import TallySendSection from "./TallySendSection";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 
@@ -29,7 +31,7 @@ const DEFAULT_SETTINGS: ITallySettings = {
   tally_version: "prime",
 };
 
-type EntityKey = "products" | "contacts" | "voucher-types" | "gst-ledgers";
+type EntityKey = "products" | "contacts" | "voucher-types" | "gst-ledgers" | "payment-modes";
 
 interface IMappingRow {
   crm_id?: number;
@@ -46,6 +48,31 @@ const ENTITIES: { key: EntityKey; label: string; ledgerNoun: string; pullJob: Pu
   { key: "contacts", label: "Contacts", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
   { key: "voucher-types", label: "Voucher types", ledgerNoun: "Tally voucher type", pullJob: "pull_voucher_types" },
   { key: "gst-ledgers", label: "GST ledgers", ledgerNoun: "Tally ledger", pullJob: "pull_ledgers" },
+  { key: "payment-modes", label: "Payment modes", ledgerNoun: "Tally cash/bank ledger", pullJob: "pull_ledgers" },
+];
+
+interface IConnectorInfo {
+  available: boolean;
+  file_name: string | null;
+  size_bytes: number | null;
+  updated_at: string | null;
+  /** The company code and CRM address the connector must be configured with. */
+  company_code: string | null;
+  crm_base_url: string | null;
+}
+
+const formatSize = (bytes: number | null) => (bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "");
+
+type LedgerRole = "sales" | "round_off" | "other_charges" | "discount" | "tcs";
+
+// Placeholders are what the voucher uses when a name is left blank; the connector creates any
+// ledger Tally does not already have, so a blank is fine for a first try.
+const LEDGER_FIELDS: { role: LedgerRole; label: string; placeholder: string }[] = [
+  { role: "sales", label: "Sales ledger", placeholder: "Sales" },
+  { role: "round_off", label: "Round-off ledger", placeholder: "Round Off" },
+  { role: "other_charges", label: "Packing / transport charges ledger", placeholder: "Freight and Packing" },
+  { role: "discount", label: "Discount ledger", placeholder: "Discount Allowed" },
+  { role: "tcs", label: "TCS ledger", placeholder: "TCS Payable" },
 ];
 
 interface ISyncLogRow {
@@ -84,7 +111,7 @@ const rowKey = (entity: EntityKey, row: IMappingRow) => `${entity}:${row.crm_id 
 const rowTitle = (entity: EntityKey, row: IMappingRow) => {
   if (entity === "products") return [row.product_name, row.product_code].filter(Boolean).join(" · ");
   if (entity === "contacts") return [row.contact_name, row.gst_number || row.client_code].filter(Boolean).join(" · ");
-  if (entity === "voucher-types") return row.label;
+  if (entity === "voucher-types" || entity === "payment-modes") return row.label;
   return `${row.tax_rate_label} (${row.tax_rate_value}%) - ${row.duty_label}`;
 };
 
@@ -101,9 +128,14 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [settings, setSettings] = useState<ITallySettings>(DEFAULT_SETTINGS);
+  // The rest of config_json: ledger names for the invoice/receipt voucher and the auto-send switches.
+  const [ledgers, setLedgers] = useState<Record<LedgerRole, string>>({ sales: "", round_off: "", other_charges: "", discount: "", tcs: "" });
+  const [autoSync, setAutoSync] = useState<{ invoices: boolean; receipts: boolean }>({ invoices: false, receipts: false });
   const [saving, setSaving] = useState(false);
 
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [connectorInfo, setConnectorInfo] = useState<IConnectorInfo | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [keyBusy, setKeyBusy] = useState(false);
   const [confirmKeyAction, setConfirmKeyAction] = useState<"issue" | "revoke" | null>(null);
 
@@ -151,6 +183,9 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
           direct_url_port: item.direct_url_port ? String(item.direct_url_port) : "9000",
           tally_version: item.config_json?.tally_version === "erp9" ? "erp9" : "prime",
         });
+        const cfg = item.config_json || {};
+        setLedgers({ sales: "", round_off: "", other_charges: "", discount: "", tcs: "", ...(cfg.ledgers || {}) });
+        setAutoSync({ invoices: Boolean(cfg.auto_sync?.invoices), receipts: Boolean(cfg.auto_sync?.receipts) });
       }
     } catch (error: any) {
       setLoadError(errorOf(error));
@@ -171,7 +206,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
         connection_mode: settings.connection_mode,
         direct_url_host: settings.connection_mode === "direct_url" ? settings.direct_url_host.trim() : null,
         direct_url_port: settings.connection_mode === "direct_url" ? Number(settings.direct_url_port) || 9000 : null,
-        config_json: { tally_version: settings.tally_version },
+        // The server merges this into the stored config and stamps when auto-send was switched on.
+        config_json: { tally_version: settings.tally_version, ledgers, auto_sync: autoSync },
       });
       if (data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
@@ -218,6 +254,56 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
     }
   };
 
+  const fetchConnectorInfo = async () => {
+    try {
+      const { data } = await axiosInstance.post("tally/connector/download-info", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) setConnectorInfo(data.data?.item || null);
+    } catch {
+      // The download card just shows as unavailable; the rest of the screen is unaffected.
+    }
+  };
+
+  const downloadConnector = async () => {
+    setDownloading(true);
+    try {
+      const res = await axiosInstance.post("tally/connector/download", {}, { responseType: "blob" });
+      // A missing installer is answered as JSON (the app's usual error shape), not a file.
+      if (String(res.headers?.["content-type"] || "").includes("application/json")) {
+        let message = MESSAGE_UNKNOWN_ERROR_OCCURRED;
+        try {
+          message = JSON.parse(await (res.data as Blob).text())?.ack_msg || message;
+        } catch {
+          // keep the generic message
+        }
+        toast.error(message);
+        return;
+      }
+      saveAs(new Blob([res.data]), connectorInfo?.file_name || "tally-connector.exe");
+    } catch (error: any) {
+      toast.error(errorOf(error));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // The file the connector reads from its own folder. Built here, from the key just generated, so
+  // the key never has to be typed or retyped; the CRM address and company code come from the server.
+  const downloadConnectorConfig = () => {
+    if (!newKey || !connectorInfo?.company_code || !connectorInfo?.crm_base_url) {
+      toast.error("Generate a key first");
+      return;
+    }
+    const config = {
+      connectorKey: newKey,
+      companyCode: connectorInfo.company_code,
+      crmBaseUrl: connectorInfo.crm_base_url,
+      tallyVersion: settings.tally_version,
+      tallyHost: "localhost",
+      tallyPort: 9000,
+    };
+    saveAs(new Blob([JSON.stringify(config, null, 2)], { type: "application/json" }), "connector-config.json");
+  };
+
   const copyKey = async () => {
     if (!newKey) return;
     try {
@@ -252,7 +338,10 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
   }, []);
 
   useEffect(() => {
-    if (enabled) fetchSyncLog();
+    if (enabled) {
+      fetchSyncLog();
+      fetchConnectorInfo();
+    }
   }, [enabled]);
 
   useEffect(() => {
@@ -475,17 +564,50 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
 
           {settings.connection_mode === "local_connector" && (
             <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
+              <h5>Deskflow Tally Connector</h5>
+              <p className="small text-muted mb-2">
+                A small program that runs on the computer where Tally is open. It reads Tally and writes your invoices and receipts into it.
+              </p>
+              <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
+                <button className="btn report_button" onClick={downloadConnector} disabled={downloading || connectorInfo?.available === false}>
+                  {downloading ? "Downloading..." : "Download connector"}
+                </button>
+                {connectorInfo?.available && (
+                  <span className="text-muted small">
+                    {connectorInfo.file_name} · {formatSize(connectorInfo.size_bytes)}
+                    {connectorInfo.updated_at ? ` · updated ${new Date(connectorInfo.updated_at).toLocaleDateString("en-IN")}` : ""}
+                  </span>
+                )}
+                {connectorInfo?.available === false && (
+                  <span className="text-muted small">The installer has not been added to this server yet - contact your administrator.</span>
+                )}
+              </div>
+              <ol className="small text-muted mb-0 ps-3">
+                <li>Download the connector and copy it to the computer where Tally is running (Tally must be open with the company loaded).</li>
+                <li>Generate a key below, then download <code>connector-config.json</code> and put it in the same folder as the connector.</li>
+                <li>Run the connector. It shows its status at <code>http://127.0.0.1:9100</code> on that computer.</li>
+              </ol>
+            </section>
+          )}
+
+          {settings.connection_mode === "local_connector" && (
+            <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
               <h5>Connector key</h5>
               <p className="small text-muted mb-2">
-                Enter this key, your company code and the CRM address in the Deskflow Tally Connector installer. A company has one active key;
-                issuing a new one replaces the old one. The key is shown only once.
+                The connector signs in with this key. A company has one active key; issuing a new one replaces the old one. The key is shown
+                only once - download the config file now.
               </p>
               {newKey && (
                 <div className="mb-3">
                   <div className="tly-key">{newKey}</div>
-                  <button className="btn btn-outline-secondary btn-sm mt-2" onClick={copyKey}>
-                    Copy key
-                  </button>
+                  <div className="d-flex gap-2 mt-2">
+                    <button className="btn btn-outline-secondary btn-sm" onClick={copyKey}>
+                      Copy key
+                    </button>
+                    <button className="btn btn-outline-secondary btn-sm" onClick={downloadConnectorConfig}>
+                      Download connector-config.json
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="d-flex gap-2">
@@ -498,6 +620,67 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               </div>
             </section>
           )}
+
+          <section className="tly-card card shadow-sm border-0 bg-light p-3 mb-3">
+            <h5>Invoices and receipts</h5>
+            <p className="small text-muted mb-3">
+              Names of the Tally ledgers an invoice posts to. Leave a name blank to use the suggestion; the connector creates any ledger Tally
+              does not already have and never changes one that exists. GST ledgers and payment-mode ledgers are set in the mapping tabs below.
+            </p>
+            <div className="row g-3">
+              {LEDGER_FIELDS.map((f) => (
+                <div className="col-md-6" key={f.role}>
+                  <label className="form-label small mb-1">{f.label}</label>
+                  <input
+                    className="form-control"
+                    value={ledgers[f.role]}
+                    placeholder={f.placeholder}
+                    disabled={saving}
+                    onChange={(e) => setLedgers({ ...ledgers, [f.role]: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-3">
+              <div className="form-check form-switch mb-1">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="tally-auto-invoices"
+                  checked={autoSync.invoices}
+                  disabled={saving}
+                  onChange={(e) => setAutoSync({ ...autoSync, invoices: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor="tally-auto-invoices">
+                  Send new sales invoices to Tally automatically
+                </label>
+              </div>
+              <div className="form-check form-switch mb-1">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="tally-auto-receipts"
+                  checked={autoSync.receipts}
+                  disabled={saving}
+                  onChange={(e) => setAutoSync({ ...autoSync, receipts: e.target.checked })}
+                />
+                <label className="form-check-label" htmlFor="tally-auto-receipts">
+                  Send new receipts to Tally automatically
+                </label>
+              </div>
+              <div className="text-muted small">
+                Only documents created after you turn this on are sent, checked every 10 minutes. Anything older, or anything that failed, is sent
+                from the list below.
+              </div>
+            </div>
+            <div className="mt-3">
+              <button className="btn report_button" onClick={saveSettings} disabled={saving}>
+                {saving ? "Saving..." : "Save settings"}
+              </button>
+            </div>
+          </section>
 
           <h5 className="tly-heading">Mappings</h5>
           <div className="d-flex align-items-center justify-content-between mb-3">
@@ -620,6 +803,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               />
             </DataTable>
           </div>
+
+          <TallySendSection />
 
           <div className="d-flex align-items-center justify-content-between mt-4 mb-2">
             <h5 className="tly-heading mb-0">Sync log</h5>
