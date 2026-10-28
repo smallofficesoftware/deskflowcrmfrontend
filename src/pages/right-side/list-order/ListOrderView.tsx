@@ -1057,6 +1057,8 @@ const ListOrderView = ({
       5: canAddPurchaseOrder,
       6: canAddReturnSalesInvoice,
       7: canAddReturnPurchaseInvoice,
+      8: canAddInward,
+      9: canAddDispatch,
     };
 
     if (!permissionMap[isOrderShowNum]) {
@@ -1181,6 +1183,8 @@ const ListOrderView = ({
       5: canAddPurchaseOrder,
       6: canAddReturnSalesInvoice,
       7: canAddReturnPurchaseInvoice,
+      8: canAddInward,
+      9: canAddDispatch,
     };
 
     if (permissionMap[isOrderShowNum]) {

@@ -916,6 +916,8 @@ const CommonOrderActions = ({
             5: canAddPurchaseOrder,
             6: canAddReturnSalesInvoice,
             7: canAddReturnPurchaseInvoice,
+            8: canAddInward,
+            9: canAddDispatch,
             12: canAddProforma,
         };
 
@@ -1033,6 +1035,8 @@ const CommonOrderActions = ({
             5: canAddPurchaseOrder,
             6: canAddReturnSalesInvoice,
             7: canAddReturnPurchaseInvoice,
+            8: canAddInward,
+            9: canAddDispatch,
             12: canAddProforma,
         };
 
