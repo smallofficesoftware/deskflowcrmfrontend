@@ -379,6 +379,28 @@ const RightView = ({
   const [getCompanyId, setGetCompanyId] = useState(0);
   const [imageViewData, setImageViewData] = useState<TMessage>();
   const [isWhatsAppAuto, setIsWhatsAppAuto] = useState(false);
+  // True when this contact is chatting with us from the online store. Messages typed here then go
+  // straight into that store chat (entry_flag 3) instead of staying a CRM-only entry. The call is
+  // addon-gated, so it simply stays false when the Ecommerce Storefront addon is off.
+  const [hasStorefrontChat, setHasStorefrontChat] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setHasStorefrontChat(false);
+    if (!getData?.id) return;
+    (async () => {
+      try {
+        const { data } = await axiosInstance.post("storefront/chat/messages", { contact_id: getData.id });
+        if (!cancelled && data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+          setHasStorefrontChat((data.data?.item || []).length > 0);
+        }
+      } catch {
+        // stays false - the message is saved as a normal CRM chat entry
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getData?.id]);
   const [createContactTrigger, setCreateContactTrigger] = useState(0);
   const [editorContent, setEditorContent] = useState<string>("");
   const [editorContentToEditId, setEditorContentToEditId] = useState(0);
@@ -2486,7 +2508,7 @@ const RightView = ({
             contact_masters_id: getData?.id,
             application_login_name: getUserName,
             message_type_id: 0,
-            entry_flag: isWhatsAppAuto ? 1 : 0,
+            entry_flag: isWhatsAppAuto ? 1 : hasStorefrontChat ? 3 : 0,
             is_reminder: crd_flag === "1" ? 1 : 0,
           }),
           ...(isWhatsAppAuto ? { request_flag: "msg" } : {}),
