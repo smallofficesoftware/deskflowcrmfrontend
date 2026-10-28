@@ -7,6 +7,7 @@ import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
+import TallyFieldMappingSection from "./TallyFieldMappingSection";
 import TallySendSection from "./TallySendSection";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
@@ -803,6 +804,8 @@ const TallySettingsView = ({ onHide }: IPropsTally) => {
               />
             </DataTable>
           </div>
+
+          <TallyFieldMappingSection />
 
           <TallySendSection />
 
