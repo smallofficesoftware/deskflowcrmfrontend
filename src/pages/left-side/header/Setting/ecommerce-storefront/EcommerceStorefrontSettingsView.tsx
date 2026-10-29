@@ -61,6 +61,8 @@ interface IStorefrontAuthConfig {
   theme_accent_color: string;
   /** Relative path of the uploaded tab icon ("<company id>/storefront-favicon-<ts>.png"); "" = none. */
   favicon_path?: string;
+  /** Relative path of the uploaded storefront logo ("<company id>/storefront-logo-<ts>.png"); "" = none. */
+  logo_path?: string;
   default_price_list_id: number | null;
   price_visibility: "everyone" | "login" | "price_list" | "never";
 }
@@ -115,6 +117,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   stock_check_mode: "derived",
   theme_accent_color: "#ff0000",
   favicon_path: "",
+  logo_path: "",
   default_price_list_id: null,
   price_visibility: "everyone",
 };
@@ -249,6 +252,50 @@ const EcommerceStorefrontSettingsView = ({
       toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     } finally {
       setFaviconBusy(false);
+    }
+  };
+
+  // Storefront logo: same immediate upload / remove as the favicon above, 1 MB, path mirrored into authConfig.
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  const uploadLogo = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+      toast.error("Logo must be 1 MB or smaller.");
+      return;
+    }
+    setLogoBusy(true);
+    try {
+      const form = new FormData();
+      form.append("logo", file);
+      const { data } = await axiosInstance.post("storefront/logo/upload", form, { headers: { "Content-Type": "multipart/form-data" } });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setAuthConfig((prev) => ({ ...prev, logo_path: data.data?.item?.logo_path || "" }));
+        toast.success("Storefront logo updated.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    setLogoBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/logo/remove", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setAuthConfig((prev) => ({ ...prev, logo_path: "" }));
+        toast.success("Storefront logo removed.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setLogoBusy(false);
     }
   };
 
@@ -620,6 +667,39 @@ const EcommerceStorefrontSettingsView = ({
               />
               {authConfig.favicon_path && (
                 <Button variant="outline-danger" size="sm" disabled={faviconBusy} onClick={removeFavicon}>
+                  Remove
+                </Button>
+              )}
+            </div>
+
+            <h6 className="mt-4 mb-1">Storefront logo</h6>
+            <p className="text-muted small mb-2">
+              The logo in the store's header and footer, separate from your company logo. PNG, JPG or WEBP up to 1 MB; a wide logo on a
+              transparent or white background works best. Without one the store uses your company logo.
+            </p>
+            <div className="d-flex align-items-center gap-3 flex-wrap">
+              {authConfig.logo_path ? (
+                <img
+                  src={`${BACKEND_OF_SMALL_OFFICE_CRM_END_POINT}/companyImg/${authConfig.logo_path}`}
+                  alt="Current storefront logo"
+                  style={{ height: 48, maxWidth: 220, objectFit: "contain", border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", padding: 4 }}
+                />
+              ) : (
+                <span className="text-muted small">No storefront logo uploaded.</span>
+              )}
+              <input
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                className="form-control form-control-sm"
+                style={{ maxWidth: 280 }}
+                disabled={logoBusy}
+                onChange={(e) => {
+                  uploadLogo(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              {authConfig.logo_path && (
+                <Button variant="outline-danger" size="sm" disabled={logoBusy} onClick={removeLogo}>
                   Remove
                 </Button>
               )}
