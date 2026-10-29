@@ -25,6 +25,8 @@ import { fetchTeamMemberList } from "../../job-card/JobCardController";
 import { ITeamMemberOption } from "../../job-card/JobCardTypes";
 import ProductVariantSection from "./ProductVariantSection";
 import ProductPhotosSection from "./ProductPhotosSection";
+import PendingProductPhotos from "./PendingProductPhotos";
+import { uploadPendingPhotos } from "./uploadPendingPhotos";
 import {
   BIG_TEXT_LENGTH,
   SMALL_TEXT_LENGTH,
@@ -82,6 +84,8 @@ const CreateProductView = ({
   setRefreshProduct,
 }: IPropsCreateProduct) => {
   const [productPreview, setProductPreview] = useState<string | null>(null);
+  // Photos picked while adding a new product; uploaded right after it is saved.
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const [categoryList, setCategoryList] = useState<any>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number>();
   const [sellerOptions, setSellerOptions] = useState<ITeamMemberOption[]>([]);
@@ -411,6 +415,16 @@ const CreateProductView = ({
         if (res?.success && res.id) {
           if (values1.is_variant_parent) {
             setCreatedProductId(res.id);
+          }
+          if (pendingPhotos.length > 0) {
+            const { uploaded, failed } = await uploadPendingPhotos(res.id, pendingPhotos);
+            setPendingPhotos([]);
+            if (failed > 0) {
+              toast.warning(
+                `Product saved, but ${failed} of ${uploaded + failed} photos could not be uploaded. Add them from the Photos tab.`,
+              );
+            }
+            setRefreshProduct(true);
           }
           if (syncButtonClickedRef.current) {
             await syncMiracleProduct(setIsSyncing, res.id);
@@ -2271,6 +2285,15 @@ const CreateProductView = ({
                               />
                             </div>
                           </div>
+                          )}
+                          {showVariantField && !editId && (
+                            <div className="col-12">
+                              <PendingProductPhotos
+                                files={pendingPhotos}
+                                onChange={setPendingPhotos}
+                                disabled={isSubmittingRef.current}
+                              />
+                            </div>
                           )}
                           {showVariantField && (
                             <div className="col-12">
