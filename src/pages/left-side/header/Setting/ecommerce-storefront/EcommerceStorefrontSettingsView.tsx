@@ -57,7 +57,7 @@ interface IStorefrontAuthConfig {
   paid_stage_status_id: number | null;
   credit_limit_action: "block" | "warn";
   approval_mode_enabled: boolean;
-  stock_check_mode: "derived" | "reserved";
+  stock_check_mode: "derived" | "reserved" | "off";
   theme_accent_color: string;
   /** Relative path of the uploaded tab icon ("<company id>/storefront-favicon-<ts>.png"); "" = none. */
   favicon_path?: string;
@@ -1349,13 +1349,15 @@ const EcommerceStorefrontSettingsView = ({
                 className="form-select"
                 value={authConfig.stock_check_mode}
                 disabled={savingAuth}
-                onChange={(e) => setAuthConfig({ ...authConfig, stock_check_mode: e.target.value as "derived" | "reserved" })}
+                onChange={(e) => setAuthConfig({ ...authConfig, stock_check_mode: e.target.value as "derived" | "reserved" | "off" })}
               >
                 <option value="derived">Derived (calculate from existing stock records)</option>
                 <option value="reserved">Reserved (also hold stock against other in-progress checkouts)</option>
+                <option value="off">Off (don't check stock - customers can order any quantity)</option>
               </select>
               <div className="text-muted small mt-1">
-                Only takes effect when strict stock checking is already on (Settings → Stock Settings).
+                Derived and Reserved only take effect when strict stock checking is already on (Settings → Stock Settings). Off
+                skips the stock check for this store's online orders whatever that setting says.
               </div>
             </div>
 
