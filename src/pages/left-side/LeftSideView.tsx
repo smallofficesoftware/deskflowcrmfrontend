@@ -490,8 +490,8 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
     };
 
     // 🔔 NORMAL NOTIFICATION SOUND
-    const playSound = () => {
-      audio = new Audio("/notification_sound.wav");
+    const playSound = (file = "/notification_sound.wav") => {
+      audio = new Audio(file);
       audio.volume = 1;
       audio.play().catch(() => { });
     };
@@ -526,6 +526,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       if (isSupport) {
         // 🗣 SPEAK
         speak(message);
+      } else if (notification_modual === "storefront_chat") {
+        // 🔊 Own sound for a storefront customer's chat message, so it stands apart from other alerts.
+        playSound("/support-ticket-sound.wav");
       } else {
         // 🔊 SOUND
         playSound();
