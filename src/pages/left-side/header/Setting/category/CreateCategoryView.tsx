@@ -12,7 +12,7 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../../helpers/AppEnum";
 import { TOnChangeInput, TReactSetState } from "../../../../../helpers/AppType";
 import useCheckUserPermission from "../../../../../hooks/useCheckUserPermission";
 import { axiosInstance } from "../../../../../services/axiosInstance";
-import { createCategory, fetchProductGroupApi, ICategoryView, IGroupView, updateCategory } from "./CategoryController";
+import { createCategory, fetchParentCategoryOptions, fetchProductGroupApi, ICategoryView, IGroupView, IParentCategoryOption, updateCategory } from "./CategoryController";
 
 interface IPropsCreateCategory {
     show: boolean;
@@ -38,6 +38,9 @@ const CreateCategoryView = ({
     const [countriesList, setCountriesList] = useState<IGroupView[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
+    const [parentOptionsList, setParentOptionsList] = useState<IParentCategoryOption[]>([]);
+    const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
+
     const [categoryError, setCategoryError] = useState("");
     const [countryError, setCountryError] = useState("");
 
@@ -60,9 +63,16 @@ const CreateCategoryView = ({
             setCategoryInputInput(productToEdit.category_name);
             setCategoryHexColorInput(productToEdit.color || "#999999");
             setSelectedGroupId(productToEdit.group_id || null);
+            setSelectedParentId(productToEdit.parent_category_id || null);
             fetchCategoryImage();
         }
     }, []);
+
+    useEffect(() => {
+        if (canView) {
+            fetchParentCategoryOptions(setParentOptionsList);
+        }
+    }, [canView]);
 
     const fetchCategoryImage = async () => {
         if (!productToEdit?.id) return;
@@ -128,6 +138,32 @@ const CreateCategoryView = ({
         label: country.group_name,
     }));
 
+    // A category can't be its own parent, nor sit under one of its own
+    // descendants - drop the edited category and its whole subtree.
+    const parentOptions = (() => {
+        const excluded = new Set<number>();
+        if (productToEdit?.id !== undefined) {
+            excluded.add(productToEdit.id);
+            let grew = true;
+            while (grew) {
+                grew = false;
+                parentOptionsList.forEach((c) => {
+                    if (c.parent_category_id && excluded.has(c.parent_category_id) && !excluded.has(c.id)) {
+                        excluded.add(c.id);
+                        grew = true;
+                    }
+                });
+            }
+        }
+        return parentOptionsList
+            .filter((c) => !excluded.has(c.id))
+            .map((c) => ({ value: String(c.id), label: c.category_name }));
+    })();
+
+    const handleParentChange = (selectedOption: any) => {
+        setSelectedParentId(selectedOption ? Number(selectedOption.value) : null);
+    };
+
     const handleCountryChange = (selectedOption: any) => {
         if (selectedOption) {
             setSelectedGroupId(Number(selectedOption.value));
@@ -152,6 +188,7 @@ const CreateCategoryView = ({
         setCategoryInputInput("");
         setCategoryHexColorInput("#999999");
         setSelectedGroupId(null);
+        setSelectedParentId(null);
         setCategoryError("");
         setCountryError("");
     };
@@ -179,6 +216,7 @@ const CreateCategoryView = ({
             category_name: categoryInput.trim(),
             color: categoryHexColorInput,
             group_id: selectedGroupId!, // we already checked it's not null
+            parent_category_id: selectedParentId,
         };
 
         if (productToEdit && productToEdit.id !== undefined) {
@@ -230,6 +268,24 @@ const CreateCategoryView = ({
                                 {countryError && (
                                     <span className="text-danger d-block mt-1">{countryError}</span>
                                 )}
+                            </div>
+
+                            {/* Parent Category (optional) */}
+                            <div className="col-12 mt-3">
+                                <label className="form-check-label">
+                                    <h6>Parent Category</h6>
+                                </label>
+                                <CustomSearchDropdown
+                                    options={parentOptions}
+                                    value={
+                                        parentOptions.find(
+                                            (option) => option.value === String(selectedParentId)
+                                        ) || null
+                                    }
+                                    onChange={handleParentChange}
+                                    className="w-100"
+                                    placeholder="None (top-level category)"
+                                />
                             </div>
 
                             {/* Category Name + Color */}
