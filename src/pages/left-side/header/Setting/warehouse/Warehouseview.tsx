@@ -684,7 +684,9 @@ const WarehouseView = ({
                                     {item.warehouse_name}
                                   </span>
 
-                                  {item.id !== -1 && (
+                                  {/* Default Warehouse (id -1) gets the menu too: Edit and Assign to Team Member,
+                                      but not Delete. */}
+                                  {(
                                     <>
                                       <button
                                         className="source-of-type-list-grid-options"
@@ -736,18 +738,20 @@ const WarehouseView = ({
                                         >
                                           Edit
                                         </li>
-                                        <li
-                                          style={{ color: "red", fontWeight: "600" }}
-                                          className="listItem"
-                                          role="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openDeleteModel(item.id);
-                                            setWarehouseDropdown({});
-                                          }}
-                                        >
-                                          Delete
-                                        </li>
+                                        {item.id !== -1 && (
+                                          <li
+                                            style={{ color: "red", fontWeight: "600" }}
+                                            className="listItem"
+                                            role="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openDeleteModel(item.id);
+                                              setWarehouseDropdown({});
+                                            }}
+                                          >
+                                            Delete
+                                          </li>
+                                        )}
                                         <li
                                           className="listItem"
                                           role="button"

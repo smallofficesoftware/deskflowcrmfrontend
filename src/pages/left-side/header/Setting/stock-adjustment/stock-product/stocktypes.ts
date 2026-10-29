@@ -17,6 +17,8 @@ export interface IStockAdjustmentCreateModal {
   flag: number;
   where_action: number;
   editStockAdjustment?: IStockAdjustmentView | undefined;
+  /** Opens with this stock type already picked ("1" = Warehouse To Warehouse Transfer, "2" = Add, "3" = Deduct). */
+  defaultStockType?: string;
 }
 export interface IWareHouseList {
   value: string | number;

@@ -6,9 +6,17 @@ import { axiosInstance } from "../../../../services/axiosInstance";
 export interface IWarehouseTransferSummary {
   warehouse_id: number;
   warehouse_name: string;
+  /** Warehouse-to-warehouse transfers only. */
   transfer_in: number;
   transfer_out: number;
+  /** Every stock movement (dispatch, invoice, GRN, returns, stock adjustment, transfers). */
+  total_in: number;
+  total_out: number;
   net: number;
+}
+
+export interface IWarehouseSourceWise extends IWarehouseTransferSummary {
+  source: string;
 }
 
 export interface IWarehouseTransferProductWise extends IWarehouseTransferSummary {
@@ -36,10 +44,13 @@ export interface IWarehouseTransferRow {
 export interface IWarehouseTransferReport {
   summary: IWarehouseTransferSummary[];
   product_wise: IWarehouseTransferProductWise[];
+  source_wise: IWarehouseSourceWise[];
   transfers: IWarehouseTransferRow[];
   totals: {
     transfer_in: number;
     transfer_out: number;
+    total_in: number;
+    total_out: number;
     net: number;
     transfer_count: number;
   };
@@ -48,8 +59,9 @@ export interface IWarehouseTransferReport {
 export const emptyWarehouseTransferReport: IWarehouseTransferReport = {
   summary: [],
   product_wise: [],
+  source_wise: [],
   transfers: [],
-  totals: { transfer_in: 0, transfer_out: 0, net: 0, transfer_count: 0 },
+  totals: { transfer_in: 0, transfer_out: 0, total_in: 0, total_out: 0, net: 0, transfer_count: 0 },
 };
 
 export const fetchWarehouseTransferReportApi = async (

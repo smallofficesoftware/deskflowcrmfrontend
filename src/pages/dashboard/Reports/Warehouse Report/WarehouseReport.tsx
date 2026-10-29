@@ -222,7 +222,9 @@ const WarehouseReport = ({
     const actionBodyTemplate = useCallback((rowData: IWarehouseView) => {
         return (
             <div className="gap-2" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {rowData.id !== -1 && (
+                {/* The Default Warehouse (id -1) gets the gear too, with Edit and Assign to Team Member. Only Delete is
+                    hidden for it - the default warehouse cannot be deleted. */}
+                {(
                     <>
                         <Button
                             icon="pi pi-cog"
@@ -258,15 +260,17 @@ const WarehouseReport = ({
                             >
                                 Edit
                             </li>
-                            <li style={{ color: "red", fontWeight: "600", margin: "0 10px", height: "25px", display: "flex", alignItems: "center" }} className="listItem" role="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenDropdownId(null);
-                                    openDeleteModel(rowData.id);
-                                }}
-                            >
-                                Delete
-                            </li>
+                            {rowData.id !== -1 && (
+                                <li style={{ color: "red", fontWeight: "600", margin: "0 10px", height: "25px", display: "flex", alignItems: "center" }} className="listItem" role="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenDropdownId(null);
+                                        openDeleteModel(rowData.id);
+                                    }}
+                                >
+                                    Delete
+                                </li>
+                            )}
                             <li
                                 className="listItem"
                                 role="button"

@@ -15,6 +15,7 @@ import { PAGE_ID, PERMISSION_TYPE } from "../../../../helpers/AppEnum";
 import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { exportReportExcel, exportReportPdf } from "../../../../services/reportExportService";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
+import StockAdjustmentModel from "../../../left-side/header/Setting/stock-adjustment/StockAdjustmentModel";
 import {
   emptyWarehouseTransferReport,
   fetchWarehouseTransferReportApi,
@@ -26,7 +27,7 @@ interface IWarehouseTransferReportProps {
   MobileFlag?: string;
 }
 
-type TTab = "summary" | "product" | "transfer";
+type TTab = "summary" | "product" | "source" | "transfer";
 
 interface IReportColumn {
   key: string;
@@ -42,17 +43,29 @@ const COLUMNS: Record<TTab, IReportColumn[]> = {
   summary: [
     { key: "s_no", label: "S.No", width: "4rem" },
     { key: "warehouse_name", label: "Warehouse" },
-    { key: "transfer_in", label: "Transfer In (+)", numeric: true },
-    { key: "transfer_out", label: "Transfer Out (-)", numeric: true },
+    { key: "total_in", label: "Stock In (+)", numeric: true },
+    { key: "total_out", label: "Stock Out (-)", numeric: true },
     { key: "net", label: "Net", numeric: true },
+    { key: "transfer_in", label: "Of which Transfer In", numeric: true },
+    { key: "transfer_out", label: "Of which Transfer Out", numeric: true },
   ],
   product: [
     { key: "s_no", label: "S.No", width: "4rem" },
     { key: "product_name", label: "Product" },
     { key: "product_code", label: "Code" },
     { key: "warehouse_name", label: "Warehouse" },
-    { key: "transfer_in", label: "Transfer In (+)", numeric: true },
-    { key: "transfer_out", label: "Transfer Out (-)", numeric: true },
+    { key: "total_in", label: "Stock In (+)", numeric: true },
+    { key: "total_out", label: "Stock Out (-)", numeric: true },
+    { key: "net", label: "Net", numeric: true },
+    { key: "transfer_in", label: "Of which Transfer In", numeric: true },
+    { key: "transfer_out", label: "Of which Transfer Out", numeric: true },
+  ],
+  source: [
+    { key: "s_no", label: "S.No", width: "4rem" },
+    { key: "warehouse_name", label: "Warehouse" },
+    { key: "source", label: "Source" },
+    { key: "total_in", label: "Stock In (+)", numeric: true },
+    { key: "total_out", label: "Stock Out (-)", numeric: true },
     { key: "net", label: "Net", numeric: true },
   ],
   transfer: [
@@ -71,6 +84,7 @@ const COLUMNS: Record<TTab, IReportColumn[]> = {
 const TAB_LABEL: Record<TTab, string> = {
   summary: "Warehouse Summary",
   product: "Product-wise",
+  source: "Source-wise",
   transfer: "Transfer-wise",
 };
 
@@ -103,6 +117,10 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const canViewReport = useCheckUserPermission(PAGE_ID.STOCK_ADJUSTMENT, PERMISSION_TYPE.VIEW);
+  const canAddTransfer = useCheckUserPermission(PAGE_ID.STOCK_ADJUSTMENT, PERMISSION_TYPE.ADD);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  // The add popup sets this once a transfer is saved, so the report reloads with it.
+  const [refreshTransfer, setRefreshTransfer] = useState(false);
   const canShare = useCheckUserPermission(PAGE_ID.STOCK_ADJUSTMENT, PERMISSION_TYPE.SHARE);
   const canPrint = useCheckUserPermission(PAGE_ID.STOCK_ADJUSTMENT, PERMISSION_TYPE.PRINT);
 
@@ -173,6 +191,12 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
   }, [reportSelectedDates, warehouseIds, canViewReport]);
 
   useEffect(() => {
+    if (!refreshTransfer) return;
+    loadData();
+    setRefreshTransfer(false);
+  }, [refreshTransfer]);
+
+  useEffect(() => {
     setSelectedRows([]);
   }, [tab, debouncedSearchText]);
 
@@ -194,7 +218,7 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
   // Rows of the active tab, numbered, with the page search applied.
   const rows = useMemo(() => {
     const source: any[] =
-      tab === "summary" ? report.summary : tab === "product" ? report.product_wise : report.transfers;
+      tab === "summary" ? report.summary : tab === "product" ? report.product_wise : tab === "source" ? report.source_wise : report.transfers;
     const needle = debouncedSearchText.toLowerCase();
     return source
       .filter((r) => !needle || Object.values(r).some((v) => String(v ?? "").toLowerCase().includes(needle)))
@@ -369,6 +393,23 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
               tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
             />
 
+            {/* Opens the Stock Adjustment add screen with "Warehouse To Warehouse Transfer" preselected. */}
+            <Button
+              icon="pi pi-plus"
+              className="report_button"
+              style={{ backgroundColor: "rgb(245, 134, 52)" }}
+              rounded
+              onClick={() => {
+                if (canAddTransfer) {
+                  setIsTransferModalOpen(true);
+                } else {
+                  toast.error(DEFAULT_MESSAGE_ERROR_PERMISSION);
+                }
+              }}
+              tooltip="Warehouse Transfer"
+              tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+            />
+
             {!MobileFlag && (
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <Button
@@ -446,14 +487,14 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
         </div>
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
-            <span className="text-muted small">Total In (+)</span>
-            <h5 className="fw-bold mb-0 text-success">{fmtQty(totals.transfer_in)}</h5>
+            <span className="text-muted small">Stock In (+)</span>
+            <h5 className="fw-bold mb-0 text-success">{fmtQty(totals.total_in)}</h5>
           </div>
         </div>
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
-            <span className="text-muted small">Total Out (-)</span>
-            <h5 className="fw-bold mb-0 text-danger">{fmtQty(totals.transfer_out)}</h5>
+            <span className="text-muted small">Stock Out (-)</span>
+            <h5 className="fw-bold mb-0 text-danger">{fmtQty(totals.total_out)}</h5>
           </div>
         </div>
         <div className="col-md-3">
@@ -546,6 +587,17 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
           ))}
         </DataTable>
       </div>
+
+      {isTransferModalOpen && (
+        <StockAdjustmentModel
+          show={isTransferModalOpen}
+          onHide={() => setIsTransferModalOpen(false)}
+          flag={1}
+          where_action={1}
+          defaultStockType="1"
+          setRefreshStockAdjustment={setRefreshTransfer}
+        />
+      )}
 
       {/* Filter Modal */}
       {isModalFilterVisible && (

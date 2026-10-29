@@ -30,6 +30,7 @@ const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
   flag,
   setRefreshStockAdjustment,
   where_action,
+  defaultStockType,
 }) => {
   const headerTitle = flag === 1 ? "Stock Adjustment" : "Edit Stock Adjustment";
   const [selected, setSelected] = useState<StockProduct[]>([]);
@@ -75,7 +76,7 @@ const StockAdjustmentModel: React.FC<IStockAdjustmentCreateModal> = ({
 
   useEffect(() => {
     setStockDetailList({
-      stock_adjustment_type: null,
+      stock_adjustment_type: defaultStockType === "1" ? { value: "1", label: "Warehouse To Warehouse Transfer" } : null,
       stock_date: null as any,
       stock_remark: "",
     });
