@@ -62,6 +62,10 @@ const ProductCategoryReport = ({
             value: null,
             matchMode: "contains",
         },
+        parent_category_name: {
+            value: null,
+            matchMode: "contains",
+        },
         group_name: {
             value: null,
             matchMode: "contains",
@@ -332,6 +336,30 @@ const ProductCategoryReport = ({
                                     className="badge rounded-pill"
                                 >
                                     {rowData.category_name}
+                                </span>
+                            );
+                        }}
+                    />
+                    <Column
+                        field="parent_category_name"
+                        header={
+                            <span>
+                                Parent Category
+                            </span>
+                        }
+                        sortable
+                        filter
+                        filterPlaceholder="Search"
+                        filterMatchMode="contains"
+                        headerStyle={{
+                            background: "#f8f9fa",
+                            fontSize: "14px",
+                        }}
+                        bodyStyle={{ fontSize: "14px" }}
+                        body={(rowData: ICategoryView) => {
+                            return (
+                                <span>
+                                    {rowData.parent_category_name || "-"}
                                 </span>
                             );
                         }}

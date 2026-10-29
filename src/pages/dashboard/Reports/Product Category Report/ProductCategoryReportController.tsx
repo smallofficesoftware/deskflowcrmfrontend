@@ -17,7 +17,7 @@ export const fetchCategoriesReport = async (
         // Pehle categories fetch karo
         const catRequest = {
             table: "categories",
-            columns: "id, category_name, color, group_id",
+            columns: "id, category_name, color, group_id, parent_category_id",
             where: ["isDelete=0"],
             request_flag: 0,
             order: `{"id":"DESC"}`,
@@ -37,6 +37,7 @@ export const fetchCategoriesReport = async (
             category_name: string;
             color: string | null | undefined;
             group_id: number | null;
+            parent_category_id: number | null;
         }> = catRes.data.data || [];
 
         if (categories.length === 0) {
@@ -53,6 +54,7 @@ export const fetchCategoriesReport = async (
                         category_name: string;
                         color: string | null | undefined;
                         group_id: number;
+                        parent_category_id: number | null;
                     } => c.group_id != null && c.group_id !== 0
                 )
                 .map((c) => c.group_id)
@@ -81,10 +83,16 @@ export const fetchCategoriesReport = async (
             }
         }
 
+        const categoryNameById = categories.reduce<Record<number, string>>((acc, c) => {
+            acc[c.id] = c.category_name;
+            return acc;
+        }, {});
+
         // Final list banao with group_name
         const enriched: ICategoryView[] = categories.map((cat) => ({
             ...cat,
             group_name: cat.group_id ? groupMap[cat.group_id] || "Unknown" : undefined,
+            parent_category_name: cat.parent_category_id ? categoryNameById[cat.parent_category_id] : undefined,
             // baaki fields jo ICategoryView mein hain, agar zaroori ho to default daal sakte ho
             id: cat.id,
             category_name: cat.category_name,

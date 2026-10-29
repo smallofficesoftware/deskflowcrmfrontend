@@ -624,6 +624,7 @@ const CategoryView = ({
                                 <tr style={{ background: "#f5f5f5" }}>
                                   <th style={thStyle}></th>
                                   <th style={thStyle}>Category Name</th>
+                                  <th style={thStyle}>Parent Category</th>
                                   <th style={thStyle}>Group Name</th>
                                   <th style={{ ...thStyle, textAlign: "center" }}>Actions</th>
                                 </tr>
@@ -657,6 +658,11 @@ const CategoryView = ({
                                       >
                                         {item.category_name}
                                       </span>
+                                    </td>
+
+                                    {/* Parent Category (Normal Text) */}
+                                    <td style={tdStyle}>
+                                      {categoryLists.find((c) => c.id === item.parent_category_id)?.category_name || "-"}
                                     </td>
 
                                     {/* Group Name (Normal Text) */}

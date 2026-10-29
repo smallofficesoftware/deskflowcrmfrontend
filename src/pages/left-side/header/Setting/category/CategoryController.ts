@@ -14,6 +14,8 @@ export interface ICategoryView {
   created_date_time?: string;
   group_id?: number | null;
   group_name?: string;
+  parent_category_id?: number | null;
+  parent_category_name?: string;
 }
 
 export interface ICategoryCreate {
@@ -21,6 +23,12 @@ export interface ICategoryCreate {
   color: string | undefined | null;
   created_date_time?: string;
   group_id: number;                  // ← required now
+  parent_category_id?: number | null;
+}
+export interface IParentCategoryOption {
+  id: number;
+  category_name: string;
+  parent_category_id: number | null;
 }
 export interface IGroupView {
   id: number;
@@ -75,7 +83,7 @@ export const createCategory = async (
     const getUUID = await localStorage.getItem("UUID");
     const requestData = {
       table: "categories",
-      data: `{"category_name":"${categoryInput.category_name}","color":"${categoryInput.color}","group_id":${categoryInput.group_id},"a_application_login_id":${Number(getUUID)}}`,
+      data: `{"category_name":"${categoryInput.category_name}","color":"${categoryInput.color}","group_id":${categoryInput.group_id},"parent_category_id":${categoryInput.parent_category_id ?? null},"a_application_login_id":${Number(getUUID)}}`,
       a_application_login_id: getUUID,
       isCheckDuplicate: true,
       duplicateField: "category_name"
@@ -117,7 +125,7 @@ export const updateCategory = async (
     const requestData = {
       table: "categories",
       where: `{"id":"${editCategoryId}"}`,
-      data: `{"category_name":"${categoryInput.category_name}","color":"${categoryInput.color}","group_id":${categoryInput.group_id},"a_application_login_id":${Number(getUUID)}}`,
+      data: `{"category_name":"${categoryInput.category_name}","color":"${categoryInput.color}","group_id":${categoryInput.group_id},"parent_category_id":${categoryInput.parent_category_id ?? null},"a_application_login_id":${Number(getUUID)}}`,
       a_application_login_id: getUUID
 
     };
@@ -151,7 +159,7 @@ export const fetchCategoriesWithGroup = async (
     // Pehle categories fetch karo
     const catRequest = {
       table: "categories",
-      columns: "id, category_name, color, group_id",
+      columns: "id, category_name, color, group_id, parent_category_id",
       where: ["isDelete=0"],
       request_flag: 0,
       order: `{"id":"DESC"}`,
@@ -233,6 +241,24 @@ export const fetchCategoriesWithGroup = async (
     setCategoryList([]);
   } finally {
     setTimeout(() => setLoading(false), 800);
+  }
+};
+export const fetchParentCategoryOptions = async (
+  setOptions: TReactSetState<IParentCategoryOption[]>
+) => {
+  const requestData = {
+    table: "categories",
+    columns: "id, category_name, parent_category_id",
+    where: ["isDelete=0"],
+    request_flag: 0,
+    order: `{"category_name":"ASC"}`,
+  };
+
+  try {
+    const { data } = await axiosInstance.post("commonGet", requestData);
+    setOptions(data.ack === DEFAULT_STATUS_CODE_SUCCESS ? data.data || [] : []);
+  } catch {
+    setOptions([]);
   }
 };
 export const fetchProductGroupApi = async (
