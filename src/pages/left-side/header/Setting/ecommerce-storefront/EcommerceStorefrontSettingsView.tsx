@@ -62,6 +62,7 @@ interface IStorefrontAuthConfig {
   /** Relative path of the uploaded tab icon ("<company id>/storefront-favicon-<ts>.png"); "" = none. */
   favicon_path?: string;
   default_price_list_id: number | null;
+  price_visibility: "everyone" | "login" | "price_list" | "never";
 }
 
 // One row per payment method; add a new gateway here plus its settings key and body.
@@ -115,6 +116,7 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   theme_accent_color: "#ff0000",
   favicon_path: "",
   default_price_list_id: null,
+  price_visibility: "everyone",
 };
 
 const ACCENT_PRESETS = ["#ff0000", "#F58634", "#2e7d32", "#1565c0", "#6a1b9a", "#e91e63", "#00897b", "#37474f"];
@@ -883,6 +885,26 @@ const EcommerceStorefrontSettingsView = ({
                 </option>
               ))}
             </select>
+
+            <label className="form-label small mb-1 mt-3">Who can see prices</label>
+            <select
+              className="form-select"
+              value={authConfig.price_visibility ?? "everyone"}
+              disabled={savingAuth}
+              onChange={(e) =>
+                setAuthConfig({ ...authConfig, price_visibility: e.target.value as IStorefrontAuthConfig["price_visibility"] })
+              }
+            >
+              <option value="everyone">Everyone</option>
+              <option value="login">Only logged-in customers</option>
+              <option value="price_list">Only customers who have a price list</option>
+              <option value="never">Nobody (even after login)</option>
+            </select>
+            <div className="text-muted small mt-1">
+              Where a price is hidden, the shopper sees an "Ask for rate" button that opens the store chat with the
+              product already filled in, and can't add that product to the cart or check out. Turn on the store chat
+              for the button to work.
+            </div>
 
             </section>
             <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
