@@ -10,6 +10,9 @@ import { toast } from "react-toastify";
 import { axiosInstance } from "../../../../../services/axiosInstance";
 import BetaFeatureNotice from "../../../../../components/BetaFeatureNotice";
 import ColumnFilterInput from "../../../../../components/ColumnFilterInput";
+import AppliedFilterBar from "../../../../../components/report/AppliedFilterBar";
+import SavedFilterMenu from "./SavedFilterMenu";
+import { mergeColumnOrder } from "./columnOrder";
 import ColumnsButton from "../../../../../components/ColumnsButton";
 import ExportExcelMenuItem from "../../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../../components/ExportPdfMenuItem";
@@ -53,7 +56,7 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 const COLUMN_FILTER_TYPES = [
   "text", "textarea", "phone", "email", "url", "auto-number",
   "number", "currency", "percentage", "calculation", "barcode",
-  "dropdown", "radio", "multi-select", "customer-lookup",
+  "dropdown", "radio", "multi-select", "customer-lookup", "date", "datetime",
 ];
 
 // Portaled to document.body (not the .labelDropLeft in-flow dropdown
@@ -328,6 +331,12 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   // Approval stages (plan I): stage names and the "waiting for me" filter.
   const [approval, setApproval] = useState<{ enabled: boolean; stages?: { id: string; name: string }[]; my_stage_ids?: string[] } | null>(null);
   const [stageFilter, setStageFilter] = useState<"all" | "mine" | "completed">("all");
+  // The form's saved filters (Form settings > Saved filters). `filterChoice` is what the list asks for: "__default" on
+  // open (the form's default filter, if it has one), then "" (all entries) or a saved filter's id once picked.
+  // `activeFilterId` is what the server actually applied.
+  const [filterChoice, setFilterChoice] = useState<string>("__default");
+  const [savedFilters, setSavedFilters] = useState<{ id: string; name: string; is_default: boolean; text: string }[]>([]);
+  const [activeFilterId, setActiveFilterId] = useState("");
   const [allFields, setAllFields] = useState<IFormBuilderField[]>([]);
   const [canRevealSensitive, setCanRevealSensitive] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
@@ -400,9 +409,12 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
       search: search || undefined,
       filters: buildFilters(),
       column_filters: serverColumnFilters,
+      filter_id: filterChoice,
       limit: rowsPerPage,
       offset: firstIndex,
     });
+    setSavedFilters(res?.data?.saved_filters || []);
+    setActiveFilterId(res?.data?.active_filter_id || "");
     setRows(res?.data?.item || []);
     setTotalRecords(res?.data?.total || 0);
     setCanRevealSensitive(res?.data?.can_reveal_sensitive === true);
@@ -428,11 +440,11 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
     setSortOrder(event.sortOrder);
   };
 
-  // Re-load when the "waiting for me" tab changes.
+  // Re-load when the "waiting for me" tab or the saved-filter pick changes.
   useEffect(() => {
     if (allFields.length || approval) reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageFilter]);
+  }, [stageFilter, filterChoice]);
 
   // Debounced live search (matches allContactReportView.tsx's debounced
   // search UX) - reload 400ms after the user stops typing.
@@ -490,11 +502,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   // that still exist.
   useEffect(() => {
     const defaultKeys = allColumnDefs.map((c) => c.key);
-    setColOrder((prev) => {
-      const kept = prev.filter((k) => defaultKeys.includes(k));
-      const missing = defaultKeys.filter((k) => !kept.includes(k));
-      return [...kept, ...missing];
-    });
+    // mergeColumnOrder hands back the same array when nothing changed - allColumnDefs is rebuilt on every render, so a
+    // new array here re-rendered the list in an endless loop (see columnOrder.ts).
+    setColOrder((prev) => mergeColumnOrder(prev, defaultKeys));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allColumnDefs]);
 
@@ -525,6 +535,8 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
       new Set([
         // Status column: the server matches the status name (submission_status_id).
         "_status",
+        // Submitted column: the server matches the entry's date as typed (17-10-2026, 2026-10-17 ...).
+        "_submitted",
         ...shownListFields
           .filter(
             (f) =>
@@ -756,6 +768,11 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
               (Refresh / More Option / ColumnsButton), not a bespoke SVG
               icon set. The separate exact-match "Filter Report" panel was
               removed - the per-column filter row covers that now. */}
+          {savedFilters.length > 0 ? (
+            <div className="me-2">
+              <SavedFilterMenu filters={savedFilters} activeId={activeFilterId} onPick={setFilterChoice} />
+            </div>
+          ) : null}
           <Button
             icon="pi pi-refresh"
             className="report_button me-2"
@@ -788,6 +805,20 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
           />
         </div>
       </div>
+
+      {/* The applied saved filter, as a chip like the other reports' applied-filter bar (the picker is the
+          pi-filter button in the toolbar above). */}
+      {activeFilterId ? (
+        <AppliedFilterBar
+          summary={[
+            {
+              key: "saved_filter",
+              label: savedFilters.find((f) => f.id === activeFilterId)?.name || "Filter",
+              values: [savedFilters.find((f) => f.id === activeFilterId)?.text || ""],
+            },
+          ]}
+        />
+      ) : null}
 
       {approval ? (
         <div className="btn-group mb-3" role="group" aria-label="Approval filter">
