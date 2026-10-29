@@ -24,13 +24,15 @@ interface Props {
   // Opened from a record's "Submit Form" menu item: the record is already
   // chosen, so the related-record picker is hidden.
   presetRelatedRecordId?: number;
+  // "Copy" on the entries list: the answers of the entry being copied, shown instead of the defaults.
+  initialAnswers?: Record<string, any>;
 }
 
 // Internal, logged-in fill page — shares FormFieldsRenderer/fieldTypes.ts/
 // ReferenceFieldInput.tsx with PublicFormFillView.tsx (plan §7); only the
 // data-fetching layer (authenticated axiosInstance vs. anonymous public
 // client) and the related-record picker's presence differ.
-const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, presetRelatedRecordId }) => {
+const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEntryId, presetRelatedRecordId, initialAnswers }) => {
   const [fields, setFields] = useState<IFormBuilderField[]>([]);
   const [title, setTitle] = useState("");
   const [relatedModule, setRelatedModule] = useState<string | null>(null);
@@ -69,7 +71,8 @@ const InternalFormFillView: React.FC<Props> = ({ formId, onSubmitted, scheduleEn
           // This screen only creates new submissions, so defaults
           // ("Default to today", default values) always apply here.
           const initial = buildInitialAnswers(list);
-          setAnswers(initial);
+          // A copy starts from the copied entry's answers; anything it has no answer for keeps its default.
+          setAnswers(initialAnswers ? { ...initial, ...initialAnswers } : initial);
         } catch {
           setFields([]);
         }

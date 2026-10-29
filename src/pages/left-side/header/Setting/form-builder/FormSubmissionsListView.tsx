@@ -31,9 +31,14 @@ import {
   exportSubmissionsPagesPdf,
   exportSubmissionsExcel,
   getSubmissionAuditLog,
+  getSubmission,
+  createSubmission,
   isEncryptedField,
   IFormBuilderField,
 } from "./FormBuilderController";
+import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
+import { answersFromItem } from "./SubmissionDetailView";
+import { withoutRowIds } from "./copyEntry";
 import FormBuilderBrandStyles from "./formBuilderBrandStyles";
 import FormFillModal from "./FormFillModal";
 import SensitiveValueCell from "./SensitiveValueCell";
@@ -67,12 +72,14 @@ const COLUMN_FILTER_TYPES = [
 // from the button's own bounding rect, sidesteps that entirely.
 const RowActionMenu = ({
   onViewEdit,
+  onCopy,
   onPdf,
   onHistory,
   onChangeStatus,
   onDelete,
 }: {
   onViewEdit: () => void;
+  onCopy: () => void;
   onPdf: () => void;
   onHistory: () => void;
   onChangeStatus: () => void;
@@ -160,6 +167,7 @@ const RowActionMenu = ({
               onClick={(e) => e.stopPropagation()}
             >
               {menuItem("Edit", onViewEdit)}
+              {menuItem("Copy", onCopy)}
               {menuItem("PDF", onPdf)}
               {menuItem("History", onHistory)}
               {menuItem("Change Status", onChangeStatus)}
@@ -364,6 +372,43 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
   // ── Row selection (built into DataTable) ──
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Copy: one entry opens the fill form with its answers; several ticked entries are copied straight away.
+  const [copyAnswers, setCopyAnswers] = useState<Record<string, any> | null>(null);
+  const [confirmCopyMany, setConfirmCopyMany] = useState(false);
+
+  // Answers of a saved entry, ready to start a new one: dates and values kept, uploads / auto-numbers / calculations
+  // left out (answersFromItem), repeater row ids dropped.
+  const copyAnswersOf = async (id: number): Promise<Record<string, any> | null> => {
+    const res = await getSubmission(formId, id);
+    if (res?.ack !== 1 || !res.data?.item) return null;
+    const fields = allFields.filter((f) => f.type !== "section-header" && f.type !== "instruction");
+    return withoutRowIds(answersFromItem(fields, res.data.item));
+  };
+
+  const copyOne = async (id: number) => {
+    const answers = await copyAnswersOf(id);
+    if (!answers) return;
+    setCopyAnswers(answers);
+    setFilling(true);
+  };
+
+  const copySelected = async () => {
+    setConfirmCopyMany(false);
+    if (!selectedRows.length) return;
+    setBulkBusy(true);
+    let done = 0;
+    let firstProblem = "";
+    for (const row of selectedRows) {
+      const answers = await copyAnswersOf(row.id);
+      const res = answers ? await createSubmission(formId, answers, [], {}) : null;
+      if (res?.ack === 1) done += 1;
+      else if (!firstProblem) firstProblem = res?.ack_msg || "an entry could not be read";
+    }
+    setBulkBusy(false);
+    if (done > 0) toast.success(`${done} entr${done === 1 ? "y" : "ies"} copied`);
+    if (done < selectedRows.length) toast.error(`${selectedRows.length - done} not copied: ${firstProblem}`);
+    reload();
+  };
 
   // Per-row "Change Status" modal - same RadioButtonModal used by Contact's
   // "Assign Status" action, instead of an inline <select> in the grid cell.
@@ -717,8 +762,12 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
         <FormFillModal
           formId={formId}
           title={title}
-          onClose={() => setFilling(false)}
+          onClose={() => {
+            setFilling(false);
+            setCopyAnswers(null);
+          }}
           onSubmitted={() => reload()}
+          initialAnswers={copyAnswers || undefined}
         />
       ) : null}
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap" style={{ gap: 8 }}>
@@ -732,7 +781,10 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
             className="report_button me-2"
             style={{ backgroundColor: "#4C4C4C" }}
             rounded
-            onClick={() => setFilling(true)}
+            onClick={() => {
+              setCopyAnswers(null);
+              setFilling(true);
+            }}
             tooltip="Fill Form"
             tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
           />
@@ -768,7 +820,16 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
               (Refresh / More Option / ColumnsButton), not a bespoke SVG
               icon set. The separate exact-match "Filter Report" panel was
               removed - the per-column filter row covers that now. */}
-          {savedFilters.length > 0 ? (
+          <ConfirmationModal
+        show={confirmCopyMany}
+        onHide={() => setConfirmCopyMany(false)}
+        title="Copy selected entries"
+        message={`Create ${selectedRows.length} new entr${selectedRows.length === 1 ? "y" : "ies"} with the same answers and dates? Files, photos and signatures are not copied.`}
+        btn1="Cancel"
+        btn2="Copy"
+        handleSubmit={copySelected}
+      />
+      {savedFilters.length > 0 ? (
             <div className="me-2">
               <SavedFilterMenu filters={savedFilters} activeId={activeFilterId} onPick={setFilterChoice} />
             </div>
@@ -846,6 +907,9 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
               </option>
             ))}
           </select>
+          <button className="btn btn-sm btn-outline-secondary" disabled={bulkBusy} onClick={() => setConfirmCopyMany(true)}>
+            Copy Selected
+          </button>
           <button className="btn btn-sm btn-outline-danger" disabled={bulkBusy} onClick={bulkDelete}>
             Delete Selected
           </button>
@@ -891,6 +955,7 @@ const FormSubmissionsListView: React.FC<Props> = ({ formId, onClose }) => {
             body={(row) => (
               <RowActionMenu
                 onViewEdit={() => setOpenId(row.id)}
+                onCopy={() => copyOne(row.id)}
                 onPdf={async () => {
                   const res = await exportSubmissionPdf(formId, row.id);
                   openLink(res?.data?.fileUrl);

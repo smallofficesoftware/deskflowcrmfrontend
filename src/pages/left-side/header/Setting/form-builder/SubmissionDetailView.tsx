@@ -81,7 +81,7 @@ function scalarAnswer(field: IFormBuilderField, raw: any): any {
 
 // Saved row (columns as returned by /submissions/get) -> the answers object
 // the fill components work with.
-function answersFromItem(fields: IFormBuilderField[], item: Record<string, any>): Record<string, any> {
+export function answersFromItem(fields: IFormBuilderField[], item: Record<string, any>): Record<string, any> {
   const answers: Record<string, any> = {};
   fields.forEach((f) => {
     // Calculations are worked out from the other answers, never sent back.

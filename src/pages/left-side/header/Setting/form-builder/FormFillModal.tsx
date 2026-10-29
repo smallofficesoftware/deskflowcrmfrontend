@@ -7,11 +7,13 @@ interface Props {
   title: string;
   onClose: () => void;
   onSubmitted: () => void;
+  // Starting answers when this is a copy of an existing entry.
+  initialAnswers?: Record<string, any>;
 }
 
 // Popup around InternalFormFillView - same look as the fill popup in
 // FormBuilderListView, used by the Submissions screen's "Fill Form" button.
-const FormFillModal: React.FC<Props> = ({ formId, title, onClose, onSubmitted }) => (
+const FormFillModal: React.FC<Props> = ({ formId, title, onClose, onSubmitted, initialAnswers }) => (
   <div
     onClick={onClose}
     style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}
@@ -34,7 +36,7 @@ const FormFillModal: React.FC<Props> = ({ formId, title, onClose, onSubmitted })
         </button>
       </div>
       <div style={{ overflowY: "auto", flex: 1 }}>
-        <InternalFormFillView formId={formId} onSubmitted={onSubmitted} key={formId} />
+        <InternalFormFillView formId={formId} onSubmitted={onSubmitted} initialAnswers={initialAnswers} key={formId} />
       </div>
     </div>
   </div>
