@@ -122,7 +122,28 @@ const DEFAULT_AUTH_CONFIG: IStorefrontAuthConfig = {
   price_visibility: "everyone",
 };
 
-const ACCENT_PRESETS = ["#ff0000", "#F58634", "#2e7d32", "#1565c0", "#6a1b9a", "#e91e63", "#00897b", "#37474f"];
+interface IStorefrontTheme {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+}
+
+// Preview swatches for the theme cards: [page background, header, accent]. The theme catalog (master DB) only stores
+// name and description, so the colours are mirrored here from storefront/src/themes/skins.tsx.
+const THEME_SWATCHES: Record<string, [string, string, string]> = {
+  pharmacy: ["#ffffff", "#ffffff", "#ff0000"],
+  midnight: ["#0f1117", "#131620", "#6c8cff"],
+  ocean: ["#f4f9fc", "#ffffff", "#0ea5e9"],
+  forest: ["#f7f5ec", "#fffdf6", "#2f7d4f"],
+  sunset: ["#fff8f3", "#f26a1b", "#f26a1b"],
+  royal: ["#faf8fd", "#2a1d44", "#b8860b"],
+  rose: ["#fff5f8", "#ffffff", "#e11d77"],
+  mono: ["#ffffff", "#ffffff", "#111111"],
+  marketplace: ["#eef0f3", "#16253b", "#e68a00"],
+};
+
+const ACCENT_PRESETS =["#ff0000", "#F58634", "#2e7d32", "#1565c0", "#6a1b9a", "#e91e63", "#00897b", "#37474f"];
 
 // Sales Order's own module id in stage_status_masters.order_type (see
 // orderTypesStageList in StageStatusController.ts: "4" = Sales Order) -
@@ -257,6 +278,39 @@ const EcommerceStorefrontSettingsView = ({
 
   // Storefront logo: same immediate upload / remove as the favicon above, 1 MB, path mirrored into authConfig.
   const [logoBusy, setLogoBusy] = useState(false);
+  const [themes, setThemes] = useState<IStorefrontTheme[]>([]);
+  const [currentThemeId, setCurrentThemeId] = useState<number | null>(null);
+  const [themeBusy, setThemeBusy] = useState(false);
+
+  const fetchThemes = async () => {
+    try {
+      const { data } = await axiosInstance.post("storefront/themes/get", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setThemes(data.data?.item?.themes || []);
+        setCurrentThemeId(data.data?.item?.current_theme_id ?? null);
+      }
+    } catch {
+      // Non-critical - the picker just stays empty.
+    }
+  };
+
+  const selectTheme = async (themeId: number) => {
+    if (themeBusy || themeId === currentThemeId) return;
+    setThemeBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/theme/select", { storefront_theme_id: themeId });
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        setCurrentThemeId(themeId);
+        toast.success("Theme applied. Your store shows it on the next page load.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setThemeBusy(false);
+    }
+  };
 
   const uploadLogo = async (file: File | undefined) => {
     if (!file) return;
@@ -365,6 +419,7 @@ const EcommerceStorefrontSettingsView = ({
       setEnabled(true);
       setAuthConfig({ ...DEFAULT_AUTH_CONFIG, ...(data.data?.item?.config_json || {}) });
 
+      fetchThemes();
       fetchLockedAccounts();
       fetchTicketOptions();
       fetchStageOptions();
@@ -604,9 +659,50 @@ const EcommerceStorefrontSettingsView = ({
 
             </section>
             <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
+            <h5 className="mb-2">Theme</h5>
+            <p className="text-muted small mb-3">
+              The look of your whole store - colours, header, product cards and footer. Applied as soon as you pick one.
+            </p>
+            <div className="d-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "0.75rem" }}>
+              {themes.map((theme) => {
+                const [bg, header, accent] = THEME_SWATCHES[theme.code] || ["#f3f4f6", "#e5e7eb", "#6b7280"];
+                const active = (currentThemeId ?? themes.find((t) => t.code === "pharmacy")?.id) === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    disabled={themeBusy}
+                    onClick={() => selectTheme(theme.id)}
+                    className="text-start bg-white"
+                    style={{
+                      border: active ? "2px solid #1a1a1a" : "1px solid #d1d5db",
+                      borderRadius: 10,
+                      padding: 10,
+                      cursor: themeBusy ? "wait" : "pointer",
+                    }}
+                  >
+                    <div style={{ background: bg, borderRadius: 6, overflow: "hidden", border: "1px solid #e5e7eb", height: 64 }}>
+                      <div style={{ background: header, height: 16 }} />
+                      <div className="d-flex align-items-center" style={{ gap: 6, padding: 8 }}>
+                        <span style={{ width: 34, height: 22, borderRadius: 4, background: "#fff", border: "1px solid rgba(0,0,0,.12)" }} />
+                        <span style={{ width: 34, height: 22, borderRadius: 4, background: "#fff", border: "1px solid rgba(0,0,0,.12)" }} />
+                        <span style={{ marginLeft: "auto", width: 30, height: 14, borderRadius: 4, background: accent }} />
+                      </div>
+                    </div>
+                    <div className="fw-semibold mt-2">
+                      {theme.name} {active && <span className="badge bg-dark ms-1">In use</span>}
+                    </div>
+                    <div className="text-muted small">{theme.description}</div>
+                  </button>
+                );
+              })}
+            </div>
+            </section>
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
             <h5 className="mb-2">Accent Colour</h5>
             <p className="text-muted small mb-2">
-              Colour for prices, buttons and the active menu underline. Saved with the Save Settings button below.
+              Colour for prices, buttons and the active menu underline. Saved with the Save Settings button below. It applies to the
+              Pharmacy theme; every other theme has its own colours.
             </p>
             <div className="d-flex align-items-center flex-wrap" style={{ gap: "0.5rem" }}>
               {ACCENT_PRESETS.map((color) => (
