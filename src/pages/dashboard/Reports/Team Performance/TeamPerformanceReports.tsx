@@ -15,7 +15,7 @@ import { useQueuedLoad } from "../../../../hooks/useQueuedLoad";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../common/SharedFunction";
 import ColumnsButton from "../../../../components/ColumnsButton";
-import { activityColumnDefs } from "./teamPerformanceActivityColumns";
+import { activityColumnDefs, detailsColumnDef } from "./teamPerformanceActivityColumns";
 import TeamPerformanceDetailModal from "./TeamPerformanceDetailModal";
 import ExportExcelMenuItem from "../../../../components/ExportExcelMenuItem";
 import ExportPdfMenuItem from "../../../../components/ExportPdfMenuItem";
@@ -531,6 +531,8 @@ const TeamPerformanceReports = ({
 
   const baseColumnDefs: TeamColumnDef[] = useMemo(
     () => [
+      // First column: opens the member's details popup.
+      detailsColumnDef((row) => setDetailFor({ userId: Number(row.userId), username: row.username })),
       {
         key: "username",
         label: "Team Member",
@@ -774,9 +776,7 @@ const TeamPerformanceReports = ({
           >{`${columnTotals.debitCount} (${columnTotals.currencySymbol}${columnTotals.debitAmount.toLocaleString()})`}</strong>
         ),
       },
-      ...activityColumnDefs(activityTotals, (row) =>
-        setDetailFor({ userId: Number(row.userId), username: row.username }),
-      ),
+      ...activityColumnDefs(activityTotals),
     ],
     [
       quotationTitle,

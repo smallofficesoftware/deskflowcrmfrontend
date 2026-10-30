@@ -19,6 +19,8 @@ export interface IActivityTotals {
 export interface IActivityColumnDef {
   key: string;
   label: string;
+  /** Cannot be hidden or dragged; kept at the position the report defines for it. */
+  locked?: boolean;
   header: React.ReactNode;
   width: string;
   body: (rowData: ITaskPerformance) => React.ReactNode;
@@ -43,10 +45,7 @@ const numberColumn = (
   footer: () => total(footer),
 });
 
-export const activityColumnDefs = (
-  totals: IActivityTotals,
-  openDetails: (row: ITaskPerformance) => void,
-): IActivityColumnDef[] => [
+export const activityColumnDefs = (totals: IActivityTotals): IActivityColumnDef[] => [
   numberColumn("calls_total", "Calls", <span>Calls</span>, totals.calls_total),
   numberColumn(
     "calls_connected",
@@ -100,21 +99,25 @@ export const activityColumnDefs = (
     body: (row) => row.tasks_called_text ?? "0 / 0",
     footer: () => total(`${totals.tasks_called} / ${totals.tasks_with_contact}`),
   },
-  {
-    key: "details",
-    label: "Details",
-    header: <span>Details</span>,
-    width: "80px",
-    body: (row) => (
-      <Button
-        icon="pi pi-eye"
-        className="report_button"
-        style={{ backgroundColor: "#4C4C4C", width: "2rem", height: "2rem" }}
-        rounded
-        onClick={() => openDetails(row)}
-        tooltip="Details: status and label counts, tasks called or not"
-        tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
-      />
-    ),
-  },
 ];
+
+/** The Details button column. The report puts it first; `locked` keeps it there even for a user whose saved column
+ * order was made before this column moved. */
+export const detailsColumnDef = (openDetails: (row: ITaskPerformance) => void): IActivityColumnDef => ({
+  key: "details",
+  label: "Details",
+  locked: true,
+  header: <span>Details</span>,
+  width: "80px",
+  body: (row) => (
+    <Button
+      icon="pi pi-eye"
+      className="report_button"
+      style={{ backgroundColor: "#4C4C4C", width: "2rem", height: "2rem" }}
+      rounded
+      onClick={() => openDetails(row)}
+      tooltip="Details: status and label counts, tasks called or not"
+      tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+    />
+  ),
+});
