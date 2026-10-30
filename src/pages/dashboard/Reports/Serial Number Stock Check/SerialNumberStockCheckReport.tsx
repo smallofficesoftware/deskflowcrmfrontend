@@ -19,8 +19,6 @@ import { useCommonFilterStore } from "../../../../store/report/useCommonFilterSt
 import {
   fetchApiStockMovementSerialNumberwise,
   IProductStockMovement,
-  ISerialNumberTaskHistory,
-  ISerialNumberVisitHistory,
   productProductTypesList,
 } from "../../../left-side/header/Setting/product/ProductController";
 import { ITitle } from "../../DashoardController";
@@ -34,8 +32,6 @@ interface ISerialNumberStockCheckReportProps {
   onHide?: () => void;
   MobileFlag?: string;
 }
-
-type TTab = "movement" | "task" | "visit";
 
 interface IReportColumn {
   key: string;
@@ -68,10 +64,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
   const [closingQty, setClosingQty] = useState(0);
   const [isInnerActive, setIsInnerActive] = useState(true);
   const [isOuterActive, setIsOuterActive] = useState(true);
-  const [taskHistory, setTaskHistory] = useState<ISerialNumberTaskHistory[]>([]);
-  const [visitHistory, setVisitHistory] = useState<ISerialNumberVisitHistory[]>([]);
-
-  const [tab, setTab] = useState<TTab>("movement");
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const { getFilter, setFilters } = useCommonFilterStore();
@@ -158,8 +150,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
         warehouseIds,
         setIsInnerActive,
         setIsOuterActive,
-        setTaskHistory,
-        setVisitHistory,
       );
       setSearchedSerial(serial);
     } finally {
@@ -174,10 +164,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
   useEffect(() => {
     if (searchedSerial) loadData(searchedSerial);
   }, [reportSelectedDates, warehouseIds]);
-
-  useEffect(() => {
-    setSelectedRows([]);
-  }, [tab]);
 
   const handleApplyFilters = (data: any) => {
     const [startDate, endDate] = getCurrentMonthDateRange();
@@ -199,7 +185,7 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
     setIsOrderModalShow(true);
   };
 
-  // ---- rows per tab -------------------------------------------------------
+  // ---- rows ---------------------------------------------------------------
   const movementRows = useMemo(
     () =>
       movements.map((item, i) => ({
@@ -219,53 +205,7 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
     [movements],
   );
 
-  const taskRows = useMemo(
-    () =>
-      taskHistory.map((item, i) => ({
-        row_key: `t_${item.id}`,
-        s_no: i + 1,
-        task_title: item.task_title || "",
-        type: item.is_support_ticket ? "Support Ticket" : "Task",
-        contact_name: item.contact_name || "",
-        from_date: item.task_fromdate ? formatDate(item.task_fromdate) : "",
-        completed_date: item.completed_date ? formatDate(item.completed_date) : "",
-      })),
-    [taskHistory],
-  );
-
-  const visitRows = useMemo(
-    () =>
-      visitHistory.map((item, i) => ({
-        row_key: `v_${item.id}`,
-        s_no: i + 1,
-        remark: item.remark || "",
-        contact_name: item.contact_name || "",
-        start_date: item.start_date ? formatDate(item.start_date) : "",
-        end_date: item.end_date ? formatDate(item.end_date) : "",
-      })),
-    [visitHistory],
-  );
-
   const columns: IReportColumn[] = useMemo(() => {
-    if (tab === "task") {
-      return [
-        { key: "s_no", label: "S.No", width: "4rem" },
-        { key: "task_title", label: "Title", width: "240px" },
-        { key: "type", label: "Type" },
-        { key: "contact_name", label: "Contact Name" },
-        { key: "from_date", label: "From Date" },
-        { key: "completed_date", label: "Completed Date" },
-      ];
-    }
-    if (tab === "visit") {
-      return [
-        { key: "s_no", label: "S.No", width: "4rem" },
-        { key: "remark", label: "Remark", width: "240px" },
-        { key: "contact_name", label: "Contact Name" },
-        { key: "start_date", label: "Start Date" },
-        { key: "end_date", label: "End Date" },
-      ];
-    }
     const cols: IReportColumn[] = [
       { key: "s_no", label: "S.No", width: "4rem" },
       { key: "date", label: "Date" },
@@ -281,12 +221,12 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
       { key: "value", label: "Value", numeric: true },
     );
     return cols;
-  }, [tab, isOuterActive, isInnerActive]);
+  }, [isOuterActive, isInnerActive]);
 
-  const activeRows: any[] = tab === "movement" ? movementRows : tab === "task" ? taskRows : visitRows;
+  const activeRows: any[] = movementRows;
   const exportColumns = columns.filter((c) => c.key !== "s_no");
   const dataToExport = () => (selectedRows.length > 0 ? selectedRows : activeRows);
-  const tabLabel = tab === "movement" ? "Stock Movement" : tab === "task" ? "Task / Support Ticket History" : "Visit History";
+  const tabLabel = "Stock Movement";
 
   const exportParams = () => ({
     reportType: "serial_number_stock_check",
@@ -296,7 +236,7 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
       label: c.label,
       ...(c.key === "qty" || c.key === "value" ? { format: "number" as const } : {}),
     })),
-    fileName: `Serial_Number_Stock_Check_${searchedSerial}_${tab}`,
+    fileName: `Serial_Number_Stock_Movement_${searchedSerial}`,
     rows: dataToExport(),
   });
 
@@ -383,13 +323,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
   const totalIn = movementRows.filter((r) => r.status === "In").reduce((s, r) => s + r.qty, 0);
   const totalOut = movementRows.filter((r) => r.status === "Out").reduce((s, r) => s + r.qty, 0);
 
-  const tabButtonStyle = (key: TTab): React.CSSProperties => ({
-    backgroundColor: tab === key ? "#f58634" : "transparent",
-    color: tab === key ? "#ffffff" : "#000000",
-    border: tab === key ? "none" : "1px solid #ccc",
-    boxShadow: "none",
-  });
-
   const kpi = (label: string, value: React.ReactNode, cls = "text-dark") => (
     <div className="col-md-3 col-6 mb-2">
       <div className="card shadow-sm border-0 bg-light p-3 text-center h-100">
@@ -436,8 +369,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
                   setSearchedSerial("");
                   setSearched(false);
                   setMovements([]);
-                  setTaskHistory([]);
-                  setVisitHistory([]);
                   setOpenQty(0);
                   setClosingQty(0);
                   setSelectedRows([]);
@@ -566,23 +497,8 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
         endDate={filters.endSearchDate}
       />
 
-      {/* Tabs */}
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <nav className="nav nav-pills flex-column flex-sm-row flex-wrap gap-2" style={{ width: "100%" }}>
-          <button type="button" className="flex-sm-fill text-sm-center nav-link" onClick={() => setTab("movement")} style={tabButtonStyle("movement")}>
-            <span className="m-1">Stock Movement ({movementRows.length})</span>
-          </button>
-          <button type="button" className="flex-sm-fill text-sm-center nav-link" onClick={() => setTab("task")} style={tabButtonStyle("task")}>
-            <span className="m-1">Task / Support Ticket History ({taskRows.length})</span>
-          </button>
-          <button type="button" className="flex-sm-fill text-sm-center nav-link" onClick={() => setTab("visit")} style={tabButtonStyle("visit")}>
-            <span className="m-1">Visit History ({visitRows.length})</span>
-          </button>
-        </nav>
-      </div>
-
       {/* Phone layout for movements: one card per movement (kept from the previous design) */}
-      {MobileFlag && tab === "movement" ? (
+      {MobileFlag ? (
         <div style={{ padding: "0 12px 12px" }}>
           {movementRows.length > 0 ? (
             movementRows.map((row) => (
@@ -618,7 +534,6 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
         /* Main Table */
         <div className="report_card" style={{ height: "75vh", display: "flex", flexDirection: "column" }}>
           <DataTable
-            key={tab}
             value={activeRows}
             dataKey="row_key"
             resizableColumns
@@ -666,7 +581,7 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
                   fontSize: "14px",
                 }}
                 bodyStyle={{ fontSize: "14px" }}
-                body={tab === "movement" ? cellBody(col.key) : undefined}
+                body={cellBody(col.key)}
               />
             ))}
           </DataTable>
