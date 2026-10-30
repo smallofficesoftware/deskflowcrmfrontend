@@ -42,6 +42,9 @@ const CreateCustomFieldView = ({
         useState<any[]>([]);
     const [selectedVariantScope, setSelectedVariantScope] =
         useState<SingleValue<IOption>>({ value: "3", label: "Both" });
+    // Product fields only: show the field on the online store product page (Yes/No, default No).
+    const [selectedShowOnStorefront, setSelectedShowOnStorefront] =
+        useState<SingleValue<IOption>>({ value: "2", label: "No" });
     const [selectedDisplayOn, setSelectedDisplayOn] =
         useState<SingleValue<IOption> | null>({ value: "1", label: "Form" });
     const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
@@ -307,6 +310,7 @@ const CreateCustomFieldView = ({
         setSelectedrowOrColumn(null);
         setSelectedApplicableModules([]);
         setSelectedVariantScope({ value: "3", label: "Both" });
+        setSelectedShowOnStorefront({ value: "2", label: "No" });
         setSelectedDisplayOn({ value: "1", label: "Form" });
         setSelectedStageIds([]);
         setSelectedPageType(null);
@@ -461,6 +465,7 @@ const CreateCustomFieldView = ({
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
                         variant_scope: Number(selectedVariantScope?.value) || 3,
+                        show_on_storefront: selectedPageType?.value?.toString() === "4" && selectedShowOnStorefront?.value === "1" ? 1 : 2,
                         display_on: displayOnValue,
                         stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
@@ -504,6 +509,7 @@ const CreateCustomFieldView = ({
                         third_party_field_name: thirdPartyFieldNameInput.trim(),
                         applicable_modules: applicableModulesStr,
                         variant_scope: Number(selectedVariantScope?.value) || 3,
+                        show_on_storefront: selectedPageType?.value?.toString() === "4" && selectedShowOnStorefront?.value === "1" ? 1 : 2,
                         display_on: displayOnValue,
                         stage_ids: stageIdsStr || null,
                         calc_config: calcConfigStr
@@ -599,6 +605,9 @@ const CreateCustomFieldView = ({
             setSelectedVariantScope(
                 variantScopeOptions.find((opt) => opt.value === String(productToEdit.variant_scope ?? 3))
                     || { value: "3", label: "Both" }
+            );
+            setSelectedShowOnStorefront(
+                String(productToEdit.show_on_storefront) === "1" ? { value: "1", label: "Yes" } : { value: "2", label: "No" }
             );
 
             setSelectedDisplayOn(
@@ -817,6 +826,23 @@ const CreateCustomFieldView = ({
                                                     />
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <div className="col-6 mt-2">
+                                            <label className="form-check-label">
+                                                <h6>Show On Online Store?</h6>
+                                            </label>
+                                            <div className="">
+                                                <div className="add-source-of-type-section ">
+                                                    <CustomSearchDropdown
+                                                        options={printDisplayOptions}
+                                                        value={selectedShowOnStorefront}
+                                                        onChange={(opt: SingleValue<IOption>) => setSelectedShowOnStorefront(opt)}
+                                                        className="w-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <small className="text-muted">Shown on the product page under Specifications.</small>
                                         </div>
                                     </>
                                 )}

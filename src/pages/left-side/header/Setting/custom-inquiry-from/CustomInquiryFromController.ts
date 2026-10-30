@@ -116,6 +116,8 @@ export interface ICustomInquiryFromList {
   third_party_field_name?: string;
   applicable_modules?: string;
   variant_scope?: number;
+  /** 1 = Yes, 2 = No: show this Product Master field on the online store product page. */
+  show_on_storefront?: number;
   display_on?: number;
   stage_ids?: string | null;
   calc_config?: string | null;
@@ -136,6 +138,8 @@ interface IAddCustomInquiryFromObj {
   third_party_field_name?: string;
   applicable_modules?: string;
   variant_scope?: number;
+  /** 1 = Yes, 2 = No: show this Product Master field on the online store product page. */
+  show_on_storefront?: number;
   display_on?: number;
   stage_ids?: string | null;
   calc_config?: string | null;
@@ -185,7 +189,7 @@ export const fetchCustomInquiryFromApi = async (
   const getUUID = await localStorage.getItem("UUID");
   const requestData = {
     table: "custom_field_form_masters",
-    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules,calc_config,display_on,stage_ids",
+    columns: "id,title,data_type,display_order,required_or_not,print_or_not,data_sorce,report_print_or_not,reference_column_name,form_type,product_feild_row_column,required_for,min_limit,max_limit,validation_type,third_party_field_name,applicable_modules,show_on_storefront,calc_config,display_on,stage_ids",
     where: [
       "isDelete=0",
       `form_type=${pageType}`,
@@ -384,6 +388,7 @@ export const createCustomInquiryFrom = async (
     third_party_field_name: customInquiryFromInput.third_party_field_name,
     applicable_modules: customInquiryFromInput.applicable_modules,
     variant_scope: customInquiryFromInput.variant_scope ?? 3,
+    show_on_storefront: customInquiryFromInput.show_on_storefront ?? 2,
     display_on: customInquiryFromInput.display_on ?? 1,
     stage_ids: customInquiryFromInput.stage_ids ?? null,
     calc_config: customInquiryFromInput.calc_config,
@@ -436,6 +441,7 @@ export const updateCustomInqFrom = async (
       third_party_field_name: customInquiryFromInput.third_party_field_name,
       applicable_modules: customInquiryFromInput.applicable_modules,
       variant_scope: customInquiryFromInput.variant_scope ?? 3,
+      show_on_storefront: customInquiryFromInput.show_on_storefront ?? 2,
       display_on: customInquiryFromInput.display_on ?? 1,
       stage_ids: (customInquiryFromInput.display_on ?? 1) === 2 ? (customInquiryFromInput.stage_ids ?? null) : null,
       calc_config: customInquiryFromInput.calc_config ?? null,
