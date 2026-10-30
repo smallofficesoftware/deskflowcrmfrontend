@@ -709,6 +709,7 @@ const ProductView = ({
             </div>
           </div>
           {searchOpen && (
+            <>
             <div className="header-search" style={{ zIndex: "1" }}>
               <div className="search-bar">
                 <div className="d-flex justify-content-between">
@@ -740,7 +741,6 @@ const ProductView = ({
                       ></path>
                     </svg>
                   </span>
-                  <ProductKindSelect value={productKind} onChange={setProductKind} style={{ marginRight: 6 }} />
                   <input
                     type="text"
                     title="Search"
@@ -767,6 +767,12 @@ const ProductView = ({
                 </div>
               </div>
             </div>
+            {/* The product-type dropdown has its own row under the search bar: the search and back icons are
+                absolutely positioned over the left edge of the bar, so a control inside that row ended up under them. */}
+            <div style={{ padding: "6px 12px 8px", background: "var(--secondary)" }}>
+              <ProductKindSelect value={productKind} onChange={setProductKind} style={{ width: "100%" }} />
+            </div>
+            </>
           )}
           <div className="chats-notifications" ref={listInnerRef}>
             <div className="block p-0">
