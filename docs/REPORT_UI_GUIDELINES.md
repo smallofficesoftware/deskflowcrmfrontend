@@ -105,6 +105,28 @@ behave like these, using the shared pieces below instead of its own markup.
 - Columns come from a `ColumnDef[]` list through `useColumnPreferences("<report_key>", defs)`
   so the user's column choice is remembered.
 
+### Action columns (a button per row)
+
+A column that only holds a button (Action, Details, Open chat, Edit) is not data, so it is
+built differently from the data columns. Reference: the `Action` column of
+`Reports/All Contact Report` (`actionBodyTemplate`).
+
+- **No sorting, no search box, no filter** on it: leave out `sortable`, `filter` and
+  `filterField`. It is its own `<Column>`, not part of the data-column `.map`.
+- Header: text such as `Action` or `Details`, `headerClassName="center-header"`, a fixed narrow
+  width (`70px`), sticky like the other headers.
+- Body: the icon is **centred** in the cell, in a
+  `<div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>` holding a
+  text-style PrimeReact `Button` (`className="p-button-text"`, `style={{ color: "green", width: "2rem" }}`,
+  an icon, `tooltip` with `position: "left"`, an `aria-label`). Call `e.stopPropagation()` in
+  `onClick` so the row's own click or selection does not also fire.
+- Where it sits: right after the selection checkbox column, before the data columns (Action
+  first, as in All Contact Report) - or last when it is the only place for it, but be consistent
+  within the report. If it is a `ColumnDef` for `useColumnPreferences`, mark it `locked: true` so
+  it stays in place and cannot be hidden or dragged.
+- Leave it out of Print and the Excel / PDF exports (it has no value): build an
+  `exportColumns` list without it.
+
 ## 7. Export and print
 
 - Excel / PDF: `exportReportExcel` / `exportReportPdf` from
@@ -182,6 +204,8 @@ Reference implementations: `Reports/Serial Number Trace` and
 - [ ] Period and filters through `useCommonFilterStore` and `CheckBoxFilterModal`.
 - [ ] Current month by default; search debounced; reloads on filter change.
 - [ ] Sortable, row-filterable, sticky-header columns; `S.No` first.
+- [ ] Button columns (Action / Details) follow "Action columns": no sort / search / filter,
+      icon centred, left out of Print and exports.
 - [ ] Export (Excel, PDF) and Print behind the right permissions.
 - [ ] No view right: alert and no API call.
 - [ ] Destructive actions confirm through `ConfirmationModal`, not `window.confirm`.

@@ -799,6 +799,9 @@ const TeamPerformanceReports = ({
     resetColumns,
   } = useColumnPreferences("team_performance_report", baseColumnDefs);
 
+  // The Details button is an action column: it has no value, so print and the exports leave it out.
+  const exportColumns = visibleColumns.filter((col) => col.key !== "details");
+
   const getExportCellValue = (
     col: TeamColumnDef,
     customer: ITaskPerformance,
@@ -940,7 +943,7 @@ const TeamPerformanceReports = ({
       <table>
         <thead>
           <tr>
-            ${visibleColumns.map((col) => `<th>${col.label}</th>`).join("")}
+            ${exportColumns.map((col) => `<th>${col.label}</th>`).join("")}
           </tr>
         </thead>
         <tbody>
@@ -948,7 +951,7 @@ const TeamPerformanceReports = ({
             .map(
               (customer) => `
                 <tr>
-                  ${visibleColumns
+                  ${exportColumns
                     .map(
                       (col) =>
                         `<td>${getExportCellValue(col, customer)}</td>`,
@@ -1155,7 +1158,7 @@ const TeamPerformanceReports = ({
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                  columns={visibleColumns}
+                  columns={exportColumns}
                   fileName="Team_Performance_Report"
                   canShare={canShare}
                   disabled={customers.length === 0}
@@ -1194,7 +1197,7 @@ const TeamPerformanceReports = ({
                     selectedDates: filters.selectedDateArray,
                     selectedTeamMembers: filters.checkedOptionsUser,
                   }}
-                  columns={visibleColumns}
+                  columns={exportColumns}
                   fileName="Team_Performance_Report"
                   canShare={canShare}
                   disabled={customers.length === 0}
@@ -1323,7 +1326,18 @@ const TeamPerformanceReports = ({
               bodyStyle={{ textAlign: "center" }}
             />
           )}
-          {visibleColumns.map((col) => (
+          {visibleColumns.map((col) =>
+            // Action column (the Details button): no sorting, no search, no filter, icon centred - same as the
+            // Action column of All Contact Report (docs/REPORT_UI_GUIDELINES.md, "Action columns").
+            col.key === "details" ? (
+              <Column
+                key={col.key}
+                header={col.header}
+                headerClassName="center-header"
+                headerStyle={{ width: "70px", position: "sticky", top: 0, zIndex: 1 }}
+                body={col.body}
+              />
+            ) : (
             <Column
               key={col.key}
               field={col.key}
@@ -1357,7 +1371,8 @@ const TeamPerformanceReports = ({
               body={col.body}
               footer={col.footer}
             />
-          ))}
+            ),
+          )}
         </DataTable>
       </div>
       {detailFor && (

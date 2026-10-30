@@ -108,16 +108,22 @@ export const detailsColumnDef = (openDetails: (row: ITaskPerformance) => void): 
   label: "Details",
   locked: true,
   header: <span>Details</span>,
-  width: "80px",
+  width: "70px",
+  // Same as the Action column of All Contact Report: a text-style icon button, centred in the cell.
   body: (row) => (
-    <Button
-      icon="pi pi-eye"
-      className="report_button"
-      style={{ backgroundColor: "#4C4C4C", width: "2rem", height: "2rem" }}
-      rounded
-      onClick={() => openDetails(row)}
-      tooltip="Details: status and label counts, tasks called or not"
-      tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
-    />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Button
+        icon="pi pi-eye"
+        className="p-button-text"
+        style={{ color: "green", width: "2rem" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          openDetails(row);
+        }}
+        tooltip="Details: status and label counts, tasks called or not"
+        tooltipOptions={{ position: "left" }}
+        aria-label="Details"
+      />
+    </div>
   ),
 });

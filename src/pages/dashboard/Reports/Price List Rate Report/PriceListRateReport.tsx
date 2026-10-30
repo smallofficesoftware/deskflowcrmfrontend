@@ -621,6 +621,7 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
           {canEditPrice && (
             <Column
               header="Action"
+              headerClassName="center-header"
               headerStyle={{
                 width: "80px",
                 position: "sticky",
