@@ -41,11 +41,30 @@ export interface IWarehouseTransferRow {
   qty: number;
 }
 
+/** One document line behind the totals (listed in the popup that opens when a total is clicked). */
+export interface IWarehouseMovementLine {
+  cart_date: string;
+  warehouse_id: number;
+  warehouse_name: string;
+  product_id: number;
+  /** "transfer" | "stock_adjustment" | "dispatch" | "sales_invoice" | "sales_return" | "grn" | "purchase_invoice" | "purchase_return" */
+  source_key: string;
+  source: string;
+  cart_number: string;
+  product_name: string;
+  product_code: string;
+  in_qty: number;
+  out_qty: number;
+}
+
 export interface IWarehouseTransferReport {
   summary: IWarehouseTransferSummary[];
   product_wise: IWarehouseTransferProductWise[];
   source_wise: IWarehouseSourceWise[];
   transfers: IWarehouseTransferRow[];
+  /** Newest first, capped (see movements_total). */
+  movements: IWarehouseMovementLine[];
+  movements_total: number;
   totals: {
     transfer_in: number;
     transfer_out: number;
@@ -61,6 +80,8 @@ export const emptyWarehouseTransferReport: IWarehouseTransferReport = {
   product_wise: [],
   source_wise: [],
   transfers: [],
+  movements: [],
+  movements_total: 0,
   totals: { transfer_in: 0, transfer_out: 0, total_in: 0, total_out: 0, net: 0, transfer_count: 0 },
 };
 

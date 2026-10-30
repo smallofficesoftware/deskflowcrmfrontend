@@ -16,9 +16,11 @@ import useCheckUserPermission from "../../../../hooks/useCheckUserPermission";
 import { exportReportExcel, exportReportPdf } from "../../../../services/reportExportService";
 import { useCommonFilterStore } from "../../../../store/report/useCommonFilterStore";
 import StockAdjustmentModel from "../../../left-side/header/Setting/stock-adjustment/StockAdjustmentModel";
+import WarehouseMovementDetailModal from "./WarehouseMovementDetailModal";
 import {
   emptyWarehouseTransferReport,
   fetchWarehouseTransferReportApi,
+  IWarehouseMovementLine,
   IWarehouseTransferReport,
 } from "./WarehouseTransferReportController";
 
@@ -28,6 +30,10 @@ interface IWarehouseTransferReportProps {
 }
 
 type TTab = "summary" | "product" | "source" | "transfer";
+
+// Totals that open the document popup when clicked ("transfers" is the Transfers card).
+type TDetailField = "total_in" | "total_out" | "net" | "transfer_in" | "transfer_out" | "transfers";
+const DETAIL_FIELDS: TDetailField[] = ["total_in", "total_out", "net", "transfer_in", "transfer_out"];
 
 interface IReportColumn {
   key: string;
@@ -294,13 +300,66 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
     printReportTable(`${REPORT_TITLE} - ${TAB_LABEL[tab]}`, columns, dataToPrint);
   };
 
+  // Click a total and a popup lists the document lines behind it (dispatch, invoice, GRN, return, stock adjustment,
+  // transfer). `scope` narrows the lines to the clicked row: its warehouse, and its product or source on those tabs.
+  const [detailPopup, setDetailPopup] = useState<{ title: string; lines: IWarehouseMovementLine[] } | null>(null);
+
+  const DETAIL_FIELD_TITLE: Record<TDetailField, string> = {
+    total_in: "Stock In (+)",
+    total_out: "Stock Out (-)",
+    net: "Net (all stock movements)",
+    transfer_in: "Transfer In",
+    transfer_out: "Transfer Out",
+    transfers: "Transfers",
+  };
+
+  const openDetail = (field: TDetailField, scope: { warehouse_id?: number; product_id?: number; source?: string }, titlePrefix: string) => {
+    const lines = report.movements.filter(
+      (m) =>
+        (scope.warehouse_id === undefined || m.warehouse_id === scope.warehouse_id) &&
+        (scope.product_id === undefined || m.product_id === scope.product_id) &&
+        (scope.source === undefined || m.source === scope.source) &&
+        (field === "transfer_in" || field === "transfer_out" || field === "transfers" ? m.source_key === "transfer" : true) &&
+        (field === "total_in" || field === "transfer_in" ? m.in_qty > 0 : field === "total_out" || field === "transfer_out" ? m.out_qty > 0 : true),
+    );
+    setDetailPopup({ title: `${titlePrefix} - ${DETAIL_FIELD_TITLE[field]}`, lines });
+  };
+
+  // A total that can be clicked: underlined, same colour as its text.
+  const clickable = (content: React.ReactNode, onClick: () => void) => (
+    <button
+      type="button"
+      className="btn btn-link p-0 text-decoration-underline"
+      style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit" }}
+      title="Click to see the documents"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {content}
+    </button>
+  );
+
   const cellBody = (col: IReportColumn) => (row: any) => {
+    const detailField = DETAIL_FIELDS.includes(col.key as TDetailField) && tab !== "transfer" ? (col.key as TDetailField) : null;
+    let content: React.ReactNode;
     if (col.key === "net") {
       const color = row.net > 0 ? "text-success fw-bold" : row.net < 0 ? "text-danger fw-bold" : "text-dark";
-      return <span className={color}>{fmtSigned(row.net)}</span>;
+      content = <span className={color}>{fmtSigned(row.net)}</span>;
+    } else if (col.numeric) {
+      content = fmtQty(row[col.key]);
+    } else {
+      return row[col.key] === "" || row[col.key] == null ? "-" : row[col.key];
     }
-    if (col.numeric) return fmtQty(row[col.key]);
-    return row[col.key] === "" || row[col.key] == null ? "-" : row[col.key];
+    if (!detailField || Number(row[col.key]) === 0) return content;
+    const scope = {
+      warehouse_id: row.warehouse_id,
+      ...(tab === "product" ? { product_id: row.product_id } : {}),
+      ...(tab === "source" ? { source: row.source } : {}),
+    };
+    const prefix = `${row.warehouse_name}${tab === "product" ? ` - ${row.product_name}` : tab === "source" ? ` - ${row.source}` : ""}`;
+    return clickable(content, () => openDetail(detailField, scope, prefix));
   };
 
   if (!canViewReport) {
@@ -482,26 +541,32 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
             <span className="text-muted small">Transfers</span>
-            <h5 className="fw-bold mb-0 text-primary">{totals.transfer_count}</h5>
+            <h5 className="fw-bold mb-0 text-primary">
+              {totals.transfer_count > 0 ? clickable(totals.transfer_count, () => openDetail("transfers", {}, "All warehouses")) : totals.transfer_count}
+            </h5>
           </div>
         </div>
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
             <span className="text-muted small">Stock In (+)</span>
-            <h5 className="fw-bold mb-0 text-success">{fmtQty(totals.total_in)}</h5>
+            <h5 className="fw-bold mb-0 text-success">
+              {totals.total_in !== 0 ? clickable(fmtQty(totals.total_in), () => openDetail("total_in", {}, "All warehouses")) : fmtQty(totals.total_in)}
+            </h5>
           </div>
         </div>
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
             <span className="text-muted small">Stock Out (-)</span>
-            <h5 className="fw-bold mb-0 text-danger">{fmtQty(totals.total_out)}</h5>
+            <h5 className="fw-bold mb-0 text-danger">
+              {totals.total_out !== 0 ? clickable(fmtQty(totals.total_out), () => openDetail("total_out", {}, "All warehouses")) : fmtQty(totals.total_out)}
+            </h5>
           </div>
         </div>
         <div className="col-md-3">
           <div className="card shadow-sm border-0 bg-light p-3 text-center">
             <span className="text-muted small">Net</span>
             <h5 className={`fw-bold mb-0 ${totals.net < 0 ? "text-danger" : totals.net > 0 ? "text-success" : "text-dark"}`}>
-              {fmtSigned(totals.net)}
+              {totals.net !== 0 ? clickable(fmtSigned(totals.net), () => openDetail("net", {}, "All warehouses")) : fmtSigned(totals.net)}
             </h5>
           </div>
         </div>
@@ -600,6 +665,20 @@ const WarehouseTransferReport: React.FC<IWarehouseTransferReportProps> = ({ onHi
       )}
 
       {/* Filter Modal */}
+      {detailPopup && (
+        <WarehouseMovementDetailModal
+          show={!!detailPopup}
+          onHide={() => setDetailPopup(null)}
+          title={detailPopup.title}
+          period={
+            reportSelectedDates.length === 2
+              ? `${reportSelectedDates[0].toLocaleDateString("en-GB").replace(/\//g, "-")} to ${reportSelectedDates[1].toLocaleDateString("en-GB").replace(/\//g, "-")}`
+              : undefined
+          }
+          lines={detailPopup.lines}
+          truncated={report.movements_total > report.movements.length}
+        />
+      )}
       {isModalFilterVisible && (
         <CheckBoxFilterModal
           show={isModalFilterVisible}
