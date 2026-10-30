@@ -16,6 +16,8 @@ export interface IStockAdjustmentView {
   total_qty: number;
   created_date_time: string;
   created_by_name: string;
+  /** Warehouse(s) of the entry's lines, comma separated; empty when none. */
+  warehouse_name?: string;
 }
 
 export const handleDeleteStockAdjustment = async (

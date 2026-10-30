@@ -561,6 +561,15 @@ const StockAdjustmentView = ({
                                         <b>Total Qty :</b> {item.total_qty}
                                       </h4>
 
+                                      {item.warehouse_name && (
+                                        <h4
+                                          className="inquiry-front"
+                                          style={{ margin: "2px 0" }}
+                                        >
+                                          <b>Warehouse :</b> {item.warehouse_name}
+                                        </h4>
+                                      )}
+
                                       <h4
                                         className="inquiry-front"
                                         style={{ margin: "2px 0" }}

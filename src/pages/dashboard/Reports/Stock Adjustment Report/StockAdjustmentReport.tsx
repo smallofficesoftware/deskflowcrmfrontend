@@ -341,6 +341,24 @@ const StockAdjustmentReport = ({ onHide }: IStockAdjustmentReport) => {
                                 body={(rowData: IStockAdjustmentView) => rowData.total_qty}
                             />
                             <Column
+                                field="warehouse_name"
+                                header={
+                                    <span>
+                                        Warehouse
+                                    </span>
+                                }
+                                sortable
+                                filter
+                                filterPlaceholder="Search"
+                                filterMatchMode="contains"
+                                headerStyle={{
+                                    background: "#f8f9fa",
+                                    fontSize: "14px",
+                                }}
+                                bodyStyle={{ fontSize: "14px" }}
+                                body={(rowData: IStockAdjustmentView) => rowData.warehouse_name || "-"}
+                            />
+                            <Column
                                 field="created_by_name"
                                 header={
                                     <span>
