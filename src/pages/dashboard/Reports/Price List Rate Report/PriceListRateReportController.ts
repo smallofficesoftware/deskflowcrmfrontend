@@ -16,6 +16,8 @@ export interface IPriceListRateCurrentRow {
   net_rate: number | null;
   last_updated: string;
   last_updated_by_name: string;
+  /** The item's last 5 net rate changes, newest first (only sent when a price list or product is selected). */
+  recent_changes?: { date: string; old_net_rate: number | null; new_net_rate: number | null }[];
 }
 
 export interface IPriceListRateHistoryRow {

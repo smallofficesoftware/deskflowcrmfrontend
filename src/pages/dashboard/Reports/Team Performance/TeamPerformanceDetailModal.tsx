@@ -14,14 +14,27 @@ interface IProps {
 
 const MODAL_THEME = "modal-light-1";
 
-const Breakdown: React.FC<{ title: string; rows: { name: string; count: number }[] }> = ({ title, rows }) => (
-  <div className="col-12 col-md-6 mb-3">
+// Every table in this popup (the two breakdowns and the tasks list) is full width with the same header row, so the
+// titles and tables line up on one left and right edge. An empty breakdown is still a table, with one "No contacts." row.
+const Breakdown: React.FC<{ title: string; label: string; rows: { name: string; count: number }[] }> = ({ title, label, rows }) => (
+  <div className="mb-3">
     <h6 className="fw-bold text-dark">{title}</h6>
-    {rows.length === 0 ? (
-      <div className="small text-dark">No contacts.</div>
-    ) : (
+    <div className="table-responsive">
       <table className="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>{label}</th>
+            <th className="text-end">Contacts</th>
+          </tr>
+        </thead>
         <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={2} className="text-dark">
+                No contacts.
+              </td>
+            </tr>
+          )}
           {rows.map((r) => (
             <tr key={r.name}>
               <td className="text-dark">{r.name}</td>
@@ -30,7 +43,7 @@ const Breakdown: React.FC<{ title: string; rows: { name: string; count: number }
           ))}
         </tbody>
       </table>
-    )}
+    </div>
   </div>
 );
 
@@ -55,7 +68,7 @@ const TeamPerformanceDetailModal: React.FC<IProps> = ({ show, onHide, userId, us
 
   return (
     <Modal show={show} onHide={onHide} size="xl" centered scrollable className={MODAL_THEME}>
-      <div className={`p-10 m-title ${MODAL_THEME}`}>{username} - performance details</div>
+      <div className={`p-10 m-title ${MODAL_THEME}`} style={{ paddingLeft: "1rem" }}>{username} - performance details</div>
       <Modal.Body className={MODAL_THEME}>
         {loading && <div className="text-dark">Loading...</div>}
         {!loading && !detail && <div className="text-dark">No details available.</div>}
@@ -64,10 +77,8 @@ const TeamPerformanceDetailModal: React.FC<IProps> = ({ show, onHide, userId, us
             {detail.new_contacts && (
               <>
                 <h6 className="fw-bold text-dark">New contacts created in this period: {detail.new_contacts.count}</h6>
-                <div className="row">
-                  <Breakdown title="By status" rows={detail.new_contacts.status_breakdown} />
-                  <Breakdown title="By label" rows={detail.new_contacts.label_breakdown} />
-                </div>
+                <Breakdown title="By status" label="Status" rows={detail.new_contacts.status_breakdown} />
+                <Breakdown title="By label" label="Label" rows={detail.new_contacts.label_breakdown} />
               </>
             )}
             {detail.followup_contacts && (
@@ -75,10 +86,8 @@ const TeamPerformanceDetailModal: React.FC<IProps> = ({ show, onHide, userId, us
                 <h6 className="fw-bold text-dark">
                   Follow-ups on older contacts (completed reminder or task): {detail.followup_contacts.count}
                 </h6>
-                <div className="row">
-                  <Breakdown title="By status" rows={detail.followup_contacts.status_breakdown} />
-                  <Breakdown title="By label" rows={detail.followup_contacts.label_breakdown} />
-                </div>
+                <Breakdown title="By status" label="Status" rows={detail.followup_contacts.status_breakdown} />
+                <Breakdown title="By label" label="Label" rows={detail.followup_contacts.label_breakdown} />
               </>
             )}
             <p className="small text-dark">

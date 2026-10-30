@@ -1,6 +1,7 @@
 import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
+import { Menu } from "primereact/menu";
 import { MultiSelect } from "primereact/multiselect";
 import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
@@ -93,6 +94,10 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const [selectedPriceListIds, setSelectedPriceListIds] = useState<number[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const hasSelection = selectedPriceListIds.length > 0 || selectedProductIds.length > 0;
+  // Row whose gear menu is open (one shared popup menu for the table).
+  const [menuRow, setMenuRow] = useState<any>(null);
+  const rowMenu = useRef<Menu>(null);
 
   const [globalSearchText, setGlobalSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
@@ -210,7 +215,9 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const rows = useMemo(() => {
     const source: any[] =
       tab === "current"
-        ? report.current
+        ? hasSelection
+          ? report.current
+          : [] // current rates are long: show them only once a price list or a product is picked
         : report.history.map((r) => ({
             ...r,
             // A new item has no old rate, so there is no change to show for it.
@@ -220,7 +227,7 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
     return source
       .filter((r) => !needle || Object.values(r).some((v) => String(v ?? "").toLowerCase().includes(needle)))
       .map((r, i) => ({ ...r, s_no: i + 1, row_key: `${tab}_${i}` }));
-  }, [report, tab, debouncedSearchText]);
+  }, [report, tab, debouncedSearchText, hasSelection]);
 
   const columns = COLUMNS[tab];
 
@@ -297,6 +304,20 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       if (row.rate_change === null) return <span className="badge bg-info">New</span>;
       const color = row.rate_change > 0 ? "text-success fw-bold" : row.rate_change < 0 ? "text-danger fw-bold" : "text-dark";
       return <span className={color}>{fmtChange(row.rate_change)}</span>;
+    }
+    if (col.key === "net_rate") {
+      // The item's last 5 net rate changes sit under the value (newest first), so no extra column is needed.
+      const recent: { date: string; old_net_rate: number | null; new_net_rate: number | null }[] = row.recent_changes ?? [];
+      return (
+        <div>
+          <div>{fmtAmount(row.net_rate)}</div>
+          {recent.map((c, i) => (
+            <div key={i} className="text-muted" style={{ fontSize: "11px", lineHeight: 1.35 }}>
+              {c.date}: {fmtAmount(c.old_net_rate)} &rarr; {fmtAmount(c.new_net_rate)}
+            </div>
+          ))}
+        </div>
+      );
     }
     if (col.numeric) return fmtAmount(row[col.key]);
     return row[col.key] === "" || row[col.key] == null ? "-" : row[col.key];
@@ -462,19 +483,19 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       {/* Summary KPI Section */}
       <div className="row mb-3">
         <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-light p-3 text-center">
+          <div className="card shadow-sm border-0 bg-white p-3 text-center">
             <span className="text-muted small">Price Lists</span>
             <h5 className="fw-bold mb-0 text-primary">{totals.price_lists}</h5>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-light p-3 text-center">
+          <div className="card shadow-sm border-0 bg-white p-3 text-center">
             <span className="text-muted small">Products Priced</span>
             <h5 className="fw-bold mb-0 text-primary">{totals.products}</h5>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-light p-3 text-center">
+          <div className="card shadow-sm border-0 bg-white p-3 text-center">
             <span className="text-muted small">Rate Changes (selected period)</span>
             <h5 className="fw-bold mb-0 text-dark">{totals.changes}</h5>
           </div>
@@ -565,7 +586,7 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
           selection={selectedRows}
           onSelectionChange={(e: any) => setSelectedRows(e.value)}
           selectionMode="multiple"
-          emptyMessage="No records found"
+          emptyMessage={tab === "current" && !hasSelection ? "Select a price list or a product above to see its rates." : "No records found"}
           loadingIcon={<i className="pi pi-spin pi-spinner" style={{ fontSize: "2rem" }} />}
         >
           {!MobileFlag && (
@@ -611,18 +632,24 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
               bodyStyle={{ fontSize: "14px", textAlign: "center" }}
               body={(row: any) => (
                 <Button
-                  icon="pi pi-pencil"
-                  className="report_button"
-                  style={{ backgroundColor: "#4C4C4C", width: "2rem", height: "2rem" }}
-                  rounded
-                  onClick={() => openEditPrice(row)}
-                  tooltip="Edit Price"
-                  tooltipOptions={{ position: "top", style: { fontSize: "14px" } }}
+                  icon="pi pi-cog"
+                  className="p-button-text"
+                  style={{ color: "green", width: "2rem", height: "2rem" }}
+                  onClick={(e) => {
+                    setMenuRow(row);
+                    rowMenu.current?.toggle(e);
+                  }}
+                  aria-haspopup
                 />
               )}
             />
           )}
         </DataTable>
+        <Menu
+          ref={rowMenu}
+          popup
+          model={[{ label: "Edit", icon: "pi pi-pencil", command: () => menuRow && openEditPrice(menuRow) }]}
+        />
       </div>
 
       {editPriceList && (

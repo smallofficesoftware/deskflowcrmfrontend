@@ -294,6 +294,27 @@ const EcommerceStorefrontSettingsView = ({
     }
   };
 
+  const [republishBusy, setRepublishBusy] = useState(false);
+
+  // Visitors who are not logged in see the store's products, prices and categories from a copy refreshed once a
+  // day; this drops that copy so the next visit reads what is in the CRM now.
+  const republishSite = async () => {
+    if (republishBusy) return;
+    setRepublishBusy(true);
+    try {
+      const { data } = await axiosInstance.post("storefront/republish", {});
+      if (data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        toast.success("Site republished. Visitors now see your latest products, prices and categories.");
+      } else {
+        toast.error(data.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.ack_msg || MESSAGE_UNKNOWN_ERROR_OCCURRED);
+    } finally {
+      setRepublishBusy(false);
+    }
+  };
+
   const selectTheme = async (themeId: number) => {
     if (themeBusy || themeId === currentThemeId) return;
     setThemeBusy(true);
@@ -696,6 +717,19 @@ const EcommerceStorefrontSettingsView = ({
                   </button>
                 );
               })}
+            </div>
+            </section>
+            <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">
+            <h5 className="mb-2">Republish Site</h5>
+            <p className="text-muted small mb-3">
+              Your store shows products, prices and categories to visitors from a copy that refreshes every day, so it loads
+              fast. After you change products, prices or categories, click Republish to show them right away. Theme, logo,
+              favicon and settings changes republish by themselves. Logged-in customers always see live data.
+            </p>
+            <div>
+              <button type="button" className="btn btn-primary" disabled={republishBusy} onClick={republishSite}>
+                {republishBusy ? "Republishing..." : "Republish Site"}
+              </button>
             </div>
             </section>
             <section className="esf-card card shadow-sm border-0 bg-light p-3 mb-3">

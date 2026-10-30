@@ -151,37 +151,54 @@ const CreateAttributeMasterView = ({
             </div>
 
             {savedId && (
-              <div className="px-3 mt-3">
-                <h6>Values</h6>
-                <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-                  {values.map((v) => (
-                    <span key={v.id} className="badge bg-light text-dark border">
-                      {v.value}{" "}
-                      <button
-                        type="button"
-                        className="btn btn-sm p-0 ms-1 text-danger"
-                        style={{ border: "none", background: "none" }}
-                        onClick={() => removeValue(v.id)}
+              // Same left margin and field style as the Attribute Name block above, so the popup reads as one form.
+              <div className="head" style={{ display: "block", marginLeft: "20px", marginTop: "16px" }}>
+                <label className="form-check-label">
+                  <h6>Values</h6>
+                </label>
+                {values.length > 0 ? (
+                  <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    {values.map((v) => (
+                      <span
+                        key={v.id}
+                        className="d-inline-flex align-items-center gap-1"
+                        style={{ background: "#f1f3f5", border: "1px solid #dee2e6", borderRadius: 16, padding: "3px 6px 3px 12px", fontSize: 14 }}
                       >
-                        &times;
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    style={{ width: 180 }}
-                    placeholder="Add value"
-                    value={newValueInput}
-                    onChange={(e) => setNewValueInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addValue()}
-                  />
+                        {v.value}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${v.value}`}
+                          title="Remove"
+                          style={{ border: "none", background: "none", color: "#dc3545", fontSize: 18, lineHeight: 1, padding: "0 4px", cursor: "pointer" }}
+                          onClick={() => removeValue(v.id)}
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-muted small mb-3">No values yet.</div>
+                )}
+                <div className="d-flex align-items-center gap-2" style={{ marginRight: "20px" }}>
+                  <div className="search-bar flex-grow-1">
+                    <div className="add-source-of-type-section">
+                      <input
+                        type="text"
+                        maxLength={BIG_TEXT_LENGTH}
+                        placeholder="Add value (e.g. Red, Large)"
+                        value={newValueInput}
+                        onChange={(e) => setNewValueInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addValue()}
+                      />
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-secondary"
+                    className="btn px-4 text-light rounded-1"
+                    style={{ backgroundColor: "#f58634", height: 38, whiteSpace: "nowrap" }}
                     onClick={addValue}
+                    disabled={!newValueInput.trim()}
                   >
                     Add
                   </button>
