@@ -117,6 +117,29 @@ const ProductView = ({
 
   let itemsPerPage = ITEMS_PER_PAGE;
 
+  // Loading the list. Every first-page load (open, search, clear, product type, refresh) goes through loadFirstPage:
+  // it starts again from page 0, and a slow answer from an older request can never replace a newer one. Scrolling loads
+  // the next pages through the guard in the scroll effect below.
+  const listRequestSeq = useRef(0); // the newest first-page request; older answers are dropped
+  const nextPageLoading = useRef(false); // a next-page request is on its way
+  const noMorePages = useRef(false); // the last page came back short, so there is nothing more to load
+  const loadFirstPage = (term: string) => {
+    const seq = ++listRequestSeq.current;
+    setCurrentPage(0);
+    noMorePages.current = false;
+    return fetchProductApi(
+      0,
+      itemsPerPage,
+      (items) => {
+        if (seq !== listRequestSeq.current) return;
+        noMorePages.current = items.length < ITEMS_PER_PAGE;
+        setProductList(items);
+      },
+      setLoading,
+      term,
+    );
+  };
+
   useEscapeKey(closeProductView);
 
   const toggleDropdownProduct = (productId: number | undefined) => {
@@ -160,7 +183,7 @@ const ProductView = ({
 
   useEffect(() => {
     if (canView && isProductView) {
-      fetchProductApi(0, itemsPerPage, setProductList, setLoading, searchTerm);
+      loadFirstPage(searchTerm);
     }
   }, [isProductView, canView]);
 
@@ -225,17 +248,17 @@ const ProductView = ({
 
   const handelRefreshProduct = async () => {
     if (canView) {
-      await fetchProductApi(0, itemsPerPage, setProductList, setLoading, "");
+      await loadFirstPage("");
     }
   };
 
   const handleConfirmProductImportExcel = async () => {
     setIsModalExcelProductVisible(false);
-    await fetchProductApi(0, itemsPerPage, setProductList, setLoading, "");
+    await loadFirstPage("");
   };
   const handleConfirmProductImportExcelForUpdate = async () => {
     setIsModalExcelProductForUpdate(false);
-    await fetchProductApi(0, itemsPerPage, setProductList, setLoading, "");
+    await loadFirstPage("");
   };
 
   const openSearch = () => {
@@ -272,7 +295,7 @@ const ProductView = ({
 
     // Only call API after user stops typing for 1 second
     const newTimeout = setTimeout(() => {
-      fetchProductApi(0, itemsPerPage, setProductList, setLoading, value);
+      loadFirstPage(value);
     }, 1000);
 
     setSearchTimeout(newTimeout);
@@ -286,7 +309,7 @@ const ProductView = ({
     setSearchOpen(!searchOpen);
     setSearchTimeout(
       setTimeout(() => {
-        fetchProductApi(0, itemsPerPage, setProductList, setLoading, "");
+        loadFirstPage("");
       }, 1000),
     );
   };
@@ -377,14 +400,13 @@ const ProductView = ({
       firstKindRun.current = false;
       return;
     }
-    setCurrentPage(0);
-    fetchProductApi(0, itemsPerPage, setProductList, setLoading, searchTerm);
+    loadFirstPage(searchTerm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productKind]);
 
   useEffect(() => {
     if (refreshProduct) {
-      fetchProductApi(0, itemsPerPage, setProductList, setLoading, searchTerm);
+      loadFirstPage(searchTerm);
       setRefreshProduct(false);
     }
   }, [refreshProduct, itemsPerPage, searchTerm]);
@@ -396,22 +418,35 @@ const ProductView = ({
   useEffect(() => {
     const handleScroll = () => {
       const el = listInnerRef.current;
-      if (el && !loading) {
+      if (el && !loading && !nextPageLoading.current && !noMorePages.current) {
         const isBottomReached =
           el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
         if (isBottomReached) {
+          // One next-page request at a time: scroll events fire many times a second at the bottom, and every
+          // extra request used to add the same page again and skip the pages after it.
+          nextPageLoading.current = true;
+          const seq = listRequestSeq.current;
+          const page = currentPage + 1;
           fetchProductApi(
-            currentPage + 1,
+            page,
             ITEMS_PER_PAGE,
             (newItems) => {
+              // A new search / filter started while this page was loading: it belongs to the old list, drop it.
+              if (seq !== listRequestSeq.current) return;
+              noMorePages.current = newItems.length < ITEMS_PER_PAGE;
               if (newItems.length > 0) {
-                setProductList((prev) => [...prev, ...newItems]);
-                setCurrentPage((prevPage) => prevPage + 1);
+                setProductList((prev) => {
+                  const have = new Set(prev.map((p) => p.id));
+                  return [...prev, ...newItems.filter((p) => !have.has(p.id))];
+                });
+                setCurrentPage(page);
               }
             },
             setLoading,
             searchTerm,
-          );
+          ).finally(() => {
+            nextPageLoading.current = false;
+          });
         }
       }
     };
