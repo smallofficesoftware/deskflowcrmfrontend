@@ -38,7 +38,7 @@ interface ITraceRow {
   value: number | "";
 }
 
-const REPORT_TITLE = "Serial Number Trace";
+const REPORT_TITLE = "Serial Number Full Trace";
 
 const typeName = (cartType?: number) =>
   productProductTypesList.find((t) => Number(t.id) === Number(cartType))?.order_type || "Document";

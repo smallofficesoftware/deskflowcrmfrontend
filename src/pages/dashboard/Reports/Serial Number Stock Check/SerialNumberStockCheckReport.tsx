@@ -45,7 +45,7 @@ interface IReportColumn {
 }
 
 const FILTER_KEY = "serial_number_stock_check";
-const REPORT_TITLE = "Serial Number Wise Stock Check";
+const REPORT_TITLE = "Serial Number Stock Movement";
 
 const typeLabel = (cartType: number) =>
   productProductTypesList.find((t) => Number(t.id) === Number(cartType))?.order_type || "";
@@ -679,7 +679,7 @@ const SerialNumberStockCheckReport: React.FC<ISerialNumberStockCheckReportProps>
           show={isModalFilterVisible}
           onHide={() => setIsModalFilterVisible(false)}
           handleSubmit={handleApplyFilters}
-          title="Filter Serial Number Wise Stock Check"
+          title="Filter Serial Number Stock Movement"
           message="Filter report by date range or warehouse"
           btn1="Cancel"
           btn2="Apply Filter"

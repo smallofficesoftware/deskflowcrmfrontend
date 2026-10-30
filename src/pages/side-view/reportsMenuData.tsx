@@ -480,19 +480,19 @@ export const reportsMenuData: IReportMenuGroup[] = [
         description: "Current stock levels and low-stock alerts.",
       },
       {
-        label: "Serial Number Wise Stock Check",
+        label: "Serial Number Stock Movement",
         value: "serial_number_stock_check",
         pageId: PAGE_ID.SERIAL_NUMBER_STOCK_CHECK,
         icon: "qrCode",
-        description: "Track every transaction for a specific serial number.",
+        description: "Stock in and out of one serial number, with opening and closing quantity.",
       },
       {
-        label: "Serial Number Trace",
+        label: "Serial Number Full Trace",
         value: "serial_number_trace",
         pageId: PAGE_ID.SERIAL_NUMBER_TRACE,
         icon: "qrCode",
         description:
-          "Full history of a serial number: documents, tasks and visits.",
+          "Complete timeline of a serial number: documents, tasks and visits.",
       },
     ],
   },
