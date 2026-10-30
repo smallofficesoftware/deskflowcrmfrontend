@@ -2,7 +2,7 @@ import "primeicons/primeicons.css";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { Menu } from "primereact/menu";
-import { MultiSelect } from "primereact/multiselect";
+import CustomSearchDropdown from "../../../../components/CustomSearchDropdown";
 import { DataTable } from "primereact/datatable";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
@@ -95,6 +95,9 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const hasSelection = selectedPriceListIds.length > 0 || selectedProductIds.length > 0;
+  // Options for the two dropdowns above the table.
+  const priceListOptions = (report.options?.price_lists ?? []).map((p) => ({ value: p.id, label: p.name }));
+  const productOptions = (report.options?.products ?? []).map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }));
   // Row whose gear menu is open (one shared popup menu for the table).
   const [menuRow, setMenuRow] = useState<any>(null);
   const rowMenu = useRef<Menu>(null);
@@ -310,7 +313,8 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       const recent: { date: string; old_net_rate: number | null; new_net_rate: number | null }[] = row.recent_changes ?? [];
       return (
         <div>
-          <div>{fmtAmount(row.net_rate)}</div>
+          {/* Green, as the customer asked on the Net Rate column (ticket 3023). */}
+          <div className="text-success fw-bold">{fmtAmount(row.net_rate)}</div>
           {recent.map((c, i) => (
             <div key={i} className="text-muted" style={{ fontSize: "11px", lineHeight: 1.35 }}>
               {c.date}: {fmtAmount(c.old_net_rate)} &rarr; {fmtAmount(c.new_net_rate)}
@@ -481,25 +485,44 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       </div>
 
       {/* Summary KPI Section */}
-      <div className="row mb-3">
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-white p-3 text-center">
-            <span className="text-muted small">Price Lists</span>
-            <h5 className="fw-bold mb-0 text-primary">{totals.price_lists}</h5>
+      <div className="row g-3 mb-3">
+        {[
+          // One scheme for all three, from the app's own palette: the dark grey of the report buttons (#4C4C4C) on a
+          // light grey card (never plain white). Orange stays reserved for the add action and the active tab.
+          { label: "Price Lists", hint: "in this company", value: totals.price_lists, icon: "pi pi-list", accent: "#4C4C4C", tint: "#f1f2f3" },
+          { label: "Products Priced", hint: "with a rate in a list", value: totals.products, icon: "pi pi-box", accent: "#4C4C4C", tint: "#f1f2f3" },
+          { label: "Rate Changes", hint: "in the selected period", value: totals.changes, icon: "pi pi-history", accent: "#4C4C4C", tint: "#f1f2f3" },
+        ].map((card) => (
+          <div className="col-12 col-md-4" key={card.label}>
+            <div
+              className="d-flex align-items-center gap-3 p-3 h-100"
+              style={{
+                background: card.tint,
+                borderLeft: `4px solid ${card.accent}`,
+                borderRadius: "10px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+              }}
+            >
+              <span
+                className="d-flex align-items-center justify-content-center flex-shrink-0"
+                style={{ width: "46px", height: "46px", borderRadius: "50%", background: "#ffffff", color: card.accent, fontSize: "20px" }}
+              >
+                <i className={card.icon} />
+              </span>
+              <div className="d-flex flex-column" style={{ lineHeight: 1.2 }}>
+                <span className="fw-bold" style={{ fontSize: "26px", color: card.accent }}>
+                  {card.value}
+                </span>
+                <span className="text-dark fw-semibold" style={{ fontSize: "14px" }}>
+                  {card.label}
+                </span>
+                <span className="text-muted" style={{ fontSize: "12px" }}>
+                  {card.hint}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-white p-3 text-center">
-            <span className="text-muted small">Products Priced</span>
-            <h5 className="fw-bold mb-0 text-primary">{totals.products}</h5>
-          </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow-sm border-0 bg-white p-3 text-center">
-            <span className="text-muted small">Rate Changes (selected period)</span>
-            <h5 className="fw-bold mb-0 text-dark">{totals.changes}</h5>
-          </div>
-        </div>
+        ))}
       </div>
 
       <AppliedFilterBar
@@ -510,32 +533,31 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
       />
 
       {/* Price list / product filters */}
-      <div className="row g-2 mb-3">
+      {/* The app's own dropdown (same look as every form), one labelled box each; empty = all. */}
+      <div className="row g-3 mb-3">
         <div className="col-12 col-md-6">
-          <MultiSelect
-            value={selectedPriceListIds}
-            options={report.options?.price_lists ?? []}
-            optionLabel="name"
-            optionValue="id"
-            onChange={(e) => setSelectedPriceListIds(e.value || [])}
+          <label className="form-label mb-1 fw-semibold" style={{ fontSize: "14px" }}>
+            Price List
+          </label>
+          <CustomSearchDropdown
+            isMulti
+            options={priceListOptions}
+            value={priceListOptions.filter((o) => selectedPriceListIds.includes(Number(o.value)))}
+            onChange={(opts: { value: number | string; label: string }[] | null) => setSelectedPriceListIds((opts ?? []).map((o) => Number(o.value)))}
             placeholder="All Price Lists"
-            filter
-            showClear
-            maxSelectedLabels={2}
             className="w-100"
           />
         </div>
         <div className="col-12 col-md-6">
-          <MultiSelect
-            value={selectedProductIds}
-            options={(report.options?.products ?? []).map((p) => ({ id: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))}
-            optionLabel="label"
-            optionValue="id"
-            onChange={(e) => setSelectedProductIds(e.value || [])}
+          <label className="form-label mb-1 fw-semibold" style={{ fontSize: "14px" }}>
+            Product
+          </label>
+          <CustomSearchDropdown
+            isMulti
+            options={productOptions}
+            value={productOptions.filter((o) => selectedProductIds.includes(Number(o.value)))}
+            onChange={(opts: { value: number | string; label: string }[] | null) => setSelectedProductIds((opts ?? []).map((o) => Number(o.value)))}
             placeholder="All Products"
-            filter
-            showClear
-            maxSelectedLabels={2}
             className="w-100"
           />
         </div>
@@ -596,6 +618,40 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
               bodyStyle={{ textAlign: "center" }}
             />
           )}
+          {/* Action column: first, right after the checkbox, like the Action column of All Contact Report
+              (docs/REPORT_UI_GUIDELINES.md "Action columns"): no sort / search / filter, icon centred. */}
+          {canEditPrice && (
+            <Column
+              header="Action"
+              headerClassName="center-header"
+              headerStyle={{
+                width: "70px",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8f9fa",
+                fontSize: "14px",
+              }}
+              body={(row: any) => (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Button
+                    icon="pi pi-cog"
+                    className="p-button-text"
+                    style={{ color: "green", width: "2rem" }}
+                    tooltip="Settings"
+                    tooltipOptions={{ position: "left" }}
+                    aria-label="Settings"
+                    aria-haspopup
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuRow(row);
+                      rowMenu.current?.toggle(e);
+                    }}
+                  />
+                </div>
+              )}
+            />
+          )}
           {columns.map((col) => (
             <Column
               key={col.key}
@@ -618,33 +674,6 @@ const PriceListRateReport: React.FC<IPriceListRateReportProps> = ({ onHide, Mobi
               body={cellBody(col)}
             />
           ))}
-          {canEditPrice && (
-            <Column
-              header="Action"
-              headerClassName="center-header"
-              headerStyle={{
-                width: "80px",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-                background: "#f8f9fa",
-                fontSize: "14px",
-              }}
-              bodyStyle={{ fontSize: "14px", textAlign: "center" }}
-              body={(row: any) => (
-                <Button
-                  icon="pi pi-cog"
-                  className="p-button-text"
-                  style={{ color: "green", width: "2rem", height: "2rem" }}
-                  onClick={(e) => {
-                    setMenuRow(row);
-                    rowMenu.current?.toggle(e);
-                  }}
-                  aria-haspopup
-                />
-              )}
-            />
-          )}
         </DataTable>
         <Menu
           ref={rowMenu}
