@@ -10,6 +10,7 @@ import {
 } from "../../../helpers/AppConstants";
 import { axiosInstance } from "../../../services/axiosInstance";
 import LeftSideView from "../../left-side/LeftSideView";
+import { useOpenFirstRedirect } from "../../side-view/quick-actions/useOpenFirstRedirect";
 import LoginView from "../login/LoginView";
 import PricingTable from "../payment-gateway/PricingTable";
 import TeamPriceTable from "../payment-gateway/TeamPriceTable";
@@ -61,6 +62,17 @@ const OTPVerificationView = ({
   const [checkForTeamPlanExpireOrNot, setcheckForTeamPlanExpireOrNot] =
     useState(0);
   const [workspacesList, setWorkspacesList] = useState<any[]>([]);
+  // This login (including the workspace pick) shows the main panel right here without a page load, so Index's own
+  // "Open first" redirect never sees it; send the user to their "Open first" screen once the main panel is up.
+  useOpenFirstRedirect(
+    showMenu1 &&
+      !showLogin &&
+      checkCompanyAlreadyExists === 1 &&
+      !(
+        showRenewPlanFromLogin &&
+        (checkForTeamPlanExpireOrNot == 1 || checkForTeamPlanExpireOrNot == 2)
+      ),
+  );
 
   // Ref for OTP input fields
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);

@@ -2963,8 +2963,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       const data = await axiosInstance.post("commonGet", requestData);
       if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         setLabelList([]);
+        return;
       }
-      setLabelList(data.data.data);
+      setLabelList(data.data.data ?? []);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -2981,8 +2982,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       const data = await axiosInstance.post("get-status", requestData);
       if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         setStageStatusList([]);
+        return;
       }
-      setStageStatusList(data.data.data);
+      setStageStatusList(data.data.data ?? []);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }
@@ -2999,8 +3001,9 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
       const data = await axiosInstance.post("sourceOfTypes", requestData);
       if (data.data.ack !== DEFAULT_STATUS_CODE_SUCCESS) {
         setSoruceList([]);
+        return;
       }
-      setSoruceList(data.data.data.item);
+      setSoruceList(data.data.data?.item ?? []);
     } catch (error: any) {
       toast.error(error || MESSAGE_UNKNOWN_ERROR_OCCURRED);
     }

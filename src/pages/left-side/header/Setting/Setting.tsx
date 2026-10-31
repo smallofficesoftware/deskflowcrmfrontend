@@ -510,7 +510,7 @@ const Setting = ({
         showVisitType ||
         showLeaveType ? (
         <>
-          {showProfile && (
+          {showProfile && profileDetail && (
             <ProfileSetting
               isProfileOpen={showProfile}
               closeProfile={() => {
