@@ -14,6 +14,7 @@ import { TReactSetState } from "../../helpers/AppType";
 import { axiosInstance } from "../../services/axiosInstance";
 import { IUserList } from "../left-side/LeftSideController";
 import { ICompany } from "../left-side/list-company/ListCompanyController";
+import { markMyDayCheckedIn } from "../../components/my-day/myDayPreference";
 
 export interface IMessageList {
   id: number;
@@ -356,6 +357,7 @@ export const insertAttendance = async (
       // if (compulsaryAttendance) {
       //   setShowAttendancePopup(true);
       // }
+      if (checkAttendance === 1) markMyDayCheckedIn();
       handleRefresh();
     }
     toast.success(data.data.ack_msg);

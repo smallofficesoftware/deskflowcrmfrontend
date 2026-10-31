@@ -6,6 +6,7 @@ import {
 } from "../../../helpers/AppConstants";
 import { TReactSetState } from "../../../helpers/AppType";
 import { axiosInstance } from "../../../services/axiosInstance";
+import { markMyDayCheckedIn } from "../../../components/my-day/myDayPreference";
 
 export interface ICompany {
   id: number;
@@ -625,6 +626,7 @@ export const insertAttendance = async (
 
     if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
       if (loginId === currentLoginId) {
+        if (checkAttendance === 1) markMyDayCheckedIn();
         handleRefresh(); // Only call for self
       }
     }

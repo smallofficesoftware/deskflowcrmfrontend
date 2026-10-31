@@ -47,6 +47,7 @@ import {
 } from "../left-side/list-company/ListCompanyController";
 import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import MyDayPopup from "../../components/my-day/MyDayPopup";
+import { markMyDayCheckedIn } from "../../components/my-day/myDayPreference";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
@@ -1395,6 +1396,7 @@ const SideView = ({ profileDetail }: IProp) => {
     try {
       const data = await axiosInstance.post("check-attendance", requestData);
       if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        markMyDayCheckedIn();
         setShowAttendancePopup(false);
       }
       toast.success(data.data.ack_msg);
@@ -1525,7 +1527,7 @@ const SideView = ({ profileDetail }: IProp) => {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      <MyDayPopup active={!isEmbed && !reportSlug && activeView === "dashboard"} />
+      <MyDayPopup active={!isEmbed && !reportSlug && (activeView === "dashboard" || activeView === "quick_actions")} />
       {/* SIDEBAR */}
       {!isEmbed && (
         <div

@@ -20,6 +20,7 @@ import LeftSideView from "../left-side/LeftSideView";
 import { TaskStickyIcon } from "../StickyNotes/TaskStickyIcon";
 import LoginView from "./login/LoginView";
 import MyDayPopup from "../../components/my-day/MyDayPopup";
+import { markMyDayCheckedIn } from "../../components/my-day/myDayPreference";
 import PricingTable from "./payment-gateway/PricingTable";
 import TeamPriceTable from "./payment-gateway/TeamPriceTable";
 import { useTaskCategoryStore } from "./UseTaskCategoryStore";
@@ -249,6 +250,7 @@ const Index = () => {
     try {
       const data = await axiosInstance.post("check-attendance", requestData);
       if (data.data.ack === DEFAULT_STATUS_CODE_SUCCESS) {
+        markMyDayCheckedIn();
         setShowAttendancePopup(false);
         // After an in-page login the popup unmounted LoginView (and the
         // LeftSideView it was showing), so re-run onLoad to move Index off
