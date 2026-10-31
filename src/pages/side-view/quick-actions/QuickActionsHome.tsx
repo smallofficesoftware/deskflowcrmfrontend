@@ -1,19 +1,12 @@
 import { Button as PrimeButton } from "primereact/button";
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { AppContext } from "../../../common/AppContext";
 import "../../../components/model/ConfirmationModal.css";
-import OrderCreateModal from "../../../components/model/OrderCreateModel/OrderCreateModal";
-import ReminderModal from "../../../components/model/ReminderModal";
 import { DEFAULT_MESSAGE_ERROR_PERMISSION } from "../../../helpers/AppConstants";
 import { PAGE_ID, PERMISSION_TYPE } from "../../../helpers/AppEnum";
-import CreateContactView from "../../left-side/create-contact/CreateContactView";
 import { createReminderForMy } from "../../left-side/header/list-reminder/ListReminderController";
-import JobCardView from "../../left-side/header/Setting/job-card/JobCardView";
-import CreateVisitView from "../../left-side/header/Setting/visits/create-visit/CreateVisitView";
-import CreateInquiryView from "../../right-side/create-inquiry/CreateInquiryView";
-import CreateTaskView from "../../right-side/create-task/CreateTaskView";
 import QuickActionCustomerPicker from "./QuickActionCustomerPicker";
 import {
   fetchTodayNumbers,
@@ -30,6 +23,15 @@ import {
   resolveQuickActions,
   TQuickGroup,
 } from "./quickActionsRegistry";
+
+// The create popups are big and only open on a click, so they load then, not with the Quick actions page.
+const CreateContactView = lazy(() => import("../../left-side/create-contact/CreateContactView"));
+const CreateTaskView = lazy(() => import("../../right-side/create-task/CreateTaskView"));
+const CreateVisitView = lazy(() => import("../../left-side/header/Setting/visits/create-visit/CreateVisitView"));
+const JobCardView = lazy(() => import("../../left-side/header/Setting/job-card/JobCardView"));
+const CreateInquiryView = lazy(() => import("../../right-side/create-inquiry/CreateInquiryView"));
+const OrderCreateModal = lazy(() => import("../../../components/model/OrderCreateModel/OrderCreateModal"));
+const ReminderModal = lazy(() => import("../../../components/model/ReminderModal"));
 
 interface IProps {
   /** Opens one of the Side view's report / list screens by its slug. */
@@ -347,6 +349,7 @@ const QuickActionsHome: React.FC<IProps> = ({ onReportClick }) => {
       </Modal>
 
       {/* The create popups (the same ones the rest of the CRM opens) */}
+      <Suspense fallback={null}>
       {popup?.kind === "contact" && <CreateContactView show onHide={closePopup} headerName="Create Contact" />}
       {popup?.kind === "task" && (
         <CreateTaskView show onHide={closePopup} onTaskCreated={loadToday} headerName="Create Task" productToEdit={undefined} setTargetVsIncentiveList={noop as any} setLoading={noop as any} />
@@ -411,6 +414,7 @@ const QuickActionsHome: React.FC<IProps> = ({ onReportClick }) => {
           request_flag=""
         />
       )}
+      </Suspense>
       {allowed.length === 0 && permissions && permissions.length > 0 && <div className="text-muted small mt-3">{DEFAULT_MESSAGE_ERROR_PERMISSION}</div>}
     </div>
   );
