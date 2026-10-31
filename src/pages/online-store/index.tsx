@@ -1,4 +1,6 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { useEffect } from 'react';
+import LazyBoundary from '../../components/LazyBoundary';
+import { lazyWithRetry as lazy } from '../../common/lazyWithRetry';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from '../../helpers/AppConstants';
@@ -108,7 +110,7 @@ const OnlineStore = () => {
     }
     return (
         <div style={{ backgroundColor: "white" }}>
-            <Suspense fallback={null}>
+            <LazyBoundary>
                 <ToastProvider>
                     <Header qrCode={qrCode} />
                     <Carousel />
@@ -116,7 +118,7 @@ const OnlineStore = () => {
                     <Footer />
                     <Cart qrCode={qrCode} />
                 </ToastProvider>
-            </Suspense>
+            </LazyBoundary>
         </div>
     );
 };

@@ -1,4 +1,7 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import LazyBoundary from "../../components/LazyBoundary";
+// lazy() here is React.lazy with one retry (see lazyWithRetry); a screen that still cannot load shows a Reload message
+import { lazyWithRetry as lazy } from "../../common/lazyWithRetry";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { DEFAULT_STATUS_CODE_SUCCESS } from "../../helpers/AppConstants";
@@ -264,7 +267,7 @@ const BottomView = ({
           scrollbarWidth: "none",
         }}
       >
-        <Suspense fallback={<div className="text-muted small p-3">Loading...</div>}>
+        <LazyBoundary resetKey={`${activeView}:${appliedReportType}`} fallback={<div className="text-muted small p-3">Loading...</div>}>
         {activeView === "dashboard" && (
           <NewDashboardView
             onClose={() => setIsCRMDashBoardOpen(false)}
@@ -776,7 +779,7 @@ const BottomView = ({
             onHide={handleonHide}
           />
         )}
-        </Suspense>
+        </LazyBoundary>
       </div>
     </div>
   );

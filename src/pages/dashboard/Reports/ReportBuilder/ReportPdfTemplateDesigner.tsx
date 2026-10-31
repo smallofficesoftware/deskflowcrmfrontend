@@ -1,5 +1,9 @@
 import React from "react";
-import DocumentDesignerView from "../../../left-side/header/Setting/document-designer/DocumentDesignerView";
+import LazyBoundary from "../../../../components/LazyBoundary";
+import { lazyWithRetry as lazy } from "../../../../common/lazyWithRetry";
+
+// The Designer pulls in pdfme (several MB), so it loads only when "Manage Templates" is opened.
+const DocumentDesignerView = lazy(() => import("../../../left-side/header/Setting/document-designer/DocumentDesignerView"));
 
 interface IReportPdfTemplateDesignerProps {
   docType: string; // "report_" + report_definition_id — see backend/src/services/report_builder/reportPdfExport.js
@@ -15,7 +19,11 @@ interface IReportPdfTemplateDesignerProps {
 // cart-specific (doc-type switcher, Browse Gallery/Import, cart-order preview
 // picker) and renders as a modal overlay instead of a full-page route.
 const ReportPdfTemplateDesigner: React.FC<IReportPdfTemplateDesignerProps> = ({ docType, reportName, onClose }) => {
-  return <DocumentDesignerView reportMode={{ docType, reportName, onClose }} />;
+  return (
+    <LazyBoundary>
+      <DocumentDesignerView reportMode={{ docType, reportName, onClose }} />
+    </LazyBoundary>
+  );
 };
 
 export default ReportPdfTemplateDesigner;

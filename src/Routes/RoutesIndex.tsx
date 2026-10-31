@@ -1,6 +1,8 @@
-import { Suspense, lazy } from "react";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { ReactNode } from "react";
+import { Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { AppProvider } from "../common/AppContext";
+import { lazyWithRetry as lazy } from "../common/lazyWithRetry";
+import LazyBoundary from "../components/LazyBoundary";
 import NotFound from "../components/NotFound";
 import LogoutComponent from "../components/LogoutComponent";
 
@@ -60,12 +62,18 @@ const ProductionEntryPdfView = lazy(() => import("../pages/left-side/header/Sett
 const JobCardFullPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/JobCardFullPdfView"));
 const RequiredMaterialPdfView = lazy(() => import("../pages/left-side/header/Setting/job-card/RequiredMaterialPdfView"));
 
+// A route whose chunk cannot load shows a Reload message; opening another route clears it.
+const RouteBoundary = ({ children }: { children: ReactNode }) => {
+  const { pathname } = useLocation();
+  return <LazyBoundary resetKey={pathname}>{children}</LazyBoundary>;
+};
+
 const RoutesIndex = () => {
   return (
     <>
       <AppProvider>
         <Router>
-          <Suspense fallback={null}>
+          <RouteBoundary>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/connection" element={<Connection />} />
@@ -325,7 +333,7 @@ const RoutesIndex = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
           <GuideAvatar />
-          </Suspense>
+          </RouteBoundary>
         </Router>
       </AppProvider>
     </>

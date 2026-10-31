@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import DocumentDesignerView from "../../document-designer/DocumentDesignerView";
+import LazyBoundary from "../../../../../../components/LazyBoundary";
+import { lazyWithRetry as lazy } from "../../../../../../common/lazyWithRetry";
 import { exportBlankFormPdf, IFormBuilderForm } from "../FormBuilderController";
 import { IFormSettings, parseSettings } from "../approval";
+
+// The Designer pulls in pdfme (several MB), so it loads only when the form's print layout is opened for design.
+const DocumentDesignerView = lazy(() => import("../../document-designer/DocumentDesignerView"));
 
 interface Props {
   form: IFormBuilderForm;
@@ -71,7 +75,11 @@ const FormPrintPanel: React.FC<Props> = ({ form, onSettingsChange }) => {
         the PDF button on an entry to check.)
       </small>
 
-      {designing ? <DocumentDesignerView reportMode={{ docType: `form_${form.id}`, reportName: form.title, onClose: () => setDesigning(false) }} /> : null}
+      {designing ? (
+        <LazyBoundary>
+          <DocumentDesignerView reportMode={{ docType: `form_${form.id}`, reportName: form.title, onClose: () => setDesigning(false) }} />
+        </LazyBoundary>
+      ) : null}
     </div>
   );
 };

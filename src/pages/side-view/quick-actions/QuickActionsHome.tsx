@@ -1,5 +1,7 @@
 import { Button as PrimeButton } from "primereact/button";
-import React, { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import LazyBoundary from "../../../components/LazyBoundary";
+import { lazyWithRetry as lazy } from "../../../common/lazyWithRetry";
 import { Button, Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { AppContext } from "../../../common/AppContext";
@@ -349,7 +351,7 @@ const QuickActionsHome: React.FC<IProps> = ({ onReportClick }) => {
       </Modal>
 
       {/* The create popups (the same ones the rest of the CRM opens) */}
-      <Suspense fallback={null}>
+      <LazyBoundary>
       {popup?.kind === "contact" && <CreateContactView show onHide={closePopup} headerName="Create Contact" />}
       {popup?.kind === "task" && (
         <CreateTaskView show onHide={closePopup} onTaskCreated={loadToday} headerName="Create Task" productToEdit={undefined} setTargetVsIncentiveList={noop as any} setLoading={noop as any} />
@@ -414,7 +416,7 @@ const QuickActionsHome: React.FC<IProps> = ({ onReportClick }) => {
           request_flag=""
         />
       )}
-      </Suspense>
+      </LazyBoundary>
       {allowed.length === 0 && permissions && permissions.length > 0 && <div className="text-muted small mt-3">{DEFAULT_MESSAGE_ERROR_PERMISSION}</div>}
     </div>
   );
