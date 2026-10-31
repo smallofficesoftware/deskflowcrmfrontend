@@ -1,4 +1,10 @@
 import { CSS } from "@dnd-kit/utilities";
+// PrimeReact theme, its base styles and the icon font. Every report used to import these, so the Side view always had
+// them; the reports now load on demand, so the Side view loads them itself (Quick actions, the tabs and the
+// dashboard use pi-* icons and PrimeReact buttons before any report is opened).
+import "primeicons/primeicons.css";
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css";
 import { useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { AppContext } from "../../common/AppContext";
@@ -1586,11 +1592,12 @@ const SideView = ({ profileDetail }: IProp) => {
             }}
           />
         )}
-        <div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {waitingForReportDeepLink ? (
             <div
               style={{
-                height: isEmbed ? "100vh" : "90vh",
+                height: isEmbed ? "100vh" : undefined,
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

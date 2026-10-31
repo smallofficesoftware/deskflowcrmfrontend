@@ -249,15 +249,17 @@ const BottomView = ({
     <div
       className=""
       style={{
-        height: isEmbed ? "100vh" : "90vh",
+        // Embedded: the whole window. Otherwise it fills what is left under the top bar and the tabs (the Side view
+        // wrapper is a column that is exactly one screen high), so a short screen scrolls inside instead of being cut off.
+        height: isEmbed ? "100vh" : undefined,
         flex: 1,
         overflowY: "auto",
         scrollbarWidth: "none",
         padding: "10px",
         background: "#F5F5F5",
-        minHeight: "30vh",
+        minHeight: 0,
         borderBottom: "5px solid rgb(245, 134, 52)",
-        flexShrink: 0,
+        flexShrink: isEmbed ? 0 : 1,
       }}
     >
       <div
