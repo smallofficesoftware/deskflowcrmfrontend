@@ -1,5 +1,7 @@
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
+import { getOpenFirst, OPEN_FIRST_LABEL, setOpenFirst, TOpenFirst } from "../../../../side-view/quick-actions/openFirstPreference";
 import { getMyDayMode, MY_DAY_MODE_LABEL, setMyDayMode, TMyDayMode } from "../../../../../components/my-day/myDayPreference";
 import CustomSearchDropdown from "../../../../../components/CustomSearchDropdown";
 import { TReactSetState } from "../../../../../helpers/AppType";
@@ -33,6 +35,11 @@ const PersonalSettingView = ({
 
   const [isOpenThirdParty, setIsOpenThirdParty] = useState(false);
   const [myDayMode, setMyDayModeState] = useState<TMyDayMode>(getMyDayMode());
+  // Which screen opens right after login (saved on the server for this user).
+  const [openFirst, setOpenFirstState] = useState<TOpenFirst>("welcome");
+  useEffect(() => {
+    getOpenFirst().then(setOpenFirstState);
+  }, []);
 
   const handleSubmit = async (values: any) => {
     handleSaveData(values, companyToEdit.id, onHide, setIsLoadApi);
@@ -165,6 +172,34 @@ const PersonalSettingView = ({
                               </select>
                               <small className="text-dark">
                                 Shows today's tasks and reminders when the app opens. Saved on this device.
+                              </small>
+                            </div>
+                          </div>
+                          <div className="col-12">
+                            <div className="form-group">
+                              <label htmlFor="open_first_mode" className="pb-2 form_label">
+                                Open First
+                              </label>
+                              <select
+                                id="open_first_mode"
+                                className="form-select font-size-15 rounded-1"
+                                value={openFirst}
+                                onChange={async (e) => {
+                                  const mode = e.target.value as TOpenFirst;
+                                  setOpenFirstState(mode);
+                                  const ok = await setOpenFirst(mode);
+                                  if (ok) toast.success("Saved. It applies the next time you log in.");
+                                  else toast.error("Could not save. Please try again.");
+                                }}
+                              >
+                                {(Object.keys(OPEN_FIRST_LABEL) as TOpenFirst[]).map((mode) => (
+                                  <option key={mode} value={mode}>
+                                    {OPEN_FIRST_LABEL[mode]}
+                                  </option>
+                                ))}
+                              </select>
+                              <small className="text-dark">
+                                The screen that opens right after you log in. Saved for your login, so it is the same on every computer.
                               </small>
                             </div>
                           </div>

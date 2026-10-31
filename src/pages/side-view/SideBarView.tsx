@@ -9,8 +9,8 @@ import { reportsMenuData } from "./reportsMenuData";
 
 const SidebarView = ({
   onReportClick,
-  onInsightsClick,
-  onSmartReportsClick,
+  onHomeClick,
+  isHomeActive,
   onMarketplaceClick,
   isOpen,
   setIsOpen,
@@ -341,13 +341,14 @@ const SidebarView = ({
         )}
       </div>
 
+      {/* One Home entry: back to the page with the three tabs (Quick actions / Insights / Reports, SideViewTabs). */}
       <div
-        onClick={() => onInsightsClick && onInsightsClick()}
+        onClick={() => onHomeClick && onHomeClick()}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.background = isHomeActive ? "rgba(245, 134, 52, 0.12)" : "transparent";
         }}
         style={{
           display: "flex",
@@ -359,8 +360,9 @@ const SidebarView = ({
           borderRadius: "10px",
           cursor: "pointer",
           transition: "background 0.15s ease",
+          background: isHomeActive ? "rgba(245, 134, 52, 0.12)" : "transparent",
         }}
-        title="Insights"
+        title="Home"
       >
         <div
           style={{
@@ -375,74 +377,11 @@ const SidebarView = ({
             boxShadow: "0 2px 6px rgba(245,134,52,0.4)",
           }}
         >
-          <svg
-            enableBackground="new 0 0 20 20"
-            height="16"
-            viewBox="0 0 20 20"
-            width="16"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="#fff"
-          >
-            <path d="m0 0h20v20h-20z" fill="none" />
-            <path d="m12.5 8 .79-1.72 1.71-.78-1.71-.78-.79-1.72-.76 1.72-1.74.78 1.74.78z" />
-            <path d="m4 10 .4-1.6 1.6-.4-1.6-.4-.4-1.6-.4 1.6-1.6.4 1.6.4z" />
-            <path d="m16.5 6c-1.07 0-1.84 1.12-1.35 2.14l-3.01 3.01c-.52-.25-.99-.14-1.29 0l-1.01-1.01c.1-.19.16-.41.16-.64 0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5c0 .23.06.45.15.64l-3.01 3.01c-.19-.09-.41-.15-.64-.15-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5c0-.23-.06-.45-.15-.64l3.01-3.01c.52.25.99.14 1.29 0l1.01 1.01c-.1.19-.16.41-.16.64 0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5c0-.23-.06-.45-.15-.64l3.01-3.01c1.03.5 2.14-.29 2.14-1.35 0-.83-.67-1.5-1.5-1.5z" />
-          </svg>
+          <i className="pi pi-home" style={{ color: "#fff", fontSize: "15px" }} />
         </div>
         {isOpen && (
           <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
-            Insights
-          </span>
-        )}
-      </div>
-
-      <div
-        onClick={() => onSmartReportsClick && onSmartReportsClick()}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(245, 134, 52, 0.12)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
-        }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          justifyContent: isOpen ? "flex-start" : "center",
-          padding: "10px 15px",
-          margin: "4px 8px",
-          borderRadius: "10px",
-          cursor: "pointer",
-          transition: "background 0.15s ease",
-        }}
-        title="Smart Reports"
-      >
-        <div
-          style={{
-            width: "30px",
-            height: "30px",
-            minWidth: "30px",
-            borderRadius: "50%",
-            background: "rgb(245, 134, 52)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 2px 6px rgba(245,134,52,0.4)",
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            height="16px"
-            viewBox="0 -960 960 960"
-            width="16px"
-            fill="#fff"
-          >
-            <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm80-80h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z" />
-          </svg>
-        </div>
-        {isOpen && (
-          <span style={{ fontWeight: "bold", color: "#4B4B4D" }}>
-            Smart Reports
+            Home
           </span>
         )}
       </div>

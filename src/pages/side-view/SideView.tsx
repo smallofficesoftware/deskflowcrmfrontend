@@ -50,6 +50,7 @@ import MyDayPopup from "../../components/my-day/MyDayPopup";
 import BottomView from "./BottomView";
 import SidebarView from "./SideBarView";
 import UpperView from "./UpperView";
+import SideViewTabs from "./quick-actions/SideViewTabs";
 
 // Fallback only — server always sends review.delaySeconds (REVIEW_PROMPT_DELAY_SECONDS env var).
 const DEFAULT_REVIEW_PROMPT_DELAY_MS = 60000;
@@ -104,6 +105,7 @@ const SideView = ({ profileDetail }: IProp) => {
   const viewParamToActiveView = (viewParam: string | null) => {
     if (viewParam === "reports") return "reports_home";
     if (viewParam === "forms") return "forms_home";
+    if (viewParam === "quick-actions") return "quick_actions";
     return "dashboard";
   };
 
@@ -1511,6 +1513,10 @@ const SideView = ({ profileDetail }: IProp) => {
   // onLoad call fills `permissions`. Show a placeholder instead of flashing
   // Insights meanwhile. The ref check covers the one render between
   // permissions arriving and the effect applying the report.
+  // The page with the three tabs (Quick actions / Insights / Reports) is showing, not a single report or form.
+  const isOnHomeTabs =
+    !reportSlug && !appliedReportType && (activeView === "quick_actions" || activeView === "dashboard" || activeView === "reports_home");
+
   const waitingForReportDeepLink =
     !!reportSlug &&
     (!permissions ||
@@ -1531,16 +1537,13 @@ const SideView = ({ profileDetail }: IProp) => {
         >
           <SidebarView
             onReportClick={openReport}
-            onInsightsClick={() => {
-              setActiveView("dashboard");
+            // Home = the page with the three tabs, opened on Quick actions (the app's first tab).
+            onHomeClick={() => {
+              setActiveView("quick_actions");
               setAppliedReportType("");
-              navigate("/SideView");
+              navigate("/SideView?view=quick-actions");
             }}
-            onSmartReportsClick={() => {
-              setActiveView("reports_home");
-              setAppliedReportType("");
-              navigate("/SideView?view=reports");
-            }}
+            isHomeActive={isOnHomeTabs}
             onMarketplaceClick={() => openReport("marketplace")}
             isOpen={isOpen}
             setIsOpen={setIsOpen}
@@ -1569,6 +1572,18 @@ const SideView = ({ profileDetail }: IProp) => {
         {/* <div>
                     <MiddleView />
                 </div> */}
+        {/* Only on the three pages themselves, like the tabs of the app's Home; an open report, a form or Marketplace
+            has the whole screen. */}
+        {!isEmbed && isOnHomeTabs && (
+          <SideViewTabs
+            active={activeView}
+            onSelect={(tab) => {
+              setActiveView(tab);
+              setAppliedReportType("");
+              navigate(tab === "quick_actions" ? "/SideView?view=quick-actions" : tab === "reports_home" ? "/SideView?view=reports" : "/SideView");
+            }}
+          />
+        )}
         <div>
           {waitingForReportDeepLink ? (
             <div

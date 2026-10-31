@@ -108,6 +108,7 @@ import {
   ICompanyTeam,
 } from "../left-side/LeftSideController";
 import ReportsTileView from "./ReportsTileView";
+import QuickActionsHome from "./quick-actions/QuickActionsHome";
 import TallySettingsView from "../left-side/header/Setting/tally/TallySettingsView";
 import MarketplaceView from "../left-side/header/Setting/marketplace/MarketplaceView";
 import EcommerceStorefrontSettingsView from "../left-side/header/Setting/ecommerce-storefront/EcommerceStorefrontSettingsView";
@@ -289,6 +290,8 @@ const BottomView = ({
             }}
           />
         )}
+
+        {activeView === "quick_actions" && <QuickActionsHome onReportClick={(slug: string) => onReportClick?.(slug)} />}
 
         {activeView === "forms_home" && (
           <FormBuilderListView deepLinkFormId={formSubmissionsDeepLinkId} editDeepLinkId={formEditDeepLinkId} />

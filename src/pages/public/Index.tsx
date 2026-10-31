@@ -23,6 +23,7 @@ import MyDayPopup from "../../components/my-day/MyDayPopup";
 import PricingTable from "./payment-gateway/PricingTable";
 import TeamPriceTable from "./payment-gateway/TeamPriceTable";
 import { useTaskCategoryStore } from "./UseTaskCategoryStore";
+import { useOpenFirstRedirect } from "../side-view/quick-actions/useOpenFirstRedirect";
 
 
 
@@ -111,6 +112,7 @@ const Index = () => {
     setCheckPlan,
     isSetCheckPlan,
     checkPlan,
+    permissions,
     setPermissions,
     showAttendancePopup,
     setShowAttendancePopup,
@@ -123,6 +125,9 @@ const Index = () => {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const { setAdvertisement } = useAdvertisementStore();
   const { setTrainingDisabled, setNextTrainingEvent } = useTrainingStore();
+  // Logged in and showing the main panel: go to the user's "Open first" screen if they chose the Side view.
+  // `permissions` arrives with the server's answer that the login is valid, so an expired login is never sent anywhere.
+  useOpenFirstRedirect(!checkToken && !checkToken1 && !showRenewPlan && !isMaintenanceMode && Array.isArray(permissions) && permissions.length > 0);
 
   const LoginSubmit = async () => {
     const token = localStorage.getItem("token");
