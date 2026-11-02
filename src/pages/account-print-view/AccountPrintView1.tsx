@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatTransactionNumber } from "../../utils/transactionNumber";
 // import "./OrderPrintView.css";
 import { useParams } from "react-router-dom";
 import {
@@ -404,7 +405,11 @@ const AccountPrintView1 = () => {
                       </td>
                       <td style={{ width: "52%", textAlign: "right", verticalAlign: "top", padding: "4px 0" }}>
                         <span className="bolde-style">
-                          {accountTransactions.item[0].voucher_number || `# ${accountTransactions.item[0].id}`}
+                          {formatTransactionNumber(
+                            accountTransactions.item[0].voucher_number,
+                            accountTransactions.item[0].id,
+                            accountTransactions.item[0].payment_date_time,
+                          )}
                         </span>
                       </td>
                     </tr>
