@@ -1,4 +1,5 @@
 import "primeicons/primeicons.css";
+import { formatTransactionNumber } from "../../../../utils/transactionNumber";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import {
@@ -525,8 +526,8 @@ const AccountDebitReport = ({
             Voucher <br /> No.
           </span>
         ),
-        // an entry made before voucher numbers shows its id
-        body: (rowData) => rowData.voucher_number || `#${rowData.id}`,
+        // voucher number (#id before 01-04-2027); an entry without one shows its id
+        body: (rowData) => formatTransactionNumber(rowData.voucher_number, rowData.id, rowData.payment_date_time),
       },
       {
         key: "acc_series",
@@ -651,7 +652,7 @@ const AccountDebitReport = ({
       case "typeItem":
         return "Debit";
       case "voucher_number":
-        return txn.voucher_number || `#${txn.id}`;
+        return formatTransactionNumber(txn.voucher_number, txn.id, txn.payment_date_time);
       case "amount":
         return (
           txn.amountwithcurrency ||

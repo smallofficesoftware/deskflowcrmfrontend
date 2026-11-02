@@ -1,4 +1,5 @@
 import axios from "axios";
+import { formatTransactionNumber } from "../../../utils/transactionNumber";
 import React, { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -1772,7 +1773,7 @@ const ListAccountTransactionView = ({
                                       <span
                                         className={`${checkboxesVisible ? "ms-4" : ""}`}
                                       >
-                                        {item.voucher_number || "#" + item.id}
+                                        {formatTransactionNumber(item.voucher_number, item.id, item.payment_date_time)}
                                       </span>
                                       <br />
                                     </h4>
@@ -2214,7 +2215,7 @@ const ListAccountTransactionView = ({
                                       <span
                                         className={`${checkboxesVisible ? "ms-3" : ""}`}
                                       >
-                                        {item.voucher_number || "#" + item.id}
+                                        {formatTransactionNumber(item.voucher_number, item.id, item.payment_date_time)}
                                       </span>
                                       <br />
                                     </h4>

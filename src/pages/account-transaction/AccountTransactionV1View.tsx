@@ -7,6 +7,7 @@ import { setUrlParams } from "../../services/axiosInstance";
 import { loadSessionCookie } from "../../store/onlineStore/cookieSession";
 import { fetchprintSetting, IprintSetting } from "../order-pdf-view/OrderPdfController";
 import { IAccountTransaction } from "../right-side/list-account-transaction/ListAccounTransactionController";
+import { formatTransactionNumber } from "../../utils/transactionNumber";
 import { fetchApiAccountTransitions } from "./AccountTransactionV1Controller";
 
 const fmtNumber = (n?: number) =>
@@ -367,7 +368,7 @@ td, th {
                                         const isDebit = Number(tx.type) === 2;
                                         return (
                                             <tr key={tx.id}>
-                                                <td>{tx.voucher_number || `#${tx.id}`}</td>
+                                                <td>{formatTransactionNumber(tx.voucher_number, tx.id, tx.payment_date_time)}</td>
                                                 <td>{paymentDate}</td>
                                                 <td className="remark-cell"><span dangerouslySetInnerHTML={{ __html: tx.remark || "" }} /></td>
                                                 {/* <td>{tx.reference_table ? `${tx.reference_table} #${tx.reference_id || ""}` : "-"}</td> */}
