@@ -238,7 +238,6 @@ const CreateExpenseView = ({
               validationSchema={createProductValidationSchema(
                 expenseTypesList,
                 status,
-                expenseToEdit?.id ? expenseToEdit?.amount : undefined,
               )}
               onSubmit={handleSubmit}
             >
