@@ -56,6 +56,9 @@ export const fetchTaskReport = async (
   // Label filter (the contact's label ids; -9999 = no label) and sort by label ("asc" | "desc").
   labelFilter?: any[],
   labelSort?: "asc" | "desc" | null,
+  // Same Created By / Assigned To multi-selects as the Reminder list filter.
+  assignedByMultiTeamMember?: any[],
+  createdByMultiTeamMember?: any[],
 ): Promise<IReminderItem[]> => {
   const token = MobileToken || localStorage.getItem("token");
   const uuid = getID || localStorage.getItem("UUID");
@@ -88,6 +91,8 @@ export const fetchTaskReport = async (
     labelFilter: Array.isArray(labelFilter) && labelFilter.length > 0 ? labelFilter.map(Number) : undefined,
     sortBy: labelSort ? "label" : undefined,
     sortOrder: labelSort === "desc" ? "DESC" : "ASC",
+    assignedByMultiTeamMember: assignedByMultiTeamMember?.length ? assignedByMultiTeamMember : undefined,
+    createdByMultiTeamMember: createdByMultiTeamMember?.length ? createdByMultiTeamMember : undefined,
   };
 
   try {

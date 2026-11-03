@@ -265,6 +265,8 @@ const AllReminderReport = ({
     viewScope,
     filters.checkedOptions,
     labelSort,
+    filters.assignedByMultiTeamMember,
+    filters.createdByMultiTeamMember,
   ]);
 
   const loadReminders = async (offset: number, limit: number) => {
@@ -295,6 +297,8 @@ const AllReminderReport = ({
         setCanSeeAllData,
         filters.checkedOptions,
         labelSort,
+        filters.assignedByMultiTeamMember,
+        filters.createdByMultiTeamMember,
       );
 
       setReminders(newData);
@@ -1025,6 +1029,8 @@ const AllReminderReport = ({
                     selectedContactId: filters.selectedContactId,
                     referenceWiseContact: filters.referenceWiseContact,
                     typeFilter: filterType,
+                    assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
+                    createdByMultiTeamMember: filters.createdByMultiTeamMember,
                     labelFilter: filters.checkedOptions,
                     sortBy: labelSort ? "label" : undefined,
                     sortOrder: labelSort === "desc" ? "DESC" : "ASC",
@@ -1064,6 +1070,8 @@ const AllReminderReport = ({
                     selectedContactId: filters.selectedContactId,
                     referenceWiseContact: filters.referenceWiseContact,
                     typeFilter: filterType,
+                    assignedByMultiTeamMember: filters.assignedByMultiTeamMember,
+                    createdByMultiTeamMember: filters.createdByMultiTeamMember,
                     labelFilter: filters.checkedOptions,
                     sortBy: labelSort ? "label" : undefined,
                     sortOrder: labelSort === "desc" ? "DESC" : "ASC",
@@ -1424,7 +1432,7 @@ const AllReminderReport = ({
           message="Please select the Dates and Team Members for the Report."
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 2, 5, 18]}
+          filtersToShow={[1, 2, 9, 18]}
           pageId={1}
           initialFilterData={{
             ...filters.filterData,
@@ -1435,6 +1443,8 @@ const AllReminderReport = ({
             orderlistselect: filters.selectedOrderListId,
           }}
           initialCheckedOptions={filters.checkedOptions}
+          initialCheckedAssignedByMultiTeamMember={filters.assignedByMultiTeamMember}
+          initialCheckedCreatedByMultiTeamMember={filters.createdByMultiTeamMember}
           initialCheckedSourceTypes={filters.checkedSourceTypes}
           initialStartSearchDate={filters.startSearchDate}
           initialEndSearchDate={filters.endSearchDate}

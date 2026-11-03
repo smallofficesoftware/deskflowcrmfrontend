@@ -134,9 +134,11 @@ const ListReminderView = ({
   // Ticket #2449: label filter + sort by label.
   const [labelFilterIds, setLabelFilterIds] = useState<any[]>([]);
   const [labelSort, setLabelSort] = useState<"asc" | "desc" | null>(null);
+  const [contactFilterId, setContactFilterId] = useState<string | number | null>(null);
+  const [contactFilterRef, setContactFilterRef] = useState<number>(1);
   const labelQueryInitialised = useRef(false);
   useEffect(() => {
-    setReminderLabelQuery(labelFilterIds, labelSort);
+    setReminderLabelQuery(labelFilterIds, labelSort, contactFilterId, contactFilterRef);
     // Not on first render (the normal load already runs); refetch only when the user changes the label choice.
     if (!labelQueryInitialised.current) {
       labelQueryInitialised.current = true;
@@ -163,7 +165,7 @@ const ListReminderView = ({
       viewScope,
       setCanSeeAllData,
     );
-  }, [labelFilterIds, labelSort]);
+  }, [labelFilterIds, labelSort, contactFilterId, contactFilterRef]);
   useEffect(() => () => setReminderLabelQuery([], null), []);
 
   const handleModalClose = () => {
@@ -195,9 +197,18 @@ const ListReminderView = ({
     });
 
     const pickedLabels = filterPayload.checkedOptionsLabel || [];
-    setReminderLabelQuery(pickedLabels, labelSort);
+    const pickedContact = filterPayload.selectedContactId || null;
+    const pickedContactRef = filterPayload.referenceWiseContact || 1;
+    setReminderLabelQuery(pickedLabels, labelSort, pickedContact, pickedContactRef);
     setLabelFilterIds(pickedLabels);
-    setHasData(startSearchDate !== "" || endSearchDate !== "" || pickedLabels.length > 0);
+    setContactFilterId(pickedContact);
+    setContactFilterRef(pickedContactRef);
+    setHasData(
+      startSearchDate !== "" ||
+        endSearchDate !== "" ||
+        pickedLabels.length > 0 ||
+        !!pickedContact,
+    );
     let typeFilter = selectedButton;
     fetchReminderApi(
       0,
@@ -1985,9 +1996,11 @@ const ListReminderView = ({
           message="Please select the Date for the Reminders"
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 2, 9]}
+          filtersToShow={[1, 2, 9, 18]}
           pageId={0}
           initialCheckedOptions={labelFilterIds}
+          initialFilterData={{ contactId: contactFilterId } as any}
+          initialReferenceWiseContact={contactFilterRef}
           initialCheckedCreatedByMultiTeamMember={
             filterParams.initialCreatedMembers
           }

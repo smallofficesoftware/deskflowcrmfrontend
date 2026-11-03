@@ -201,14 +201,28 @@ const processRemindersWithContactNumbers = async (
 
 // Ticket #2449: label filter (contact label ids, -9999 = no label) and sort by label for the reminder
 // list. Kept here so every fetchReminderApi call (refresh, tabs, paging, search) sends the same choice.
-let reminderLabelQuery: { labelFilter: number[]; sortOrder: "asc" | "desc" | null } = {
+let reminderLabelQuery: {
+  labelFilter: number[];
+  sortOrder: "asc" | "desc" | null;
+  contactId: string | number | null;
+  referenceWiseContact: number;
+} = {
   labelFilter: [],
   sortOrder: null,
+  contactId: null,
+  referenceWiseContact: 1,
 };
-export const setReminderLabelQuery = (labelFilter: any[], sortOrder: "asc" | "desc" | null) => {
+export const setReminderLabelQuery = (
+  labelFilter: any[],
+  sortOrder: "asc" | "desc" | null,
+  contactId: string | number | null = null,
+  referenceWiseContact: number = 1,
+) => {
   reminderLabelQuery = {
     labelFilter: (labelFilter || []).map(Number).filter((n) => Number.isInteger(n)),
     sortOrder,
+    contactId: contactId || null,
+    referenceWiseContact: referenceWiseContact || 1,
   };
 };
 
@@ -268,6 +282,8 @@ export const fetchReminderApi = async (
       labelFilter: reminderLabelQuery.labelFilter.length ? reminderLabelQuery.labelFilter : undefined,
       sortBy: reminderLabelQuery.sortOrder ? "label" : undefined,
       sortOrder: reminderLabelQuery.sortOrder === "desc" ? "DESC" : "ASC",
+      selectedContactId: reminderLabelQuery.contactId || undefined,
+      referenceWiseContact: reminderLabelQuery.contactId ? reminderLabelQuery.referenceWiseContact : undefined,
     });
 
     if (data.code === 200) {
