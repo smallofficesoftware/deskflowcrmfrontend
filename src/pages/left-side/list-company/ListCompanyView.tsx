@@ -637,18 +637,7 @@ const ListCompanyView = ({ isCompanyOpen, closeCompany }: IPropsCompany) => {
                                       )} */}
                                     {item.company_flag === 1 ? (
                                       <>
-                                        <li
-                                          className="listItem"
-                                          role="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openCompanySide(item);
-                                            setCompanyDropdownOpen(null);
-                                            setHasOneData(null);
-                                          }}
-                                        >
-                                          My Team
-                                        </li>
+                                        {/* "My Team" entry removed from the workspace list menu. */}
                                         {/* <li
                                           className="listItem"
                                           role="button"
