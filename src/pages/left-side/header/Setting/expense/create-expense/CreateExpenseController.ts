@@ -53,8 +53,17 @@ export const createProductInitialValues = (
 
 export const createProductValidationSchema = (
   expenseTypesList: any[],
-  status?: string) =>
-  Yup.object().shape({
+  status?: string,
+  originalAmount?: string | number) =>
+  status === "pass" || status === "reject"
+    ? // Pass/reject modal only shows Pass Amount + Status Remark; other fields are hidden, so don't validate them.
+      Yup.object().shape({
+        status_remark:
+          status === "reject"
+            ? Yup.string().trim().required("Status Remark is required")
+            : Yup.string().notRequired(),
+      })
+    : Yup.object().shape({
     amount: Yup.number()
       .when("expense_type_id", (expenseTypeId, schema) => {
         const expenseType = expenseTypesList.find(
@@ -71,15 +80,32 @@ export const createProductValidationSchema = (
           expenseType.fix_amount === 0 &&
           minAmount > 0 && maxAmount > 0
         ) {
-          return schema
-            .min(
-              expenseType.min_amount,
-              `Amount should be more than ${expenseType.min_amount}`
-            )
-            .max(
-              expenseType.max_amount,
-              `Amount should be less than ${expenseType.max_amount}`
-            );
+          return schema.test(
+            "min-max-amount",
+            "Invalid amount",
+            function (value) {
+              // Keep an already-saved amount valid even if the type's limits changed later.
+              if (
+                originalAmount !== undefined &&
+                originalAmount !== "" &&
+                Number(value) === Number(originalAmount)
+              ) {
+                return true;
+              }
+              if (value === undefined || value === null || isNaN(value as number)) return true;
+              if (value < minAmount) {
+                return this.createError({
+                  message: `Amount should be more than ${expenseType.min_amount}`,
+                });
+              }
+              if (value > maxAmount) {
+                return this.createError({
+                  message: `Amount should be less than ${expenseType.max_amount}`,
+                });
+              }
+              return true;
+            }
+          );
         }
 
         return schema;
