@@ -199,6 +199,19 @@ const processRemindersWithContactNumbers = async (
   );
 };
 
+// Ticket #2449: label filter (contact label ids, -9999 = no label) and sort by label for the reminder
+// list. Kept here so every fetchReminderApi call (refresh, tabs, paging, search) sends the same choice.
+let reminderLabelQuery: { labelFilter: number[]; sortOrder: "asc" | "desc" | null } = {
+  labelFilter: [],
+  sortOrder: null,
+};
+export const setReminderLabelQuery = (labelFilter: any[], sortOrder: "asc" | "desc" | null) => {
+  reminderLabelQuery = {
+    labelFilter: (labelFilter || []).map(Number).filter((n) => Number.isInteger(n)),
+    sortOrder,
+  };
+};
+
 export const fetchReminderApi = async (
   page: number,
   itemsPerPage: number,
@@ -252,6 +265,9 @@ export const fetchReminderApi = async (
       searchTerm: term,
       assignedByMultiTeamMember: assignedByMultiTeamMember,
       createdByMultiTeamMember: createdByMultiTeamMember,
+      labelFilter: reminderLabelQuery.labelFilter.length ? reminderLabelQuery.labelFilter : undefined,
+      sortBy: reminderLabelQuery.sortOrder ? "label" : undefined,
+      sortOrder: reminderLabelQuery.sortOrder === "desc" ? "DESC" : "ASC",
     });
 
     if (data.code === 200) {

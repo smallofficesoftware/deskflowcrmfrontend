@@ -175,6 +175,8 @@ const AllReminderReport = ({
 
     const updatedFilters = {
       ...data,
+      // The modal returns the chosen labels as checkedOptionsLabel; the report reads checkedOptions.
+      checkedOptions: data.checkedOptionsLabel || [],
       startSearchDate: data?.startSearchDate || startDate,
       endSearchDate: data?.endSearchDate || endDate,
       selectedDateArray: [

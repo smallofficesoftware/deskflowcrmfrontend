@@ -31,6 +31,7 @@ import {
   createReminderForMy,
   createRescheduleReminder,
   fetchReminderApi,
+  setReminderLabelQuery,
   handleDeleteReminder,
   IReminderList,
   updateContactFormReminder,
@@ -130,6 +131,41 @@ const ListReminderView = ({
     initialCreatedMembers: [],
   });
 
+  // Ticket #2449: label filter + sort by label.
+  const [labelFilterIds, setLabelFilterIds] = useState<any[]>([]);
+  const [labelSort, setLabelSort] = useState<"asc" | "desc" | null>(null);
+  const labelQueryInitialised = useRef(false);
+  useEffect(() => {
+    setReminderLabelQuery(labelFilterIds, labelSort);
+    // Not on first render (the normal load already runs); refetch only when the user changes the label choice.
+    if (!labelQueryInitialised.current) {
+      labelQueryInitialised.current = true;
+      return;
+    }
+    setCurrentPage(0);
+    fetchReminderApi(
+      0,
+      ITEMS_PER_PAGE,
+      setReminderList,
+      searchDate,
+      setNoDataFound,
+      setLoading,
+      reminderCheckFlag,
+      allreminderCheckFlag,
+      setCompanyFlag,
+      searchTerm,
+      selectedButton,
+      setCounts,
+      filterParams.initialAssignedMembers,
+      filterParams.initialCreatedMembers,
+      filterParams.startSearchDate,
+      filterParams.endSearchDate,
+      viewScope,
+      setCanSeeAllData,
+    );
+  }, [labelFilterIds, labelSort]);
+  useEffect(() => () => setReminderLabelQuery([], null), []);
+
   const handleModalClose = () => {
     if (isModalVisible) {
       setIsModalVisible(false);
@@ -158,7 +194,10 @@ const ListReminderView = ({
       initialCreatedMembers: createdByMultiTeamMember,
     });
 
-    setHasData(startSearchDate !== "" || endSearchDate !== "");
+    const pickedLabels = filterPayload.checkedOptionsLabel || [];
+    setReminderLabelQuery(pickedLabels, labelSort);
+    setLabelFilterIds(pickedLabels);
+    setHasData(startSearchDate !== "" || endSearchDate !== "" || pickedLabels.length > 0);
     let typeFilter = selectedButton;
     fetchReminderApi(
       0,
@@ -1109,6 +1148,37 @@ const ListReminderView = ({
                 </span>
               </button>
               <button
+                className="icons pP"
+                onClick={() =>
+                  setLabelSort((prev) =>
+                    prev === null ? "asc" : prev === "asc" ? "desc" : null,
+                  )
+                }
+              >
+                <span
+                  className="text-white"
+                  title={
+                    labelSort === "asc"
+                      ? "Sorted by Label A-Z (click for Z-A)"
+                      : labelSort === "desc"
+                        ? "Sorted by Label Z-A (click to clear)"
+                        : "Sort by Label"
+                  }
+                >
+                  <i
+                    className={
+                      labelSort === "desc"
+                        ? "pi pi-sort-alpha-up"
+                        : "pi pi-sort-alpha-down"
+                    }
+                    style={{
+                      fontSize: "20px",
+                      color: labelSort ? "#f58634" : "currentColor",
+                    }}
+                  />
+                </span>
+              </button>
+              <button
                 className="icons pP text-end"
                 onClick={handelRefreshReminder}
               >
@@ -1915,8 +1985,9 @@ const ListReminderView = ({
           message="Please select the Date for the Reminders"
           btn1="Clear"
           btn2="Apply"
-          filtersToShow={[1, 9]}
+          filtersToShow={[1, 2, 9]}
           pageId={0}
+          initialCheckedOptions={labelFilterIds}
           initialCheckedCreatedByMultiTeamMember={
             filterParams.initialCreatedMembers
           }
