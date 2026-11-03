@@ -1176,17 +1176,15 @@ const ListReminderView = ({
                         : "Sort by Label"
                   }
                 >
-                  <i
-                    className={
-                      labelSort === "desc"
-                        ? "pi pi-sort-alpha-up"
-                        : "pi pi-sort-alpha-down"
-                    }
-                    style={{
-                      fontSize: "20px",
-                      color: labelSort ? "#f58634" : "currentColor",
-                    }}
-                  />
+                  <svg
+                    height="24px"
+                    viewBox="0 -960 960 960"
+                    width="24px"
+                    fill={labelSort ? "#f58634" : "currentColor"}
+                    style={labelSort === "desc" ? { transform: "scaleY(-1)" } : undefined}
+                  >
+                    <path d="M120-240v-80h240v80H120Zm0-200v-80h480v80H120Zm0-200v-80h720v80H120Z" />
+                  </svg>
                 </span>
               </button>
               <button
