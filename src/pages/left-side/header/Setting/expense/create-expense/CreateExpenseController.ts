@@ -61,6 +61,28 @@ export const createProductValidationSchema = (
           status === "reject"
             ? Yup.string().trim().required("Status Remark is required")
             : Yup.string().notRequired(),
+        // Pass amount must stay within the expense type's min/max (when the type has limits).
+        pass_amount:
+          status === "pass"
+            ? Yup.number()
+                .typeError("Pass amount must be a number")
+                .required("Pass amount is required")
+                .test("pass-min-max", "Invalid pass amount", function (value) {
+                  const expenseType = expenseTypesList.find(
+                    (e) => e.id === Number(this.parent.expense_type_id)
+                  );
+                  const minAmount = Number(expenseType?.min_amount ?? 0);
+                  const maxAmount = Number(expenseType?.max_amount ?? 0);
+                  if (!expenseType || !(minAmount > 0 && maxAmount > 0)) return true;
+                  if (value === undefined || value === null || isNaN(value as number)) return true;
+                  if (value < minAmount || value > maxAmount) {
+                    return this.createError({
+                      message: `Pass amount must be between ${minAmount} and ${maxAmount}`,
+                    });
+                  }
+                  return true;
+                })
+            : Yup.mixed().notRequired(),
       })
     : Yup.object().shape({
     // No min/max check here: the claimed amount can be anything. The type's limits are not applied to it.

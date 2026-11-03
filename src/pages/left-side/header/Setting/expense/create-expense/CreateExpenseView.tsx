@@ -252,6 +252,55 @@ const CreateExpenseView = ({
                       <div className="mt-3 justify-content-center">
                         <div className="mb-3 py-4">
                           <div className="row  mx-0 px-2 gy-3  d-flex">
+                            {(status === "pass" || status === "reject") &&
+                              expenseToEdit && (
+                                <div className="col-12">
+                                  <div className="border rounded p-2 text-start">
+                                    <div className="row gy-2">
+                                      <div className="col-12 col-md-6">
+                                        <span className="form_label">
+                                          Submitted By:{" "}
+                                        </span>
+                                        {expenseToEdit.created_by_username || "—"}
+                                      </div>
+                                      <div className="col-12 col-md-6">
+                                        <span className="form_label">
+                                          Expense Type:{" "}
+                                        </span>
+                                        {expenseToEdit.expense_name ||
+                                          selectedExpenseType?.expense_name ||
+                                          "—"}
+                                      </div>
+                                      <div className="col-12 col-md-6">
+                                        <span className="form_label">
+                                          Claimed Amount:{" "}
+                                        </span>
+                                        ₹ {expenseToEdit.amount || "—"}
+                                      </div>
+                                      <div className="col-12 col-md-6">
+                                        <span className="form_label">
+                                          Expense Date:{" "}
+                                        </span>
+                                        {expenseToEdit.expense_date || "—"}
+                                      </div>
+                                      {Number(expenseToEdit.kilometers) > 0 && (
+                                        <div className="col-12 col-md-6">
+                                          <span className="form_label">
+                                            Kilometers:{" "}
+                                          </span>
+                                          {expenseToEdit.kilometers}
+                                        </div>
+                                      )}
+                                      <div className="col-12">
+                                        <span className="form_label">
+                                          Remark:{" "}
+                                        </span>
+                                        {expenseToEdit.remark || "—"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             {createEditFlag === "createEdit" && (
                               <div className="col-12 col-md-6">
                                 <div className="form-group text-start">
@@ -579,6 +628,13 @@ const CreateExpenseView = ({
                                   >
                                     Pass Amount
                                     <span className="text-danger">*</span>
+                                    {Number(selectedExpenseType?.min_amount) > 0 &&
+                                      Number(selectedExpenseType?.max_amount) > 0 && (
+                                        <small className="text-muted ms-2">
+                                          (Allowed: ₹{selectedExpenseType.min_amount} -
+                                          ₹{selectedExpenseType.max_amount})
+                                        </small>
+                                      )}
                                   </label>
                                   <Field
                                     type="text"
