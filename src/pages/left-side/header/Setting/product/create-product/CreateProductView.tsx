@@ -228,6 +228,32 @@ const CreateProductView = ({
     return true; // Simple product - show regardless of scope
   };
 
+  // Validation failed: name the missing field(s) in the toast and jump to the tab that
+  // holds the first bad field, so errors on the Custom Fields tab are not invisible.
+  const showValidationErrors = (
+    validationErrors: Record<string, any>,
+    setFieldTouched: (field: string, touched?: boolean, validate?: boolean) => void,
+  ) => {
+    const keys = Object.keys(validationErrors);
+    const customKeys = new Set(
+      customFormList.map((f: any) => f.reference_column_name),
+    );
+    const firstKey = keys[0];
+    const firstMsg = String(validationErrors[firstKey] ?? "");
+    const extra = keys.length > 1 ? ` (+${keys.length - 1} more)` : "";
+    toast.error(
+      firstMsg
+        ? `${firstMsg}${extra}`
+        : "Required Field Is Missing Please Check Form",
+    );
+    if (customKeys.has(firstKey)) {
+      setActiveTab("custom");
+    } else {
+      setActiveTab("basic");
+    }
+    keys.forEach((field) => setFieldTouched(field, true, false));
+  };
+
   const handleSubmit = async (
     values1: any,
     { setSubmitting, setFieldError }: any,
@@ -2348,13 +2374,9 @@ const CreateProductView = ({
                                 if (
                                   Object.keys(validationErrors).length !== 0
                                 ) {
-                                  toast.error(
-                                    "Required Field Is Missing Please Check Form",
-                                  );
-                                  Object.keys(validationErrors).forEach(
-                                    (field) => {
-                                      setFieldTouched(field, true, false);
-                                    },
+                                  showValidationErrors(
+                                    validationErrors,
+                                    setFieldTouched,
                                   );
                                 } else {
                                   try {
@@ -2390,13 +2412,9 @@ const CreateProductView = ({
                               const validationErrors =
                                 await validateForm(values);
                               if (Object.keys(validationErrors).length !== 0) {
-                                toast.error(
-                                  "Required Field Is Missing Please Check Form",
-                                );
-                                Object.keys(validationErrors).forEach(
-                                  (field) => {
-                                    setFieldTouched(field, true, false);
-                                  },
+                                showValidationErrors(
+                                  validationErrors,
+                                  setFieldTouched,
                                 );
                               } else {
                                 try {
