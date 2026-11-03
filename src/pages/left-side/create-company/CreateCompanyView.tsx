@@ -44,6 +44,7 @@ import { IOption } from "../../../helpers/AppInterface";
 import useCheckUserPermission from "../../../hooks/useCheckUserPermission";
 import { documentDesignerFeatureKeyForDocType } from "../../../helpers/documentDesignerFeatureKeys";
 import { axiosInstance } from "../../../services/axiosInstance";
+import IndiaMartDateFetch from "./IndiaMartDateFetch";
 import useWhatsappPlatformStore from "../../../store/whatsapp/useWhatsappPlateformFlagStore";
 import {
   fetchprintSetting,
@@ -2809,6 +2810,7 @@ const CreateCompanyView = ({
                                         className="field-error text-danger mt-1"
                                       />
                                     </div>
+                                    <IndiaMartDateFetch />
                                   </div>
                                   <hr /> {/* Separate HR for IndiaMart Pull */}
                                   {/* Justdial & IndiaMart Push Links Section - NOW FULLY SEPARATE */}
