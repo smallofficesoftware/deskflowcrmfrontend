@@ -4,7 +4,6 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
-import { ENABLE_CREATE_ALL_SUB_JOB_CARDS } from "../../../../../helpers/AppConstants";
 import {
   fetchJobCardDetail,
   saveJobCard,
@@ -97,8 +96,8 @@ const JobCardView = ({
   const [saving, setSaving] = useState(false);
 
   const [jobCardId, setJobCardId] = useState<number | null>(null);
-  // Only ever true when the build enables the feature (see AppConstants).
-  const [createAllSubs, setCreateAllSubs] = useState(ENABLE_CREATE_ALL_SUB_JOB_CARDS);
+  // "Also create all sub job cards" is opt-in: unticked until the user ticks it.
+  const [createAllSubs, setCreateAllSubs] = useState(false);
   const [confirmPlan, setConfirmPlan] = useState<IPlannedSubJobCard[] | null>(null);
   const [qtyBasis, setQtyBasis] = useState<SubJobCardQtyBasis>("available_minus_reserved");
 
@@ -580,7 +579,7 @@ const JobCardView = ({
               </div>
             </div>
           )}
-          {ENABLE_CREATE_ALL_SUB_JOB_CARDS && activeTab === "select" && !isEditMode && (
+          {activeTab === "select" && !isEditMode && (
             <label
               className="d-flex align-items-center gap-2 mt-3"
               style={{ fontSize: "0.82rem", maxWidth: 560, margin: "0 auto" }}

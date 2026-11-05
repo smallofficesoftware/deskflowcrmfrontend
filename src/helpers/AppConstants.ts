@@ -13,11 +13,6 @@ export const DEFAULT_MESSAGE_FOR_UNDER_DEVELOPMENT =
 
 export const DEFAULT_TOKEN_B2B = process.env.REACT_APP_DEFAULT_TOKEN_B2B;
 
-// Job card create: show "Also create all sub job cards". Off unless the build
-// has REACT_APP_ENABLE_CREATE_ALL_SUB_JOB_CARDS=true (keep it off on production).
-export const ENABLE_CREATE_ALL_SUB_JOB_CARDS =
-  process.env.REACT_APP_ENABLE_CREATE_ALL_SUB_JOB_CARDS === "true";
-
 // A localhost API URL only works from the machine running the backend. When the CRM is opened
 // via a LAN address (e.g. http://192.168.1.223:3000) use that same host for the API.
 const resolveLocalBackendUrl = (url?: string) => {
