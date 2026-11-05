@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
@@ -15,6 +15,31 @@ interface IApiStatus {
   company_code: string | null;
 }
 
+interface IApiDoc {
+  key: string;
+  label: string;
+  description: string;
+  curl: string;
+  fields: string;
+}
+
+// Path and starting request body of each API in the "Try it" box (the token call builds its own body).
+const TRY_IT: Record<string, { path: string; body: string }> = {
+  token: { path: "/api-access/token", body: "" },
+  products: { path: "/api-access/products", body: '{\n  "page": 1,\n  "limit": 10\n}' },
+  categories: { path: "/api-access/categories", body: '{\n  "page": 1,\n  "limit": 20\n}' },
+  product: { path: "/product", body: '{\n  "ll": 10,\n  "ul": 0\n}' },
+  "get-product-images": { path: "/get-product-images", body: '{\n  "product_id": 123\n}' },
+  "get-variants": { path: "/get-variants", body: '{\n  "parent_product_id": 123\n}' },
+  "get-variant-attributes": { path: "/get-variant-attributes", body: '{\n  "parent_product_id": 123\n}' },
+  "get-attribute-masters": { path: "/get-attribute-masters", body: "{}" },
+};
+
+interface ITryResult {
+  status: number;
+  json: any;
+}
+
 const formatWhen = (value: string | null) => (value ? new Date(value).toLocaleString("en-IN") : "-");
 
 interface IPropsApiAccess {
@@ -29,6 +54,13 @@ const ApiAccessSettingsView = ({ onHide }: IPropsApiAccess) => {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"issue" | "revoke" | null>(null);
+  const [selectedApi, setSelectedApi] = useState("token");
+  // "Try it" box: the key is typed here and only held in this component (never stored or sent to the CRM's own session).
+  const [tryKey, setTryKey] = useState("");
+  const [tryBody, setTryBody] = useState("");
+  const [tryRunning, setTryRunning] = useState(false);
+  const [tryResult, setTryResult] = useState<ITryResult | null>(null);
+  const tryToken = useRef<{ key: string; token: string } | null>(null);
 
   useEscapeKey(onHide);
 
@@ -106,13 +138,152 @@ const ApiAccessSettingsView = ({ onHide }: IPropsApiAccess) => {
     }
   };
 
-  const tokenExample = `curl -X POST ${baseUrl}/api-access/token \\
+  const chooseApi = (key: string) => {
+    setSelectedApi(key);
+    setTryBody(TRY_IT[key]?.body || "");
+    setTryResult(null);
+  };
+
+  // Calls the chosen API straight from the browser with plain fetch (not axiosInstance, which would add the staff login token).
+  const runTry = async () => {
+    const apiKey = tryKey.trim();
+    if (!apiKey) {
+      toast.error("Enter your API key first");
+      return;
+    }
+    const post = async (path: string, body: any, auth?: string): Promise<ITryResult> => {
+      const res = await fetch(baseUrl + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(auth ? { Authorization: auth } : {}) },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      let json: any = text;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        // not JSON - show the raw text
+      }
+      return { status: res.status, json };
+    };
+    const fetchToken = async () => {
+      const res = await post("/api-access/token", { companyCode: status?.company_code, api_key: apiKey });
+      const token = res.json?.data?.item?.token as string | undefined;
+      if (token) tryToken.current = { key: apiKey, token };
+      return { res, token };
+    };
+
+    setTryRunning(true);
+    setTryResult(null);
+    try {
+      if (selectedApi === "token") {
+        setTryResult((await fetchToken()).res);
+        return;
+      }
+      let body: any;
+      try {
+        body = JSON.parse(tryBody || "{}");
+      } catch {
+        toast.error("The request body is not valid JSON");
+        return;
+      }
+      let token = tryToken.current?.key === apiKey ? tryToken.current.token : undefined;
+      if (!token) {
+        const fetched = await fetchToken();
+        if (!fetched.token) {
+          setTryResult(fetched.res);
+          return;
+        }
+        token = fetched.token;
+      }
+      const path = TRY_IT[selectedApi].path;
+      let result = await post(path, body, token);
+      // ack 3 = "Please login": the 1-hour token expired, so ask for a fresh one and retry once.
+      if (result.json?.ack === 3) {
+        const fetched = await fetchToken();
+        if (!fetched.token) {
+          setTryResult(fetched.res);
+          return;
+        }
+        result = await post(path, body, fetched.token);
+      }
+      setTryResult(result);
+    } catch (error: any) {
+      setTryResult({ status: 0, json: `Request failed: ${error?.message || error}` });
+    } finally {
+      setTryRunning(false);
+    }
+  };
+
+  // One entry per API shown in the "How to use" combo box.
+  const authCurl = (path: string, body: string) =>
+    `curl -X POST ${baseUrl}${path} \\
   -H "Content-Type: application/json" \\
-  -d '{"companyCode":"${status?.company_code || "<your company code>"}","api_key":"<your api key>"}'`;
-  const productsExample = `curl -X POST ${baseUrl}/api-access/products \\
+  -H "Authorization: <token from Get token>" \\
+  -d '${body}'`;
+  const apiDocs: IApiDoc[] = [
+    {
+      key: "token",
+      label: "Get token",
+      description: `Exchange your API key for a token (valid for 1 hour, ask again when it expires). Company code: ${status?.company_code || "-"}. Every other API needs this token in the Authorization header.`,
+      curl: `curl -X POST ${baseUrl}/api-access/token \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: <token from the step above>" \\
-  -d '{"page":1,"limit":50}'`;
+  -d '{"companyCode":"${status?.company_code || "<your company code>"}","api_key":"<your api key>"}'`,
+      fields: "companyCode, api_key (both required)",
+    },
+    {
+      key: "products",
+      label: "Products",
+      description:
+        "Lists products with their images, variants, category, product group and - if your Ecommerce Storefront is on - the store link of each product.",
+      curl: authCurl("/api-access/products", '{"page":1,"limit":50}'),
+      fields: "searchTerm, categoryId, groupId, includeImages, includeVariants, page, limit (max 100)",
+    },
+    {
+      key: "categories",
+      label: "Categories",
+      description: "Lists categories with their parent, product group, product count, image and storefront link.",
+      curl: authCurl("/api-access/categories", '{"page":1,"limit":100}'),
+      fields: "searchTerm, parentId (0 = top level only), groupId, includeEmpty, page, limit (max 500)",
+    },
+    {
+      key: "product",
+      label: "/product",
+      description: "Existing product list route: products with stock, rates, category name and group name. Use ll (limit) and ul (offset) to page.",
+      curl: authCurl("/product", '{"ll":50,"ul":0}'),
+      fields:
+        "ll (limit), ul (offset), searchTerm, searchCategoryId, productId (comma separated ids), searchBarcodeNum, excludeVariantParents, excludeVariants, productKind (simple | parent | variant)",
+    },
+    {
+      key: "get-product-images",
+      label: "/get-product-images",
+      description: "All photos of one product or variant, primary first, with image, webp and thumbnail URLs.",
+      curl: authCurl("/get-product-images", '{"product_id":123}'),
+      fields: "product_id (required)",
+    },
+    {
+      key: "get-variants",
+      label: "/get-variants",
+      description: "Every variant of a parent product, each with its option labels (for example Colour: Red, Size: XL).",
+      curl: authCurl("/get-variants", '{"parent_product_id":123}'),
+      fields: "parent_product_id (required)",
+    },
+    {
+      key: "get-variant-attributes",
+      label: "/get-variant-attributes",
+      description: "The attributes (for example Colour, Size) and their values used by one parent product.",
+      curl: authCurl("/get-variant-attributes", '{"parent_product_id":123}'),
+      fields: "parent_product_id (required)",
+    },
+    {
+      key: "get-attribute-masters",
+      label: "/get-attribute-masters",
+      description: "The company's attribute catalog (all attribute names such as Colour and Size, with their values).",
+      curl: authCurl("/get-attribute-masters", "{}"),
+      fields: "none",
+    },
+  ];
+  const selectedDoc = apiDocs.find((d) => d.key === selectedApi) || apiDocs[0];
 
   return (
     <div className="apx">
@@ -181,25 +352,72 @@ const ApiAccessSettingsView = ({ onHide }: IPropsApiAccess) => {
 
           <section className="card shadow-sm border-0 bg-light p-3 mb-3">
             <h5>How to use</h5>
+            <div className="mb-3" style={{ maxWidth: 320 }}>
+              <label className="form-label small mb-1">Select API</label>
+              <select className="form-select" value={selectedDoc.key} onChange={(e) => chooseApi(e.target.value)}>
+                {apiDocs.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="small text-muted mb-2">{selectedDoc.description}</p>
+            <pre>{selectedDoc.curl}</pre>
+            <div className="mb-2">
+              <button className="btn btn-outline-secondary btn-sm" onClick={() => copy(selectedDoc.curl, "Command")}>
+                Copy command
+              </button>
+            </div>
+            <p className="small text-muted mb-3">
+              Body fields: <code>{selectedDoc.fields}</code>
+            </p>
+
+            <h5>Try it</h5>
             <p className="small text-muted mb-2">
-              1. Exchange the key for a token (valid for 1 hour, ask again when it expires). Company code:{" "}
-              <code>{status?.company_code || "-"}</code>
+              Paste your API key and run the selected API from here. The token is requested for you (and renewed when it expires). The key is not
+              saved.
             </p>
-            <pre>{tokenExample}</pre>
-            <p className="small text-muted mb-2">
-              2. Send the token in the <code>Authorization</code> header to list products with their images, variants, category, product group
-              and - if your Ecommerce Storefront is on - the store link of each product.
-            </p>
-            <pre>{productsExample}</pre>
-            <p className="small text-muted mb-2">
-              Optional body fields: <code>searchTerm</code>, <code>categoryId</code>, <code>groupId</code>, <code>includeImages</code>,{" "}
-              <code>includeVariants</code>, <code>page</code>, <code>limit</code> (max 100).
-            </p>
-            <p className="small text-muted mb-0">
-              The same token also works on these existing read routes: <code>/product</code>, <code>/get-product-images</code>,{" "}
-              <code>/get-variants</code>, <code>/get-variant-attributes</code>, <code>/get-attribute-masters</code>,{" "}
-              <code>/priceListMaster</code>, <code>/priceListItem</code>, <code>/product-unit-get</code>. It cannot call anything else.
-            </p>
+            <div className="row g-2 mb-2">
+              <div className="col-md-8">
+                <input
+                  className="form-control"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="Your API key (dfk_...)"
+                  value={tryKey}
+                  onChange={(e) => setTryKey(e.target.value)}
+                />
+              </div>
+            </div>
+            {selectedDoc.key !== "token" && (
+              <div className="mb-2">
+                <label className="form-label small mb-1">Request body (JSON)</label>
+                <textarea
+                  className="form-control"
+                  style={{ fontFamily: "monospace", fontSize: 12 }}
+                  rows={5}
+                  value={tryBody}
+                  onChange={(e) => setTryBody(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="mb-2">
+              <button className="btn report_button" onClick={runTry} disabled={tryRunning}>
+                {tryRunning ? "Running..." : `Run ${selectedDoc.label}`}
+              </button>
+            </div>
+            {tryResult && (
+              <>
+                <div className="small mb-1">
+                  Response · HTTP {tryResult.status || "-"}
+                  {tryResult.json?.ack !== undefined ? ` · ack ${tryResult.json.ack}` : ""}
+                </div>
+                <pre style={{ maxHeight: 360, overflow: "auto" }}>
+                  {typeof tryResult.json === "string" ? tryResult.json : JSON.stringify(tryResult.json, null, 2)}
+                </pre>
+              </>
+            )}
           </section>
         </>
       )}
