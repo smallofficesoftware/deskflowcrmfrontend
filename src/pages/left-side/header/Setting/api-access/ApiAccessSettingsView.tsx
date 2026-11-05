@@ -28,6 +28,7 @@ const TRY_IT: Record<string, { path: string; body: string }> = {
   token: { path: "/api-access/token", body: "" },
   products: { path: "/api-access/products", body: '{\n  "page": 1,\n  "limit": 10\n}' },
   categories: { path: "/api-access/categories", body: '{\n  "page": 1,\n  "limit": 20\n}' },
+  "product-groups": { path: "/api-access/product-groups", body: '{\n  "page": 1,\n  "limit": 100\n}' },
   product: { path: "/product", body: '{\n  "ll": 10,\n  "ul": 0\n}' },
   "get-product-images": { path: "/get-product-images", body: '{\n  "product_id": 123\n}' },
   "get-variants": { path: "/get-variants", body: '{\n  "parent_product_id": 123\n}' },
@@ -245,6 +246,13 @@ const ApiAccessSettingsView = ({ onHide }: IPropsApiAccess) => {
       description: "Lists categories with their parent, product group, product count, image and storefront link.",
       curl: authCurl("/api-access/categories", '{"page":1,"limit":100}'),
       fields: "searchTerm, parentId (0 = top level only), groupId, includeEmpty, page, limit (max 500)",
+    },
+    {
+      key: "product-groups",
+      label: "Product groups",
+      description: "Lists product groups (including the shared default group) with the number of categories and products in each.",
+      curl: authCurl("/api-access/product-groups", '{"page":1,"limit":100}'),
+      fields: "searchTerm, includeEmpty, page, limit (max 500)",
     },
     {
       key: "product",
