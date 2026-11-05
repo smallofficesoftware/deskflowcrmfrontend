@@ -36,6 +36,13 @@ const ADDONS: IMarketplaceAddon[] = [
     statusEndpoint: "storefront/settings/get",
     settingsReport: "ecommerce_storefront",
   },
+  {
+    code: "api",
+    name: "API",
+    description: "Generate an API key so your own website or software can read your products, with images, variants, category and storefront links.",
+    statusEndpoint: "api-access/status",
+    settingsReport: "api_access",
+  },
 ];
 
 type AddonState = "loading" | "enabled" | "disabled" | "error";

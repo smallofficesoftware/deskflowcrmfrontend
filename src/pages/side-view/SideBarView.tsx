@@ -40,7 +40,7 @@ const SidebarView = ({
 
   // The addon screens (Ecommerce Storefront, Tally) open from the Marketplace
   // cards, so the Marketplace entry stays highlighted while they're showing.
-  const isMarketplaceActive = ["marketplace", "ecommerce_storefront", "tally_settings"].includes(activeReport);
+  const isMarketplaceActive = ["marketplace", "ecommerce_storefront", "tally_settings", "api_access"].includes(activeReport);
 
   const { permissions } = useContext(AppContext)!;
   const navigate = useNavigate();

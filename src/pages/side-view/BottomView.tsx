@@ -116,6 +116,7 @@ const WhatsappTemplateReport = lazy(() => import("../dashboard/Reports/Whatsapp 
 const WorkStationReport = lazy(() => import("../dashboard/Reports/Work Station Report/WorkStationReport"));
 const WorkFlowAutomationReport = lazy(() => import("../dashboard/Reports/Workflow Automation Report/WorkFlowAutomationReport"));
 const TallySettingsView = lazy(() => import("../left-side/header/Setting/tally/TallySettingsView"));
+const ApiAccessSettingsView = lazy(() => import("../left-side/header/Setting/api-access/ApiAccessSettingsView"));
 const MarketplaceView = lazy(() => import("../left-side/header/Setting/marketplace/MarketplaceView"));
 const EcommerceStorefrontSettingsView = lazy(() => import("../left-side/header/Setting/ecommerce-storefront/EcommerceStorefrontSettingsView"));
 
@@ -703,6 +704,7 @@ const BottomView = ({
           />
         )}
         {appliedReportType === "tally_settings" && <TallySettingsView onHide={handleonHide} />}
+        {appliedReportType === "api_access" && <ApiAccessSettingsView onHide={handleonHide} />}
         {appliedReportType === "workflow_automation" && (
           <WorkFlowAutomationReport />
         )}

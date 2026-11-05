@@ -1144,7 +1144,7 @@ const SideView = ({ profileDetail }: IProp) => {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
-    } else if (name === "report_builder" || name === "report_builder_new" || name === "ecommerce_storefront" || name === "marketplace" || name === "tally_settings") {
+    } else if (name === "report_builder" || name === "report_builder_new" || name === "ecommerce_storefront" || name === "marketplace" || name === "tally_settings" || name === "api_access") {
       setActiveView("Settings");
       setAppliedReportType(name);
       return;
