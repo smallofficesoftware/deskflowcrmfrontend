@@ -744,7 +744,7 @@ const AllReminderReport = ({
     <PrimeReactProvider value={{ hideOverlaysOnDocumentScrolling: true }}>
       <div>
         <div
-          className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between gap-2"} mb-3`}
+          className={`d-flex ${MobileFlag ? "flex-column align-items-start" : "align-items-center justify-content-between flex-wrap gap-2"} mb-3`}
         >
         <div className="d-flex align-items-center gap-3">
           <h3
@@ -876,7 +876,7 @@ const AllReminderReport = ({
 
         {/* {(!MobileFlag || MobileFlag === undefined || MobileFlag === null) && ( */}
         <div
-          className={`d-flex gap-2 flex-wrap align-items-center`}
+          className={`d-flex gap-2 flex-wrap align-items-center ${MobileFlag ? "" : "justify-content-end ms-auto"}`}
           style={{
             position: "relative",
             paddingLeft: MobileFlag ? "10px" : "",
