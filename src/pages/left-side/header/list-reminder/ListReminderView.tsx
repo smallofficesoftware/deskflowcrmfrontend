@@ -104,7 +104,7 @@ const ListReminderView = ({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [filterType, setFilterType] = useState<
     "due" | "future" | "complete" | "all"
-  >("all");
+  >("due");
   const [counts, setCounts] = useState({ due: 0, future: 0, complete: 0, all: 0, my: 0 });
   // "All"/"My" toggle (same idea as Task Management's All/My buttons).
   const [viewScope, setViewScope] = useState<"all" | "my">("my");
@@ -582,7 +582,7 @@ const ListReminderView = ({
           reminderCheckFlag,
           allreminderCheckFlag,
           setCompanyFlag,
-          "",
+          searchTerm,
           filterType,
           setCounts,
           filterParams.initialAssignedMembers,
