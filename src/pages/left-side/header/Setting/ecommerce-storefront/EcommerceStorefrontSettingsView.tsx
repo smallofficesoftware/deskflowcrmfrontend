@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { BACKEND_OF_SMALL_OFFICE_CRM_END_POINT, DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 
 // B2B/B2C ecommerce storefront addon (plans/2026-10-15-ecommerce-b2b-b2c-plan.txt,
 // P1/4.4). First slice of this settings page: on/off display (the settings/get
@@ -217,6 +218,7 @@ const EcommerceStorefrontSettingsView = ({
   const [authConfig, setAuthConfig] = useState<IStorefrontAuthConfig>(DEFAULT_AUTH_CONFIG);
   const [savingAuth, setSavingAuth] = useState(false);
   const [affectedMethods, setAffectedMethods] = useState<IAffectedMethod[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState<"favicon" | "logo" | null>(null);
   const [lockChoices, setLockChoices] = useState<Record<string, "lock" | "keep">>({});
   const [lockedAccounts, setLockedAccounts] = useState<ILockedAccount[]>([]);
   const [unlockingKey, setUnlockingKey] = useState<string | null>(null);
@@ -796,7 +798,7 @@ const EcommerceStorefrontSettingsView = ({
                 }}
               />
               {authConfig.favicon_path && (
-                <Button variant="outline-danger" size="sm" disabled={faviconBusy} onClick={removeFavicon}>
+                <Button variant="outline-danger" size="sm" disabled={faviconBusy} onClick={() => setConfirmRemove("favicon")}>
                   Remove
                 </Button>
               )}
@@ -829,7 +831,7 @@ const EcommerceStorefrontSettingsView = ({
                 }}
               />
               {authConfig.logo_path && (
-                <Button variant="outline-danger" size="sm" disabled={logoBusy} onClick={removeLogo}>
+                <Button variant="outline-danger" size="sm" disabled={logoBusy} onClick={() => setConfirmRemove("logo")}>
                   Remove
                 </Button>
               )}
@@ -1493,6 +1495,25 @@ const EcommerceStorefrontSettingsView = ({
           <Button variant="primary" onClick={confirmLockDecisions} disabled={savingAuth}>Confirm & Save</Button>
         </Modal.Footer>
       </Modal>
+
+      <ConfirmationModal
+        show={confirmRemove !== null}
+        onHide={() => setConfirmRemove(null)}
+        handleSubmit={() => {
+          const action = confirmRemove;
+          setConfirmRemove(null);
+          if (action === "favicon") removeFavicon();
+          else if (action === "logo") removeLogo();
+        }}
+        title={confirmRemove === "favicon" ? "Remove favicon" : "Remove storefront logo"}
+        message={
+          confirmRemove === "favicon"
+            ? "Remove the favicon? The store goes back to the default tab icon."
+            : "Remove the storefront logo? The store goes back to using your company logo."
+        }
+        btn1="Cancel"
+        btn2="Remove"
+      />
     </div>
   );
 };
