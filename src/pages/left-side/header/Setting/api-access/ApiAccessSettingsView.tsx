@@ -4,6 +4,7 @@ import { useEscapeKey } from "../../../../../common/SharedFunction";
 import { DEFAULT_STATUS_CODE_SUCCESS, MESSAGE_UNKNOWN_ERROR_OCCURRED } from "../../../../../helpers/AppConstants";
 import ConfirmationModal from "../../../../../components/model/ConfirmationModal";
 import { axiosInstance } from "../../../../../services/axiosInstance";
+import ApiAccessIpList from "./ApiAccessIpList";
 
 // "API" marketplace addon settings: generate / revoke the company's API key and show how to use it.
 // Talks to /api-access/* (all behind requireAddon('api')). The key is shown once; only its hash is stored.
@@ -357,6 +358,8 @@ const ApiAccessSettingsView = ({ onHide }: IPropsApiAccess) => {
               </button>
             </div>
           </section>
+
+          <ApiAccessIpList />
 
           <section className="card shadow-sm border-0 bg-light p-3 mb-3">
             <h5>How to use</h5>
