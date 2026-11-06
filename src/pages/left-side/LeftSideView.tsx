@@ -46,6 +46,7 @@ import {
 } from "../../helpers/AppInterface";
 import useCheckUserPermission from "../../hooks/useCheckUserPermission";
 import useSocketEvent from "../../hooks/useSocketEvent";
+import useStorefrontOrderToast from "../../hooks/useStorefrontOrderToast";
 import { axiosInstance } from "../../services/axiosInstance";
 import { setSocketConnectionEnabled } from "../../services/socketClient";
 import useAdvertisementStore from "../../store/advertisement/useAdvertisemrntStore";
@@ -787,6 +788,7 @@ const LeftSideView = ({ isVisible, userInfo }: IPropsLeftView) => {
   const [refreshContact, setRefreshContact] = useState(false);
   // Live sync: any teammate adding/editing/deleting a contact refreshes this sidebar list too.
   useSocketEvent("contact-changed", () => setRefreshContact(true));
+  useStorefrontOrderToast();
   const [isRefers, setIsRefers] = useState(true);
   // In LeftSide component
   const [hasOneData, setHasOneData] = useState<number | null>(null);
